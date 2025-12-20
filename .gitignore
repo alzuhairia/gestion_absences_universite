@@ -1,0 +1,16 @@
+# Environnement virtuel
+venv/
+.venv/
+env/
+
+# Variables d'environnement (TRÈS IMPORTANT)
+.env
+
+# Fichiers Django
+db.sqlite3
+__pycache__/
+*.py[cod]
+media/
+
+# Divers
+.DS_Store

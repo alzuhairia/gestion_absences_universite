@@ -1,0 +1,24 @@
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    
+    # On utilise simplement include(). 
+    # Le namespace sera géré par la variable app_name dans chaque dossier urls.py
+    path('accounts/', include('apps.accounts.urls')),
+    path('academics/', include('apps.academics.urls')),
+    path('enrollments/', include('apps.enrollments.urls')),
+    path('absences/', include('apps.absences.urls')),
+    path('messaging/', include('apps.messaging.urls')),
+    path('dashboard/', include('apps.dashboard.urls')),
+    
+    # N'oublie pas l'application qu'on a renommée pour éviter le conflit !
+    path('sessions/', include('apps.academic_sessions.urls')),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
