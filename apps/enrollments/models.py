@@ -40,7 +40,7 @@ class Inscription(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'inscription'
         app_label = 'enrollments'
         unique_together = (('id_etudiant', 'id_cours', 'id_annee'),)

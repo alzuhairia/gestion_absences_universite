@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% block title %}Mes Statistiques{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Statistiques</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Statistiques Personnelles</h1>
+        <button class="btn btn-primary btn-sm" onclick="window.print()">
+            <i class="fas fa-print me-2"></i>Imprimer Rapport
+        </button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Heures d'absence (Non Justifiées)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_hours_missed }}h</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-times fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Cours à risque (>= 40%)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ courses_at_risk }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row">
+        <!-- Bar Chart -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Taux d'absence par cours</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-bar">
+                        <canvas id="absenceBarChart"></canvas>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        La ligne rouge indique le seuil critique de 40%. Au-delà, l'accès à l'examen est bloqué.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Chart -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Évolution des absences</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="absenceTrendChart"></canvas>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        Cumul des heures d'absence par mois sur l'année académique.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // --- Data passed from Django View ---
+    const courseLabels = {{ course_labels| safe }};
+    const absencePercentages = {{ absence_percentages| safe }};
+    const trendLabels = {{ trend_labels| safe }};
+    const trendData = {{ trend_data| safe }};
+
+    // --- Bar Chart Config ---
+    const ctxBar = document.getElementById("absenceBarChart");
+    new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+            labels: courseLabels,
+            datasets: [{
+                label: "Taux d'absence (%)",
+                backgroundColor: (context) => {
+                    const value = context.raw;
+                    return value >= 40 ? '#dc3545' : '#4e73df'; // Red if >= 40, else Blue
+                },
+                hoverBackgroundColor: (context) => {
+                    const value = context.raw;
+                    return value >= 40 ? '#c82333' : '#2e59d9';
+                },
+                borderColor: (context) => {
+                    const value = context.raw;
+                    return value >= 40 ? '#dc3545' : '#4e73df';
+                },
+                data: absencePercentages,
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: (context) => {
+                            if (context.tick.value === 40) {
+                                return 'rgba(255, 99, 132, 0.8)'; // Red line at 40%
+                            }
+                            return 'rgba(0, 0, 0, 0.1)';
+                        },
+                        lineWidth: (context) => {
+                            if (context.tick.value === 40) return 2;
+                            return 1;
+                        }
+                    }
+                }
+            },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        line1: {
+                            type: 'line',
+                            yMin: 40,
+                            yMax: 40,
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // --- Line Chart Config ---
+    const ctxLine = document.getElementById("absenceTrendChart");
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: "Heures d'absence",
+                lineTension: 0.3,
+                backgroundColor: "rgba(78, 115, 223, 0.05)",
+                borderColor: "rgba(78, 115, 223, 1)",
+                pointRadius: 3,
+                pointBackgroundColor: "rgba(78, 115, 223, 1)",
+                pointBorderColor: "rgba(78, 115, 223, 1)",
+                pointHoverRadius: 3,
+                pointHoverBackgroundColor: "rgba(78, 115, 223, 1)",
+                pointHoverBorderColor: "rgba(78, 115, 223, 1)",
+                pointHitRadius: 10,
+                pointBorderWidth: 2,
+                data: trendData,
+                fill: true
+            }],
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

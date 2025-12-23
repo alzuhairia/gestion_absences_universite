@@ -9,7 +9,7 @@ class Faculte(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'faculte'
         app_label = 'academics'
         verbose_name = "Faculté"
@@ -33,7 +33,7 @@ class Departement(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'departement'
         app_label = 'academics'
         verbose_name = "Département"
@@ -69,9 +69,18 @@ class Cours(models.Model):
         db_column='id_departement',
         verbose_name="Département"
     )
+    professeur = models.ForeignKey(
+        'accounts.User',
+        models.SET_NULL,
+        db_column='id_professeur', # Optional: explicit column name
+        null=True,
+        blank=True,
+        verbose_name="Professeur responsable",
+        limit_choices_to={'role': 'PROFESSEUR'}
+    )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'cours'
         app_label = 'academics'
         verbose_name = "Cours"

@@ -23,7 +23,7 @@ class LogAudit(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'log_audit'
         app_label = 'audits'
         verbose_name = "Journal d'audit"

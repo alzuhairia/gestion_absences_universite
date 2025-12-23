@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}Paramètres{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Paramètres</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Paramètres du Compte</h1>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- General Settings (Language) -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-globe me-2"></i>Général</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="fw-bold text-dark">Langue de l'interface</h6>
+                                <p class="text-muted small mb-0">Choisissez la langue d'affichage de l'application.</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group" aria-label="Language selection">
+                                    <button type="submit" name="language" value="fr"
+                                        class="btn btn-outline-primary {% if language == 'fr' %}active{% endif %}">
+                                        Français
+                                    </button>
+                                    <button type="submit" name="language" value="en"
+                                        class="btn btn-outline-primary {% if language == 'en' %}active{% endif %}">
+                                        English
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    {% if language == 'en' %}
+                    <div class="alert alert-info mt-3 mb-0 small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Internationalization structure is prepared, full translation is a future improvement.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-shield-alt me-2"></i>Sécurité</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Password -->
+                    <div class="row align-items-center mb-4">
+                        <div class="col-md-8">
+                            <h6 class="fw-bold text-dark">Mot de passe</h6>
+                            <p class="text-muted small mb-0">Modifiez votre mot de passe régulièrement pour plus de
+                                sécurité.</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <!-- In a real Django app, this would link to password_change view -->
+                            <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-key me-1"></i> Modifier
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- 2FA -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="toggle_2fa" value="1">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="fw-bold text-dark">
+                                    Double Authentification (2FA)
+                                    <span class="badge bg-secondary ms-2"
+                                        style="font-size: 0.6em; vertical-align: middle;">Bientôt</span>
+                                </h6>
+                                <p class="text-muted small mb-0">Ajoutez une couche de sécurité supplémentaire à votre
+                                    compte.</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input" type="checkbox" id="2faSwitch"
+                                        onchange="this.form.submit()" {% if two_factor_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="2faSwitch">
+                                        {% if two_factor_enabled %}Activé{% else %}Désactivé{% endif %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-pdf me-2"></i>Documents &
+                        Rapports</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="fw-bold text-dark">Relevé d'absences</h6>
+                            <p class="text-muted small mb-0">Téléchargez un rapport complet incluant vos heures par
+                                cours, taux d'absence et statut d'éligibilité.</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'accounts:download_report' %}" class="btn btn-success">
+                                <i class="fas fa-download me-2"></i>Télécharger PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
