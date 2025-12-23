@@ -13,7 +13,7 @@ class AnneeAcademique(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'annee_academique'
         app_label = 'academic_sessions'
         verbose_name = "Année Académique"
@@ -42,7 +42,7 @@ class Seance(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'seance'
         app_label = 'academic_sessions'
         verbose_name = "Séance"

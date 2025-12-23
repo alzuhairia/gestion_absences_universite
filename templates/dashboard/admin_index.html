@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Administration{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item active" aria-current="page">Administration</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Panneau d'Administration</h1>
+        <div>
+            <button class="btn btn-outline-secondary me-2"><i class="fas fa-cog"></i> Paramètres</button>
+            <button class="btn btn-primary"><i class="fas fa-file-export"></i> Exporter Rapport Statistiques</button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Justifications en
+                                attente</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_justifications.count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-file-signature fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Étudiants Bloqués
+                                (>40%)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">12</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-ban fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Validation Requests -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Validation des Justificatifs</h6>
+                </div>
+                <div class="card-body">
+                    {% if pending_justifications %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Étudiant</th>
+                                    <th>Cours & Date</th>
+                                    <th>Document</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for justif in pending_justifications %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ justif.id_absence.id_inscription.id_etudiant.prenom }} {{
+                                            justif.id_absence.id_inscription.id_etudiant.nom }}</strong><br>
+                                        <small class="text-muted">{{ justif.id_absence.id_inscription.id_etudiant.email
+                                            }}</small>
+                                    </td>
+                                    <td>
+                                        {{ justif.id_absence.id_seance.id_cours.nom_cours }}<br>
+                                        <small>{{ justif.id_absence.id_seance.date_seance|date:"d/m/Y" }} ({{
+                                            justif.id_absence.duree_absence }}h)</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <!-- Placeholder link since document is BinaryField, needs a serving view -->
+                                        {% if justif.document %}
+                                        <a href="#" class="btn btn-sm btn-info" target="_blank">
+                                            <i class="fas fa-eye"></i> Voir
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">Aucun</span>
+                                        {% endif %}
+                                        <br>
+                                        <small>{{ justif.commentaire|truncatechars:20 }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group">
+                                            <a href="{% url 'absences:valider_justification' justif.id_absence.id_absence %}"
+                                                class="btn btn-success btn-sm" title="Valider">
+                                                <i class="fas fa-check"></i>
+                                            </a>
+                                            <a href="{% url 'absences:refuser_justification' justif.id_absence.id_absence %}"
+                                                class="btn btn-danger btn-sm" title="Rejeter">
+                                                <i class="fas fa-times"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-check-circle fa-3x mb-3 text-success"></i><br>
+                        Aucun justificatif en attente.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Management Tools -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Gestion des Inscriptions</h6>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label">Lier un étudiant à un cours</label>
+                            <input type="text" class="form-control mb-2" placeholder="Rechercher étudiant (Nom/ID)...">
+                            <select class="form-select mb-2">
+                                <option>Choisir le cours...</option>
+                            </select>
+                            <button class="btn btn-secondary w-100">Inscrire</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Rapports & Exports</h6>
+                </div>
+                <div class="card-body">
+                    <p>Générer la liste des étudiants exclus (>40% d'absences).</p>
+                    <a href="#" class="btn btn-danger w-100">
+                        <i class="fas fa-file-pdf me-2"></i> Télécharger PDF Exclus
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

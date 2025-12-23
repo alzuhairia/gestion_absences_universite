@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Mon Profil{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item active" aria-current="page">Profil</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <div class="bg-white rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3"
+                        style="width: 100px; height: 100px; color: #0d6efd;">
+                        <i class="fas fa-user fa-4x"></i>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ user.prenom }} {{ user.nom }}</h3>
+                    <p class="mb-0 opacity-75">{{ user.get_role_display }}</p>
+                </div>
+                <div class="card-body p-4">
+                    <h5 class="mb-4 text-muted border-bottom pb-2">Informations Personnelles</h5>
+
+
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Email</label>
+                        <div class="col-sm-8">
+                            <p class="form-control-plaintext text-dark">{{ user.email }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Rôle</label>
+                        <div class="col-sm-8">
+                            <span class="badge bg-secondary fs-6">{{ user.get_role_display }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Compte actif</label>
+                        <div class="col-sm-8">
+                            {% if user.is_active %}
+                            <span class="text-success"><i class="fas fa-check-circle me-1"></i> Oui</span>
+                            {% else %}
+                            <span class="text-danger"><i class="fas fa-times-circle me-1"></i> Non</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Dernière connexion</label>
+                        <div class="col-sm-8">
+                            <span class="badge bg-light text-dark border p-2">
+                                <i class="fas fa-clock me-1 text-primary"></i> {% now "d/m/Y H:i" %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'dashboard:index' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-arrow-left me-2"></i> Retour au Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

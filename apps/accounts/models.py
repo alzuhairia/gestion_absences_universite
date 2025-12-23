@@ -166,7 +166,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = _('Utilisateurs')
         ordering = ['nom', 'prenom']
         # IMPORTANT: Django ne gère PAS la création/modification de cette table
-        managed = False
+        managed = True
     
     def __str__(self):
         return f"{self.prenom} {self.nom} ({self.email})"

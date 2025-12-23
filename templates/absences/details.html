@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Détails Absences - {{ inscription.id_cours.nom_cours }}{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ inscription.id_cours.nom_cours }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header: Course Info Card -->
+    <div class="card border-0 shadow-sm mb-4 rounded-3 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="row g-0">
+                <div class="col-md-8 p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-primary text-white rounded p-3 me-3">
+                            <i class="fas fa-book fa-2x"></i>
+                        </div>
+                        <div>
+                            <h2 class="h4 fw-bold mb-1">{{ inscription.id_cours.nom_cours }}</h2>
+                            <p class="text-muted mb-0">
+                                <span class="badge bg-secondary me-2">{{ inscription.id_cours.code_cours }}</span>
+                                <i class="fas fa-chalkboard-teacher me-1"></i> Pr. {{ prof_name }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 bg-light p-4 border-start border-light d-flex align-items-center">
+                    <div class="row w-100">
+                        <div class="col-6 mb-3 mb-md-0">
+                            <div class="text-muted small text-uppercase fw-bold mb-1">Seuil Absence</div>
+                            <div class="h4 mb-0 text-dark fw-bold">{{ inscription.id_cours.seuil_absence }}%</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small text-uppercase fw-bold mb-1">Volume Total</div>
+                            <div class="h4 mb-0 text-dark fw-bold">{{ inscription.id_cours.nombre_total_periodes }}h
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Table -->
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="m-0 fw-bold text-dark"><i class="fas fa-list-ul me-2 text-primary"></i>Historique des Séances
+            </h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="py-3 ps-4">Date</th>
+                        <th class="py-3">Heure</th>
+                        <th class="py-3">Type</th>
+                        <th class="py-3 text-center">Durée</th>
+                        <th class="py-3 text-center">Statut</th>
+                        <th class="py-3 text-end pe-4">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for absence in absences %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ absence.id_seance.date_seance|date:"d M Y" }}</div>
+                            <small class="text-muted">Semaine {{ absence.id_seance.date_seance|date:"W" }}</small>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="far fa-clock text-muted me-2"></i>
+                                <span>{{ absence.id_seance.heure_debut|time:"H:i" }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <!-- Infer Type based on duration or just show generic -->
+                            <span class="badge bg-light text-dark border">
+                                {% if absence.duree_absence >= 4 %}
+                                <i class="fas fa-calendar-day me-1"></i> Séance
+                                {% else %}
+                                <i class="fas fa-hourglass-half me-1"></i> Heure
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="fw-bold">{{ absence.duree_absence|floatformat }}h</span>
+                        </td>
+                        <td class="text-center">
+                            {% if absence.statut == 'NON_JUSTIFIEE' %}
+                            <span
+                                class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
+                                <i class="fas fa-times-circle me-1"></i> Non Justifiée
+                            </span>
+                            {% elif absence.statut == 'JUSTIFIEE' %}
+                            <span
+                                class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
+                                <i class="fas fa-check-circle me-1"></i> Justifiée
+                            </span>
+                            {% elif absence.statut == 'EN_ATTENTE' %}
+                            <span
+                                class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2">
+                                <i class="fas fa-clock me-1"></i> En Attente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if absence.statut == 'NON_JUSTIFIEE' %}
+                            <a href="{% url 'absences:upload' absence.id_absence %}"
+                                class="btn btn-primary btn-sm rounded-pill px-3">
+                                <i class="fas fa-upload me-2"></i>Justifier cette absence
+                            </a>
+                            {% elif absence.statut == 'EN_ATTENTE' %}
+                            <span class="text-muted small fst-italic">Traitement en cours...</span>
+                            {% else %}
+                            <button class="btn btn-outline-success btn-sm rounded-pill px-3" disabled>
+                                <i class="fas fa-check me-1"></i> Dossier complet
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-clipboard-check fa-3x mb-3 text-success opacity-50"></i>
+                                <p class="h5">Aucune absence enregistrée</p>
+                                <small>Votre assiduité est exemplaire !</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour au tableau de bord
+                </a>
+                <small class="text-muted">Si vous pensez qu'il y a une erreur, contactez le secrétariat.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

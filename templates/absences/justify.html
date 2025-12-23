@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Justifier une Absence{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'absences:details' absence.id_inscription.id_inscription %}">{{
+        absence.id_inscription.id_cours.code_cours }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Justification</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="h3 mb-4 text-gray-800">Dossier de Justification</h1>
+
+            <!-- Absence Info Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white border-bottom-0">
+                    <h6 class="m-0 font-weight-bold text-primary">Détails de l'absence</h6>
+                </div>
+                <div class="card-body bg-light rounded-bottom">
+                    <div class="row align-items-center">
+                        <div class="col-md-6 border-end">
+                            <div class="d-flex align-items-center mb-3 mb-md-0">
+
+                                <div>
+                                    <h5 class="fw-bold text-dark mb-1">{{ absence.id_inscription.id_cours.nom_cours }}
+                                    </h5>
+                                    <p class="mb-0 text-muted small">
+                                        <i class="far fa-calendar me-1"></i> {{ absence.id_seance.date_seance|date:"d F
+                                        Y" }}<br>
+                                        <i class="far fa-clock me-1"></i> {{ absence.id_seance.heure_debut|time:"H:i" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 ps-md-4">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-uppercase text-muted fw-bold">Durée</small>
+                                    <p class="h5 fw-bold text-dark">{{ absence.duree_absence|floatformat }}h</p>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-uppercase text-muted fw-bold">Type</small>
+                                    <p class="h5 fw-bold text-dark">{{ absence.id_seance.type_seance|default:"Séance" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status & Action Card -->
+            <div class="card shadow mb-4">
+                <div class="card-body p-4">
+                    <!-- Status Display -->
+                    <div class="mb-4 text-center">
+                        <h6 class="text-muted text-uppercase fw-bold mb-3 small">État du dossier</h6>
+                        {% if absence.statut == 'NON_JUSTIFIEE' %}
+                        <div class="badge bg-danger-subtle text-danger border border-danger p-3 rounded-pill fs-6 px-4">
+                            <i class="fas fa-exclamation-circle me-2"></i> Absence Non Justifiée
+                        </div>
+                        <p class="mt-3 text-muted">Veuillez télécharger un justificatif ci-dessous pour régulariser
+                            votre situation.</p>
+                        {% elif absence.statut == 'EN_ATTENTE' %}
+                        <div
+                            class="badge bg-warning-subtle text-warning-emphasis border border-warning p-3 rounded-pill fs-6 px-4">
+                            <i class="fas fa-hourglass-half me-2"></i> En cours de validation
+                        </div>
+                        <p class="mt-3 text-muted">Votre justificatif a été reçu. Le secrétariat académique l'examinera
+                            prochainement.</p>
+                        {% elif absence.statut == 'JUSTIFIEE' %}
+                        <div
+                            class="badge bg-success-subtle text-success border border-success p-3 rounded-pill fs-6 px-4">
+                            <i class="fas fa-check-circle me-2"></i> Justification Validée
+                        </div>
+                        <p class="mt-3 text-muted">Tout est en ordre. Merci pour votre sérieux.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Previous Submission Info (if any) -->
+                    {% if justification %}
+                    <div class="alert alert-secondary border-0 d-flex align-items-start mb-4">
+                        <i class="fas fa-history mt-1 me-3"></i>
+                        <div>
+                            <strong>Dernier envoi :</strong>
+                            <div class="small">Commentaire: "{{ justification.commentaire|default:"Aucun" }}"</div>
+                            {% if justification.document %}
+                            <div class="small mt-1"><i class="fas fa-paperclip me-1"></i> Document joint</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Form (Only if not validated) -->
+                    {% if absence.statut != 'JUSTIFIEE' %}
+                    <hr class="my-4">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <h5 class="fw-bold mb-3"><i class="fas fa-file-upload me-2 text-primary"></i>Déposer un document
+                        </h5>
+
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Votre justificatif sera transmis directement au secrétariat. Formats acceptés : PDF, Image
+                            (Max 5Mo).
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="document" class="form-label fw-bold">Fichier Justificatif</label>
+                            <input class="form-control form-control-lg" type="file" id="document" name="document"
+                                required accept=".pdf, .jpg, .jpeg, .png">
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="comment" class="form-label fw-bold">Commentaire additionnel</label>
+                            <textarea class="form-control" id="comment" name="comment" rows="3"
+                                placeholder="Précisions utiles pour l'administration..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane me-2"></i>Envoyer la justification
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="text-center">
+                <a href="{% url 'absences:details' absence.id_inscription.id_inscription %}"
+                    class="text-decoration-none text-muted">
+                    <i class="fas fa-arrow-left me-1"></i> Retour à la liste des absences
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

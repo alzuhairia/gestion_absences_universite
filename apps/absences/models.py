@@ -48,7 +48,7 @@ class Absence(models.Model):
     )
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'absence'
         app_label = 'absences'
         verbose_name = "Absence"
@@ -80,7 +80,7 @@ class Justification(models.Model):
     date_validation = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'justification'
         app_label = 'absences'
         verbose_name = "Justification"
