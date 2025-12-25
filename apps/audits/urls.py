@@ -1,7 +1,8 @@
 from django.urls import path
+from . import views
 
-app_name = 'audits' # <--- Change le nom pour chaque app (ex: 'absences', etc.)
+app_name = 'audits'
 
 urlpatterns = [
-    # Laisse vide pour l'instant
+    path('logs/', views.audit_list, name='audit_list'),
 ]

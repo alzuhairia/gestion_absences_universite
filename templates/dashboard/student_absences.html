@@ -1,0 +1,118 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Mes Absences{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Mes Absences</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-user-times me-2"></i>Mes Absences
+        </h1>
+        <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    {% if academic_year %}
+    <div class="alert alert-info">
+        <i class="fas fa-calendar me-2"></i>
+        <strong>Année académique :</strong> {{ academic_year.libelle }}
+    </div>
+    {% endif %}
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Information :</strong> Vous pouvez soumettre un justificatif pour les absences non justifiées ou en attente. 
+        Une fois soumis, le justificatif sera examiné par le secrétariat.
+    </div>
+
+    {% if absences_data %}
+    <div class="card shadow student-card">
+        <div class="card-header py-3 bg-white student-card-header">
+            <h6 class="m-0 font-weight-bold text-primary">Liste de toutes vos absences</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Cours</th>
+                            <th>Durée</th>
+                            <th>Statut</th>
+                            <th>Justificatif</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in absences_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.absence.id_seance.date_seance|date:"d/m/Y" }}</strong><br>
+                                <small class="text-muted">{{ item.absence.id_seance.heure_debut|time:"H:i" }} - {{ item.absence.id_seance.heure_fin|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <strong class="text-primary">{{ item.absence.id_seance.id_cours.code_cours }}</strong><br>
+                                <small class="text-muted">{{ item.absence.id_seance.id_cours.nom_cours }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ item.absence.duree_absence }}h</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ item.status_color }}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if item.justification %}
+                                    {% if item.justification.state == 'ACCEPTEE' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Accepté
+                                        </span>
+                                    {% elif item.justification.state == 'REFUSEE' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times me-1"></i>Refusé
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-clock me-1"></i>En attente
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Aucun</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.can_submit %}
+                                    <a href="{% url 'absences:upload' item.absence.id_absence %}" 
+                                       class="btn btn-sm btn-primary" title="Soumettre un justificatif" data-bs-toggle="tooltip">
+                                        <i class="fas fa-upload me-1"></i> Justifier
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Non disponible</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow student-card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+            <h5 class="text-success">Aucune absence enregistrée</h5>
+            <p class="text-muted">Vous n'avez aucune absence enregistrée pour l'année académique courante.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

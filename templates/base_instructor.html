@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Espace Professeur - Gestion des Absences{% endblock %}</title>
+
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6.0 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --instructor-primary: #4e73df;
+            --instructor-sidebar-bg: #2c3e50;
+        }
+
+        body {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        /* Instructor Sidebar Styling */
+        .instructor-sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: linear-gradient(180deg, var(--instructor-sidebar-bg) 0%, #34495e 100%);
+            color: #fff;
+            transition: all 0.3s;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .instructor-sidebar-header {
+            padding: 1.5rem 1.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .instructor-sidebar-header .brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .instructor-sidebar .section-title {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 1rem 1.25rem 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .instructor-sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            transition: 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .instructor-sidebar .nav-link i {
+            width: 25px;
+            text-align: center;
+            margin-right: 10px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .instructor-sidebar .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--instructor-primary);
+        }
+
+        .instructor-sidebar .nav-link.active {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left: 3px solid var(--instructor-primary);
+            font-weight: 600;
+        }
+
+        .instructor-sidebar .nav-link.active i {
+            color: var(--instructor-primary);
+        }
+
+        .instructor-sidebar-footer {
+            padding: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Main Content */
+        .instructor-main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            transition: all 0.3s;
+            min-height: 100vh;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .instructor-sidebar {
+                margin-left: calc(var(--sidebar-width) * -1);
+            }
+
+            .instructor-sidebar.active {
+                margin-left: 0;
+            }
+
+            .instructor-main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Instructor Cards */
+        .instructor-card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: box-shadow 0.15s ease-in-out;
+            margin-bottom: 1.5rem;
+        }
+
+        .instructor-card:hover {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        .instructor-card-header {
+            background-color: #fff;
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Top Navbar for Mobile */
+        .instructor-top-navbar {
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            padding: 0.75rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 0.5rem;
+        }
+
+        .breadcrumb-item a {
+            text-decoration: none;
+            color: var(--instructor-primary);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Instructor Sidebar -->
+    <nav class="instructor-sidebar d-flex flex-column" id="instructorSidebar">
+        <div class="instructor-sidebar-header">
+            <div class="brand">
+                <i class="fas fa-chalkboard-teacher me-2"></i>Espace Professeur
+            </div>
+            <small class="text-muted d-block mt-1" style="font-size: 0.75rem; color: rgba(255,255,255,0.6);">
+                Module Pédagogique
+            </small>
+        </div>
+        
+        <div class="flex-grow-1 d-flex flex-column" style="overflow-y: auto;">
+            <ul class="nav flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="{% url 'dashboard:instructor_dashboard' %}" 
+                       class="nav-link {% if request.resolver_match.view_name == 'dashboard:instructor_dashboard' %}active{% endif %}">
+                        <i class="fas fa-home"></i> Tableau de Bord
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Gestion Pédagogique</div>
+                    <a href="{% url 'dashboard:instructor_courses' %}" 
+                       class="nav-link {% if 'instructor_courses' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-book"></i> Mes Cours
+                    </a>
+                    <a href="{% url 'dashboard:instructor_sessions' %}" 
+                       class="nav-link {% if 'instructor_sessions' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-calendar-alt"></i> Mes Séances
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Statistiques</div>
+                    <a href="{% url 'dashboard:instructor_statistics' %}" 
+                       class="nav-link {% if 'instructor_statistics' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-chart-bar"></i> Statistiques
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Communication</div>
+                    <a href="{% url 'messaging:inbox' %}" 
+                       class="nav-link {% if 'messaging' in request.resolver_match.view_name %}active{% endif %} position-relative d-flex align-items-center justify-content-between">
+                        <span><i class="fas fa-comments"></i> Messagerie</span>
+                        {% if has_unread_messages %}
+                        <span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 0.25rem 0.5rem; min-width: 1.5rem;">
+                            {% if unread_messages_count > 99 %}99+{% else %}{{ unread_messages_count }}{% endif %}
+                        </span>
+                        {% endif %}
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="instructor-sidebar-footer">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="small" style="font-size: 0.85rem; color: rgba(255,255,255,0.9);">
+                        <i class="fas fa-user-tie me-1"></i>{{ request.user.get_full_name }}
+                    </div>
+                </div>
+            </div>
+            <hr class="text-white-50 my-2">
+            <a href="{% url 'accounts:profile' %}" class="nav-link text-white-50" style="padding: 0.5rem 0;">
+                <i class="fas fa-user me-2"></i> Mon Profil
+            </a>
+            <form action="{% url 'accounts:logout' %}" method="post" id="logout-form" class="d-none">
+                {% csrf_token %}
+            </form>
+            <a href="#" class="nav-link text-danger" style="padding: 0.5rem 0;"
+               onclick="document.getElementById('logout-form').submit(); return false;">
+                <i class="fas fa-sign-out-alt me-2"></i> Déconnexion
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="instructor-main-content">
+        <!-- Top Mobile Header -->
+        <div class="d-block d-md-none instructor-top-navbar rounded mb-3">
+            <button class="btn btn-primary btn-sm" id="instructorSidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="fw-bold">Espace Professeur</span>
+        </div>
+
+        <!-- Breadcrumbs -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_dashboard' %}">Espace Professeur</a></li>
+                {% block breadcrumbs %}{% endblock %}
+            </ol>
+        </nav>
+
+        <!-- Messages/Alerts -->
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Content Block -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+
+    <script>
+        // Toggle Instructor Sidebar on Mobile
+        const sidebarToggle = document.getElementById('instructorSidebarToggle');
+        const instructorSidebar = document.getElementById('instructorSidebar');
+
+        if (sidebarToggle && instructorSidebar) {
+            sidebarToggle.addEventListener('click', function () {
+                instructorSidebar.classList.toggle('active');
+            });
+        }
+
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // Confirmation for critical actions
+        document.querySelectorAll('.confirm-action').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const message = this.dataset.confirmMessage || 'Êtes-vous sûr de vouloir effectuer cette action ?';
+                if (!confirm(message)) {
+                    e.preventDefault();
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
+

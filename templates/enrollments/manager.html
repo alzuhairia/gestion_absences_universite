@@ -1,0 +1,466 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion des Inscriptions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .form-section {
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-section-title i {
+        margin-right: 0.75rem;
+        color: #667eea;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .info-badge {
+        background: #e7f3ff;
+        color: #0066cc;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .info-badge i {
+        margin-right: 0.5rem;
+    }
+
+    .btn-submit {
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .alert-custom {
+        border-radius: 10px;
+        border-left: 4px solid;
+        padding: 1rem 1.25rem;
+    }
+
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .step.active .step-number {
+        background: #667eea;
+        color: white;
+    }
+
+    .step.completed .step-number {
+        background: #28a745;
+        color: white;
+    }
+
+    .step-title {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .step.active .step-title {
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .step-connector {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background: #e9ecef;
+        z-index: -1;
+    }
+
+    .step:last-child .step-connector {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header text-center">
+        <h1 class="mb-2"><i class="fas fa-user-plus me-2"></i>Gestion des Inscriptions</h1>
+        <p class="mb-0 opacity-90">Créer, modifier et gérer les inscriptions étudiantes</p>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step active" id="step1">
+            <div class="step-number">1</div>
+            <div class="step-title">Étudiant</div>
+        </div>
+        <div class="step" id="step2">
+            <div class="step-number">2</div>
+            <div class="step-title">Année & Faculté</div>
+        </div>
+        <div class="step" id="step3">
+            <div class="step-number">3</div>
+            <div class="step-title">Département</div>
+        </div>
+        <div class="step" id="step4">
+            <div class="step-number">4</div>
+            <div class="step-title">Cours</div>
+        </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="form-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="mb-0">
+                <i class="fas fa-file-alt me-2 text-primary"></i>Nouvelle Inscription
+            </h3>
+            <a href="{% url 'dashboard:secretary_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord
+            </a>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-custom alert-dismissible fade show" role="alert">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}times-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'enrollments:enroll_student' %}" id="enrollmentForm">
+            {% csrf_token %}
+
+            <!-- Step 1: Student Selection -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-user-graduate"></i>
+                    Sélection de l'étudiant
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <label for="student_email" class="form-label">
+                            <i class="fas fa-envelope me-1"></i>Email de l'étudiant
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" name="student_email" id="student_email" 
+                               class="form-control" 
+                               placeholder="etudiant@uni.edu" 
+                               required 
+                               list="students-list"
+                               onchange="updateStepIndicator(1)">
+                        <datalist id="students-list">
+                            {% for student in students %}
+                            <option value="{{ student.email }}">{{ student.get_full_name }}</option>
+                            {% endfor %}
+                        </datalist>
+                        <small class="text-muted">Commencez à taper pour voir les suggestions</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Academic Year & Faculty -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Année académique et faculté
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="academic_year" class="form-label">
+                            <i class="fas fa-calendar me-1"></i>Année Académique
+                            <span class="text-danger">*</span>
+                        </label>
+                        <select id="academic_year" name="academic_year" class="form-select" required>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id_annee }}" {% if year.active %}selected{% endif %}>
+                                {{ year.libelle }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="faculty" class="form-label">
+                            <i class="fas fa-university me-1"></i>Faculté
+                            <span class="text-danger">*</span>
+                        </label>
+                        <select id="faculty" name="faculty" class="form-select" 
+                                onchange="loadDepartments(); updateStepIndicator(2)" required>
+                            <option value="">Sélectionner une faculté...</option>
+                            {% for fac in facultes %}
+                            <option value="{{ fac.id_faculte }}">{{ fac.nom_faculte }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Department -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-building"></i>
+                    Département
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="department" class="form-label">
+                            <i class="fas fa-sitemap me-1"></i>Département
+                            <span class="text-danger">*</span>
+                        </label>
+                        <select id="department" name="department" class="form-select" 
+                                onchange="loadCourses(); updateStepIndicator(3)" 
+                                disabled required>
+                            <option value="">Sélectionner d'abord une faculté</option>
+                        </select>
+                        <div id="dept-loading" class="text-muted small mt-1" style="display: none;">
+                            <i class="fas fa-spinner fa-spin me-1"></i>Chargement...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Course -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-book"></i>
+                    Cours
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <label for="course" class="form-label">
+                            <i class="fas fa-book-open me-1"></i>Cours
+                            <span class="text-danger">*</span>
+                        </label>
+                        <select id="course" name="course" class="form-select" 
+                                onchange="updateStepIndicator(4); showCourseInfo(this)" 
+                                disabled required>
+                            <option value="">Sélectionner d'abord un département</option>
+                        </select>
+                        <div id="course-info" class="mt-2"></div>
+                        <div id="course-loading" class="text-muted small mt-1" style="display: none;">
+                            <i class="fas fa-spinner fa-spin me-1"></i>Chargement...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="d-flex justify-content-end mt-4">
+                <button type="submit" class="btn btn-primary btn-submit" id="submitBtn" disabled>
+                    <i class="fas fa-check-circle me-2"></i>Inscrire l'étudiant
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentStep = 0;
+
+    function updateStepIndicator(step) {
+        // Reset all steps
+        for (let i = 1; i <= 4; i++) {
+            const stepEl = document.getElementById('step' + i);
+            stepEl.classList.remove('active', 'completed');
+        }
+
+        // Mark completed steps
+        for (let i = 1; i < step; i++) {
+            document.getElementById('step' + i).classList.add('completed');
+        }
+
+        // Mark current step as active
+        if (step <= 4) {
+            document.getElementById('step' + step).classList.add('active');
+        }
+
+        // Enable submit button if all steps are completed
+        const studentEmail = document.getElementById('student_email').value;
+        const academicYear = document.getElementById('academic_year').value;
+        const faculty = document.getElementById('faculty').value;
+        const department = document.getElementById('department').value;
+        const course = document.getElementById('course').value;
+
+        if (studentEmail && academicYear && faculty && department && course) {
+            document.getElementById('submitBtn').disabled = false;
+        } else {
+            document.getElementById('submitBtn').disabled = true;
+        }
+    }
+
+    async function loadDepartments() {
+        const facultyId = document.getElementById('faculty').value;
+        const deptSelect = document.getElementById('department');
+        const courseSelect = document.getElementById('course');
+        const loadingEl = document.getElementById('dept-loading');
+
+        deptSelect.innerHTML = '<option value="">Chargement...</option>';
+        deptSelect.disabled = true;
+        loadingEl.style.display = 'block';
+        courseSelect.innerHTML = '<option value="">Sélectionner d\'abord un département</option>';
+        courseSelect.disabled = true;
+
+        if (!facultyId) {
+            deptSelect.innerHTML = '<option value="">Sélectionner d\'abord une faculté</option>';
+            loadingEl.style.display = 'none';
+            updateStepIndicator(2);
+            return;
+        }
+
+        try {
+            const response = await fetch(`/enrollments/api/departments/?faculty_id=${facultyId}`);
+            const data = await response.json();
+
+            deptSelect.innerHTML = '<option value="">Sélectionner un département...</option>';
+            data.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                deptSelect.appendChild(option);
+            });
+            deptSelect.disabled = false;
+            loadingEl.style.display = 'none';
+            updateStepIndicator(2);
+        } catch (error) {
+            console.error('Error:', error);
+            deptSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            loadingEl.style.display = 'none';
+        }
+    }
+
+    async function loadCourses() {
+        const deptId = document.getElementById('department').value;
+        const courseSelect = document.getElementById('course');
+        const loadingEl = document.getElementById('course-loading');
+
+        courseSelect.innerHTML = '<option value="">Chargement...</option>';
+        courseSelect.disabled = true;
+        loadingEl.style.display = 'block';
+
+        if (!deptId) {
+            courseSelect.innerHTML = '<option value="">Sélectionner d\'abord un département</option>';
+            loadingEl.style.display = 'none';
+            updateStepIndicator(3);
+            return;
+        }
+
+        try {
+            const response = await fetch(`/enrollments/api/courses/?dept_id=${deptId}`);
+            const data = await response.json();
+
+            courseSelect.innerHTML = '<option value="">Sélectionner un cours...</option>';
+            data.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name + (course.has_prereq ? ' (Prérequis requis)' : '');
+                option.dataset.hasPrereq = course.has_prereq || false;
+                courseSelect.appendChild(option);
+            });
+            courseSelect.disabled = false;
+            loadingEl.style.display = 'none';
+            updateStepIndicator(3);
+        } catch (error) {
+            console.error('Error:', error);
+            courseSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            loadingEl.style.display = 'none';
+        }
+    }
+
+    function showCourseInfo(select) {
+        const infoEl = document.getElementById('course-info');
+        const selectedOption = select.options[select.selectedIndex];
+        
+        if (selectedOption && selectedOption.dataset.hasPrereq === 'true') {
+            infoEl.innerHTML = '<div class="info-badge"><i class="fas fa-info-circle"></i>Ce cours nécessite des prérequis. Le système vérifiera automatiquement.</div>';
+        } else {
+            infoEl.innerHTML = '';
+        }
+        updateStepIndicator(4);
+    }
+
+    // Initialize step indicator
+    document.addEventListener('DOMContentLoaded', function() {
+        updateStepIndicator(1);
+    });
+</script>
+{% endblock %}
+

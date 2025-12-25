@@ -104,6 +104,7 @@
             </div>
 
             <!-- Documents -->
+            {% if user.role == 'ETUDIANT' %}
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-white">
                     <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-pdf me-2"></i>Documents &
@@ -124,6 +125,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
         </div>
     </div>

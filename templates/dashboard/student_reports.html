@@ -1,0 +1,100 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Rapports{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Rapports</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-file-pdf me-2"></i>Rapports
+        </h1>
+        <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    {% if academic_year %}
+    <div class="alert alert-info">
+        <i class="fas fa-calendar me-2"></i>
+        <strong>Année académique :</strong> {{ academic_year.libelle }}
+    </div>
+    {% endif %}
+
+    <!-- Statistics Summary -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <div class="h3 text-primary mb-0">{{ total_courses }}</div>
+                    <small class="text-muted">Cours Inscrits</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <div class="h3 text-warning mb-0">{{ total_absences }}</div>
+                    <small class="text-muted">Total Absences</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <div class="h3 {% if overall_rate >= 40 %}text-danger{% elif overall_rate >= 30 %}text-warning{% else %}text-success{% endif %} mb-0">
+                        {{ overall_rate }}%
+                    </div>
+                    <small class="text-muted">Taux d'Absence Global</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Report Download -->
+    <div class="card shadow student-card">
+        <div class="card-header py-3 bg-danger text-white student-card-header">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-file-pdf me-2"></i>Télécharger le Rapport PDF
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="mb-3">Rapport d'Absences Complet</h5>
+                    <p class="text-muted mb-3">
+                        Téléchargez votre rapport PDF contenant :
+                    </p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Résumé par cours</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Détail des absences non justifiées</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Statistiques globales</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Date de génération du rapport</li>
+                    </ul>
+                </div>
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-file-pdf fa-5x text-danger mb-3"></i>
+                    <div>
+                        <a href="{% url 'dashboard:export_student_pdf' %}" 
+                           class="btn btn-danger btn-lg" title="Télécharger le rapport PDF" data-bs-toggle="tooltip">
+                            <i class="fas fa-download me-2"></i> Télécharger PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information -->
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Note :</strong> Le rapport PDF contient uniquement les absences non justifiées. 
+        Les absences justifiées ne sont pas comptabilisées dans le calcul du taux d'absence.
+    </div>
+</div>
+{% endblock %}
+

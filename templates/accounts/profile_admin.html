@@ -1,0 +1,88 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Mon Profil{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Mon Profil</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow admin-card">
+                <div class="card-header bg-dark text-white text-center py-4">
+                    <div class="bg-white rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3"
+                        style="width: 100px; height: 100px; color: #212529;">
+                        <i class="fas fa-user-shield fa-4x"></i>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ user.prenom }} {{ user.nom }}</h3>
+                    <p class="mb-0 opacity-75">{{ user.get_role_display }}</p>
+                </div>
+                <div class="card-body p-4">
+                    <h5 class="mb-4 text-muted border-bottom pb-2">
+                        <i class="fas fa-info-circle me-2"></i>Informations Personnelles
+                    </h5>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Email</label>
+                        <div class="col-sm-8">
+                            <p class="form-control-plaintext text-dark">
+                                <i class="fas fa-envelope me-2 text-muted"></i>{{ user.email }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Rôle</label>
+                        <div class="col-sm-8">
+                            <span class="badge bg-dark fs-6">
+                                <i class="fas fa-user-shield me-1"></i>{{ user.get_role_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Compte actif</label>
+                        <div class="col-sm-8">
+                            {% if user.is_active %}
+                            <span class="text-success">
+                                <i class="fas fa-check-circle me-1"></i> Oui
+                            </span>
+                            {% else %}
+                            <span class="text-danger">
+                                <i class="fas fa-times-circle me-1"></i> Non
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label class="col-sm-4 col-form-label text-muted fw-bold">Dernière connexion</label>
+                        <div class="col-sm-8">
+                            {% if user.last_login %}
+                            <span class="badge bg-light text-dark border p-2">
+                                <i class="fas fa-clock me-1 text-primary"></i> {{ user.last_login|date:"d/m/Y à H:i" }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">Jamais connecté</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-outline-dark">
+                            <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
+                        </a>
+                        <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-key me-2"></i> Changer mon mot de passe
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

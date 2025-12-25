@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}Marquer les Absences - {{ course.nom_cours }}{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Mes Cours</a></li>
+<li class="breadcrumb-item active" aria-current="page">Appel</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Faire l'appel : {{ course.code_cours }}</h1>
+    </div>
+
+    {% if is_edit_mode %}
+    <div class="alert alert-warning shadow-sm border-left-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Modification d'une séance existante</strong><br>
+        Une séance a déjà été enregistrée pour ce cours aujourd'hui. Les absences précédemment saisies ont été chargées.
+    </div>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- Session Info -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-primary text-white">
+                <h6 class="m-0 font-weight-bold">Détails de la Séance</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label" for="date_seance">Date</label>
+                        <input type="date" class="form-control" id="date_seance" name="date_seance" value="{{ today }}"
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_debut">Heure Début</label>
+                        <input type="time" class="form-control" id="heure_debut" name="heure_debut"
+                            value="{{ default_start }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_fin">Heure Fin</label>
+                        <input type="time" class="form-control" id="heure_fin" name="heure_fin"
+                            value="{{ default_end }}" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student List -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-white">
+                <h6 class="m-0 font-weight-bold text-dark">Liste des Étudiants</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width: 25%;">Étudiant</th>
+                                <th style="width: 20%;">Statut</th>
+                                <th style="width: 20%;">Type</th>
+                                <th style="width: 15%;">Durée (si partiel)</th>
+                                <th style="width: 20%;">Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ins in students %}
+                            <tr>
+                                <td class="align-middle">
+                                    <div class="fw-bold">{{ ins.id_etudiant.get_full_name }}</div>
+                                    <div class="small text-muted">{{ ins.id_etudiant.email }}</div>
+                                    {% if ins.absence_data %}
+                                    <span class="badge bg-danger mt-1">Déjà absent</span>
+                                    {% if request.user.role == 'PROFESSEUR' %}
+                                    <span class="badge bg-secondary"><i class="fas fa-lock"></i> Modif. interdite</span>
+                                    {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="align-middle">
+                                    <div class="btn-group" role="group" aria-label="Status">
+                                        <!-- Check restriction -->
+                                        {% if request.user.role == 'PROFESSEUR' and ins.absence_data %}
+                                        <!-- LOCKED VIEW -->
+                                        <input type="radio" class="btn-check" disabled>
+                                        <label class="btn btn-outline-secondary btn-sm disabled">Présent</label>
+
+                                        <input type="radio" class="btn-check" checked disabled>
+                                        <label class="btn btn-danger btn-sm disabled">Absent <i
+                                                class="fas fa-lock"></i></label>
+
+                                        <!-- Hidden inputs to submit nothing or keep state? 
+                                                  Actually, if disabled, they won't submit. 
+                                                  And the view logic ignores them anyway if they were to submit. 
+                                                  So just disabled is fine.
+                                             -->
+                                        {% else %}
+                                        <!-- Standard View -->
+                                        <!-- Present -->
+                                        {% if not ins.absence_data %}
+                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                            id="present_{{ ins.id_inscription }}" value="PRESENT" checked
+                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', false)">
+                                        {% else %}
+                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                            id="present_{{ ins.id_inscription }}" value="PRESENT"
+                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', false)">
+                                        {% endif %}
+                                        <label class="btn btn-outline-success btn-sm"
+                                            for="present_{{ ins.id_inscription }}">Présent</label>
+
+                                        <!-- Absent -->
+                                        {% if ins.absence_data %}
+                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                            id="absent_{{ ins.id_inscription }}" value="ABSENT" checked
+                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', true)">
+                                        {% else %}
+                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                            id="absent_{{ ins.id_inscription }}" value="ABSENT"
+                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', true)">
+                                        {% endif %}
+                                        <label class="btn btn-outline-danger btn-sm"
+                                            for="absent_{{ ins.id_inscription }}">Absent</label>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="align-middle">
+                                    {% if request.user.role == 'PROFESSEUR' and ins.absence_data %}
+                                    <!-- Locked Select -->
+                                    <select class="form-select form-select-sm" disabled>
+                                        <option>{{ ins.absence_data.type }}</option>
+                                    </select>
+                                    {% else %}
+                                    <!-- Normal Select -->
+                                    {% if not ins.absence_data %}
+                                    <select class="form-select form-select-sm" name="type_{{ ins.id_inscription }}"
+                                        id="type_{{ ins.id_inscription }}" disabled
+                                        onchange="toggleDuration('{{ ins.id_inscription }}')">
+                                    {% else %}
+                                    <select class="form-select form-select-sm" name="type_{{ ins.id_inscription }}"
+                                        id="type_{{ ins.id_inscription }}"
+                                        onchange="toggleDuration('{{ ins.id_inscription }}')">
+                                    {% endif %}
+
+                                        {% if ins.absence_data and ins.absence_data.type == 'SEANCE' %}
+                                        <option value="SEANCE" selected>Séance Complète</option>
+                                        {% else %}
+                                        <option value="SEANCE">Séance Complète</option>
+                                        {% endif %}
+
+                                        {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}
+                                        <option value="HEURE" selected>Retard / Partiel</option>
+                                        {% else %}
+                                        <option value="HEURE">Retard / Partiel</option>
+                                        {% endif %}
+
+                                        {% if ins.absence_data and ins.absence_data.type == 'JOURNEE' %}
+                                        <option value="JOURNEE" selected>Journée Complète</option>
+                                        {% else %}
+                                        <option value="JOURNEE">Journée Complète</option>
+                                        {% endif %}
+                                    </select>
+                                    {% endif %}
+                                </td>
+                                <td class="align-middle">
+                                    <div class="input-group input-group-sm">
+                                        {% if request.user.role == 'PROFESSEUR' and ins.absence_data %}
+                                        <input type="text" class="form-control" value="{{ ins.absence_data.duree }}"
+                                            disabled>
+                                        {% else %}
+                                        {% if ins.absence_data.type == 'HEURE' %}
+                                        <input type="number" class="form-control" name="duree_{{ ins.id_inscription }}"
+                                            id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0"
+                                            value="{{ ins.absence_data.duree }}">
+                                        {% else %}
+                                        <input type="number" class="form-control" name="duree_{{ ins.id_inscription }}"
+                                            id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0"
+                                            disabled>
+                                        {% endif %}
+                                        {% endif %}
+                                        <span class="input-group-text">h</span>
+                                    </div>
+                                </td>
+                                <td class="align-middle">
+                                    <input type="text" class="form-control form-control-sm"
+                                        placeholder="Remarque (opt)">
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">Aucu étudiant inscrit à ce cours.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-end">
+                <a href="{% url 'dashboard:index' %}" class="btn btn-secondary me-2">Annuler</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Enregistrer l'appel
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    function toggleAbsenceOptions(id, isAbsent) {
+        const typeSelect = document.getElementById('type_' + id);
+        typeSelect.disabled = !isAbsent;
+
+        // Also re-trigger duration check in case it was enabled
+        toggleDuration(id);
+    }
+
+    function toggleDuration(id) {
+        const typeSelect = document.getElementById('type_' + id);
+        const durationInput = document.getElementById('duree_' + id);
+
+        // Enable duration ONLY if Absent AND type is HEURE
+        if (!typeSelect.disabled && typeSelect.value === 'HEURE') {
+            durationInput.disabled = false;
+        } else {
+            durationInput.disabled = true;
+            durationInput.value = ''; // Reset
+        }
+    }
+</script>
+{% endblock %}

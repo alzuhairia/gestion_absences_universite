@@ -1,0 +1,107 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Gestion des Années Académiques{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+<li class="breadcrumb-item active">Années Académiques</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-calendar-alt me-2"></i>Gestion des Années Académiques
+        </h1>
+        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Create Form -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-plus me-2"></i>Créer une Année Académique
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.libelle.id_for_label }}" class="form-label">Libellé</label>
+                            {{ form.libelle }}
+                            <small class="form-text text-muted">Ex: 2023-2024</small>
+                        </div>
+                        <div class="mb-3 form-check">
+                            {{ form.active }}
+                            <label class="form-check-label" for="{{ form.active.id_for_label }}">
+                                Définir comme année active
+                            </label>
+                            <small class="form-text text-muted d-block">L'année précédente sera automatiquement désactivée</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i> Créer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- List -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Liste des Années Académiques</h6>
+                </div>
+                <div class="card-body">
+                    {% if years %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Libellé</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for year in years %}
+                                <tr>
+                                    <td><strong>{{ year.libelle }}</strong></td>
+                                    <td>
+                                        {% if year.active %}
+                                        <span class="badge bg-success">En cours</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not year.active %}
+                                        <form method="post" action="{% url 'dashboard:admin_academic_year_set_active' year.id_annee %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="fas fa-check"></i> Définir comme active
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-muted">Année en cours</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Aucune année académique enregistrée</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,206 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Lire le message{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'messaging:inbox' %}">Messagerie</a></li>
+<li class="breadcrumb-item active" aria-current="page">Message</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-detail-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .message-detail-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+    }
+
+    .message-detail-header h5 {
+        color: white;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .message-detail-body {
+        padding: 2rem;
+    }
+
+    .message-meta-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #667eea;
+    }
+
+    .message-avatar-large {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.5rem;
+        margin-right: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .message-content-area {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
+        min-height: 200px;
+        white-space: pre-wrap;
+        line-height: 1.8;
+        color: #495057;
+        font-size: 0.95rem;
+    }
+
+    .message-actions {
+        padding-top: 1.5rem;
+        border-top: 2px solid #e9ecef;
+    }
+
+    .btn-reply {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-reply:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .messaging-sidebar {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .messaging-nav-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+    }
+
+    .messaging-nav-item:hover {
+        background: #f8f9fa;
+        color: #667eea;
+        transform: translateX(4px);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .meta-item i {
+        width: 20px;
+        color: #667eea;
+        margin-right: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="messaging-sidebar">
+                <a href="{% url 'messaging:inbox' %}" class="messaging-nav-item">
+                    <i class="fas fa-inbox me-2"></i>
+                    <span>Boîte de réception</span>
+                </a>
+                <a href="{% url 'messaging:sent' %}" class="messaging-nav-item">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    <span>Messages envoyés</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="message-detail-container">
+                <div class="message-detail-header d-flex justify-content-between align-items-center">
+                    <h5>
+                        <i class="fas fa-envelope me-2"></i>{{ message.objet|default:"(Aucun objet)" }}
+                    </h5>
+                    <button onclick="window.print()" class="btn btn-light btn-sm" title="Imprimer">
+                        <i class="fas fa-print"></i>
+                    </button>
+                </div>
+                <div class="message-detail-body">
+                    <div class="message-meta-card">
+                        <div class="d-flex align-items-center">
+                            <div class="message-avatar-large">
+                                {{ message.expediteur.prenom|first }}{{ message.expediteur.nom|first }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="meta-item">
+                                    <i class="fas fa-user"></i>
+                                    <div>
+                                        <strong>Expéditeur :</strong>
+                                        <span class="ms-2">{{ message.expediteur.prenom }} {{ message.expediteur.nom }}</span>
+                                    </div>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-user-tag"></i>
+                                    <div>
+                                        <strong>Destinataire :</strong>
+                                        <span class="ms-2">{{ message.destinataire.prenom }} {{ message.destinataire.nom }}</span>
+                                    </div>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="far fa-clock"></i>
+                                    <div>
+                                        <strong>Date :</strong>
+                                        <span class="ms-2">{{ message.date_envoi|date:"d F Y à H:i" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="message-content-area">
+                        {{ message.contenu }}
+                    </div>
+
+                    <div class="message-actions d-flex justify-content-between">
+                        <a href="{% url 'messaging:inbox' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Retour à la boîte de réception
+                        </a>
+                        <a href="{% url 'messaging:compose' %}" class="btn btn-reply">
+                            <i class="fas fa-reply me-2"></i>Répondre
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

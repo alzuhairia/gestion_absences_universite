@@ -1,6 +1,6 @@
-{% extends 'base.html' %}
+{% extends 'base_student.html' %}
 
-{% block title %}Tableau de Bord{% endblock %}
+{% block title %}Tableau de Bord - Étudiant{% endblock %}
 
 {% block breadcrumbs %}
 <li class="breadcrumb-item active" aria-current="page">Tableau de Bord</li>
@@ -8,172 +8,206 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Student Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 p-4 bg-white shadow-sm rounded">
-        <div class="d-flex align-items-center">
-            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
-                style="width: 60px; height: 60px;">
-                <span class="fs-4 fw-bold">{{ request.user.prenom|first }}{{ request.user.nom|first }}</span>
-            </div>
-            <div>
-                <h2 class="h4 mb-0 fw-bold">{{ request.user.prenom }} {{ request.user.nom }}</h2>
-                <div class="text-muted small">
-                    <i class="fas fa-graduation-cap me-1"></i> Année Académique {{ academic_year|default:"2024-2025" }}
-                    <span class="mx-2">•</span>
-                    <i class="fas fa-building me-1"></i> Département Informatique
-                </div>
-            </div>
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-user-graduate me-2"></i>Tableau de Bord
+            </h1>
+            <p class="text-muted mb-0">
+                {% if academic_year %}
+                    Année académique : <strong>{{ academic_year.libelle }}</strong>
+                {% else %}
+                    Aucune année académique active
+                {% endif %}
+            </p>
         </div>
-
     </div>
 
-    <div class="row">
-        <!-- Courses Grid -->
-        <div class="col-lg-8">
-            <h5 class="mb-3 fw-bold text-gray-800"><i class="fas fa-book-reader me-2"></i>Mes Cours</h5>
-            <div class="row">
-                {% for c in cours_data %}
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-0 shadow-sm hover-shadow transition-all">
-                        <div class="card-body">
-                            <!-- Course Header -->
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div>
-                                    <h5 class="card-title fw-bold text-dark mb-1">{{ c.nom }}</h5>
-                                    <p class="card-subtitle text-muted small"><i
-                                            class="fas fa-chalkboard-teacher me-1"></i> Pr. {{ c.professeur }}</p>
-                                </div>
-                                <div class="dropdown">
-                                    <button class="btn btn-light btn-sm rounded-circle" type="button"
-                                        data-bs-toggle="dropdown">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><a class="dropdown-item"
-                                                href="{% url 'absences:details' c.id %}">Détails</a></li>
-                                    </ul>
-                                </div>
-                            </div>
+    <!-- Information Banner -->
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Bienvenue dans votre espace étudiant :</strong> Ce tableau de bord vous présente un aperçu rapide de votre situation académique. 
+        Utilisez le menu latéral pour accéder aux pages dédiées (Mes Cours, Mes Absences, Rapports).
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 
-                            <!-- Badges -->
-                            <div class="mb-3">
-                                {% if c.status %}
-                                <span
-                                    class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
-                                    <i class="fas fa-check-circle me-1"></i> Passable
-                                </span>
-                                {% else %}
-                                <span
-                                    class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3">
-                                    <i class="fas fa-ban me-1"></i> Échec (>40%)
-                                </span>
-                                {% endif %}
-                            </div>
+    <!-- 40% Threshold Warning -->
+    {% if is_blocked %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Attention :</strong> Vous avez dépassé le seuil de 40% d'absences non justifiées. 
+        Vous ne pouvez pas passer les examens. Veuillez contacter le secrétariat pédagogique pour toute démarche administrative.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
 
-                            <!-- Progress Bars -->
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between small mb-1">
-                                    <span class="fw-bold text-muted">Absences</span>
-                                    <span
-                                        class="fw-bold {% if c.absence_rate >= 40 %}text-danger{% elif c.absence_rate >= 30 %}text-warning{% else %}text-success{% endif %}">
-                                        {{ c.total_abs|floatformat }}h / {{ c.seuil_h|floatformat }}h <span
-                                            class="text-muted fw-normal">({{ c.total_periods }}h)</span>
-                                    </span>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar {% if c.absence_rate < 30 %}bg-success{% elif c.absence_rate < 40 %}bg-warning{% else %}bg-danger{% endif %}"
-                                        role="progressbar" style="width: {{ c.percent }}%"
-                                        aria-valuenow="{{ c.percent }}" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
+    <!-- KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Cours Inscrits
                             </div>
-
-                            <!-- Contextual Message -->
-                            <div class="mt-3 pt-3 border-top">
-                                <small class="d-block" style="font-size: 0.85rem;">
-                                    {% if c.absence_rate >= 40 %}
-                                    <span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle"></i> Vous
-                                        n'êtes plus éligible à l'examen.</span>
-                                    <div class="mt-1 text-muted">Veuillez contacter l'administration.</div>
-                                    {% elif c.absence_rate >= 30 %}
-                                    <span class="text-warning fw-bold"><i class="fas fa-exclamation-circle"></i>
-                                        Attention, seuil critique !</span>
-                                    <div class="mt-1 text-muted">Justifiez vos absences rapidement.</div>
-                                    {% else %}
-                                    <span class="text-success fw-bold"><i class="fas fa-thumbs-up"></i> Situation
-                                        normale.</span>
-                                    <div class="mt-1 text-muted">Continuez comme ça !</div>
-                                    {% endif %}
-                                </small>
-                            </div>
-
-                            <a href="{% url 'absences:details' c.id %}"
-                                class="btn btn-outline-primary btn-sm w-100 mt-3 rounded-pill">
-                                Voir détails
-                            </a>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_courses }}</div>
+                            <small class="text-muted">Cours de l'année en cours</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-gray-300"></i>
                         </div>
                     </div>
                 </div>
-                {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-info shadow-sm border-0">
-                        <i class="fas fa-info-circle me-2"></i> Vous n'êtes inscrit à aucun cours pour le moment.
-                    </div>
-                </div>
-                {% endfor %}
             </div>
         </div>
 
-        <!-- Notifications Sidebar -->
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 mb-4 sticky-top" style="top: 20px; z-index: 1;">
-                <div class="card-header bg-white py-3 border-bottom-0">
-                    <h5 class="m-0 fw-bold text-gray-800"><i class="fas fa-bell me-2 text-warning"></i>Notifications
-                    </h5>
-                </div>
-                <div class="list-group list-group-flush small">
-                    {% for notif in notifications %}
-                    <div class="list-group-item border-start-0 border-end-0 px-4 py-3">
-                        <div class="d-flex w-100 justify-content-between mb-1">
-                            <strong class="text-dark">Administration</strong>
-                            <small class="text-muted">{{ notif.date_envoi|date:"d M" }}</small>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Séances Totales
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_sessions }}</div>
+                            <small class="text-muted">Séances prévues</small>
                         </div>
-                        <p class="mb-1 text-muted">{{ notif.message }}</p>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
+                        </div>
                     </div>
-                    {% empty %}
-                    <div class="list-group-item text-center py-4 text-muted">
-                        <i class="far fa-bell-slash fa-2x mb-2"></i>
-                        <p class="mb-0">Aucune nouvelle notification.</p>
-                    </div>
-                    {% endfor %}
                 </div>
-                <div class="card-footer bg-white text-center border-top-0 py-3">
-                    <a href="#" class="text-decoration-none small fw-bold">Voir tout l'historique</a>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Absences Enregistrées
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_absences }}</div>
+                            <small class="text-muted">Total absences</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-times fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Taux d'Absence Global
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ overall_rate }}%</div>
+                            <small class="text-muted">Basé sur absences non justifiées</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic Status Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow student-card">
+                <div class="card-header py-3 bg-{{ status_color }} text-white student-card-header">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-{% if status_color == 'success' %}check-circle{% elif status_color == 'warning' %}exclamation-circle{% else %}ban{% endif %} me-2"></i>
+                        Statut Académique
+                    </h6>
+                </div>
+                <div class="card-body text-center py-4">
+                    <div class="h2 mb-3">
+                        <span class="badge bg-{{ status_color }} px-4 py-2" style="font-size: 1.5rem;">
+                            {{ academic_status }}
+                        </span>
+                    </div>
+                    {% if status_color == 'success' %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-check-circle me-1"></i>
+                            Votre situation académique est conforme. Continuez ainsi !
+                        </p>
+                    {% elif status_color == 'warning' %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Vous approchez du seuil de 40% d'absences. Soyez vigilant.
+                        </p>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-ban me-1"></i>
+                            Vous avez dépassé le seuil de 40% d'absences. Contactez le secrétariat.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-book fa-3x text-primary mb-3"></i>
+                    <h5>Mes Cours</h5>
+                    <p class="text-muted small">Consultez la liste de tous vos cours</p>
+                    <a href="{% url 'dashboard:student_courses' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-arrow-right me-1"></i> Accéder
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-times fa-3x text-warning mb-3"></i>
+                    <h5>Mes Absences</h5>
+                    <p class="text-muted small">Consultez toutes vos absences</p>
+                    <a href="{% url 'dashboard:student_absences' %}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-arrow-right me-1"></i> Accéder
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                    <h5>Rapports</h5>
+                    <p class="text-muted small">Téléchargez votre rapport PDF</p>
+                    <a href="{% url 'dashboard:student_reports' %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-arrow-right me-1"></i> Accéder
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow student-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
+                    <h5>Statistiques</h5>
+                    <p class="text-muted small">Analysez vos statistiques</p>
+                    <a href="{% url 'dashboard:student_statistics' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-arrow-right me-1"></i> Accéder
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    .hover-shadow:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
-    }
-
-    .transition-all {
-        transition: all 0.3s ease;
-    }
-
-    .bg-success-subtle {
-        background-color: #d1e7dd;
-    }
-
-    .bg-warning-subtle {
-        background-color: #fff3cd;
-    }
-
-    .bg-danger-subtle {
-        background-color: #f8d7da;
-    }
-</style>
 {% endblock %}

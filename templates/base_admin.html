@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Administration - Gestion des Absences{% endblock %}</title>
+
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6.0 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --admin-primary: #0d6efd;
+            --admin-sidebar-bg: #1a1d29;
+        }
+
+        body {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        /* Admin Sidebar Styling */
+        .admin-sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: linear-gradient(180deg, var(--admin-sidebar-bg) 0%, #212529 100%);
+            color: #fff;
+            transition: all 0.3s;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .admin-sidebar-header {
+            padding: 1.5rem 1.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .admin-sidebar-header .brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .admin-sidebar .section-title {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 1rem 1.25rem 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .admin-sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.75rem 1.25rem;
+            margin: 0.125rem 0.5rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .admin-sidebar .nav-link i {
+            width: 20px;
+            text-align: center;
+            margin-right: 0.75rem;
+        }
+
+        .admin-sidebar .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            transform: translateX(4px);
+        }
+
+        .admin-sidebar .nav-link.active {
+            background-color: rgba(13, 110, 253, 0.25);
+            border-left: 3px solid var(--admin-primary);
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .admin-sidebar .nav-link.active i {
+            color: var(--admin-primary);
+        }
+
+        .admin-sidebar-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: auto;
+        }
+
+        /* Main Content */
+        .admin-main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            transition: all 0.3s;
+            min-height: 100vh;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                margin-left: calc(var(--sidebar-width) * -1);
+            }
+
+            .admin-sidebar.active {
+                margin-left: 0;
+            }
+
+            .admin-main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Admin Cards */
+        .admin-card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: box-shadow 0.15s ease-in-out;
+            margin-bottom: 1.5rem;
+        }
+
+        .admin-card:hover {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        .admin-card-header {
+            background-color: #fff;
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Top Navbar for Mobile */
+        .admin-top-navbar {
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            padding: 0.75rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 0.5rem;
+        }
+
+        /* Critical Action Alerts */
+        .alert-critical {
+            border-left: 4px solid #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .alert-warning-admin {
+            border-left: 4px solid #ffc107;
+            background-color: #fffbf0;
+        }
+
+        .breadcrumb-item a {
+            text-decoration: none;
+            color: var(--admin-primary);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Admin Sidebar -->
+    <nav class="admin-sidebar d-flex flex-column" id="adminSidebar">
+        <div class="admin-sidebar-header">
+            <div class="brand">
+                <i class="fas fa-shield-alt me-2"></i>Administration
+            </div>
+            <small class="text-muted d-block mt-1" style="font-size: 0.75rem; color: rgba(255,255,255,0.6);">
+                Module de Configuration
+            </small>
+        </div>
+        
+        <div class="flex-grow-1 d-flex flex-column" style="overflow-y: auto;">
+            <ul class="nav flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="{% url 'dashboard:admin_dashboard' %}" 
+                       class="nav-link {% if request.resolver_match.view_name == 'dashboard:admin_dashboard' %}active{% endif %}">
+                        <i class="fas fa-home"></i> Tableau de Bord
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Structure Académique</div>
+                    <a href="{% url 'dashboard:admin_faculties' %}" 
+                       class="nav-link {% if 'admin_faculties' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-building"></i> Facultés
+                    </a>
+                    <a href="{% url 'dashboard:admin_departments' %}" 
+                       class="nav-link {% if 'admin_departments' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-sitemap"></i> Départements
+                    </a>
+                    <a href="{% url 'dashboard:admin_courses' %}" 
+                       class="nav-link {% if 'admin_courses' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-book"></i> Cours
+                    </a>
+                    <a href="{% url 'dashboard:admin_academic_years' %}" 
+                       class="nav-link {% if 'admin_academic_years' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-calendar-alt"></i> Années Académiques
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Gestion</div>
+                    <a href="{% url 'dashboard:admin_users' %}" 
+                       class="nav-link {% if 'admin_users' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-users"></i> Utilisateurs
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Configuration</div>
+                    <a href="{% url 'dashboard:admin_settings' %}" 
+                       class="nav-link {% if 'admin_settings' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-cog"></i> Paramètres Système
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Audit & Sécurité</div>
+                    <a href="{% url 'dashboard:admin_audit_logs' %}" 
+                       class="nav-link {% if 'admin_audit_logs' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-history"></i> Journaux d'Audit
+                    </a>
+                    <a href="{% url 'dashboard:admin_export_audit_csv' %}" 
+                       class="nav-link {% if 'admin_export_audit_csv' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-file-csv"></i> Exporter Audit (CSV)
+                    </a>
+                </li>
+                
+                <li>
+                    <div class="section-title">Communication</div>
+                    <a href="{% url 'messaging:inbox' %}" 
+                       class="nav-link {% if 'messaging' in request.resolver_match.view_name %}active{% endif %} position-relative d-flex align-items-center justify-content-between">
+                        <span><i class="fas fa-comments"></i> Messagerie</span>
+                        {% if has_unread_messages %}
+                        <span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 0.25rem 0.5rem; min-width: 1.5rem;">
+                            {% if unread_messages_count > 99 %}99+{% else %}{{ unread_messages_count }}{% endif %}
+                        </span>
+                        {% endif %}
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="admin-sidebar-footer">
+            <hr class="text-white-50 my-2">
+            <a href="{% url 'accounts:profile' %}" class="nav-link text-white-50" style="padding: 0.5rem 0;">
+                <i class="fas fa-user me-2"></i> Mon Profil
+            </a>
+            <form action="{% url 'accounts:logout' %}" method="post" id="logout-form" class="d-none">
+                {% csrf_token %}
+            </form>
+            <a href="#" class="nav-link text-danger" style="padding: 0.5rem 0;"
+               onclick="document.getElementById('logout-form').submit(); return false;">
+                <i class="fas fa-sign-out-alt me-2"></i> Déconnexion
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="admin-main-content">
+        <!-- Top Mobile Header -->
+        <div class="d-block d-md-none admin-top-navbar rounded mb-3">
+            <button class="btn btn-primary btn-sm" id="adminSidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="fw-bold">Administration</span>
+        </div>
+
+        <!-- Breadcrumbs -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+                {% block breadcrumbs %}{% endblock %}
+            </ol>
+        </nav>
+
+        <!-- Messages/Alerts -->
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Content Block -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Toggle Admin Sidebar on Mobile
+        const sidebarToggle = document.getElementById('adminSidebarToggle');
+        const adminSidebar = document.getElementById('adminSidebar');
+        
+        if (sidebarToggle && adminSidebar) {
+            sidebarToggle.addEventListener('click', function () {
+                adminSidebar.classList.toggle('active');
+            });
+        }
+        
+        // Confirmation pour actions critiques
+        function confirmAction(message) {
+            return confirm(message || 'Êtes-vous sûr de vouloir effectuer cette action ?');
+        }
+        
+        // Confirmation pour désactivation
+        function confirmDeactivation(itemName, impact) {
+            return confirm(
+                `⚠️ ATTENTION : Désactivation de "${itemName}"\n\n` +
+                `Impact : ${impact}\n\n` +
+                `Cette action est réversible mais peut affecter le fonctionnement du système.\n\n` +
+                `Voulez-vous continuer ?`
+            );
+        }
+        
+        // Confirmation pour modification de seuil
+        function confirmThresholdChange(oldValue, newValue) {
+            return confirm(
+                `⚠️ MODIFICATION CRITIQUE DU SEUIL D'ABSENCE\n\n` +
+                `Ancien seuil : ${oldValue}%\n` +
+                `Nouveau seuil : ${newValue}%\n\n` +
+                `Cette modification affectera TOUS les cours qui utilisent le seuil par défaut.\n` +
+                `L'action sera enregistrée dans le journal d'audit.\n\n` +
+                `Confirmer la modification ?`
+            );
+        }
+        
+        // Initialisation des tooltips Bootstrap
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser les tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Détecter les changements de seuil d'absence
+            const thresholdInput = document.querySelector('input[name="default_absence_threshold"]');
+            if (thresholdInput) {
+                const initialValue = thresholdInput.value;
+                const form = thresholdInput.closest('form');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        if (thresholdInput.value !== initialValue) {
+                            if (!confirmThresholdChange(initialValue, thresholdInput.value)) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Détecter les changements de statut actif/inactif dans les formulaires d'édition
+            const editForms = document.querySelectorAll('form[method="post"]');
+            editForms.forEach(function(form) {
+                const activeCheckbox = form.querySelector('input[type="checkbox"][name="actif"], input[type="checkbox"][name="active"]');
+                if (activeCheckbox) {
+                    const initialValue = activeCheckbox.checked;
+                    form.addEventListener('submit', function(e) {
+                        if (!activeCheckbox.checked && initialValue) {
+                            // Désactivation
+                            const itemName = form.querySelector('input[name*="nom"], input[name*="libelle"], input[name*="code_cours"]')?.value || 'cet élément';
+                            const impact = 'Cet élément sera masqué mais pas supprimé. Les données associées seront conservées.';
+                            if (!confirmDeactivation(itemName, impact)) {
+                                e.preventDefault();
+                                activeCheckbox.checked = true;
+                                return false;
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
+

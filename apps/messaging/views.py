@@ -5,18 +5,48 @@ from .models import Message
 from .forms import MessageForm
 from django.db.models import Q
 
+def get_messaging_template(user, template_name):
+    """
+    Détermine le template de messagerie selon le rôle de l'utilisateur.
+    """
+    if user.role == user.Role.ADMIN:
+        return f'messaging/admin_{template_name}.html'
+    elif user.role == user.Role.SECRETAIRE:
+        return f'messaging/secretary_{template_name}.html'
+    elif user.role == user.Role.PROFESSEUR:
+        return f'messaging/instructor_{template_name}.html'
+    else:  # ETUDIANT
+        return f'messaging/student_{template_name}.html'
+
 @login_required
 def inbox(request):
+    """
+    Boîte de réception - Affiche les messages reçus par l'utilisateur.
+    """
     messages_list = Message.objects.filter(destinataire=request.user).order_by('-date_envoi')
-    return render(request, 'messaging/inbox.html', {'messages': messages_list, 'active_tab': 'inbox'})
+    template = get_messaging_template(request.user, 'inbox')
+    return render(request, template, {
+        'message_list': messages_list, 
+        'active_tab': 'inbox',
+    })
 
 @login_required
 def sent_box(request):
+    """
+    Messages envoyés - Affiche les messages envoyés par l'utilisateur.
+    """
     messages_list = Message.objects.filter(expediteur=request.user).order_by('-date_envoi')
-    return render(request, 'messaging/sent_box.html', {'messages': messages_list, 'active_tab': 'sent'})
+    template = get_messaging_template(request.user, 'sent_box')
+    return render(request, template, {
+        'message_list': messages_list, 
+        'active_tab': 'sent',
+    })
 
 @login_required
 def compose(request):
+    """
+    Rédiger un nouveau message.
+    """
     if request.method == 'POST':
         form = MessageForm(request.POST, user=request.user)
         if form.is_valid():
@@ -28,10 +58,16 @@ def compose(request):
     else:
         form = MessageForm(user=request.user)
     
-    return render(request, 'messaging/compose.html', {'form': form})
+    template = get_messaging_template(request.user, 'compose')
+    return render(request, template, {
+        'form': form,
+    })
 
 @login_required
 def message_detail(request, message_id):
+    """
+    Détail d'un message - Affiche le contenu complet d'un message.
+    """
     msg = get_object_or_404(Message, id_message=message_id)
     
     # Check permission
@@ -43,5 +79,8 @@ def message_detail(request, message_id):
     if msg.destinataire == request.user and not msg.lu:
         msg.lu = True
         msg.save()
-        
-    return render(request, 'messaging/detail.html', {'message': msg})
+    
+    template = get_messaging_template(request.user, 'detail')
+    return render(request, template, {
+        'message': msg,
+    })

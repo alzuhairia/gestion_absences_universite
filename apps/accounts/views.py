@@ -10,7 +10,25 @@ from apps.absences.utils import generate_absence_report
 
 @login_required
 def profile_view(request):
-    return render(request, 'accounts/profile.html', {'user': request.user})
+    """
+    Vue de profil qui utilise le bon template selon le rôle de l'utilisateur.
+    """
+    user = request.user
+    context = {
+        'user': user,
+    }
+    
+    # Déterminer le template de base selon le rôle
+    if user.role == user.Role.ADMIN:
+        template = 'accounts/profile_admin.html'
+    elif user.role == user.Role.SECRETAIRE:
+        template = 'accounts/profile_secretary.html'
+    elif user.role == user.Role.PROFESSEUR:
+        template = 'accounts/profile_instructor.html'
+    else:  # ETUDIANT
+        template = 'accounts/profile_student.html'
+    
+    return render(request, template, context)
 
 @login_required
 def settings_view(request):
@@ -74,7 +92,8 @@ def download_report_pdf(request):
         })
         
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="releve_absences_{user.username}.pdf"'
+    filename_safe = f"{user.prenom}_{user.nom}".replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="releve_absences_{filename_safe}.pdf"'
     
     generate_absence_report(response, user, academic_year, cours_data)
     

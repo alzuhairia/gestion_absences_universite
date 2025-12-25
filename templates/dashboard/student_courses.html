@@ -1,0 +1,129 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Mes Cours{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Mes Cours</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-book me-2"></i>Mes Cours
+        </h1>
+        <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    {% if academic_year %}
+    <div class="alert alert-info">
+        <i class="fas fa-calendar me-2"></i>
+        <strong>Année académique :</strong> {{ academic_year.libelle }}
+    </div>
+    {% endif %}
+
+    {% if courses_data %}
+    <div class="row">
+        {% for item in courses_data %}
+        <div class="col-12 mb-4">
+            <div class="card shadow student-card">
+                <div class="card-header py-3 bg-white student-card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">
+                                <strong class="text-primary">{{ item.code }}</strong> - {{ item.nom }}
+                            </h5>
+                            <small class="text-muted">
+                                <i class="fas fa-chalkboard-teacher me-1"></i>{{ item.professeur }}
+                            </small>
+                        </div>
+                        <div>
+                            <span class="badge bg-{{ item.status_color }} px-3 py-2" style="font-size: 0.9rem;">
+                                {% if item.status == "BLOQUÉ" %}
+                                    <i class="fas fa-ban me-1"></i>BLOQUÉ
+                                {% elif item.status == "À RISQUE" %}
+                                    <i class="fas fa-exclamation-triangle me-1"></i>À RISQUE
+                                {% else %}
+                                    <i class="fas fa-check-circle me-1"></i>OK
+                                {% endif %}
+                            </span>
+                            {% if item.is_exempted %}
+                            <span class="badge bg-success ms-2">Exempté</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 text-center">
+                            <div class="border rounded p-3">
+                                <div class="h4 text-primary mb-0">{{ item.sessions_count }}</div>
+                                <small class="text-muted">Séances</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="border rounded p-3">
+                                <div class="h4 text-warning mb-0">{{ item.absences_count }}</div>
+                                <small class="text-muted">Absences</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="border rounded p-3">
+                                <div class="h4 {% if item.absence_rate >= 40 %}text-danger{% elif item.absence_rate >= 30 %}text-warning{% else %}text-success{% endif %} mb-0">
+                                    {{ item.absence_rate }}%
+                                </div>
+                                <small class="text-muted">Taux d'absence</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="border rounded p-3">
+                                <div class="h4 text-secondary mb-0">{{ item.total_periods }}h</div>
+                                <small class="text-muted">Total périodes</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if item.status == "BLOQUÉ" and not item.is_exempted %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Attention :</strong> Vous avez dépassé le seuil de 40% d'absences non justifiées pour ce cours. 
+                        Vous ne pouvez pas passer les examens. Contactez le secrétariat pour toute démarche.
+                    </div>
+                    {% elif item.status == "À RISQUE" %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Vigilance :</strong> Vous approchez du seuil de 40% d'absences. Soyez attentif à votre assiduité.
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'dashboard:student_course_detail' item.inscription.id_inscription %}" 
+                           class="btn btn-primary" title="Voir les détails du cours" data-bs-toggle="tooltip">
+                            <i class="fas fa-eye me-1"></i> Voir les détails
+                        </a>
+                        <a href="{% url 'absences:details' item.inscription.id_inscription %}" 
+                           class="btn btn-info" title="Voir les absences de ce cours" data-bs-toggle="tooltip">
+                            <i class="fas fa-list me-1"></i> Voir les absences
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card shadow student-card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Aucun cours</h5>
+            <p class="text-muted">Vous n'êtes inscrit à aucun cours pour l'année académique courante.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

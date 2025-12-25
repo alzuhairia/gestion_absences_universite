@@ -1,6 +1,6 @@
-{% extends 'base.html' %}
+{% extends 'base_admin.html' %}
 
-{% block title %}Dashboard - Administration{% endblock %}
+{% block title %}Tableau de Bord - Administration{% endblock %}
 
 {% block breadcrumbs %}
 <li class="breadcrumb-item active" aria-current="page">Administration</li>
@@ -86,7 +86,7 @@
                                             justif.id_absence.duree_absence }}h)</small>
                                     </td>
                                     <td class="text-center">
-                                        <!-- Placeholder link since document is BinaryField, needs a serving view -->
+                                        <!-- Lien temporaire car le document est un BinaryField, nécessite une vue de service -->
                                         {% if justif.document %}
                                         <a href="#" class="btn btn-sm btn-info" target="_blank">
                                             <i class="fas fa-eye"></i> Voir
