@@ -10,7 +10,39 @@ env/
 db.sqlite3
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
 media/
 
-# Divers
+# Logs
+*.log
+*.txt
+!requirements.txt
+logs/
+debug_log.txt
+traceback.txt
+error.log
+
+# Fichiers temporaires
+*.bak
+*.tmp
+*.temp
+models_temp.py
+gestion_absences_universite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Scripts temporaires (à nettoyer périodiquement)
+update_imports.py
+fix_imports.py
