@@ -1,0 +1,208 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Nouveau message{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'messaging:inbox' %}">Messagerie</a></li>
+<li class="breadcrumb-item active" aria-current="page">Nouveau message</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .compose-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .compose-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+    }
+
+    .compose-header h5 {
+        color: white;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .compose-body {
+        padding: 2rem;
+    }
+
+    .form-group-modern {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label-modern {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+
+    .form-label-modern i {
+        margin-right: 0.5rem;
+        color: #667eea;
+    }
+
+    .form-control-modern {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+
+    .form-control-modern:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+    }
+
+    .form-control-modern textarea {
+        min-height: 200px;
+        resize: vertical;
+    }
+
+    .btn-send {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-send:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .messaging-sidebar {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .messaging-nav-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+    }
+
+    .messaging-nav-item:hover {
+        background: #f8f9fa;
+        color: #667eea;
+        transform: translateX(4px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="messaging-sidebar">
+                <a href="{% url 'messaging:inbox' %}" class="messaging-nav-item">
+                    <i class="fas fa-inbox me-2"></i>
+                    <span>Boîte de réception</span>
+                </a>
+                <a href="{% url 'messaging:sent' %}" class="messaging-nav-item">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    <span>Messages envoyés</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="compose-container">
+                <div class="compose-header">
+                    <h5>
+                        <i class="fas fa-pen me-2"></i>Rédiger un nouveau message
+                    </h5>
+                </div>
+                <div class="compose-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if form.errors %}
+                        <div class="alert alert-danger border-0 rounded-lg mb-4">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Veuillez corriger les erreurs ci-dessous.
+                        </div>
+                        {% endif %}
+
+                        <div class="form-group-modern">
+                            <label for="{{ form.destinataire.id_for_label }}" class="form-label-modern">
+                                <i class="fas fa-user"></i>Destinataire
+                            </label>
+                            <select name="{{ form.destinataire.name }}" id="{{ form.destinataire.id_for_label }}" class="form-select form-control-modern">
+                                {% for choice in form.destinataire.field.queryset %}
+                                    <option value="{{ choice.pk }}" {% if form.destinataire.value == choice.pk %}selected{% endif %}>
+                                        {{ choice.prenom }} {{ choice.nom }} ({{ choice.get_role_display }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.destinataire.errors %}
+                            <div class="text-danger small mt-1">
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ form.destinataire.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group-modern">
+                            <label for="{{ form.objet.id_for_label }}" class="form-label-modern">
+                                <i class="fas fa-tag"></i>Objet
+                            </label>
+                            <input type="text" name="{{ form.objet.name }}" id="{{ form.objet.id_for_label }}" 
+                                   value="{{ form.objet.value|default:'' }}" 
+                                   class="form-control form-control-modern" 
+                                   placeholder="Sujet du message">
+                            {% if form.objet.errors %}
+                            <div class="text-danger small mt-1">
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ form.objet.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group-modern">
+                            <label for="{{ form.contenu.id_for_label }}" class="form-label-modern">
+                                <i class="fas fa-comment"></i>Message
+                            </label>
+                            <textarea name="{{ form.contenu.name }}" id="{{ form.contenu.id_for_label }}" 
+                                      class="form-control form-control-modern" 
+                                      rows="8" 
+                                      placeholder="Votre message...">{{ form.contenu.value|default:'' }}</textarea>
+                            {% if form.contenu.errors %}
+                            <div class="text-danger small mt-1">
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ form.contenu.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="{% url 'messaging:inbox' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-send text-white">
+                                <i class="fas fa-paper-plane me-2"></i>Envoyer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

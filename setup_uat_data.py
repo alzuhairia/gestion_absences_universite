@@ -33,6 +33,18 @@ def create_uat_data():
     else:
         student = User.objects.get(email=email)
 
+    # 1b. Secretary
+    sec_email = "secretary@uni.edu"
+    if not User.objects.filter(email=sec_email).exists():
+        User.objects.create_user(
+            email=sec_email,
+            nom="Admin",
+            prenom="Secretary",
+            password="secretpassword",
+            role=User.Role.SECRETAIRE
+        )
+        print("Created Secretary user: secretary@uni.edu / secretpassword")
+
     # 2. Year & Dept
     annee, _ = AnneeAcademique.objects.get_or_create(libelle="2024-2025", defaults={'active': True})
     faculte, _ = Faculte.objects.get_or_create(nom_faculte="UAT Fac")
@@ -43,9 +55,12 @@ def create_uat_data():
         {"code": "GREEN101", "name": "Course Green (20%)", "abs": 20},
         {"code": "ORANGE101", "name": "Course Orange (35%)", "abs": 35},
         {"code": "RED101", "name": "Course Red (45%)", "abs": 45},
+        {"code": "ADVANCED202", "name": "Advanced Course (Prereq: Green)", "abs": 0, "prereq": "GREEN101"},
     ]
 
     base_time = timezone.now()
+
+    created_courses = {}
 
     for conf in courses_config:
         cours, _ = Cours.objects.get_or_create(
@@ -57,6 +72,13 @@ def create_uat_data():
                 'id_departement': dept
             }
         )
+        created_courses[conf["code"]] = cours
+
+        if "prereq" in conf:
+            prereq_course = created_courses.get(conf["prereq"])
+            if prereq_course:
+                cours.prerequisites.add(prereq_course)
+                print(f"Added prerequisite: {prereq_course.code_cours} for {cours.code_cours}")
         
         # Enrollment
         insc, _ = Inscription.objects.get_or_create(

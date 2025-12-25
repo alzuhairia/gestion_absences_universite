@@ -1,0 +1,94 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Modifier le Cours{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_courses' %}">Cours</a></li>
+<li class="breadcrumb-item active">Modifier</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-edit me-2"></i>Modifier le Cours
+        </h1>
+        <a href="{% url 'dashboard:admin_courses' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-warning text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Modification du Cours
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Attention :</strong> La désactivation d'un cours affectera toutes les inscriptions et absences associées.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.code_cours.id_for_label }}" class="form-label">Code du Cours</label>
+                                {{ form.code_cours }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.nom_cours.id_for_label }}" class="form-label">Nom du Cours</label>
+                                {{ form.nom_cours }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.nombre_total_periodes.id_for_label }}" class="form-label">Total Périodes (h)</label>
+                                {{ form.nombre_total_periodes }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.seuil_absence.id_for_label }}" class="form-label">Seuil d'Absence (%)</label>
+                                {{ form.seuil_absence }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.id_departement.id_for_label }}" class="form-label">Département</label>
+                                {{ form.id_departement }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.professeur.id_for_label }}" class="form-label">Professeur Responsable</label>
+                                {{ form.professeur }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.prerequisites.id_for_label }}" class="form-label">Prérequis</label>
+                            {{ form.prerequisites }}
+                            <small class="form-text text-muted">Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs cours</small>
+                        </div>
+                        <div class="mb-3 form-check">
+                            {{ form.actif }}
+                            <label class="form-check-label" for="{{ form.actif.id_for_label }}">
+                                Actif
+                            </label>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Enregistrer les modifications
+                            </button>
+                            <a href="{% url 'dashboard:admin_courses' %}" class="btn btn-secondary">
+                                Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,92 @@
+{% extends 'base_instructor.html' %}
+
+{% block title %}Mes Séances{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Mes Séances</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-calendar-alt me-2"></i>Mes Séances
+        </h1>
+        <a href="{% url 'dashboard:instructor_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    {% if academic_year %}
+    <div class="alert alert-info">
+        <i class="fas fa-calendar me-2"></i>
+        <strong>Année académique :</strong> {{ academic_year.libelle }}
+    </div>
+    {% endif %}
+
+    {% if sessions %}
+    <div class="card shadow instructor-card">
+        <div class="card-header py-3 bg-white instructor-card-header">
+            <h6 class="m-0 font-weight-bold text-primary">Historique des Séances</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Cours</th>
+                            <th>Département</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr>
+                            <td>
+                                <strong>{{ session.date_seance|date:"d/m/Y" }}</strong>
+                            </td>
+                            <td>
+                                {{ session.heure_debut|time:"H:i" }} - {{ session.heure_fin|time:"H:i" }}
+                            </td>
+                            <td>
+                                <strong class="text-primary">{{ session.id_cours.code_cours }}</strong><br>
+                                <small class="text-muted">{{ session.id_cours.nom_cours }}</small>
+                            </td>
+                            <td>
+                                {{ session.id_cours.id_departement.nom_departement }}
+                            </td>
+                            <td>
+                                <a href="{% url 'absences:mark_absence' session.id_cours.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}" 
+                                   class="btn btn-sm btn-primary" title="Prendre l'appel pour cette séance" data-bs-toggle="tooltip">
+                                    <i class="fas fa-edit me-1"></i> Prendre l'appel
+                                </a>
+                                <a href="{% url 'dashboard:instructor_course_detail' session.id_cours.id_cours %}" 
+                                   class="btn btn-sm btn-info" title="Voir les détails du cours" data-bs-toggle="tooltip">
+                                    <i class="fas fa-eye me-1"></i> Détails
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow instructor-card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Aucune séance enregistrée</h5>
+            <p class="text-muted">Vous n'avez pas encore créé de séances pour vos cours.</p>
+            <a href="{% url 'dashboard:instructor_courses' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-book me-1"></i> Voir mes cours
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

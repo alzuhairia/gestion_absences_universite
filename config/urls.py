@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.shortcuts import redirect
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -16,7 +17,10 @@ urlpatterns = [
     path('dashboard/', include('apps.dashboard.urls')),
     
     # N'oublie pas l'application qu'on a renommée pour éviter le conflit !
+    # N'oublie pas l'application qu'on a renommée pour éviter le conflit !
     path('sessions/', include('apps.academic_sessions.urls')),
+    path('audits/', include('apps.audits.urls')),
+    path('', lambda request: redirect('dashboard/', permanent=False)),
 ]
 
 if settings.DEBUG:

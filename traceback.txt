@@ -1,0 +1,11 @@
+CRITICAL ERROR CAUGHT:
+'User' object has no attribute 'username'
+Traceback (most recent call last):
+  File "C:\Users\ahmed\Desktop\gestion_absences_universite\reproduce_issue.py", line 24, in <module>
+    response = download_report_pdf(request)
+  File "C:\Users\ahmed\Desktop\gestion_absences_universite\env\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\ahmed\Desktop\gestion_absences_universite\apps\accounts\views.py", line 77, in download_report_pdf
+    response['Content-Disposition'] = f'attachment; filename="releve_absences_{user.username}.pdf"'
+                                                                               ^^^^^^^^^^^^^
+AttributeError: 'User' object has no attribute 'username'

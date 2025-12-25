@@ -1,49 +1,147 @@
-{% extends 'base.html' %}
+{% extends 'base_auth.html' %}
 
-{% block title %}Connexion{% endblock %}
+{% block title %}Connexion - UniAbsences{% endblock %}
+
+{% block auth_title %}UniAbsences{% endblock %}
+
+{% block auth_subtitle %}Système de Gestion des Absences{% endblock %}
 
 {% block content %}
-<div class="container h-100">
-    <div class="row d-flex justify-content-center align-items-center h-100" style="min-height: 80vh;">
-        <div class="col-12 col-md-9 col-lg-7 col-xl-6">
-            <div class="card shadow-lg" style="border-radius: 15px;">
-                <div class="card-body p-5">
-                    <h2 class="text-uppercase text-center mb-5">UniAbsences Login</h2>
-
-                    <form method="post" action="{% url 'accounts:login' %}">
-                        {% csrf_token %}
-
-                        {% if form.errors %}
-                        <div class="alert alert-danger">
-                            Compte inconnu ou mot de passe incorrect.
-                        </div>
-                        {% endif %}
-
-                        <div class="form-outline mb-4">
-                            <label class="form-label" for="id_username">Email</label>
-                            <input type="email" name="username" id="id_username" class="form-control form-control-lg"
-                                placeholder="exemple@uni.edu" required />
-                        </div>
-
-                        <div class="form-outline mb-4">
-                            <label class="form-label" for="id_password">Mot de passe</label>
-                            <input type="password" name="password" id="id_password" class="form-control form-control-lg"
-                                required />
-                        </div>
-
-                        <div class="d-flex justify-content-center">
-                            <button type="submit"
-                                class="btn btn-primary btn-block btn-lg gradient-custom-4 text-white w-100">Se
-                                connecter</button>
-                        </div>
-
-                        <input type="hidden" name="next" value="{% url 'dashboard:index' %}" />
-
-                    </form>
-
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Information Message -->
+<div class="info-message">
+    <i class="fas fa-info-circle"></i>
+    <strong>Accès sécurisé :</strong> Veuillez vous connecter avec vos identifiants universitaires pour accéder à votre espace personnel.
 </div>
+
+<!-- Login Form -->
+<form method="post" action="{% url 'accounts:login' %}" id="loginForm">
+    {% csrf_token %}
+
+    <!-- Error Messages -->
+    {% if form.errors %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Erreur de connexion :</strong> Email ou mot de passe incorrect. Veuillez vérifier vos identifiants et réessayer.
+    </div>
+    {% endif %}
+
+    {% if next %}
+    {% if user.is_authenticated %}
+    <div class="alert alert-info" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        Votre compte n'a pas les permissions nécessaires pour accéder à cette page.
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        Veuillez vous connecter pour accéder à cette page.
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Email Field -->
+    <div class="mb-4">
+        <label for="id_username" class="form-label">
+            <i class="fas fa-envelope me-2"></i>Adresse email
+        </label>
+        <input 
+            type="email" 
+            name="username" 
+            id="id_username" 
+            class="form-control form-control-lg" 
+            placeholder="exemple@universite.edu" 
+            required 
+            autocomplete="email"
+            autofocus
+        />
+        <small class="form-text text-muted">Utilisez votre adresse email universitaire</small>
+    </div>
+
+    <!-- Password Field -->
+    <div class="mb-4">
+        <label for="id_password" class="form-label">
+            <i class="fas fa-lock me-2"></i>Mot de passe
+        </label>
+        <div class="input-group">
+            <input 
+                type="password" 
+                name="password" 
+                id="id_password" 
+                class="form-control form-control-lg" 
+                placeholder="••••••••" 
+                required 
+                autocomplete="current-password"
+            />
+            <button 
+                class="btn btn-outline-secondary" 
+                type="button" 
+                id="togglePassword"
+                title="Afficher/Masquer le mot de passe"
+            >
+                <i class="fas fa-eye" id="togglePasswordIcon"></i>
+            </button>
+        </div>
+        <small class="form-text text-muted">Votre mot de passe est sécurisé et crypté</small>
+    </div>
+
+    <!-- Hidden Next Field -->
+    <input type="hidden" name="next" value="{{ next|default:'/dashboard/' }}" />
+
+    <!-- Submit Button -->
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+            <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+        </button>
+    </div>
+</form>
+
+<!-- Additional Help (Optional) -->
+<div class="text-center mt-4">
+    <small class="text-muted">
+        <i class="fas fa-question-circle me-1"></i>
+        Besoin d'aide ? Contactez le support informatique de votre établissement.
+    </small>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle Password Visibility
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('id_password');
+    const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+
+    if (togglePassword) {
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle icon
+            if (type === 'text') {
+                togglePasswordIcon.classList.remove('fa-eye');
+                togglePasswordIcon.classList.add('fa-eye-slash');
+            } else {
+                togglePasswordIcon.classList.remove('fa-eye-slash');
+                togglePasswordIcon.classList.add('fa-eye');
+            }
+        });
+    }
+
+    // Form Submission Loading State
+    const loginForm = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (loginForm && submitBtn) {
+        loginForm.addEventListener('submit', function() {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connexion en cours...';
+        });
+    }
+
+    // Auto-focus on email field if empty
+    const emailInput = document.getElementById('id_username');
+    if (emailInput && !emailInput.value) {
+        emailInput.focus();
+    }
+</script>
 {% endblock %}

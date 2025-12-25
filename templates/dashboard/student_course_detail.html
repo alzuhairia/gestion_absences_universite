@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}Détails du cours — {{ course.code_cours }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #1cc88a 0%, #17a2b8 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 1rem 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-bottom-color: #1cc88a;
+        color: #1cc88a;
+    }
+
+    .nav-tabs .nav-link.active {
+        border-bottom-color: #1cc88a;
+        color: #1cc88a;
+        background: transparent;
+    }
+
+    .tab-content {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-top: 1rem;
+    }
+
+    .session-row, .absence-row {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s;
+    }
+
+    .session-row:hover, .absence-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .status-badge {
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .warning-box {
+        background: #fff3cd;
+        border-left: 4px solid #e74a3b;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">{{ course.code_cours }}</h1>
+                <p class="mb-0 opacity-90">{{ course.nom_cours }}</p>
+                <p class="mb-0 small opacity-75 mt-2">
+                    <i class="fas fa-chalkboard-teacher me-1"></i>
+                    {% if course.professeur %}
+                        {{ course.professeur.get_full_name }}
+                    {% else %}
+                        Non assigné
+                    {% endif %}
+                    {% if academic_year %}
+                    — <i class="fas fa-calendar me-1"></i>{{ academic_year.libelle }}
+                    {% endif %}
+                </p>
+            </div>
+            <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-light">
+                <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord
+            </a>
+        </div>
+    </div>
+
+    <!-- 40% Threshold Warning -->
+    {% if is_blocked %}
+    <div class="warning-box">
+        <h5 class="fw-bold mb-3">
+            <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+            Seuil de 40% dépassé
+        </h5>
+        <p class="mb-2">
+            <strong>Vous avez dépassé le seuil de 40% d'absences non justifiées pour ce cours ({{ absence_rate }}%).</strong>
+        </p>
+        <p class="mb-0">
+            <i class="fas fa-info-circle me-1"></i>
+            Veuillez contacter le secrétariat pédagogique pour toute démarche administrative.
+            <strong>Toutes les actions administratives (déblocage, exemption) sont gérées par le secrétariat.</strong>
+        </p>
+    </div>
+    {% elif absence_rate >= 30 %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <strong>Attention :</strong> Votre taux d'absence est de {{ absence_rate }}%. 
+        Vous approchez du seuil critique de 40%. Pensez à justifier vos absences rapidement.
+    </div>
+    {% endif %}
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="courseTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'sessions' %}active{% endif %}" 
+                    id="sessions-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#sessions" 
+                    type="button" 
+                    role="tab">
+                <i class="fas fa-calendar-alt me-1"></i>Séances
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'absences' %}active{% endif %}" 
+                    id="absences-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#absences" 
+                    type="button" 
+                    role="tab">
+                <i class="fas fa-user-times me-1"></i>Absences
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="courseTabsContent">
+        <!-- Tab 1: Sessions -->
+        <div class="tab-pane fade {% if active_tab == 'sessions' %}show active{% endif %}" 
+             id="sessions" 
+             role="tabpanel">
+            <h4 class="mb-4">Historique des séances</h4>
+            <p class="text-muted mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                Liste chronologique de toutes les séances pour ce cours.
+            </p>
+
+            {% if sessions_data %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sessions_data %}
+                        <tr>
+                            <td>{{ item.session.date_seance|date:"d/m/Y" }}</td>
+                            <td>{{ item.session.heure_debut|time:"H:i" }} - {{ item.session.heure_fin|time:"H:i" }}</td>
+                            <td>
+                                {% if item.status == "Present" %}
+                                    <span class="status-badge bg-success text-white">
+                                        <i class="fas fa-check-circle me-1"></i>Présent
+                                    </span>
+                                {% elif item.status == "Excused" %}
+                                    <span class="status-badge bg-info text-white">
+                                        <i class="fas fa-check me-1"></i>Excusé
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge bg-danger text-white">
+                                        <i class="fas fa-times-circle me-1"></i>Absent
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                <p>Aucune séance enregistrée pour ce cours.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 2: Absences -->
+        <div class="tab-pane fade {% if active_tab == 'absences' %}show active{% endif %}" 
+             id="absences" 
+             role="tabpanel">
+            <h4 class="mb-4">Liste des absences</h4>
+            <p class="text-muted mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                Vous pouvez soumettre un justificatif pour les absences non justifiées ou en attente.
+            </p>
+
+            {% if absences_data %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Durée</th>
+                            <th>Statut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in absences_data %}
+                        <tr>
+                            <td>{{ item.absence.id_seance.date_seance|date:"d/m/Y" }}</td>
+                            <td>{{ item.absence.id_seance.heure_debut|time:"H:i" }}</td>
+                            <td>{{ item.absence.duree_absence }}h</td>
+                            <td>
+                                {% if item.status == "JUSTIFIÉE" %}
+                                    <span class="status-badge bg-success text-white">
+                                        <i class="fas fa-check-circle me-1"></i>Justifiée
+                                    </span>
+                                {% elif item.status == "EN ATTENTE" %}
+                                    <span class="status-badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i>En attente
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge bg-danger text-white">
+                                        <i class="fas fa-times-circle me-1"></i>Non justifiée
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.can_submit %}
+                                    <a href="{% url 'absences:upload' item.absence.id_absence %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-file-upload me-1"></i>Soumettre justificatif
+                                    </a>
+                                {% elif item.justification %}
+                                    {% if item.justification.state == 'EN_ATTENTE' %}
+                                        <span class="text-muted small">
+                                            <i class="fas fa-hourglass-half me-1"></i>En cours d'examen
+                                        </span>
+                                    {% elif item.justification.state == 'ACCEPTEE' %}
+                                        <span class="text-success small">
+                                            <i class="fas fa-check me-1"></i>Acceptée
+                                        </span>
+                                    {% else %}
+                                        <a href="{% url 'absences:upload' item.absence.id_absence %}" 
+                                           class="btn btn-sm btn-warning">
+                                            <i class="fas fa-redo me-1"></i>Résoumettre
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                <p>Aucune absence enregistrée pour ce cours.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update URL when tab changes
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (e) {
+            const tabName = e.target.getAttribute('data-bs-target').substring(1);
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
+        });
+    });
+</script>
+{% endblock %}
+

@@ -95,45 +95,68 @@
                     </div>
                     {% endif %}
 
-                    <!-- Form (Only if not validated) -->
-                    {% if absence.statut != 'JUSTIFIEE' %}
+                    <!-- Form (Only if UNJUSTIFIED or PENDING) -->
+                    {% if absence.statut != 'JUSTIFIEE' and not justification or justification.state == 'REFUSEE' %}
                     <hr class="my-4">
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" enctype="multipart/form-data" id="justificationForm">
                         {% csrf_token %}
                         <h5 class="fw-bold mb-3"><i class="fas fa-file-upload me-2 text-primary"></i>Déposer un document
                         </h5>
 
-                        <div class="alert alert-info small">
+                        <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            Votre justificatif sera transmis directement au secrétariat. Formats acceptés : PDF, Image
-                            (Max 5Mo).
+                            <strong>Important :</strong> Votre justificatif sera transmis directement au secrétariat. 
+                            Formats acceptés : PDF, JPG, PNG (Max 5 Mo). 
+                            <strong>Vous ne pourrez plus modifier le formulaire après soumission.</strong>
                         </div>
 
                         <div class="mb-3">
-                            <label for="document" class="form-label fw-bold">Fichier Justificatif</label>
-                            <input class="form-control form-control-lg" type="file" id="document" name="document"
-                                required accept=".pdf, .jpg, .jpeg, .png">
+                            <label for="document" class="form-label fw-bold">
+                                Fichier Justificatif <span class="text-danger">*</span>
+                            </label>
+                            <input class="form-control form-control-lg" 
+                                   type="file" 
+                                   id="document" 
+                                   name="document"
+                                   required 
+                                   accept=".pdf,.jpg,.jpeg,.png"
+                                   onchange="validateFile(this)">
+                            <small class="text-muted">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</small>
                         </div>
 
                         <div class="mb-4">
-                            <label for="comment" class="form-label fw-bold">Commentaire additionnel</label>
-                            <textarea class="form-control" id="comment" name="comment" rows="3"
-                                placeholder="Précisions utiles pour l'administration..."></textarea>
+                            <label for="comment" class="form-label fw-bold">Commentaire additionnel (optionnel)</label>
+                            <textarea class="form-control" 
+                                      id="comment" 
+                                      name="comment" 
+                                      rows="3"
+                                      placeholder="Précisions utiles pour l'administration..."></textarea>
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
                                 <i class="fas fa-paper-plane me-2"></i>Envoyer la justification
                             </button>
                         </div>
                     </form>
+                    {% elif justification and justification.state == 'EN_ATTENTE' %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lock me-2"></i>
+                        <strong>Justificatif déjà soumis :</strong> Votre justificatif est en cours d'examen par le secrétariat. 
+                        Vous ne pouvez plus le modifier.
+                    </div>
+                    {% elif absence.statut == 'JUSTIFIEE' or justification.state == 'ACCEPTEE' %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Justification acceptée :</strong> Cette absence a été justifiée et validée par le secrétariat.
+                    </div>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="text-center">
+            <div class="text-center mt-4">
                 <a href="{% url 'absences:details' absence.id_inscription.id_inscription %}"
-                    class="text-decoration-none text-muted">
+                    class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-1"></i> Retour à la liste des absences
                 </a>
             </div>
@@ -141,4 +164,35 @@
         </div>
     </div>
 </div>
+
+<script>
+    function validateFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        
+        if (file.size > maxSize) {
+            alert('Le fichier est trop volumineux. Taille maximale : 5 Mo.');
+            input.value = '';
+            return;
+        }
+        
+        if (!allowedTypes.includes(file.type)) {
+            alert('Format de fichier non accepté. Formats acceptés : PDF, JPG, PNG.');
+            input.value = '';
+            return;
+        }
+    }
+    
+    // Prevent double submission
+    document.getElementById('justificationForm')?.addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Envoi en cours...';
+        }
+    });
+</script>
 {% endblock %}

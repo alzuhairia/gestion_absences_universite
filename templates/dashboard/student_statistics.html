@@ -1,0 +1,252 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Statistiques - Étudiant{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Statistiques</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-chart-bar me-2"></i>Statistiques Personnelles
+            </h1>
+            <p class="text-muted mb-0">
+                {% if academic_year %}
+                    Année académique : <strong>{{ academic_year.libelle }}</strong>
+                {% else %}
+                    Aucune année académique active
+                {% endif %}
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="window.print()">
+            <i class="fas fa-print me-2"></i>Imprimer
+        </button>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        Cette page présente vos statistiques détaillées d'absences. Les graphiques vous permettent de visualiser votre situation par cours et dans le temps.
+    </div>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Heures d'absence non justifiées
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_hours_missed }}h</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-times fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Cours à risque (≥ 40%)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ courses_at_risk }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row">
+        <!-- Bar Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow student-card">
+                <div class="card-header py-3 bg-white student-card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Taux d'absence par cours
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-bar" style="height: 300px;">
+                        <canvas id="absenceBarChart"></canvas>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        La ligne rouge indique le seuil critique de 40%. Au-delà de ce seuil, l'accès à l'examen est bloqué.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow student-card">
+                <div class="card-header py-3 bg-white student-card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-line me-2"></i>Tendances des absences
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area" style="height: 300px;">
+                        <canvas id="absenceTrendChart"></canvas>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Total des heures d'absence par mois sur l'année universitaire.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // --- Data passed from Django View ---
+    const courseLabels = {{ course_labels|safe }};
+    const absencePercentages = {{ absence_percentages|safe }};
+    const trendLabels = {{ trend_labels|safe }};
+    const trendData = {{ trend_data|safe }};
+
+    // --- Bar Chart Config ---
+    const ctxBar = document.getElementById("absenceBarChart");
+    if (ctxBar) {
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: courseLabels,
+                datasets: [{
+                    label: "Taux d'absence (%)",
+                    backgroundColor: (context) => {
+                        const value = context.raw;
+                        return value >= 40 ? '#dc3545' : '#1cc88a'; // Red if >= 40, else Green (student color)
+                    },
+                    hoverBackgroundColor: (context) => {
+                        const value = context.raw;
+                        return value >= 40 ? '#c82333' : '#17a673';
+                    },
+                    borderColor: (context) => {
+                        const value = context.raw;
+                        return value >= 40 ? '#dc3545' : '#1cc88a';
+                    },
+                    data: absencePercentages,
+                    borderRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        grid: {
+                            color: (context) => {
+                                if (context.tick.value === 40) {
+                                    return 'rgba(220, 53, 69, 0.8)'; // Red line at 40%
+                                }
+                                return 'rgba(0, 0, 0, 0.1)';
+                            },
+                            lineWidth: (context) => {
+                                if (context.tick.value === 40) return 2;
+                                return 1;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Taux d\'absence : ' + context.parsed.y + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Line Chart Config ---
+    const ctxLine = document.getElementById("absenceTrendChart");
+    if (ctxLine) {
+        new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: "Heures d'absence",
+                    lineTension: 0.3,
+                    backgroundColor: "rgba(28, 200, 138, 0.1)",
+                    borderColor: "rgba(28, 200, 138, 1)",
+                    pointRadius: 4,
+                    pointBackgroundColor: "rgba(28, 200, 138, 1)",
+                    pointBorderColor: "#fff",
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: "rgba(28, 200, 138, 1)",
+                    pointHoverBorderColor: "#fff",
+                    pointHitRadius: 10,
+                    pointBorderWidth: 2,
+                    data: trendData,
+                    fill: true
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'h';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ' : ' + context.parsed.y + 'h';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
+

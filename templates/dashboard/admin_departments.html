@@ -1,0 +1,111 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Gestion des Départements{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+<li class="breadcrumb-item active">Départements</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-sitemap me-2"></i>Gestion des Départements
+        </h1>
+        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Create Form -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-plus me-2"></i>Créer un Département
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.nom_departement.id_for_label }}" class="form-label">Nom du Département</label>
+                            {{ form.nom_departement }}
+                            {% if form.nom_departement.errors %}
+                            <div class="text-danger small">{{ form.nom_departement.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.id_faculte.id_for_label }}" class="form-label">Faculté</label>
+                            {{ form.id_faculte }}
+                            {% if form.id_faculte.errors %}
+                            <div class="text-danger small">{{ form.id_faculte.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3 form-check">
+                            {{ form.actif }}
+                            <label class="form-check-label" for="{{ form.actif.id_for_label }}">
+                                Actif
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i> Créer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- List -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">Liste des Départements</h6>
+                </div>
+                <div class="card-body">
+                    {% if departments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Faculté</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dept in departments %}
+                                <tr>
+                                    <td><strong>{{ dept.nom_departement }}</strong></td>
+                                    <td>{{ dept.id_faculte.nom_faculte }}</td>
+                                    <td>
+                                        {% if dept.actif %}
+                                        <span class="badge bg-success">Actif</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactif</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'dashboard:admin_department_edit' dept.id_departement %}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i> Modifier
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Aucun département enregistré</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

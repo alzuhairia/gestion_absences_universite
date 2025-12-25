@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Détails du cours — {{ course.code_cours }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 1rem 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-bottom-color: #4e73df;
+        color: #4e73df;
+    }
+
+    .nav-tabs .nav-link.active {
+        border-bottom-color: #4e73df;
+        color: #4e73df;
+        background: transparent;
+    }
+
+    .tab-content {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-top: 1rem;
+    }
+
+    .student-row {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s;
+    }
+
+    .student-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .student-row.at-risk {
+        background-color: #fff3cd;
+        border-left: 4px solid #e74a3b;
+    }
+
+    .badge-at-risk {
+        background: #e74a3b;
+        color: white;
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .badge-ok {
+        background: #1cc88a;
+        color: white;
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .session-row {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .session-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .stats-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #4e73df;
+    }
+
+    .stats-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .warning-box {
+        background: #fff3cd;
+        border-left: 4px solid #e74a3b;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">{{ course.code_cours }}</h1>
+                <p class="mb-0 opacity-90">{{ course.nom_cours }}</p>
+                <p class="mb-0 small opacity-75">
+                    <i class="fas fa-university me-1"></i>{{ course.id_departement.id_faculte.nom_faculte }} — 
+                    <i class="fas fa-building me-1"></i>{{ course.id_departement.nom_departement }}
+                    {% if academic_year %}
+                    — <i class="fas fa-calendar me-1"></i>{{ academic_year.libelle }}
+                    {% endif %}
+                </p>
+            </div>
+            <a href="{% url 'dashboard:instructor_dashboard' %}" class="btn btn-light">
+                <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="courseTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'students' %}active{% endif %}" 
+                    id="students-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#students" 
+                    type="button" 
+                    role="tab">
+                <i class="fas fa-user-graduate me-1"></i>Étudiants
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'sessions' %}active{% endif %}" 
+                    id="sessions-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#sessions" 
+                    type="button" 
+                    role="tab">
+                <i class="fas fa-calendar-alt me-1"></i>Séances
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'statistics' %}active{% endif %}" 
+                    id="statistics-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#statistics" 
+                    type="button" 
+                    role="tab">
+                <i class="fas fa-chart-bar me-1"></i>Statistiques
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="courseTabsContent">
+        <!-- Tab 1: Students (READ ONLY) -->
+        <div class="tab-pane fade {% if active_tab == 'students' %}show active{% endif %}" 
+             id="students" 
+             role="tabpanel">
+            <h4 class="mb-4">Liste des étudiants inscrits</h4>
+            <p class="text-muted mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                <strong>Lecture seule :</strong> Vous pouvez consulter les informations des étudiants mais ne pouvez pas modifier leurs inscriptions.
+            </p>
+
+            {% if students_data %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Étudiant</th>
+                            <th>Email</th>
+                            <th>% Absence</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in students_data %}
+                        <tr class="{% if item.is_at_risk %}table-warning{% endif %}">
+                            <td>
+                                <strong>{{ item.etudiant.get_full_name }}</strong>
+                            </td>
+                            <td>{{ item.etudiant.email }}</td>
+                            <td>
+                                {% if item.is_at_risk %}
+                                    <span class="badge-at-risk">{{ item.rate }}%</span>
+                                {% else %}
+                                    <span class="badge-ok">{{ item.rate }}%</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.is_at_risk %}
+                                    {% if item.is_exempted %}
+                                        <span class="badge bg-success">Exempté</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">BLOQUÉ</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-success">OK</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if at_risk_students > 0 %}
+            <div class="warning-box">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Attention :</strong> {{ at_risk_students }} étudiant(s) ont dépassé le seuil de 40% d'absences. 
+                Ils ne peuvent pas passer les examens. <strong>Toutes les actions administratives sont gérées par le secrétariat.</strong>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-user-slash fa-3x mb-3"></i>
+                <p>Aucun étudiant inscrit à ce cours.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 2: Sessions -->
+        <div class="tab-pane fade {% if active_tab == 'sessions' %}show active{% endif %}" 
+             id="sessions" 
+             role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">Historique des séances</h4>
+                <a href="{% url 'absences:mark_absence' course.id_cours %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Créer une séance / Prendre l'appel
+                </a>
+            </div>
+
+            {% if sessions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Durée</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr>
+                            <td>{{ session.date_seance|date:"d/m/Y" }}</td>
+                            <td>{{ session.heure_debut|time:"H:i" }} - {{ session.heure_fin|time:"H:i" }}</td>
+                            <td>
+                                {% widthratio session.heure_fin|time:"H"|add:"0" session.heure_debut|time:"H"|add:"0" 1 as hours %}
+                                {{ hours }}h
+                            </td>
+                            <td>
+                                <a href="{% url 'absences:mark_absence' course.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-edit me-1"></i>Prendre l'appel
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                <p>Aucune séance enregistrée pour ce cours.</p>
+                <a href="{% url 'absences:mark_absence' course.id_cours %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus me-1"></i>Créer la première séance
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 3: Statistics -->
+        <div class="tab-pane fade {% if active_tab == 'statistics' %}show active{% endif %}" 
+             id="statistics" 
+             role="tabpanel">
+            <h4 class="mb-4">Statistiques d'absence</h4>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ overall_rate }}%</div>
+                        <div class="stats-label">Taux d'absence moyen</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ total_absences_all }}</div>
+                        <div class="stats-label">Total absences enregistrées</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ at_risk_students }}</div>
+                        <div class="stats-label">Étudiants à risque (>40%)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Note :</strong> Ces statistiques sont calculées uniquement à partir des absences non justifiées. 
+                Les absences justifiées ne sont pas comptabilisées dans le calcul du taux d'absence.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update URL when tab changes
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (e) {
+            const tabName = e.target.getAttribute('data-bs-target').substring(1);
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
+        });
+    });
+</script>
+{% endblock %}
+

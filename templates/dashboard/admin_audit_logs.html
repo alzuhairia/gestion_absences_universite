@@ -1,0 +1,146 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Journaux d'Audit{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+<li class="breadcrumb-item active">Journaux d'Audit</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-history me-2"></i>Journaux d'Audit
+        </h1>
+        <div>
+            <a href="{% url 'dashboard:admin_export_audit_csv' %}{% if role_filter %}?role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" 
+               class="btn btn-success me-2">
+                <i class="fas fa-file-csv me-1"></i> Exporter CSV
+            </a>
+            <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Lecture seule :</strong> Les journaux d'audit sont enregistrés automatiquement et ne peuvent pas être modifiés ou supprimés.
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Rôle</label>
+                    <select name="role" class="form-select">
+                        <option value="">Tous</option>
+                        <option value="ETUDIANT" {% if role_filter == 'ETUDIANT' %}selected{% endif %}>Étudiant</option>
+                        <option value="PROFESSEUR" {% if role_filter == 'PROFESSEUR' %}selected{% endif %}>Professeur</option>
+                        <option value="SECRETAIRE" {% if role_filter == 'SECRETAIRE' %}selected{% endif %}>Secrétaire</option>
+                        <option value="ADMIN" {% if role_filter == 'ADMIN' %}selected{% endif %}>Administrateur</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Action</label>
+                    <input type="text" name="action" class="form-control" placeholder="Rechercher..." value="{{ action_filter }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date début</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date fin</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Utilisateur</label>
+                    <input type="text" name="user" class="form-control" placeholder="Nom, prénom, email..." value="{{ user_filter }}">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Audit Logs List -->
+    <div class="card shadow">
+        <div class="card-header py-3 bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">Journal d'Audit</h6>
+        </div>
+        <div class="card-body">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date/Heure</th>
+                            <th>Utilisateur</th>
+                            <th>Rôle</th>
+                            <th>Action</th>
+                            <th>Adresse IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.date_action|date:"d/m/Y H:i:s" }}</td>
+                            <td>
+                                <strong>{{ log.id_utilisateur.get_full_name }}</strong><br>
+                                <small class="text-muted">{{ log.id_utilisateur.email }}</small>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if log.id_utilisateur.role == 'ADMIN' %}bg-danger
+                                    {% elif log.id_utilisateur.role == 'SECRETAIRE' %}bg-warning
+                                    {% elif log.id_utilisateur.role == 'PROFESSEUR' %}bg-success
+                                    {% else %}bg-info{% endif %}">
+                                    {{ log.id_utilisateur.get_role_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if 'CRITIQUE' in log.action %}
+                                <span class="badge bg-danger me-1">CRITIQUE</span>
+                                {% endif %}
+                                {{ log.action }}
+                            </td>
+                            <td><small class="text-muted">{{ log.adresse_ip }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if logs.has_other_pages %}
+            <nav aria-label="Navigation des pages" class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if logs.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.previous_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}">Précédent</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">Page {{ logs.number }} sur {{ logs.paginator.num_pages }}</span>
+                    </li>
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.next_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}">Suivant</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <p class="text-muted text-center py-4">Aucun journal d'audit trouvé</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

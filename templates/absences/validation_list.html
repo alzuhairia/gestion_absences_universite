@@ -1,0 +1,359 @@
+{% extends 'base_secretary.html' %}
+
+{% block title %}Validation des Justificatifs{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Justificatifs</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .status-filter {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .status-btn {
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+
+    .status-btn.active {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .justification-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid;
+        transition: all 0.3s;
+    }
+
+    .justification-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .justification-card.pending {
+        border-left-color: #ffc107;
+    }
+
+    .justification-card.accepted {
+        border-left-color: #28a745;
+    }
+
+    .justification-card.rejected {
+        border-left-color: #dc3545;
+    }
+
+    .badge-status {
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .comment-box {
+        background: #f8f9fa;
+        border-left: 3px solid #667eea;
+        padding: 1rem;
+        border-radius: 6px;
+        font-style: italic;
+        color: #495057;
+        margin-top: 1rem;
+    }
+
+    .document-badge {
+        background: #e7f3ff;
+        color: #0066cc;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .btn-action {
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        border-bottom: none;
+        padding: 1.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-file-check me-2"></i>Validation des Justificatifs
+            </h1>
+            <p class="text-muted mb-0">Examiner et valider les justificatifs d'absence soumis par les étudiants</p>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        Cette page permet d'examiner et de valider les justificatifs d'absence soumis par les étudiants. 
+        Vous pouvez accepter ou refuser chaque justificatif avec un commentaire.
+    </div>
+
+    <!-- Status Filter -->
+    <div class="status-filter">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="text-muted me-2"><i class="fas fa-filter me-1"></i>Filtrer par statut :</span>
+            <a href="?status=EN_ATTENTE" 
+               class="status-btn {% if current_status == 'EN_ATTENTE' %}active bg-warning text-white{% else %}bg-light text-dark{% endif %}">
+                <i class="fas fa-clock me-1"></i>En attente
+            </a>
+            <a href="?status=ACCEPTEE" 
+               class="status-btn {% if current_status == 'ACCEPTEE' %}active bg-success text-white{% else %}bg-light text-dark{% endif %}">
+                <i class="fas fa-check-circle me-1"></i>Acceptées
+            </a>
+            <a href="?status=REFUSEE" 
+               class="status-btn {% if current_status == 'REFUSEE' %}active bg-danger text-white{% else %}bg-light text-dark{% endif %}">
+                <i class="fas fa-times-circle me-1"></i>Refusées
+            </a>
+        </div>
+    </div>
+
+    <!-- Justifications List -->
+    {% if page_obj %}
+    <div class="row">
+        {% for justification in page_obj %}
+        <div class="col-12">
+            <div class="justification-card {% if justification.state == 'EN_ATTENTE' %}pending{% elif justification.state == 'ACCEPTEE' %}accepted{% else %}rejected{% endif %}">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h4 class="mb-1 fw-bold">
+                                    <i class="fas fa-user-graduate me-2 text-primary"></i>
+                                    {{ justification.id_absence.id_inscription.id_etudiant.get_full_name }}
+                                </h4>
+                                <p class="text-muted mb-0 small">
+                                    <i class="fas fa-envelope me-1"></i>{{ justification.id_absence.id_inscription.id_etudiant.email }}
+                                </p>
+                            </div>
+                            <span class="badge-status 
+                                {% if justification.state == 'EN_ATTENTE' %}bg-warning text-dark
+                                {% elif justification.state == 'ACCEPTEE' %}bg-success text-white
+                                {% else %}bg-danger text-white{% endif %}">
+                                {{ justification.get_state_display }}
+                            </span>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <p class="mb-1">
+                                    <i class="fas fa-book me-2 text-info"></i>
+                                    <strong>Cours :</strong> {{ justification.id_absence.id_seance.id_cours.nom_cours }}
+                                    <span class="text-muted">({{ justification.id_absence.id_seance.id_cours.code_cours }})</span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1">
+                                    <i class="fas fa-calendar me-2 text-info"></i>
+                                    <strong>Date absence :</strong> {{ justification.id_absence.id_seance.date_seance|date:"d/m/Y" }}
+                                    <span class="text-muted">({{ justification.id_absence.duree_absence }}h)</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {% if justification.commentaire %}
+                        <div class="comment-box">
+                            <i class="fas fa-comment me-2"></i>
+                            <strong>Commentaire étudiant :</strong> "{{ justification.commentaire }}"
+                        </div>
+                        {% endif %}
+
+                        {% if justification.commentaire_gestion %}
+                        <div class="comment-box mt-2" style="border-left-color: #28a745;">
+                            <i class="fas fa-user-shield me-2"></i>
+                            <strong>Commentaire gestion :</strong> {{ justification.commentaire_gestion }}
+                        </div>
+                        {% endif %}
+
+                        {% if justification.document %}
+                        <div class="mt-2">
+                            <span class="document-badge">
+                                <i class="fas fa-paperclip me-1"></i>Document joint
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4 text-end">
+                        <div class="d-flex flex-column gap-2">
+                            {% if justification.state == 'EN_ATTENTE' %}
+                            <button onclick="openReviewModal('{{ justification.id_justification }}', '{{ justification.id_absence.id_inscription.id_etudiant.get_full_name|escapejs }}')" 
+                                    class="btn btn-primary btn-action">
+                                <i class="fas fa-eye me-1"></i>Examiner
+                            </button>
+                            {% endif %}
+                            
+                            <a href="{% url 'absences:edit_absence' justification.id_absence.pk %}" 
+                               class="btn btn-outline-secondary btn-action">
+                                <i class="fas fa-edit me-1"></i>Modifier l'absence
+                            </a>
+
+                            {% if justification.validee_par %}
+                            <p class="text-muted small mb-0 mt-2">
+                                <i class="fas fa-user-check me-1"></i>
+                                Validé par {{ justification.validee_par.get_full_name }}
+                                <br>
+                                <i class="fas fa-clock me-1"></i>
+                                {{ justification.date_validation|date:"d/m/Y à H:i" }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if current_status %}&status={{ current_status }}{% endif %}">Premier</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}">Précédent</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}">Suivant</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_status %}&status={{ current_status }}{% endif %}">Dernier</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="empty-state bg-white rounded-3 shadow-sm">
+        <i class="fas fa-inbox"></i>
+        <h5 class="mt-3">Aucune justification trouvée</h5>
+        <p class="text-muted">Aucune justification ne correspond au statut sélectionné.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reviewModalLabel">
+                    <i class="fas fa-clipboard-check me-2"></i>Examiner la demande
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="reviewForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-user-graduate me-2"></i>
+                        <strong>Étudiant :</strong> <span id="modalStudentName"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="comment" class="form-label">
+                            <i class="fas fa-comment-dots me-1"></i>Commentaire de gestion
+                            <span class="text-danger">*</span>
+                        </label>
+                        <textarea id="comment" name="comment" rows="4" class="form-control" 
+                                  placeholder="Raison de la validation ou du refus..."></textarea>
+                        <small class="text-muted">Obligatoire pour un refus</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="submit" name="action" value="reject" class="btn btn-danger">
+                        <i class="fas fa-times-circle me-1"></i>Refuser
+                    </button>
+                    <button type="submit" name="action" value="approve" class="btn btn-success">
+                        <i class="fas fa-check-circle me-1"></i>Accepter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openReviewModal(id, studentName) {
+        document.getElementById('modalStudentName').textContent = studentName;
+        document.getElementById('reviewForm').action = "/absences/process/" + id + "/";
+        var modal = new bootstrap.Modal(document.getElementById('reviewModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

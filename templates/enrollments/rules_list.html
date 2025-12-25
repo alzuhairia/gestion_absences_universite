@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion Règle 40%{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-banner {
+        background: linear-gradient(135deg, #e7f3ff 0%, #d0e7ff 100%);
+        border-left: 4px solid #0066cc;
+        padding: 1.25rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .student-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid;
+        transition: all 0.3s;
+    }
+
+    .student-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .student-card.blocked {
+        border-left-color: #dc3545;
+    }
+
+    .student-card.exempted {
+        border-left-color: #28a745;
+    }
+
+    .rate-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .rate-badge.critical {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-badge {
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .exemption-badge {
+        background: #d4edda;
+        color: #155724;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        display: inline-block;
+    }
+
+    .btn-exemption {
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .btn-exemption:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        border-bottom: none;
+        padding: 1.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        text-align: center;
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header text-center">
+        <h1 class="mb-2"><i class="fas fa-balance-scale me-2"></i>Gestion de la Règle 40%</h1>
+        <p class="mb-0 opacity-90">Gérer les exemptions et le statut des étudiants à risque</p>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="info-banner">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-info-circle fa-2x text-primary me-3 mt-1"></i>
+            <div>
+                <h5 class="fw-bold mb-2">À propos de la règle des 40%</h5>
+                <p class="mb-0">
+                    Cette interface liste les étudiants dont le taux d'absence non justifiée dépasse 40%. 
+                    Les étudiants bloqués ne peuvent pas passer les examens. Vous pouvez lever le blocage 
+                    en accordant une exemption administrative avec un motif justifié.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}times-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Statistics -->
+    {% if at_risk_list %}
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-danger">{{ at_risk_list|length }}</div>
+                <div class="text-muted">Total étudiants à risque</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-warning">{{ blocked_count }}</div>
+                <div class="text-muted">Étudiants bloqués</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-success">{{ exempted_count }}</div>
+                <div class="text-muted">Étudiants exemptés</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Students List -->
+    {% if at_risk_list %}
+    <div class="row">
+        {% for item in at_risk_list %}
+        <div class="col-12">
+            <div class="student-card {% if item.is_blocked %}blocked{% else %}exempted{% endif %}">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <h5 class="fw-bold mb-1">
+                            <i class="fas fa-user-graduate me-2 text-primary"></i>
+                            {{ item.etudiant.get_full_name }}
+                        </h5>
+                        <p class="text-muted mb-0 small">
+                            <i class="fas fa-envelope me-1"></i>{{ item.etudiant.email }}
+                        </p>
+                    </div>
+                    <div class="col-md-3">
+                        <p class="mb-1">
+                            <i class="fas fa-book me-2 text-info"></i>
+                            <strong>Cours :</strong>
+                        </p>
+                        <p class="mb-0">
+                            {{ item.cours.nom_cours }}<br>
+                            <span class="text-muted small">({{ item.cours.code_cours }})</span>
+                        </p>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <span class="rate-badge critical">
+                            {{ item.rate }}%
+                        </span>
+                        <p class="text-muted small mb-0 mt-1">({{ item.total_abs }}h)</p>
+                    </div>
+                    <div class="col-md-2">
+                        {% if item.is_blocked %}
+                        <span class="status-badge bg-danger text-white">
+                            <i class="fas fa-ban me-1"></i>BLOQUÉ
+                        </span>
+                        {% else %}
+                        <span class="status-badge bg-success text-white">
+                            <i class="fas fa-check-circle me-1"></i>EXEMPTÉ
+                        </span>
+                        {% if item.inscription.motif_exemption %}
+                        <div class="exemption-badge mt-2">
+                            <i class="fas fa-file-alt me-1"></i>
+                            "{{ item.inscription.motif_exemption|truncatechars:50 }}"
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="col-md-2 text-end">
+                        {% if not item.exemption %}
+                        <button onclick="openExemptionModal('{{ item.inscription.pk }}', '{{ item.etudiant.get_full_name|escapejs }}')" 
+                                class="btn btn-success btn-exemption">
+                            <i class="fas fa-unlock me-1"></i>Accorder Exemption
+                        </button>
+                        {% else %}
+                        <form method="POST" action="{% url 'enrollments:toggle_exemption' item.inscription.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="revoke">
+                            <button type="submit" class="btn btn-danger btn-exemption" 
+                                    onclick="return confirm('Êtes-vous sûr de vouloir révoquer cette exemption ?');">
+                                <i class="fas fa-lock me-1"></i>Révoquer
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'dashboard:secretary_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord
+        </a>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-check-circle text-success"></i>
+        <h5 class="mt-3">Aucun étudiant en situation critique</h5>
+        <p class="text-muted">Aucun étudiant n'est actuellement bloqué (taux d'absence > 40%).</p>
+        <a href="{% url 'dashboard:secretary_dashboard' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Exemption Modal -->
+<div class="modal fade" id="exemptionModal" tabindex="-1" aria-labelledby="exemptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exemptionModalLabel">
+                    <i class="fas fa-unlock me-2"></i>Accorder une Exemption Administrative
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="exemptionForm" method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="grant">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-user-graduate me-2"></i>
+                        <strong>Étudiant :</strong> <span id="modalStudentName"></span>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Cette action débloquera l'étudiant pour les examens malgré son taux d'absence élevé.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="motif" class="form-label">
+                            <i class="fas fa-file-alt me-1"></i>Motif de l'exemption
+                            <span class="text-danger">*</span>
+                        </label>
+                        <textarea id="motif" name="motif" rows="4" class="form-control" 
+                                  required placeholder="Ex: Hospitalisation longue durée, situation médicale exceptionnelle..."></textarea>
+                        <small class="text-muted">Ce motif sera enregistré dans le système et visible dans les journaux d'audit.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-1"></i>Confirmer et Accorder
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openExemptionModal(id, studentName) {
+        document.getElementById('modalStudentName').textContent = studentName;
+        document.getElementById('exemptionForm').action = "/enrollments/rules/toggle/" + id + "/";
+        var modal = new bootstrap.Modal(document.getElementById('exemptionModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

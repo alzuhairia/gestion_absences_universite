@@ -1,0 +1,134 @@
+{% extends 'base_instructor.html' %}
+
+{% block title %}Statistiques{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Statistiques</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-bar me-2"></i>Statistiques
+        </h1>
+        <a href="{% url 'dashboard:instructor_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    {% if academic_year %}
+    <div class="alert alert-info">
+        <i class="fas fa-calendar me-2"></i>
+        <strong>Année académique :</strong> {{ academic_year.libelle }}
+    </div>
+    {% endif %}
+
+    <!-- Overall Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow instructor-card">
+                <div class="card-body text-center">
+                    <div class="h3 text-primary mb-0">{{ total_students }}</div>
+                    <small class="text-muted">Total Étudiants</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow instructor-card">
+                <div class="card-body text-center">
+                    <div class="h3 text-danger mb-0">{{ total_at_risk }}</div>
+                    <small class="text-muted">Étudiants à Risque (>40%)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow instructor-card">
+                <div class="card-body text-center">
+                    <div class="h3 text-warning mb-0">{{ total_absences }}</div>
+                    <small class="text-muted">Total Absences</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow instructor-card">
+                <div class="card-body text-center">
+                    <div class="h3 {% if overall_at_risk_rate > 20 %}text-danger{% elif overall_at_risk_rate > 10 %}text-warning{% else %}text-success{% endif %} mb-0">
+                        {{ overall_at_risk_rate }}%
+                    </div>
+                    <small class="text-muted">Taux Global à Risque</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics by Course -->
+    {% if course_stats %}
+    <div class="card shadow instructor-card">
+        <div class="card-header py-3 bg-white instructor-card-header">
+            <h6 class="m-0 font-weight-bold text-primary">Statistiques par Cours</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Cours</th>
+                            <th>Étudiants</th>
+                            <th>Étudiants à Risque</th>
+                            <th>Total Absences</th>
+                            <th>Taux Moyen d'Absence</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in course_stats %}
+                        <tr>
+                            <td>
+                                <strong class="text-primary">{{ stat.course.code_cours }}</strong><br>
+                                <small class="text-muted">{{ stat.course.nom_cours }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ stat.students_count }}</span>
+                            </td>
+                            <td>
+                                {% if stat.at_risk_count > 0 %}
+                                    <span class="badge bg-danger">{{ stat.at_risk_count }}</span>
+                                {% else %}
+                                    <span class="badge bg-success">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-warning">{{ stat.absences_count }}</span>
+                            </td>
+                            <td>
+                                <span class="badge {% if stat.avg_rate >= 40 %}bg-danger{% elif stat.avg_rate >= 20 %}bg-warning{% else %}bg-success{% endif %}">
+                                    {{ stat.avg_rate }}%
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'dashboard:instructor_course_detail' stat.course.id_cours %}" 
+                                   class="btn btn-sm btn-primary" title="Voir les détails" data-bs-toggle="tooltip">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow instructor-card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Aucune statistique disponible</h5>
+            <p class="text-muted">Aucun cours ne vous est assigné pour l'année académique courante.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

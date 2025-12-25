@@ -1,0 +1,329 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Tableau de Bord Administrateur{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item active" aria-current="page">Administration</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-shield-alt me-2"></i>Tableau de Bord Administrateur
+            </h1>
+            <p class="text-muted mb-0">Vue d'ensemble et statistiques du système</p>
+        </div>
+    </div>
+
+    <!-- Warning Banner -->
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Rôle Administrateur :</strong> Ce tableau de bord est destiné à la configuration et au contrôle du système. 
+        Les opérations quotidiennes (absences, justifications) sont gérées par le secrétariat.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Étudiants
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_students }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-graduate fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Total Professeurs
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_professors }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chalkboard-teacher fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Secrétaires
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_secretaries }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-tie fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Cours Actifs
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_courses }}</div>
+                            {% if academic_year %}
+                            <small class="text-muted">{{ academic_year.libelle }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional KPIs Row -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Alertes Système
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_alerts }}</div>
+                            <small class="text-muted">Étudiants à risque (>40%)</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-dark shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
+                                Actions Critiques
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ critical_actions }}</div>
+                            <small class="text-muted">7 derniers jours</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shield-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                Inscriptions
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_inscriptions }}</div>
+                            <small class="text-muted">Année active</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Absences
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_absences }}</div>
+                            <small class="text-muted">Enregistrées</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-times fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-server me-2"></i>État du Système
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    {% if academic_year %}
+                                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                                    {% else %}
+                                    <i class="fas fa-exclamation-circle fa-2x text-danger"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-0">Année Académique</h6>
+                                    <p class="text-muted mb-0">
+                                        {% if academic_year %}
+                                        <span class="badge bg-success">{{ academic_year.libelle }}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Aucune année active</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-sliders-h fa-2x text-info"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-0">Seuil d'Absence</h6>
+                                    <p class="text-muted mb-0">
+                                        <span class="badge bg-info">{{ settings.default_absence_threshold }}%</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    {% if system_alerts > 0 %}
+                                    <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                                    {% else %}
+                                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-0">Santé du Système</h6>
+                                    <p class="text-muted mb-0">
+                                        {% if system_alerts > 0 %}
+                                        <span class="badge bg-warning">{{ system_alerts }} alerte(s)</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Aucune alerte</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-shield-alt fa-2x text-primary"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-0">Sécurité</h6>
+                                    <p class="text-muted mb-0">
+                                        {% if settings.mfa_enabled_globally %}
+                                        <span class="badge bg-success">MFA Activé</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">MFA Désactivé</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Audit Logs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-2"></i>Activités Récentes (Audit)
+                    </h6>
+                    <small class="text-muted">Accédez aux journaux complets via le menu latéral</small>
+                </div>
+                <div class="card-body">
+                    {% if recent_audits %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date/Heure</th>
+                                    <th>Utilisateur</th>
+                                    <th>Rôle</th>
+                                    <th>Niveau</th>
+                                    <th>Action</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in recent_audits %}
+                                <tr>
+                                    <td>{{ log.date_action|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ log.id_utilisateur.get_full_name }}</td>
+                                    <td><span class="badge bg-secondary">{{ log.id_utilisateur.get_role_display }}</span></td>
+                                    <td>
+                                        {% if log.niveau == 'CRITIQUE' %}
+                                        <span class="badge bg-danger">CRITIQUE</span>
+                                        {% elif log.niveau == 'AVERTISSEMENT' %}
+                                        <span class="badge bg-warning">AVERTISSEMENT</span>
+                                        {% else %}
+                                        <span class="badge bg-info">INFO</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ log.action|truncatechars:60 }}</td>
+                                    <td><small class="text-muted">{{ log.adresse_ip }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">Aucune activité récente</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -82,13 +82,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=Role.choices,
         default=Role.ETUDIANT,
         db_column='role',
-        verbose_name=_('Rôle')
+        verbose_name=_('Rôle'),
+        db_index=True
     )
     
     actif = models.BooleanField(
         default=True,
         db_column='actif',
-        verbose_name=_('Actif')
+        verbose_name=_('Actif'),
+        db_index=True,
+        help_text=_('Désactiver un compte le masque sans le supprimer')
     )
     
     date_creation = models.DateTimeField(
@@ -155,9 +158,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['nom', 'prenom']
     
     objects = UserManager()
-
-    # AJOUTE CECI pour corriger l'erreur :
-    last_login = None  # On désactive explicitement ce champ
+    
+    # Champ last_login géré par Django (peut être null)
+    last_login = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('Dernière connexion'),
+        help_text=_('Date et heure de la dernière connexion')
+    )
     
     class Meta:
         db_table = 'utilisateur'

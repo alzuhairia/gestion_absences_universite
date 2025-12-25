@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from . import views_validation
+from . import views_manager
 
 app_name = 'absences'
 
@@ -11,10 +13,19 @@ urlpatterns = [
     path('upload/<int:absence_id>/', views.upload_justification, name='upload'),
     
     # --- Actions Secrétariat / Admin ---
+    path('validation/', views_validation.validation_list, name='validation_list'),
+    path('process/<int:pk>/', views_validation.process_justification, name='process_justification'),
     
+    # Edit/Override Absence
+    path('edit/<int:pk>/', views_manager.edit_absence, name='edit_absence'),
+
     # Valider un justificatif (Passe l'absence en JUSTIFIEE)
     path('valider/<int:absence_id>/', views.valider_justificatif, name='valider_justification'),
     
     # Refuser un justificatif (Remet l'absence en NON_JUSTIFIEE)
     path('refuser/<int:absence_id>/', views.refuser_justificatif, name='refuser_justification'),
+
+    # --- Actions Professeur ---
+    path('mark/<int:course_id>/', views.mark_absence, name='mark_absence'),
+    path('review/<int:absence_id>/', views.review_justification, name='review_justification'),
 ]
