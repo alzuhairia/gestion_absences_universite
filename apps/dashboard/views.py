@@ -446,9 +446,18 @@ def secretary_enrollments(request):
             Q(id_cours__nom_cours__icontains=search_query)
         )
 
+    # Regrouper les inscriptions par étudiant
+    students_enrollments = defaultdict(list)
+    
+    for inscription in inscriptions.order_by('id_etudiant__nom', 'id_etudiant__prenom', 'id_cours__code_cours'):
+        students_enrollments[inscription.id_etudiant].append(inscription)
+    
+    # Créer une liste de tuples (étudiant, liste_des_inscriptions) pour la pagination
+    students_list = list(students_enrollments.items())
+    
     # Pagination
     from django.core.paginator import Paginator
-    paginator = Paginator(inscriptions, 25)
+    paginator = Paginator(students_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

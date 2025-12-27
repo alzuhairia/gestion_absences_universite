@@ -61,6 +61,29 @@
                                 {{ form.id_departement }}
                             </div>
                             <div class="col-md-6 mb-3">
+                                <label for="{{ form.niveau.id_for_label }}" class="form-label">Niveau d'étude <span class="text-danger">*</span></label>
+                                {{ form.niveau }}
+                                {% if form.niveau.errors %}
+                                <div class="text-danger small">{{ form.niveau.errors }}</div>
+                                {% endif %}
+                                {% if form.niveau.help_text %}
+                                <small class="form-text text-muted">{{ form.niveau.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if form.id_annee %}
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Année académique :</strong> {{ course.id_annee.libelle|default:"Non définie" }}
+                                </div>
+                                {{ form.id_annee }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
                                 <label for="{{ form.professeur.id_for_label }}" class="form-label">Professeur Responsable</label>
                                 {{ form.professeur }}
                             </div>
@@ -69,7 +92,21 @@
                             <label for="{{ form.prerequisites.id_for_label }}" class="form-label">
                                 <i class="fas fa-list-check me-2"></i>Prérequis
                             </label>
-                            <div class="prerequisites-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.75rem; background-color: #f8f9fa;">
+                            <div id="prerequisites-info" class="alert alert-info mb-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="prerequisites-message">
+                                    {% if course.niveau == 1 %}
+                                        Année 1 : Aucun prérequis autorisé.
+                                    {% elif course.niveau == 2 %}
+                                        Année 2 : Prérequis autorisés uniquement depuis l'Année 1.
+                                    {% elif course.niveau == 3 %}
+                                        Année 3 : Prérequis autorisés uniquement depuis l'Année 1 ou 2.
+                                    {% else %}
+                                        Sélectionnez un niveau pour voir les prérequis disponibles.
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="prerequisites-container" id="prerequisites-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.75rem; background-color: #f8f9fa;">
                                 {% if form.prerequisites.field.queryset.exists %}
                                     {% for checkbox in form.prerequisites %}
                                         <div class="form-check mb-2">

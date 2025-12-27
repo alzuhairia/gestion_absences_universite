@@ -108,6 +108,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_index=True
     )
     
+    niveau = models.IntegerField(
+        choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
+        null=True,
+        blank=True,
+        db_column='niveau',
+        verbose_name=_('Niveau académique'),
+        help_text=_('Niveau actuel de l\'étudiant (1, 2 ou 3). Uniquement pour les étudiants.'),
+        db_index=True
+    )
+    
     # === PROPRIÉTÉS VIRTUELLES (PAS DANS LA BD) ===
     
     @property
