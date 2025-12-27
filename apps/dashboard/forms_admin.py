@@ -45,8 +45,8 @@ class CoursForm(forms.ModelForm):
     prerequisites = forms.ModelMultipleChoiceField(
         queryset=Cours.objects.none(),
         required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': '5'}),
-        help_text="Sélectionnez les prérequis pour ce cours"
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        help_text="Cochez les cours qui sont des prérequis pour ce cours. Laissez vide si aucun prérequis n'est requis."
     )
     
     class Meta:
@@ -79,11 +79,13 @@ class CoursForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields['prerequisites'].queryset = Cours.objects.filter(
                 actif=True
-            ).exclude(id_cours=self.instance.id_cours)
-            # Définir les prérequis initiaux
+            ).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
+            # Définir les prérequis initiaux uniquement lors de l'édition
             self.fields['prerequisites'].initial = self.instance.prerequisites.all()
         else:
-            self.fields['prerequisites'].queryset = Cours.objects.filter(actif=True)
+            # Lors de la création, aucun prérequis n'est sélectionné par défaut
+            self.fields['prerequisites'].queryset = Cours.objects.filter(actif=True).order_by('code_cours')
+            self.fields['prerequisites'].initial = []  # Aucun prérequis par défaut
         
         # Labels en français
         self.fields['code_cours'].label = 'Code du Cours'
@@ -112,6 +114,12 @@ class UserForm(forms.ModelForm):
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
         help_text="Laissez vide pour ne pas modifier le mot de passe"
     )
+    password_confirm = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label='Confirmer le mot de passe',
+        help_text=""
+    )
     
     class Meta:
         model = User
@@ -126,9 +134,20 @@ class UserForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Ne pas permettre de changer le rôle de l'utilisateur actuel en non-admin s'il est le seul admin
-        if self.instance and self.instance.pk:
+        is_creation = not (self.instance and self.instance.pk)
+        
+        if is_creation:
+            # Lors de la création, le mot de passe est obligatoire
+            self.fields['password'].required = True
+            self.fields['password'].help_text = "Définissez un mot de passe temporaire pour l'utilisateur"
+            self.fields['password_confirm'].required = True
+            self.fields['password_confirm'].help_text = "Confirmez le mot de passe"
+        else:
+            # Lors de la modification, le mot de passe est optionnel
+            self.fields['password'].required = False
             self.fields['password'].help_text = "Laissez vide pour ne pas modifier le mot de passe"
+            self.fields['password_confirm'].required = False
+            self.fields['password_confirm'].help_text = "Confirmez le nouveau mot de passe (si vous modifiez le mot de passe)"
         
         # Labels en français
         self.fields['nom'].label = 'Nom'
@@ -138,11 +157,48 @@ class UserForm(forms.ModelForm):
         self.fields['actif'].label = 'Compte Actif'
         self.fields['password'].label = 'Mot de Passe'
     
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        password_confirm = cleaned_data.get('password_confirm')
+        is_creation = not (self.instance and self.instance.pk)
+        
+        # Lors de la création, le mot de passe est obligatoire
+        if is_creation:
+            if not password:
+                raise forms.ValidationError({
+                    'password': 'Le mot de passe est obligatoire lors de la création d\'un utilisateur.'
+                })
+            if not password_confirm:
+                raise forms.ValidationError({
+                    'password_confirm': 'La confirmation du mot de passe est obligatoire.'
+                })
+        
+        # Si un mot de passe est fourni, vérifier qu'il correspond à la confirmation
+        if password:
+            if password != password_confirm:
+                raise forms.ValidationError({
+                    'password_confirm': 'Les mots de passe ne correspondent pas.'
+                })
+            # Valider la longueur minimale
+            if len(password) < 8:
+                raise forms.ValidationError({
+                    'password': 'Le mot de passe doit contenir au moins 8 caractères.'
+                })
+        
+        return cleaned_data
+    
     def save(self, commit=True):
         user = super().save(commit=False)
         password = self.cleaned_data.get('password')
+        is_creation = not (self.instance and self.instance.pk)
+        
         if password:
             user.set_password(password)
+            # Lors de la création, forcer le changement de mot de passe à la première connexion
+            if is_creation:
+                user.must_change_password = True
+        
         if commit:
             user.save()
         return user
