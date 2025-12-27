@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_export
 from . import views_admin
+from . import views_secretary
 
 app_name = 'dashboard' # C'est ce mot-clé qui crée le préfixe "dashboard:"
 
@@ -21,8 +22,8 @@ urlpatterns = [
     path('student/absences/', views.student_absences, name='student_absences'),
     path('student/reports/', views.student_reports, name='student_reports'),
     
-    # Active Courses Management
-    path('secretary/courses/', views.active_courses, name='active_courses'),
+    # Active Courses Management (read-only view - moved to avoid conflict with secretary_courses)
+    path('secretary/active-courses/', views.active_courses, name='active_courses'),
     
     # Instructor Pages
     path('instructor/courses/', views.instructor_courses, name='instructor_courses'),
@@ -41,15 +42,20 @@ urlpatterns = [
     # Academic Structure Management
     path('admin/faculties/', views_admin.admin_faculties, name='admin_faculties'),
     path('admin/faculties/<int:faculte_id>/edit/', views_admin.admin_faculty_edit, name='admin_faculty_edit'),
+    path('admin/faculties/<int:faculte_id>/delete/', views_admin.admin_faculty_delete, name='admin_faculty_delete'),
     path('admin/departments/', views_admin.admin_departments, name='admin_departments'),
     path('admin/departments/<int:dept_id>/edit/', views_admin.admin_department_edit, name='admin_department_edit'),
+    path('admin/departments/<int:dept_id>/delete/', views_admin.admin_department_delete, name='admin_department_delete'),
     path('admin/courses/', views_admin.admin_courses, name='admin_courses'),
     path('admin/courses/<int:course_id>/edit/', views_admin.admin_course_edit, name='admin_course_edit'),
+    path('admin/courses/<int:course_id>/delete/', views_admin.admin_course_delete, name='admin_course_delete'),
     
     # User Management
     path('admin/users/', views_admin.admin_users, name='admin_users'),
     path('admin/users/create/', views_admin.admin_user_create, name='admin_user_create'),
+    path('admin/users/delete-multiple/', views_admin.admin_users_delete_multiple, name='admin_users_delete_multiple'),
     path('admin/users/<int:user_id>/edit/', views_admin.admin_user_edit, name='admin_user_edit'),
+    path('admin/users/<int:user_id>/delete/', views_admin.admin_user_delete, name='admin_user_delete'),
     path('admin/users/<int:user_id>/reset-password/', views_admin.admin_user_reset_password, name='admin_user_reset_password'),
     path('admin/users/<int:user_id>/audit/', views_admin.admin_user_audit, name='admin_user_audit'),
     
@@ -59,8 +65,24 @@ urlpatterns = [
     # Academic Year Management
     path('admin/academic-years/', views_admin.admin_academic_years, name='admin_academic_years'),
     path('admin/academic-years/<int:year_id>/set-active/', views_admin.admin_academic_year_set_active, name='admin_academic_year_set_active'),
+    path('admin/academic-years/<int:year_id>/delete/', views_admin.admin_academic_year_delete, name='admin_academic_year_delete'),
     
     # Audit Logs
     path('admin/audit-logs/', views_admin.admin_audit_logs, name='admin_audit_logs'),
     path('admin/audit-logs/export-csv/', views_admin.admin_export_audit_csv, name='admin_export_audit_csv'),
+    
+    # ========== SECRETARY ACADEMIC STRUCTURE MANAGEMENT ==========
+    # Academic Structure Management (same as admin but for secretary)
+    path('secretary/faculties/', views_secretary.secretary_faculties, name='secretary_faculties'),
+    path('secretary/faculties/<int:faculte_id>/edit/', views_secretary.secretary_faculty_edit, name='secretary_faculty_edit'),
+    path('secretary/faculties/<int:faculte_id>/delete/', views_secretary.secretary_faculty_delete, name='secretary_faculty_delete'),
+    path('secretary/departments/', views_secretary.secretary_departments, name='secretary_departments'),
+    path('secretary/departments/<int:dept_id>/edit/', views_secretary.secretary_department_edit, name='secretary_department_edit'),
+    path('secretary/departments/<int:dept_id>/delete/', views_secretary.secretary_department_delete, name='secretary_department_delete'),
+    path('secretary/courses/', views_secretary.secretary_courses, name='secretary_courses'),
+    path('secretary/courses/<int:course_id>/edit/', views_secretary.secretary_course_edit, name='secretary_course_edit'),
+    path('secretary/courses/<int:course_id>/delete/', views_secretary.secretary_course_delete, name='secretary_course_delete'),
+    path('secretary/academic-years/', views_secretary.secretary_academic_years, name='secretary_academic_years'),
+    path('secretary/academic-years/<int:year_id>/set-active/', views_secretary.secretary_academic_year_set_active, name='secretary_academic_year_set_active'),
+    path('secretary/academic-years/<int:year_id>/delete/', views_secretary.secretary_academic_year_delete, name='secretary_academic_year_delete'),
 ]

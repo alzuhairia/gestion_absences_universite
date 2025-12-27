@@ -100,6 +100,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name=_('Date de création')
     )
     
+    must_change_password = models.BooleanField(
+        default=False,
+        db_column='must_change_password',
+        verbose_name=_('Doit changer le mot de passe'),
+        help_text=_('Force l\'utilisateur à changer son mot de passe à la prochaine connexion'),
+        db_index=True
+    )
+    
     # === PROPRIÉTÉS VIRTUELLES (PAS DANS LA BD) ===
     
     @property

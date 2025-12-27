@@ -60,27 +60,53 @@
 
     <!-- Users List -->
     <div class="card shadow">
-        <div class="card-header py-3 bg-white">
+        <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Liste des Utilisateurs</h6>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">
+                    <i class="fas fa-check-square me-1"></i>Tout sélectionner
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">
+                    <i class="fas fa-square me-1"></i>Tout désélectionner
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" id="deleteSelectedBtn" disabled>
+                    <i class="fas fa-trash me-1"></i>Supprimer sélectionnés (<span id="selectedCount">0</span>)
+                </button>
+            </div>
         </div>
         <div class="card-body">
             {% if users %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Nom</th>
-                            <th>Email</th>
-                            <th>Rôle</th>
-                            <th>Statut</th>
-                            <th>Date Création</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr>
-                            <td><strong>{{ user.get_full_name }}</strong></td>
+            <form id="deleteMultipleForm" method="post" action="{% url 'dashboard:admin_users_delete_multiple' %}">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="40">
+                                    <input type="checkbox" id="selectAllCheckbox" title="Sélectionner tout">
+                                </th>
+                                <th>Nom</th>
+                                <th>Email</th>
+                                <th>Rôle</th>
+                                <th>Statut</th>
+                                <th>Date Création</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    {% if user != request.user %}
+                                    <input type="checkbox" 
+                                           name="user_ids" 
+                                           value="{{ user.id_utilisateur }}" 
+                                           class="user-checkbox"
+                                           data-user-name="{{ user.get_full_name }}"
+                                           data-user-email="{{ user.email }}">
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ user.get_full_name }}</strong></td>
                             <td>{{ user.email }}</td>
                             <td>
                                 <span class="badge 
@@ -109,13 +135,23 @@
                                        class="btn btn-info" title="Historique">
                                         <i class="fas fa-history"></i>
                                     </a>
+                                    {% if user != request.user %}
+                                    <button type="button" 
+                                            class="btn btn-danger" 
+                                            title="Supprimer"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteUserModal{{ user.id_utilisateur }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
+                </div>
+            </form>
             
             <!-- Pagination -->
             {% if users.has_other_pages %}
@@ -143,5 +179,178 @@
         </div>
     </div>
 </div>
-{% endblock %}
+
+<!-- Modal de confirmation de suppression multiple -->
+<div class="modal fade" id="deleteMultipleModal" tabindex="-1" aria-labelledby="deleteMultipleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteMultipleModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmation de suppression multiple
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Attention :</strong> Cette action est irréversible.
+                </div>
+                <p>Êtes-vous sûr de vouloir supprimer définitivement les <strong id="modalUserCount">0</strong> utilisateur(s) sélectionné(s) ?</p>
+                <div id="selectedUsersList" class="mb-3" style="max-height: 200px; overflow-y: auto;">
+                    <!-- Liste des utilisateurs sélectionnés -->
+                </div>
+                <p class="text-danger mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Cette action sera enregistrée dans le journal d'audit pour chaque utilisateur supprimé.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="submit" form="deleteMultipleForm" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i>Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals de confirmation de suppression -->
+{% for user in users %}
+{% if user != request.user %}
+<div class="modal fade" id="deleteUserModal{{ user.id_utilisateur }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ user.id_utilisateur }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteUserModalLabel{{ user.id_utilisateur }}">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmation de suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Attention :</strong> Cette action est irréversible.
+                </div>
+                <p>Êtes-vous sûr de vouloir supprimer définitivement l'utilisateur suivant ?</p>
+                <ul class="list-unstyled ms-3">
+                    <li><strong>Nom :</strong> {{ user.get_full_name }}</li>
+                    <li><strong>Email :</strong> {{ user.email }}</li>
+                    <li><strong>Rôle :</strong> {{ user.get_role_display }}</li>
+                </ul>
+                <p class="text-danger mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Cette action sera enregistrée dans le journal d'audit.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <form method="post" action="{% url 'dashboard:admin_user_delete' user.id_utilisateur %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    // Gestion de la sélection multiple
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const userCheckboxes = document.querySelectorAll('.user-checkbox');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const deleteMultipleForm = document.getElementById('deleteMultipleForm');
+    const deleteMultipleModal = new bootstrap.Modal(document.getElementById('deleteMultipleModal'));
+    
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.user-checkbox:checked');
+        const count = selected.length;
+        selectedCountSpan.textContent = count;
+        deleteSelectedBtn.disabled = count === 0;
+        
+        // Mettre à jour le checkbox "Tout sélectionner"
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = count > 0 && count === userCheckboxes.length;
+            selectAllCheckbox.indeterminate = count > 0 && count < userCheckboxes.length;
+        }
+    }
+    
+    // Écouter les changements sur les checkboxes
+    userCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // Checkbox "Tout sélectionner"
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            userCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+    }
+    
+    // Bouton "Tout sélectionner"
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            userCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            if (selectAllCheckbox) selectAllCheckbox.checked = true;
+            updateSelectedCount();
+        });
+    }
+    
+    // Bouton "Tout désélectionner"
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', function() {
+            userCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            updateSelectedCount();
+        });
+    }
+    
+    // Bouton "Supprimer sélectionnés"
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', function() {
+            const selected = document.querySelectorAll('.user-checkbox:checked');
+            if (selected.length === 0) {
+                alert('Veuillez sélectionner au moins un utilisateur à supprimer.');
+                return;
+            }
+            
+            // Mettre à jour le modal avec les utilisateurs sélectionnés
+            document.getElementById('modalUserCount').textContent = selected.length;
+            const usersList = document.getElementById('selectedUsersList');
+            usersList.innerHTML = '<ul class="list-unstyled">';
+            selected.forEach(checkbox => {
+                const name = checkbox.dataset.userName;
+                const email = checkbox.dataset.userEmail;
+                usersList.innerHTML += `<li><i class="fas fa-user me-2"></i><strong>${name}</strong> (${email})</li>`;
+            });
+            usersList.innerHTML += '</ul>';
+            
+            // Afficher le modal
+            deleteMultipleModal.show();
+        });
+    }
+    
+    // Initialiser le compteur
+    updateSelectedCount();
+</script>
+{% endblock extra_js %}
 

@@ -71,18 +71,18 @@ def enroll_student(request):
     missing_prereqs = []
     
     for prereq in prerequisites:
-        # Check if student has EVER been enrolled in the prerequisite
-        # (Using 'exists' as requested, regardless of status for now)
-        has_taken = Inscription.objects.filter(
+        # Vérifier si l'étudiant a validé le prérequis (statut = 'VALIDE')
+        has_validated = Inscription.objects.filter(
             id_etudiant=student,
-            id_cours=prereq
+            id_cours=prereq,
+            status='VALIDE'
         ).exists()
         
-        if not has_taken:
-            missing_prereqs.append(prereq.nom_cours)
+        if not has_validated:
+            missing_prereqs.append(f"{prereq.code_cours} - {prereq.nom_cours}")
     
     if missing_prereqs:
-        msg = f"Prérequis non satisfaits pour {course.code_cours}. Manque : {', '.join(missing_prereqs)}"
+        msg = f"Prérequis non satisfaits pour {course.code_cours}. L'étudiant doit avoir validé : {', '.join(missing_prereqs)}"
         messages.error(request, msg)
         return redirect('dashboard:secretary_enrollments')
 
