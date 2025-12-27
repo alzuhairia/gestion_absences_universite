@@ -53,7 +53,7 @@ class CoursForm(forms.ModelForm):
         model = Cours
         fields = [
             'code_cours', 'nom_cours', 'nombre_total_periodes',
-            'seuil_absence', 'id_departement', 'professeur',
+            'seuil_absence', 'id_departement', 'niveau', 'professeur',
             'prerequisites', 'actif'
         ]
         widgets = {
@@ -62,6 +62,7 @@ class CoursForm(forms.ModelForm):
             'nombre_total_periodes': forms.NumberInput(attrs={'class': 'form-control'}),
             'seuil_absence': forms.NumberInput(attrs={'class': 'form-control'}),
             'id_departement': forms.Select(attrs={'class': 'form-select'}),
+            'niveau': forms.Select(attrs={'class': 'form-select'}),
             'professeur': forms.Select(attrs={'class': 'form-select'}),
             'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
@@ -75,16 +76,51 @@ class CoursForm(forms.ModelForm):
             role=User.Role.PROFESSEUR,
             actif=True
         )
-        # Pour les prérequis, exclure le cours actuel et ne montrer que les cours actifs
+        
+        # Le champ id_annee n'est plus dans le formulaire (assigné automatiquement)
+        # Mais on le garde pour l'édition si nécessaire
+        if 'id_annee' in self.fields:
+            self.fields['id_annee'].queryset = AnneeAcademique.objects.all().order_by('-libelle')
+            self.fields['id_annee'].widget = forms.HiddenInput()  # Masquer le champ
+        
+        # Le champ niveau est obligatoire
+        self.fields['niveau'].required = True
+        
+        # Pour les prérequis, filtrer selon le niveau du cours
+        # Règles :
+        # - Année 1 : pas de prérequis
+        # - Année 2 : prérequis uniquement d'Année 1
+        # - Année 3 : prérequis uniquement d'Année 1 ou 2
         if self.instance and self.instance.pk:
-            self.fields['prerequisites'].queryset = Cours.objects.filter(
-                actif=True
-            ).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
+            # Si on édite un cours existant
+            current_niveau = self.instance.niveau
+            
+            if current_niveau == 1:
+                # Année 1 : pas de prérequis
+                prerequisite_queryset = Cours.objects.none()
+            elif current_niveau == 2:
+                # Année 2 : prérequis uniquement d'Année 1
+                prerequisite_queryset = Cours.objects.filter(
+                    actif=True,
+                    niveau=1
+                ).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
+            elif current_niveau == 3:
+                # Année 3 : prérequis uniquement d'Année 1 ou 2
+                prerequisite_queryset = Cours.objects.filter(
+                    actif=True,
+                    niveau__in=[1, 2]
+                ).exclude(id_cours=self.instance.id_cours).order_by('niveau', 'code_cours')
+            else:
+                # Niveau non défini ou invalide
+                prerequisite_queryset = Cours.objects.filter(actif=True).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
+            
+            self.fields['prerequisites'].queryset = prerequisite_queryset
             # Définir les prérequis initiaux uniquement lors de l'édition
             self.fields['prerequisites'].initial = self.instance.prerequisites.all()
         else:
             # Lors de la création, aucun prérequis n'est sélectionné par défaut
-            self.fields['prerequisites'].queryset = Cours.objects.filter(actif=True).order_by('code_cours')
+            # Le queryset sera mis à jour dynamiquement via JavaScript selon le niveau sélectionné
+            self.fields['prerequisites'].queryset = Cours.objects.none()  # Vide par défaut
             self.fields['prerequisites'].initial = []  # Aucun prérequis par défaut
         
         # Labels en français
@@ -93,17 +129,34 @@ class CoursForm(forms.ModelForm):
         self.fields['nombre_total_periodes'].label = 'Total Périodes (h)'
         self.fields['seuil_absence'].label = "Seuil d'Absence (%)"
         self.fields['id_departement'].label = 'Département'
+        self.fields['niveau'].label = "Niveau d'étude"
+        if 'id_annee' in self.fields:
+            self.fields['id_annee'].label = 'Année Académique'
         self.fields['professeur'].label = 'Professeur Responsable'
         self.fields['prerequisites'].label = 'Prérequis'
         self.fields['actif'].label = 'Actif'
+        
+        # Help texts
+        self.fields['niveau'].help_text = "Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés."
         
         # Help texts en français
         self.fields['seuil_absence'].help_text = "Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système."
         self.fields['actif'].help_text = 'Désactiver un cours le masque sans le supprimer'
     
     def save(self, commit=True):
-        instance = super().save(commit=commit)
+        instance = super().save(commit=False)
+        
+        # Si c'est une création (pas d'ID), assigner automatiquement l'année académique active
+        if not instance.pk:
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            if not active_year:
+                # Si aucune année active, prendre la plus récente
+                active_year = AnneeAcademique.objects.order_by('-libelle').first()
+            if active_year:
+                instance.id_annee = active_year
+        
         if commit:
+            instance.save()
             instance.prerequisites.set(self.cleaned_data['prerequisites'])
         return instance
 

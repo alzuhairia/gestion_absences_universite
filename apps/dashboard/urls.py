@@ -16,6 +16,7 @@ urlpatterns = [
     path('secretary/enrollments/', views.secretary_enrollments, name='secretary_enrollments'),
     path('secretary/rules-40/', views.secretary_rules_40, name='secretary_rules_40'),
     path('secretary/exports/', views.secretary_exports, name='secretary_exports'),
+    path('secretary/audit-logs/', views_secretary.secretary_audit_logs, name='secretary_audit_logs'),
     
     path('student/stats/', views.student_statistics, name='student_statistics'),
     path('student/courses/', views.student_courses, name='student_courses'),
@@ -70,6 +71,9 @@ urlpatterns = [
     # Audit Logs
     path('admin/audit-logs/', views_admin.admin_audit_logs, name='admin_audit_logs'),
     path('admin/audit-logs/export-csv/', views_admin.admin_export_audit_csv, name='admin_export_audit_csv'),
+    
+    # API pour les prérequis selon le niveau
+    path('api/prerequisites-by-level/', views_admin.get_prerequisites_by_level, name='get_prerequisites_by_level'),
     
     # ========== SECRETARY ACADEMIC STRUCTURE MANAGEMENT ==========
     # Academic Structure Management (same as admin but for secretary)

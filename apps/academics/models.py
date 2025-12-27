@@ -116,6 +116,24 @@ class Cours(models.Model):
         limit_choices_to={'role': 'PROFESSEUR'},
         related_name='cours_enseignes'
     )
+    id_annee = models.ForeignKey(
+        'academic_sessions.AnneeAcademique',
+        models.PROTECT,  # Empêche la suppression d'une année avec des cours
+        db_column='id_annee',
+        null=True,  # Temporairement nullable pour la migration
+        blank=True,  # Temporairement blank pour la migration
+        verbose_name="Année Académique",
+        related_name='cours',
+        help_text="Année académique à laquelle ce cours appartient (assignée automatiquement)"
+    )
+    niveau = models.IntegerField(
+        choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
+        verbose_name="Niveau d'étude",
+        help_text="Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés.",
+        null=True,  # Temporairement nullable pour la migration
+        blank=True,  # Temporairement blank pour la migration
+        db_index=True
+    )
     prerequisites = models.ManyToManyField(
         'self', 
         symmetrical=False, 
@@ -141,6 +159,8 @@ class Cours(models.Model):
         indexes = [
             models.Index(fields=['id_departement', 'actif']),
             models.Index(fields=['professeur', 'actif']),
+            models.Index(fields=['id_annee', 'actif']),
+            models.Index(fields=['niveau', 'actif']),
         ]
         # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
 

@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count, Q, Sum
@@ -8,6 +9,7 @@ from django.db import IntegrityError, transaction, connection
 from django.db.models.deletion import ProtectedError
 from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponse
+from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -1499,4 +1501,56 @@ def admin_export_audit_csv(request):
         objet_type='SYSTEM'
     )
     return response
+
+
+@login_required
+@require_GET
+def get_prerequisites_by_level(request):
+    """API pour récupérer les prérequis disponibles selon le niveau (accessible à Admin et Secretary)"""
+    # Vérifier que l'utilisateur est admin ou secrétaire
+    if request.user.role not in ['ADMIN', 'SECRETAIRE']:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    niveau = request.GET.get('niveau')
+    course_id = request.GET.get('course_id', None)  # Pour exclure le cours actuel lors de l'édition
+    
+    if not niveau:
+        return JsonResponse({'error': 'niveau requis'}, status=400)
+    
+    try:
+        niveau = int(niveau)
+    except ValueError:
+        return JsonResponse({'error': 'niveau invalide'}, status=400)
+    
+    # Filtrer selon le niveau
+    if niveau == 1:
+        # Année 1 : pas de prérequis
+        prerequisites = Cours.objects.none()
+    elif niveau == 2:
+        # Année 2 : prérequis uniquement d'Année 1
+        prerequisites = Cours.objects.filter(actif=True, niveau=1)
+    elif niveau == 3:
+        # Année 3 : prérequis uniquement d'Année 1 ou 2
+        prerequisites = Cours.objects.filter(actif=True, niveau__in=[1, 2])
+    else:
+        return JsonResponse({'error': 'niveau invalide (doit être 1, 2 ou 3)'}, status=400)
+    
+    # Exclure le cours actuel si on est en mode édition
+    if course_id:
+        try:
+            prerequisites = prerequisites.exclude(id_cours=int(course_id))
+        except ValueError:
+            pass
+    
+    data = []
+    for course in prerequisites.order_by('niveau', 'code_cours'):
+        data.append({
+            'id': course.id_cours,
+            'code': course.code_cours,
+            'name': course.nom_cours,
+            'niveau': course.niveau,
+            'display': f"[{course.code_cours}] {course.nom_cours} (Année {course.niveau})"
+        })
+    
+    return JsonResponse(data, safe=False)
 

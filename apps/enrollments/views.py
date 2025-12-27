@@ -1,15 +1,21 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib import messages
 from django.db.models import Q
+from django.db import transaction
+import logging
 
 from apps.accounts.models import User
 from apps.academics.models import Faculte, Departement, Cours
 from apps.academic_sessions.models import AnneeAcademique
 from .models import Inscription
+from .forms import EnrollmentForm, StudentCreationForm
 from apps.dashboard.decorators import secretary_required
+from apps.audits.utils import log_action
+
+logger = logging.getLogger(__name__)
 
 @login_required
 @secretary_required
@@ -33,44 +39,78 @@ def get_departments(request):
 
 @login_required
 def get_courses(request):
+    """API pour récupérer les cours d'un département pour une année académique"""
     dept_id = request.GET.get('dept_id')
-    courses = Cours.objects.filter(id_departement_id=dept_id)
+    year_id = request.GET.get('year_id')
+    
+    courses = Cours.objects.filter(id_departement_id=dept_id, actif=True)
+    
+    # Filtrer par année académique si fournie
+    if year_id:
+        courses = courses.filter(id_annee_id=year_id)
+    
     data = []
     for c in courses:
         data.append({
             'id': c.id_cours,
+            'name': f"[{c.code_cours}] {c.nom_cours}",
+            'code': c.code_cours,
+            'has_prereq': c.prerequisites.exists(),
+            'year': c.id_annee.libelle if c.id_annee else None
+        })
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def get_courses_by_year(request):
+    """API pour récupérer tous les cours d'une année académique"""
+    year_id = request.GET.get('year_id')
+    
+    if not year_id:
+        return JsonResponse({'error': 'year_id requis'}, status=400)
+    
+    courses = Cours.objects.filter(id_annee_id=year_id, actif=True).order_by('code_cours')
+    
+    data = []
+    for c in courses:
+        data.append({
+            'id': c.id_cours,
+            'code': c.code_cours,
             'name': c.nom_cours,
+            'department': c.id_departement.nom_departement,
             'has_prereq': c.prerequisites.exists()
         })
     return JsonResponse(data, safe=False)
 
-@login_required
-@secretary_required
-@require_POST
-def enroll_student(request):
-    student_email = request.POST.get('student_email')
-    course_id = request.POST.get('course')
-    year_id = request.POST.get('academic_year')
-    
-    # 1. Validate Inputs
-    try:
-        student = User.objects.get(email=student_email, role=User.Role.ETUDIANT)
-        course = Cours.objects.get(pk=course_id)
-        year = AnneeAcademique.objects.get(pk=year_id)
-    except (User.DoesNotExist, Cours.DoesNotExist, AnneeAcademique.DoesNotExist):
-        messages.error(request, "Données invalides (Étudiant, Cours ou Année introuvable).")
-        return redirect('dashboard:secretary_enrollments')
-
-    # 2. Check Existing Enrollment
-    if Inscription.objects.filter(id_etudiant=student, id_cours=course, id_annee=year).exists():
-        messages.warning(request, f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour cette année.")
-        return redirect('dashboard:secretary_enrollments')
-
-    # 3. Prerequisite Check
+def check_prerequisites(student, course):
+    """
+    Vérifie si l'étudiant a validé tous les prérequis d'un cours.
+    Les prérequis doivent être d'années académiques inférieures.
+    Retourne (is_valid, missing_prereqs_list)
+    """
     prerequisites = course.prerequisites.all()
     missing_prereqs = []
     
+    # Récupérer l'année du cours
+    course_year = course.id_annee
+    
     for prereq in prerequisites:
+        # Vérifier que le prérequis est d'une année inférieure
+        if prereq.id_annee and course_year:
+            # Comparer les années (on suppose que le libellé suit un format AAAA-AAAA)
+            # On peut aussi comparer par ID si les années sont triées
+            prereq_year = prereq.id_annee
+            if prereq_year.id_annee >= course_year.id_annee:
+                # Le prérequis ne devrait pas être d'une année supérieure ou égale
+                # Ce cas ne devrait pas arriver si la validation du formulaire est correcte
+                missing_prereqs.append({
+                    'code': prereq.code_cours,
+                    'name': prereq.nom_cours,
+                    'year': prereq_year.libelle,
+                    'reason': 'Le prérequis doit être d\'une année académique inférieure'
+                })
+                continue
+        
         # Vérifier si l'étudiant a validé le prérequis (statut = 'VALIDE')
         has_validated = Inscription.objects.filter(
             id_etudiant=student,
@@ -79,34 +119,408 @@ def enroll_student(request):
         ).exists()
         
         if not has_validated:
-            missing_prereqs.append(f"{prereq.code_cours} - {prereq.nom_cours}")
+            missing_prereqs.append({
+                'code': prereq.code_cours,
+                'name': prereq.nom_cours,
+                'year': prereq.id_annee.libelle if prereq.id_annee else 'N/A',
+                'reason': 'Prérequis non validé'
+            })
     
-    if missing_prereqs:
-        msg = f"Prérequis non satisfaits pour {course.code_cours}. L'étudiant doit avoir validé : {', '.join(missing_prereqs)}"
-        messages.error(request, msg)
-        return redirect('dashboard:secretary_enrollments')
+    return (len(missing_prereqs) == 0, missing_prereqs)
 
-    # 4. Create Inscription
-    Inscription.objects.create(
-        id_etudiant=student,
-        id_cours=course,
-        id_annee=year,
-        type_inscription='NORMALE',
-        eligible_examen=True,
-        status='EN_COURS'
+
+def check_previous_level_validation(student, target_niveau):
+    """
+    Vérifie si l'étudiant a validé le niveau précédent.
+    Retourne (is_valid, missing_courses_list)
+    """
+    if target_niveau == 1:
+        # Pas de prérequis pour l'Année 1
+        return (True, [])
+    
+    previous_niveau = target_niveau - 1
+    
+    # Récupérer tous les cours du niveau précédent
+    previous_level_courses = Cours.objects.filter(
+        niveau=previous_niveau,
+        actif=True
     )
     
-    from apps.audits.utils import log_action
-    log_action(
-        request.user,
-        f"Secrétaire a inscrit l'étudiant {student.get_full_name()} ({student.email}) au cours {course.code_cours} pour l'année {year.libelle}",
-        request,
-        niveau='INFO',
-        objet_type='INSCRIPTION',
-        objet_id=None
-    )
-    messages.success(
-        request, 
-        f"L'étudiant {student.get_full_name()} a été inscrit avec succès au cours {course.code_cours} pour l'année académique {year.libelle}."
-    )
-    return redirect('dashboard:secretary_enrollments')
+    if not previous_level_courses.exists():
+        return (True, [])  # Pas de cours dans le niveau précédent
+    
+    # Vérifier que l'étudiant a validé TOUS les cours du niveau précédent
+    missing_courses = []
+    for course in previous_level_courses:
+        has_validated = Inscription.objects.filter(
+            id_etudiant=student,
+            id_cours=course,
+            status='VALIDE'
+        ).exists()
+        
+        if not has_validated:
+            missing_courses.append({
+                'code': course.code_cours,
+                'name': course.nom_cours
+            })
+    
+    return (len(missing_courses) == 0, missing_courses)
+
+
+@login_required
+@secretary_required
+@require_http_methods(["GET", "POST"])
+def enroll_student(request):
+    """
+    Vue pour l'inscription d'un étudiant.
+    Gère deux modes :
+    1. Inscription à une année complète (tous les cours de l'année)
+    2. Inscription à un cours spécifique
+    """
+    enrollment_form = EnrollmentForm(request.POST or None)
+    student_form = StudentCreationForm(request.POST or None, prefix='student')
+    
+    if request.method == 'POST':
+        # Déterminer si on crée un nouvel étudiant
+        create_new = request.POST.get('create_new_student') == 'on'
+        
+        # Valider les formulaires
+        if create_new:
+            if not student_form.is_valid():
+                messages.error(request, "Erreur dans les données de l'étudiant.")
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+        
+        if not enrollment_form.is_valid():
+            messages.error(request, "Erreur dans les données d'inscription.")
+            return render(request, 'enrollments/enrollment_form.html', {
+                'enrollment_form': enrollment_form,
+                'student_form': student_form,
+            })
+        
+        # Récupérer ou créer l'étudiant
+        if create_new:
+            try:
+                student = student_form.create_student()
+                log_action(
+                    request.user,
+                    f"CRITIQUE: Création du compte étudiant '{student.email}' ({student.get_full_name()}) lors de l'inscription",
+                    request,
+                    niveau='CRITIQUE',
+                    objet_type='USER',
+                    objet_id=student.id_utilisateur
+                )
+                messages.info(request, f"Compte étudiant créé pour {student.get_full_name()} ({student.email}).")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la création du compte étudiant : {str(e)}")
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+        else:
+            student_email = enrollment_form.cleaned_data['student_email']
+            try:
+                student = User.objects.get(email=student_email, role=User.Role.ETUDIANT)
+            except User.DoesNotExist:
+                messages.error(request, f"Aucun étudiant trouvé avec l'e-mail {student_email}.")
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+        
+        # Récupérer l'année académique (utiliser l'année active si disponible)
+        selected_year = enrollment_form.cleaned_data['academic_year']
+        active_year = AnneeAcademique.objects.filter(active=True).first()
+        
+        # Utiliser l'année active si elle existe, sinon celle sélectionnée
+        year = active_year if active_year else selected_year
+        
+        enrollment_type = enrollment_form.cleaned_data['enrollment_type']
+        
+        # Traitement selon le type d'inscription
+        if enrollment_type == 'LEVEL':
+            # Inscription à un niveau complet
+            niveau = int(enrollment_form.cleaned_data['niveau'])
+            
+            # Vérifier que l'étudiant a validé le niveau précédent
+            # Exception : si c'est un nouvel étudiant (créé lors de cette inscription), on autorise l'inscription directe
+            # Cela permet d'inscrire des étudiants transférés ou qui commencent directement en niveau 2 ou 3
+            is_new_student = create_new
+            is_valid, missing_courses = check_previous_level_validation(student, niveau)
+            
+            if not is_valid and not is_new_student:
+                # Pour un étudiant existant, on vérifie strictement les prérequis
+                missing_list = ', '.join([f"{c['code']} - {c['name']}" for c in missing_courses])
+                messages.error(
+                    request,
+                    f"L'étudiant {student.get_full_name()} n'a pas validé tous les cours de l'Année {niveau - 1}. "
+                    f"Cours manquants : {missing_list}. "
+                    f"Il ne peut pas s'inscrire à l'Année {niveau}."
+                )
+                logger.warning(f"Tentative d'inscription bloquée pour {student.email} en niveau {niveau}: prérequis manquants")
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+            elif not is_valid and is_new_student:
+                # Pour un nouvel étudiant, on autorise mais on avertit
+                missing_list = ', '.join([f"{c['code']} - {c['name']}" for c in missing_courses])
+                messages.warning(
+                    request,
+                    f"Attention : L'étudiant {student.get_full_name()} est inscrit directement en Année {niveau} "
+                    f"sans avoir validé l'Année {niveau - 1} (cours manquants : {missing_list}). "
+                    f"Cette inscription est autorisée car il s'agit d'un nouvel étudiant (étudiant transféré ou admission directe)."
+                )
+                logger.info(f"Inscription directe en niveau {niveau} autorisée pour nouvel étudiant {student.email}")
+            
+            # Récupérer tous les cours du niveau pour l'année académique
+            level_courses = Cours.objects.filter(
+                niveau=niveau,
+                id_annee=year,
+                actif=True
+            )
+            
+            # Log de débogage
+            logger.info(f"Inscription niveau {niveau} pour étudiant {student.email}")
+            logger.info(f"Année académique utilisée: {year.libelle} (ID: {year.id_annee})")
+            logger.info(f"Cours trouvés: {level_courses.count()}")
+            for c in level_courses:
+                logger.info(f"  - {c.code_cours} (niveau={c.niveau}, année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})")
+            
+            if not level_courses.exists():
+                # Vérifier si des cours existent avec ce niveau mais sans année académique
+                courses_without_year = Cours.objects.filter(
+                    niveau=niveau,
+                    actif=True,
+                    id_annee__isnull=True
+                )
+                
+                # Vérifier si des cours existent avec ce niveau mais avec une autre année
+                courses_other_year = Cours.objects.filter(
+                    niveau=niveau,
+                    actif=True
+                ).exclude(id_annee=year)
+                
+                error_msg = f"Aucun cours actif trouvé pour l'Année {niveau} dans l'année académique {year.libelle}."
+                
+                if courses_without_year.exists():
+                    error_msg += f" {courses_without_year.count()} cours trouvé(s) sans année académique assignée."
+                
+                if courses_other_year.exists():
+                    other_years = courses_other_year.values_list('id_annee__libelle', flat=True).distinct()
+                    error_msg += f" {courses_other_year.count()} cours trouvé(s) dans d'autres années : {', '.join([y for y in other_years if y])}."
+                
+                messages.warning(request, error_msg)
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+            
+            # Mettre à jour le niveau de l'étudiant
+            student.niveau = niveau
+            student.save()
+            
+            # Inscrire l'étudiant à tous les cours du niveau
+            enrolled_count = 0
+            skipped_count = 0
+            errors = []
+            
+            try:
+                with transaction.atomic():
+                    for course in level_courses:
+                        # Vérifier si déjà inscrit
+                        if Inscription.objects.filter(
+                            id_etudiant=student,
+                            id_cours=course,
+                            id_annee=year
+                        ).exists():
+                            skipped_count += 1
+                            continue
+                        
+                        # Vérifier les prérequis
+                        is_valid, missing_prereqs = check_prerequisites(student, course)
+                        
+                        if not is_valid:
+                            prereq_list = ', '.join([f"{p['code']} - {p['name']}" for p in missing_prereqs])
+                            errors.append(f"{course.code_cours}: prérequis manquants ({prereq_list})")
+                            continue
+                        
+                        # Créer l'inscription
+                        try:
+                            inscription = Inscription.objects.create(
+                                id_etudiant=student,
+                                id_cours=course,
+                                id_annee=year,
+                                type_inscription='NORMALE',
+                                eligible_examen=True,
+                                status='EN_COURS'
+                            )
+                            logger.info(f"Inscription créée: ID={inscription.id_inscription}, Étudiant={student.email}, Cours={course.code_cours}, Année={year.libelle}")
+                            enrolled_count += 1
+                        except Exception as e:
+                            error_msg = f"{course.code_cours}: erreur lors de la création ({str(e)})"
+                            errors.append(error_msg)
+                            logger.error(f"Erreur lors de la création de l'inscription: {error_msg}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            continue
+                    
+                    # Journaliser
+                    if enrolled_count > 0:
+                        log_action(
+                            request.user,
+                            f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au niveau {niveau} complet pour l'année {year.libelle} ({enrolled_count} cours(s))",
+                            request,
+                            niveau='CRITIQUE',
+                            objet_type='INSCRIPTION',
+                            objet_id=None
+                        )
+                
+                logger.info(f"Résultat final - Inscrits: {enrolled_count}, Ignorés: {skipped_count}, Erreurs: {len(errors)}")
+            except Exception as e:
+                error_msg = f"Erreur lors de l'inscription : {str(e)}"
+                messages.error(request, error_msg)
+                import traceback
+                logger.error(f"Erreur d'inscription: {error_msg}")
+                logger.error(traceback.format_exc())
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+            
+            # Messages de résultat
+            if enrolled_count > 0:
+                messages.success(
+                    request,
+                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours(s) de l'Année {niveau} pour l'année académique {year.libelle}. "
+                    f"Son niveau académique a été mis à jour à Année {niveau}."
+                )
+            else:
+                # Si aucune inscription n'a été créée, donner plus de détails
+                if skipped_count > 0:
+                    messages.warning(
+                        request,
+                        f"Aucune nouvelle inscription créée. {skipped_count} cours(s) déjà existant(s) pour cet étudiant."
+                    )
+                if errors:
+                    messages.error(
+                        request,
+                        f"Aucune inscription créée. {len(errors)} erreur(s) de prérequis détectée(s)."
+                    )
+                    for error in errors[:5]:  # Limiter à 5 erreurs
+                        messages.error(request, error)
+                    if len(errors) > 5:
+                        messages.error(request, f"... et {len(errors) - 5} autre(s) erreur(s).")
+                else:
+                    # Aucune erreur, mais aucune inscription créée non plus
+                    messages.error(
+                        request,
+                        f"ERREUR: Aucune inscription n'a été créée pour l'étudiant {student.get_full_name()}. "
+                        f"Vérifiez que les cours de niveau {niveau} existent pour l'année académique {year.libelle} "
+                        f"(trouvé {level_courses.count()} cours)."
+                    )
+            
+            if skipped_count > 0 and enrolled_count > 0:
+                messages.warning(
+                    request,
+                    f"{skipped_count} cours(s) déjà existant(s) pour cet étudiant."
+                )
+            
+            # Toujours rediriger vers la page des inscriptions pour voir les résultats
+            return redirect('dashboard:secretary_enrollments')
+        
+        else:
+            # Inscription à un cours spécifique
+            course = enrollment_form.cleaned_data['course']
+            
+            # Vérifier que le cours appartient à l'année académique sélectionnée
+            if course.id_annee and course.id_annee.id_annee != year.id_annee:
+                messages.error(
+                    request,
+                    f"Le cours {course.code_cours} n'appartient pas à l'année académique {year.libelle}. "
+                    f"Il appartient à l'année {course.id_annee.libelle}."
+                )
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+            
+            # Vérifier si déjà inscrit
+            if Inscription.objects.filter(
+                id_etudiant=student,
+                id_cours=course,
+                id_annee=year
+            ).exists():
+                messages.warning(
+                    request,
+                    f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour l'année {year.libelle}."
+                )
+                return redirect('enrollments:enroll_student')
+            
+            # Vérifier les prérequis
+            is_valid, missing_prereqs = check_prerequisites(student, course)
+            
+            if not is_valid:
+                prereq_list = ', '.join([f"{p['code']} - {p['name']} ({p.get('reason', 'non validé')})" for p in missing_prereqs])
+                messages.error(
+                    request,
+                    f"Prérequis non satisfaits pour {course.code_cours}. "
+                    f"Problèmes détectés : {prereq_list}"
+                )
+                return render(request, 'enrollments/enrollment_form.html', {
+                    'enrollment_form': enrollment_form,
+                    'student_form': student_form,
+                })
+            
+            # Créer l'inscription
+            inscription = Inscription.objects.create(
+                id_etudiant=student,
+                id_cours=course,
+                id_annee=year,
+                type_inscription='NORMALE',
+                eligible_examen=True,
+                status='EN_COURS'
+            )
+            
+            # Journaliser
+            log_action(
+                request.user,
+                f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au cours {course.code_cours} pour l'année {year.libelle}",
+                request,
+                niveau='CRITIQUE',
+                objet_type='INSCRIPTION',
+                objet_id=inscription.id_inscription
+            )
+            
+            messages.success(
+                request,
+                f"L'étudiant {student.get_full_name()} a été inscrit avec succès au cours {course.code_cours} pour l'année académique {year.libelle}."
+            )
+        
+        return redirect('dashboard:secretary_enrollments')
+    
+    # GET request - afficher le formulaire
+    # Filtrer les cours selon l'année académique par défaut (année active)
+    academic_years = AnneeAcademique.objects.all().order_by('-libelle')
+    default_year = academic_years.filter(active=True).first() or academic_years.first()
+    
+    if default_year:
+        enrollment_form.fields['course'].queryset = Cours.objects.filter(
+            actif=True,
+            id_annee=default_year
+        ).select_related('id_annee', 'id_departement').order_by('code_cours')
+        enrollment_form.fields['academic_year'].initial = default_year
+    
+    # Afficher un message d'information sur l'année académique utilisée
+    if default_year:
+        messages.info(
+            request,
+            f"L'année académique active ({default_year.libelle}) sera utilisée pour l'inscription."
+        )
+    
+    return render(request, 'enrollments/enrollment_form.html', {
+        'enrollment_form': enrollment_form,
+        'student_form': student_form,
+    })

@@ -18,6 +18,7 @@ from apps.absences.models import Absence, Justification
 from apps.dashboard.forms_admin import FaculteForm, DepartementForm, CoursForm, AnneeAcademiqueForm
 from apps.dashboard.decorators import secretary_required
 from apps.audits.utils import log_action
+from apps.audits.models import LogAudit
 
 logger = logging.getLogger(__name__)
 
@@ -723,4 +724,56 @@ def secretary_academic_year_delete(request, year_id):
         )
     
     return redirect('dashboard:secretary_academic_years')
+
+
+# ========== JOURNAUX D'AUDIT ==========
+
+@secretary_required
+def secretary_audit_logs(request):
+    """Consultation de tous les journaux d'audit avec filtres (pour secrétaire)"""
+    
+    # Filtres
+    role_filter = request.GET.get('role', '')
+    action_filter = request.GET.get('action', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    user_filter = request.GET.get('user', '')
+    search_query = request.GET.get('q', '')
+    
+    logs = LogAudit.objects.select_related('id_utilisateur').all()
+    
+    if role_filter:
+        logs = logs.filter(id_utilisateur__role=role_filter)
+    if action_filter:
+        logs = logs.filter(action__icontains=action_filter)
+    if date_from:
+        logs = logs.filter(date_action__gte=date_from)
+    if date_to:
+        logs = logs.filter(date_action__lte=date_to)
+    if user_filter:
+        logs = logs.filter(
+            Q(id_utilisateur__nom__icontains=user_filter) |
+            Q(id_utilisateur__prenom__icontains=user_filter) |
+            Q(id_utilisateur__email__icontains=user_filter)
+        )
+    if search_query:
+        logs = logs.filter(action__icontains=search_query)
+    
+    logs = logs.order_by('-date_action')
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs, 50)
+    page = request.GET.get('page')
+    logs_page = paginator.get_page(page)
+    
+    return render(request, 'dashboard/secretary_audit_logs.html', {
+        'logs': logs_page,
+        'role_filter': role_filter,
+        'action_filter': action_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'user_filter': user_filter,
+        'search_query': search_query,
+    })
 

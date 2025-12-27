@@ -1,0 +1,322 @@
+{% extends 'base_secretary.html' %}
+
+{% block title %}Nouvelle Inscription{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Secrétariat</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_enrollments' %}">Inscriptions</a></li>
+<li class="breadcrumb-item active">Nouvelle Inscription</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-user-plus me-2"></i>Nouvelle Inscription
+        </h1>
+        <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-file-alt me-2"></i>Formulaire d'Inscription
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="enrollmentForm">
+                        {% csrf_token %}
+                        
+                        <!-- Section 1: Type d'inscription -->
+                        <div class="mb-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-list-check me-2 text-primary"></i>Type d'inscription
+                            </h5>
+                            <div class="row">
+                                {% for choice in enrollment_form.enrollment_type %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check p-3 border rounded" style="cursor: pointer;" onclick="document.getElementById('{{ choice.id_for_label }}').checked = true; toggleSections();">
+                                        {{ choice.tag }}
+                                        <label class="form-check-label ms-2" for="{{ choice.id_for_label }}" style="cursor: pointer;">
+                                            <strong>{{ choice.choice_label }}</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if enrollment_form.enrollment_type.errors %}
+                            <div class="text-danger small">{{ enrollment_form.enrollment_type.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Section 1.5: Niveau (si inscription à un niveau complet) -->
+                        <div id="levelSection" class="mb-4" style="display: none;">
+                            <h5 class="mb-3">
+                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'étude
+                            </h5>
+                            <div class="mb-3">
+                                <label for="{{ enrollment_form.niveau.id_for_label }}" class="form-label">Niveau <span class="text-danger">*</span></label>
+                                {{ enrollment_form.niveau }}
+                                {% if enrollment_form.niveau.errors %}
+                                <div class="text-danger small">{{ enrollment_form.niveau.errors }}</div>
+                                {% endif %}
+                                {% if enrollment_form.niveau.help_text %}
+                                <small class="form-text text-muted">{{ enrollment_form.niveau.help_text }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du niveau sélectionné pour l'année académique en cours.
+                                <br>
+                                <small>Le système vérifiera automatiquement que l'étudiant a validé le niveau précédent (si applicable) et que tous les prérequis sont satisfaits pour chaque cours.</small>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Section 2: Étudiant -->
+                        <div class="mb-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-user-graduate me-2 text-primary"></i>Étudiant
+                            </h5>
+                            
+                            <!-- Option: Créer un nouvel étudiant -->
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student" onchange="toggleStudentForm()">
+                                    <label class="form-check-label" for="create_new_student">
+                                        <strong>Créer un nouveau compte étudiant</strong>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Formulaire de création d'étudiant (masqué par défaut) -->
+                            <div id="newStudentForm" style="display: none;" class="border rounded p-3 mb-3 bg-light">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ student_form.nom.id_for_label }}" class="form-label">Nom <span class="text-danger">*</span></label>
+                                        {{ student_form.nom }}
+                                        {% if student_form.nom.errors %}
+                                        <div class="text-danger small">{{ student_form.nom.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ student_form.prenom.id_for_label }}" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                        {{ student_form.prenom }}
+                                        {% if student_form.prenom.errors %}
+                                        <div class="text-danger small">{{ student_form.prenom.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ student_form.email.id_for_label }}" class="form-label">E-mail <span class="text-danger">*</span></label>
+                                        {{ student_form.email }}
+                                        {% if student_form.email.errors %}
+                                        <div class="text-danger small">{{ student_form.email.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ student_form.password.id_for_label }}" class="form-label">Mot de passe temporaire <span class="text-danger">*</span></label>
+                                        {{ student_form.password }}
+                                        {% if student_form.password.errors %}
+                                        <div class="text-danger small">{{ student_form.password.errors }}</div>
+                                        {% endif %}
+                                        {% if student_form.password.help_text %}
+                                        <small class="form-text text-muted">{{ student_form.password.help_text }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ student_form.password_confirm.id_for_label }}" class="form-label">Confirmation du mot de passe <span class="text-danger">*</span></label>
+                                        {{ student_form.password_confirm }}
+                                        {% if student_form.password_confirm.errors %}
+                                        <div class="text-danger small">{{ student_form.password_confirm.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    L'étudiant devra changer ce mot de passe lors de sa première connexion.
+                                </div>
+                            </div>
+
+                            <!-- Option: Utiliser un étudiant existant -->
+                            <div id="existingStudentForm">
+                                <div class="mb-3">
+                                    <label for="{{ enrollment_form.student_email.id_for_label }}" class="form-label">
+                                        E-mail de l'étudiant existant
+                                    </label>
+                                    {{ enrollment_form.student_email }}
+                                    {% if enrollment_form.student_email.errors %}
+                                    <div class="text-danger small">{{ enrollment_form.student_email.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">Entrez l'e-mail d'un étudiant existant</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Section 3: Année académique -->
+                        <div class="mb-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Année Académique
+                            </h5>
+                            <div class="mb-3">
+                                <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">Année Académique <span class="text-danger">*</span></label>
+                                {{ enrollment_form.academic_year }}
+                                {% if enrollment_form.academic_year.errors %}
+                                <div class="text-danger small">{{ enrollment_form.academic_year.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Section 4: Cours (si inscription à un cours spécifique) -->
+                        <div id="courseSection" class="mb-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-book me-2 text-primary"></i>Cours
+                            </h5>
+                            <div class="mb-3">
+                                <label for="{{ enrollment_form.course.id_for_label }}" class="form-label">Cours <span class="text-danger">*</span></label>
+                                <select name="{{ enrollment_form.course.name }}" id="{{ enrollment_form.course.id_for_label }}" class="form-select" required>
+                                    <option value="">Sélectionner une année académique d'abord</option>
+                                </select>
+                                {% if enrollment_form.course.errors %}
+                                <div class="text-danger small">{{ enrollment_form.course.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">Sélectionnez un cours spécifique pour l'inscription. Les cours sont filtrés selon l'année académique sélectionnée.</small>
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-1"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check me-1"></i> Valider l'inscription
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleStudentForm() {
+    const createNew = document.getElementById('create_new_student').checked;
+    const newStudentForm = document.getElementById('newStudentForm');
+    const existingStudentForm = document.getElementById('existingStudentForm');
+    
+    if (createNew) {
+        newStudentForm.style.display = 'block';
+        existingStudentForm.style.display = 'none';
+        // Rendre les champs du nouveau formulaire obligatoires
+        newStudentForm.querySelectorAll('input').forEach(input => {
+            if (input.type !== 'checkbox') {
+                input.required = true;
+            }
+        });
+        // Rendre le champ email existant non obligatoire
+        document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = false;
+    } else {
+        newStudentForm.style.display = 'none';
+        existingStudentForm.style.display = 'block';
+        // Rendre les champs du nouveau formulaire non obligatoires
+        newStudentForm.querySelectorAll('input').forEach(input => {
+            input.required = false;
+        });
+        // Rendre le champ email existant obligatoire
+        document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = true;
+    }
+}
+
+function toggleSections() {
+    const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked');
+    if (!enrollmentType) return;
+    
+    const enrollmentTypeValue = enrollmentType.value;
+    const courseSection = document.getElementById('courseSection');
+    const levelSection = document.getElementById('levelSection');
+    const courseField = document.getElementById('{{ enrollment_form.course.id_for_label }}');
+    const niveauField = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
+    
+    if (enrollmentTypeValue === 'LEVEL') {
+        courseSection.style.display = 'none';
+        levelSection.style.display = 'block';
+        courseField.required = false;
+        if (niveauField) niveauField.required = true;
+    } else {
+        courseSection.style.display = 'block';
+        levelSection.style.display = 'none';
+        courseField.required = true;
+        if (niveauField) niveauField.required = false;
+        // Charger les cours de l'année sélectionnée
+        loadCoursesByYear();
+    }
+}
+
+async function loadCoursesByYear() {
+    const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
+    const courseSelect = document.getElementById('{{ enrollment_form.course.id_for_label }}');
+    
+    if (!yearId) {
+        courseSelect.innerHTML = '<option value="">Sélectionner une année académique d\'abord</option>';
+        courseSelect.disabled = true;
+        return;
+    }
+    
+    courseSelect.innerHTML = '<option value="">Chargement...</option>';
+    courseSelect.disabled = true;
+    
+    try {
+        const response = await fetch(`/enrollments/api/courses-by-year/?year_id=${yearId}`);
+        const data = await response.json();
+        
+        courseSelect.innerHTML = '<option value="">Sélectionner un cours...</option>';
+        data.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `[${course.code}] ${course.name} (${course.department})`;
+            courseSelect.appendChild(option);
+        });
+        courseSelect.disabled = false;
+    } catch (error) {
+        console.error('Error:', error);
+        courseSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
+
+// Initialiser au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    toggleStudentForm();
+    toggleSections();
+    
+    // Écouter les changements d'année académique
+    const yearField = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}');
+    if (yearField) {
+        yearField.addEventListener('change', function() {
+            if (document.querySelector('input[name="enrollment_type"]:checked')?.value === 'COURSE') {
+                loadCoursesByYear();
+            }
+        });
+    }
+    
+    // Écouter les changements de type d'inscription
+    document.querySelectorAll('input[name="enrollment_type"]').forEach(radio => {
+        radio.addEventListener('change', toggleSections);
+    });
+});
+</script>
+{% endblock %}
+
