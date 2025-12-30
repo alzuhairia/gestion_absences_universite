@@ -61,7 +61,7 @@
                                 <small class="text-muted">{{ item.absence.id_seance.id_cours.nom_cours }}</small>
                             </td>
                             <td>
-                                <span class="badge bg-secondary">{{ item.absence.duree_absence }}h</span>
+                                <span class="badge bg-secondary">{{ item.absence.duree_absence|floatformat:1 }}h</span>
                             </td>
                             <td>
                                 <span class="badge bg-{{ item.status_color }}">

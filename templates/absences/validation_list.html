@@ -208,7 +208,7 @@
                                 <p class="mb-1">
                                     <i class="fas fa-calendar me-2 text-info"></i>
                                     <strong>Date absence :</strong> {{ justification.id_absence.id_seance.date_seance|date:"d/m/Y" }}
-                                    <span class="text-muted">({{ justification.id_absence.duree_absence }}h)</span>
+                                    <span class="text-muted">({{ justification.id_absence.duree_absence|floatformat:1 }}h)</span>
                                 </p>
                             </div>
                         </div>

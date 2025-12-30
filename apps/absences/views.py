@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Sum
 from apps.enrollments.models import Inscription
 from apps.absences.models import Absence, Justification
 import base64
@@ -476,7 +477,8 @@ def mark_absence(request, course_id):
         for ab in abs_list:
             existing_absences[ab.id_inscription.id_inscription] = {
                 'type': ab.type_absence,
-                'duree': ab.duree_absence
+                'duree': ab.duree_absence,
+                'statut': ab.statut
             }
             
     # Attach absence data to students for template usage

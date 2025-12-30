@@ -31,7 +31,7 @@
                     </tr>
                     <tr>
                         <th>Type</th>
-                        <td>{{ absence.get_type_absence_display }} ({{ absence.duree_absence }}h)</td>
+                        <td>{{ absence.get_type_absence_display }} ({{ absence.duree_absence|floatformat:1 }}h)</td>
                     </tr>
                     <tr>
                         <th>Statut Actuel</th>

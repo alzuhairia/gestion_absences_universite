@@ -1,6 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_instructor.html' %}
 
 {% block title %}Détails du cours — {{ course.code_cours }}{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item active">{{ course.code_cours }}</li>
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -266,10 +271,7 @@
                         <tr>
                             <td>{{ session.date_seance|date:"d/m/Y" }}</td>
                             <td>{{ session.heure_debut|time:"H:i" }} - {{ session.heure_fin|time:"H:i" }}</td>
-                            <td>
-                                {% widthratio session.heure_fin|time:"H"|add:"0" session.heure_debut|time:"H"|add:"0" 1 as hours %}
-                                {{ hours }}h
-                            </td>
+                            <td>{{ session.duree_formatee }}</td>
                             <td>
                                 <a href="{% url 'absences:mark_absence' course.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}" 
                                    class="btn btn-sm btn-info">
