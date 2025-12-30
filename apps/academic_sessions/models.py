@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from datetime import datetime, timedelta
 
 
 class AnneeAcademique(models.Model):
@@ -109,6 +110,63 @@ class Seance(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+    def duree_heures(self):
+        """
+        Calcule la durée de la séance en heures (avec décimales pour les minutes).
+        Exemple: 08:30 à 10:30 = 2.0 heures
+        """
+        if not self.heure_debut or not self.heure_fin:
+            return 0.0
+        
+        # Convertir les TimeField en datetime pour le calcul
+        # On utilise une date arbitraire pour le calcul
+        date_ref = datetime(2000, 1, 1)
+        debut = datetime.combine(date_ref, self.heure_debut)
+        fin = datetime.combine(date_ref, self.heure_fin)
+        
+        # Si l'heure de fin est avant l'heure de début, on suppose que c'est le lendemain
+        if fin < debut:
+            fin += timedelta(days=1)
+        
+        # Calculer la différence en heures
+        delta = fin - debut
+        duree_heures = delta.total_seconds() / 3600.0
+        
+        return round(duree_heures, 2)
+
+    def duree_formatee(self):
+        """
+        Retourne la durée formatée de manière lisible.
+        Exemples: "2h", "2h30", "1h45", "30min"
+        """
+        if not self.heure_debut or not self.heure_fin:
+            return "0h"
+        
+        # Convertir les TimeField en datetime pour le calcul
+        date_ref = datetime(2000, 1, 1)
+        debut = datetime.combine(date_ref, self.heure_debut)
+        fin = datetime.combine(date_ref, self.heure_fin)
+        
+        # Si l'heure de fin est avant l'heure de début, on suppose que c'est le lendemain
+        if fin < debut:
+            fin += timedelta(days=1)
+        
+        # Calculer la différence totale en minutes
+        delta = fin - debut
+        total_minutes = int(delta.total_seconds() / 60)
+        
+        # Extraire les heures et minutes
+        heures = total_minutes // 60
+        minutes = total_minutes % 60
+        
+        # Formater selon les cas
+        if heures == 0:
+            return f"{minutes}min"
+        elif minutes == 0:
+            return f"{heures}h"
+        else:
+            return f"{heures}h{minutes:02d}"
 
     def __str__(self):
         return f"{self.id_cours.nom_cours} - {self.date_seance} ({self.heure_debut})"

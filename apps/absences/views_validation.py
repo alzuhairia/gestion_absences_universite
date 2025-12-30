@@ -5,12 +5,18 @@ from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
+from django.db import transaction
 
 from .models import Absence, Justification
+from .forms import SecretaryJustifiedAbsenceForm
 from apps.accounts.models import User
+from apps.enrollments.models import Inscription
+from apps.academics.models import Cours
+from apps.academic_sessions.models import Seance, AnneeAcademique
 from apps.notifications.models import Notification
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
+import base64
 
 @login_required
 @secretary_required
@@ -129,3 +135,252 @@ def process_justification(request, pk):
             )
     
     return redirect('absences:validation_list')
+
+
+@login_required
+@secretary_required
+def create_justified_absence(request):
+    """
+    Vue pour que le secrétariat encode directement une absence justifiée.
+    Permet de créer une absence avec statut JUSTIFIEE directement, sans passer par le processus de justification.
+    """
+    if request.method == 'POST':
+        form = SecretaryJustifiedAbsenceForm(request.POST, request.FILES)
+        if form.is_valid():
+            etudiant = form.cleaned_data['etudiant']
+            date_absence = form.cleaned_data['date_absence']
+            cours_list = form.cleaned_data['cours']
+            type_absence = form.cleaned_data['type_absence']
+            duree_absence = form.cleaned_data.get('duree_absence', 0)
+            heure_debut_raw = form.cleaned_data.get('heure_debut')
+            heure_fin_raw = form.cleaned_data.get('heure_fin')
+            commentaire = form.cleaned_data.get('commentaire', '')
+            document_file = form.cleaned_data.get('document')
+            
+            # Récupérer l'année académique active
+            annee_active = AnneeAcademique.objects.filter(active=True).first()
+            if not annee_active:
+                messages.error(request, "Aucune année académique active n'est définie.")
+                return render(request, 'absences/create_justified_absence.html', {'form': form})
+            
+            # Traiter le document si fourni
+            document_content = None
+            if document_file:
+                document_content = document_file.read()
+            
+            # Créer les absences pour chaque cours sélectionné
+            absences_created = []
+            with transaction.atomic():
+                for cours in cours_list:
+                    # Vérifier que l'étudiant est inscrit à ce cours
+                    inscription = Inscription.objects.filter(
+                        id_etudiant=etudiant,
+                        id_cours=cours,
+                        id_annee=annee_active,
+                        status='EN_COURS'
+                    ).first()
+                    
+                    if not inscription:
+                        messages.warning(
+                            request,
+                            f"L'étudiant {etudiant.get_full_name()} n'est pas inscrit au cours {cours.code_cours} pour l'année {annee_active.libelle}."
+                        )
+                        continue
+                    
+                    # Déterminer les heures de la séance
+                    # Si heures non spécifiées, utiliser les heures par défaut (8h-10h)
+                    from datetime import time as dt_time
+                    seance_heure_debut = heure_debut_raw if heure_debut_raw else dt_time(8, 0)
+                    seance_heure_fin = heure_fin_raw if heure_fin_raw else dt_time(10, 0)
+                    
+                    # Vérifier que l'heure de fin est après l'heure de début
+                    # Si ce n'est pas le cas, ajuster automatiquement
+                    if seance_heure_fin <= seance_heure_debut:
+                        from datetime import datetime, timedelta
+                        date_ref = datetime(2000, 1, 1)
+                        debut = datetime.combine(date_ref, seance_heure_debut)
+                        fin = datetime.combine(date_ref, seance_heure_fin)
+                        if fin <= debut:
+                            # Ajouter 2 heures à l'heure de début si l'heure de fin est invalide
+                            fin = debut + timedelta(hours=2)
+                        seance_heure_fin = fin.time()
+                    
+                    # Créer ou récupérer la séance
+                    seance, _ = Seance.objects.get_or_create(
+                        date_seance=date_absence,
+                        heure_debut=seance_heure_debut,
+                        heure_fin=seance_heure_fin,
+                        id_cours=cours,
+                        id_annee=annee_active,
+                        defaults={}
+                    )
+                    
+                    # Calculer la durée si nécessaire
+                    if type_absence == 'SEANCE':
+                        # Calculer la durée de la séance
+                        from datetime import datetime, timedelta
+                        date_ref = datetime(2000, 1, 1)
+                        debut = datetime.combine(date_ref, seance_heure_debut)
+                        fin = datetime.combine(date_ref, seance_heure_fin)
+                        if fin < debut:
+                            fin += timedelta(days=1)
+                        duree = (fin - debut).total_seconds() / 3600.0
+                    elif type_absence == 'HEURE':
+                        duree = duree_absence if duree_absence > 0 else 1.0
+                    else:  # JOURNEE
+                        duree = 8.0
+                    
+                    # Créer ou mettre à jour l'absence (justifiée directement)
+                    absence, created = Absence.objects.update_or_create(
+                        id_inscription=inscription,
+                        id_seance=seance,
+                        defaults={
+                            'type_absence': type_absence,
+                            'duree_absence': duree,
+                            'statut': 'JUSTIFIEE',  # Directement justifiée
+                            'encodee_par': request.user
+                        }
+                    )
+                    
+                    # Créer la justification associée si document fourni ou commentaire
+                    if document_content or commentaire:
+                        Justification.objects.update_or_create(
+                            id_absence=absence,
+                            defaults={
+                                'document': document_content,
+                                'commentaire': commentaire,
+                                'commentaire_gestion': f"Absence encodée directement par le secrétariat le {timezone.now().strftime('%d/%m/%Y à %H:%M')}",
+                                'state': 'ACCEPTEE',
+                                'validee': True,
+                                'validee_par': request.user,
+                                'date_validation': timezone.now()
+                            }
+                        )
+                    
+                    absences_created.append({
+                        'cours': cours.code_cours,
+                        'absence': absence
+                    })
+                    
+                    # Audit logging
+                    log_action(
+                        request.user,
+                        f"Secrétaire a encodé une absence justifiée pour {etudiant.get_full_name()} - {cours.code_cours} le {date_absence}",
+                        request,
+                        niveau='INFO',
+                        objet_type='ABSENCE',
+                        objet_id=absence.id_absence
+                    )
+            
+            if absences_created:
+                messages.success(
+                    request,
+                    f"Absence(s) justifiée(s) encodée(s) avec succès pour {etudiant.get_full_name()} "
+                    f"le {date_absence} ({len(absences_created)} cours)."
+                )
+                return redirect('absences:validation_list')
+            else:
+                messages.error(request, "Aucune absence n'a pu être créée. Vérifiez que l'étudiant est bien inscrit aux cours sélectionnés.")
+    else:
+        form = SecretaryJustifiedAbsenceForm()
+    
+    return render(request, 'absences/create_justified_absence.html', {
+        'form': form
+    })
+
+
+@login_required
+@secretary_required
+def justified_absences_list(request):
+    """
+    Liste des absences justifiées encodées par le secrétariat.
+    Permet de consulter toutes les absences justifiées avec leurs détails.
+    """
+    try:
+        # Filtrer les absences justifiées
+        absences = Absence.objects.filter(
+            statut='JUSTIFIEE'
+        ).select_related(
+            'id_inscription__id_etudiant',
+            'id_seance__id_cours',
+            'id_seance__id_cours__id_departement',
+            'id_seance__id_cours__id_departement__id_faculte',
+            'encodee_par'
+        ).prefetch_related('justification').order_by('-id_seance__date_seance', '-id_absence')
+        
+        # Filtrer par étudiant si demandé
+        student_filter = request.GET.get('student')
+        if student_filter:
+            absences = absences.filter(
+                id_inscription__id_etudiant__email__icontains=student_filter
+            )
+        
+        # Filtrer par date si demandé
+        date_filter = request.GET.get('date')
+        if date_filter:
+            absences = absences.filter(id_seance__date_seance=date_filter)
+        
+        # Filtrer par cours si demandé
+        course_filter = request.GET.get('course')
+        if course_filter:
+            absences = absences.filter(
+                id_seance__id_cours__code_cours__icontains=course_filter
+            )
+        
+        # Grouper par étudiant et date pour faciliter la lecture
+        # On va créer une structure de données groupée
+        grouped_absences = {}
+        for absence in absences:
+            key = f"{absence.id_inscription.id_etudiant.id_utilisateur}_{absence.id_seance.date_seance}"
+            if key not in grouped_absences:
+                # Récupérer la justification pour avoir la date de validation si elle existe
+                date_encodage = None
+                try:
+                    justification = absence.justification
+                    if justification and justification.date_validation:
+                        date_encodage = justification.date_validation
+                except:
+                    # Pas de justification associée, on laisse date_encodage à None
+                    pass
+                
+                grouped_absences[key] = {
+                    'etudiant': absence.id_inscription.id_etudiant,
+                    'date': absence.id_seance.date_seance,
+                    'absences': [],
+                    'encodee_par': absence.encodee_par,
+                    'date_encodage': date_encodage,
+                    'total_duree': 0.0
+                }
+            grouped_absences[key]['absences'].append(absence)
+            grouped_absences[key]['total_duree'] += absence.duree_absence
+        
+        # Convertir en liste triée
+        absences_list = sorted(
+            grouped_absences.values(),
+            key=lambda x: (x['date'], x['etudiant'].nom or ''),
+            reverse=True
+        )
+        
+        # Pagination
+        paginator = Paginator(absences_list, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        return render(request, 'absences/justified_absences_list.html', {
+            'page_obj': page_obj,
+            'student_filter': student_filter or '',
+            'date_filter': date_filter or '',
+            'course_filter': course_filter or '',
+        })
+    except Exception as e:
+        import traceback
+        messages.error(request, f"Une erreur est survenue : {str(e)}")
+        # Log l'erreur pour le débogage
+        print(f"Error in justified_absences_list: {e}")
+        print(traceback.format_exc())
+        return render(request, 'absences/justified_absences_list.html', {
+            'page_obj': None,
+            'student_filter': '',
+            'date_filter': '',
+            'course_filter': '',
+        })

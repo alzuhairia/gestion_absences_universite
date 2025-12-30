@@ -1,0 +1,235 @@
+{% extends 'base_secretary.html' %}
+
+{% block title %}Encoder une Absence Justifiée{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'absences:validation_list' %}">Justificatifs</a></li>
+<li class="breadcrumb-item active" aria-current="page">Encoder une Absence Justifiée</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">
+                    <i class="fas fa-check-circle me-2"></i>Encoder une Absence Justifiée
+                </h1>
+                <p class="mb-0 opacity-90">
+                    Créez directement une absence justifiée pour un étudiant. Cette absence sera officielle et prioritaire.
+                </p>
+            </div>
+            <a href="{% url 'absences:validation_list' %}" class="btn btn-light">
+                <i class="fas fa-arrow-left me-1"></i>Retour aux justificatifs
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-file-medical me-2"></i>Informations de l'Absence
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="{{ form.etudiant.id_for_label }}" class="form-label">
+                            <i class="fas fa-user-graduate me-2"></i>{{ form.etudiant.label }}
+                        </label>
+                        {{ form.etudiant }}
+                        {% if form.etudiant.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.etudiant.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if form.etudiant.help_text %}
+                        <small class="form-text text-muted">{{ form.etudiant.help_text }}</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="{{ form.date_absence.id_for_label }}" class="form-label">
+                            <i class="fas fa-calendar me-2"></i>{{ form.date_absence.label }}
+                        </label>
+                        {{ form.date_absence }}
+                        {% if form.date_absence.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.date_absence.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if form.date_absence.help_text %}
+                        <small class="form-text text-muted">{{ form.date_absence.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">
+                        <i class="fas fa-book me-2"></i>{{ form.cours.label }}
+                    </label>
+                    <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                        {% for checkbox in form.cours %}
+                        <div class="form-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if form.cours.errors %}
+                    <div class="text-danger small">
+                        {% for error in form.cours.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if form.cours.help_text %}
+                    <small class="form-text text-muted">{{ form.cours.help_text }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label for="{{ form.type_absence.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock me-2"></i>{{ form.type_absence.label }}
+                        </label>
+                        {{ form.type_absence }}
+                        {% if form.type_absence.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.type_absence.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.heure_debut.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock me-2"></i>{{ form.heure_debut.label }}
+                        </label>
+                        {{ form.heure_debut }}
+                        {% if form.heure_debut.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.heure_debut.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if form.heure_debut.help_text %}
+                        <small class="form-text text-muted">{{ form.heure_debut.help_text }}</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.heure_fin.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock me-2"></i>{{ form.heure_fin.label }}
+                        </label>
+                        {{ form.heure_fin }}
+                        {% if form.heure_fin.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.heure_fin.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if form.heure_fin.help_text %}
+                        <small class="form-text text-muted">{{ form.heure_fin.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-4" id="duree-row" style="display: none;">
+                    <div class="col-md-6">
+                        <label for="{{ form.duree_absence.id_for_label }}" class="form-label">
+                            <i class="fas fa-hourglass-half me-2"></i>{{ form.duree_absence.label }}
+                        </label>
+                        {{ form.duree_absence }}
+                        {% if form.duree_absence.errors %}
+                        <div class="text-danger small">
+                            {% for error in form.duree_absence.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if form.duree_absence.help_text %}
+                        <small class="form-text text-muted">{{ form.duree_absence.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.commentaire.id_for_label }}" class="form-label">
+                        <i class="fas fa-comment me-2"></i>{{ form.commentaire.label }}
+                    </label>
+                    {{ form.commentaire }}
+                    {% if form.commentaire.errors %}
+                    <div class="text-danger small">
+                        {% for error in form.commentaire.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if form.commentaire.help_text %}
+                    <small class="form-text text-muted">{{ form.commentaire.help_text }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.document.id_for_label }}" class="form-label">
+                        <i class="fas fa-file-upload me-2"></i>{{ form.document.label }}
+                    </label>
+                    {{ form.document }}
+                    {% if form.document.errors %}
+                    <div class="text-danger small">
+                        {% for error in form.document.errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if form.document.help_text %}
+                    <small class="form-text text-muted">{{ form.document.help_text }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note :</strong> Cette absence sera créée avec le statut "Justifiée" directement. 
+                    Elle sera prioritaire et ne pourra pas être modifiée par les professeurs.
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'absences:validation_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Encoder l'Absence Justifiée
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeSelect = document.getElementById('id_type_absence');
+    const dureeRow = document.getElementById('duree-row');
+    const dureeInput = document.getElementById('id_duree_absence');
+
+    function toggleDureeField() {
+        if (typeSelect.value === 'HEURE') {
+            dureeRow.style.display = 'block';
+            dureeInput.required = true;
+        } else {
+            dureeRow.style.display = 'none';
+            dureeInput.required = false;
+            dureeInput.value = '';
+        }
+    }
+
+    typeSelect.addEventListener('change', toggleDureeField);
+    toggleDureeField(); // Initial call
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,313 @@
+{% extends 'base_secretary.html' %}
+
+{% block title %}Absences Justifiées Encodées{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active" aria-current="page">Absences Justifiées</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #1cc88a 0%, #17a673 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .absence-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid #1cc88a;
+        transition: all 0.3s;
+    }
+
+    .absence-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    .student-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .student-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1cc88a 0%, #17a673 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+
+    .courses-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .course-badge {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .meta-info {
+        display: flex;
+        gap: 2rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .meta-item i {
+        color: #1cc88a;
+    }
+
+    .status-badge {
+        background: #1cc88a;
+        color: white;
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">
+                    <i class="fas fa-check-circle me-2"></i>Absences Justifiées Encodées
+                </h1>
+                <p class="mb-0 opacity-90">
+                    Consultation de toutes les absences justifiées encodées par le secrétariat
+                </p>
+            </div>
+            <a href="{% url 'absences:create_justified_absence' %}" class="btn btn-light">
+                <i class="fas fa-plus me-1"></i>Encoder une Absence
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-section">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="student" class="form-label">
+                    <i class="fas fa-user-graduate me-1"></i>Étudiant
+                </label>
+                <input type="text" class="form-control" id="student" name="student" 
+                       value="{{ student_filter }}" placeholder="Email ou nom de l'étudiant">
+            </div>
+            <div class="col-md-3">
+                <label for="date" class="form-label">
+                    <i class="fas fa-calendar me-1"></i>Date
+                </label>
+                <input type="date" class="form-control" id="date" name="date" value="{{ date_filter }}">
+            </div>
+            <div class="col-md-3">
+                <label for="course" class="form-label">
+                    <i class="fas fa-book me-1"></i>Cours
+                </label>
+                <input type="text" class="form-control" id="course" name="course" 
+                       value="{{ course_filter }}" placeholder="Code du cours">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i>Filtrer
+                </button>
+            </div>
+        </form>
+        {% if student_filter or date_filter or course_filter %}
+        <div class="mt-3">
+            <a href="{% url 'absences:justified_absences_list' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-times me-1"></i>Effacer les filtres
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Liste des absences -->
+    {% if page_obj %}
+    <div class="mb-4">
+        <p class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>{{ page_obj.paginator.count }}</strong> absence(s) justifiée(s) trouvée(s)
+        </p>
+    </div>
+
+    {% for item in page_obj %}
+    <div class="absence-card">
+        <div class="student-info">
+            <div class="student-avatar">
+                {{ item.etudiant.nom|first|upper }}{{ item.etudiant.prenom|first|upper }}
+            </div>
+            <div class="flex-grow-1">
+                <h5 class="mb-1">
+                    <i class="fas fa-user-graduate me-2"></i>{{ item.etudiant.get_full_name }}
+                </h5>
+                <p class="text-muted mb-0 small">
+                    <i class="fas fa-envelope me-1"></i>{{ item.etudiant.email }}
+                </p>
+            </div>
+            <div class="text-end">
+                <div class="status-badge">
+                    <i class="fas fa-check-circle me-1"></i>Justifiée
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <h6 class="mb-2">
+                <i class="fas fa-calendar-alt me-2"></i>Date : {{ item.date|date:"d/m/Y" }}
+            </h6>
+            
+            <div class="courses-list">
+                {% for absence in item.absences %}
+                <div class="course-badge">
+                    <i class="fas fa-book me-1"></i>
+                    <strong>{{ absence.id_seance.id_cours.code_cours }}</strong> - 
+                    {{ absence.id_seance.id_cours.nom_cours }}
+                    <span class="ms-2">
+                        ({{ absence.id_seance.heure_debut|time:"H:i" }} - {{ absence.id_seance.heure_fin|time:"H:i" }})
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="meta-info">
+            <div class="meta-item">
+                <i class="fas fa-user-tie"></i>
+                <span>Encodée par : <strong>{{ item.encodee_par.get_full_name }}</strong></span>
+            </div>
+            <div class="meta-item">
+                <i class="fas fa-clock"></i>
+                <span>Type : 
+                    {% for absence in item.absences %}
+                        {{ absence.get_type_absence_display }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </span>
+            </div>
+            <div class="meta-item">
+                <i class="fas fa-hourglass-half"></i>
+                <span>Durée : 
+                    {% if item.absences|length > 1 %}
+                        {% for absence in item.absences %}
+                            {{ absence.duree_absence|floatformat:1 }}h{% if not forloop.last %} + {% endif %}
+                        {% endfor %}
+                        = <strong>{{ item.total_duree|floatformat:1 }}h</strong>
+                    {% else %}
+                        {% for absence in item.absences %}
+                            <strong>{{ absence.duree_absence|floatformat:1 }}h</strong>
+                        {% endfor %}
+                    {% endif %}
+                </span>
+            </div>
+            {% if item.date_encodage %}
+            <div class="meta-item">
+                <i class="fas fa-calendar-check"></i>
+                <span>Encodée le : <strong>{{ item.date_encodage|date:"d/m/Y à H:i" }}</strong></span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Pagination">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if student_filter %}&student={{ student_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if student_filter %}&student={{ student_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if student_filter %}&student={{ student_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if student_filter %}&student={{ student_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}{% if course_filter %}&course={{ course_filter }}{% endif %}">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="card shadow">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Aucune absence justifiée trouvée</h5>
+            <p class="text-muted">
+                {% if student_filter or date_filter or course_filter %}
+                Aucune absence ne correspond aux critères de recherche.
+                {% else %}
+                Aucune absence justifiée n'a encore été encodée.
+                {% endif %}
+            </p>
+            <a href="{% url 'absences:create_justified_absence' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-plus me-1"></i>Encoder une Absence Justifiée
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

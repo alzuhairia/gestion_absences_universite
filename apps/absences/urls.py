@@ -15,6 +15,8 @@ urlpatterns = [
     # --- Actions Secrétariat / Admin ---
     path('validation/', views_validation.validation_list, name='validation_list'),
     path('process/<int:pk>/', views_validation.process_justification, name='process_justification'),
+    path('create-justified/', views_validation.create_justified_absence, name='create_justified_absence'),
+    path('justified-list/', views_validation.justified_absences_list, name='justified_absences_list'),
     
     # Edit/Override Absence
     path('edit/<int:pk>/', views_manager.edit_absence, name='edit_absence'),

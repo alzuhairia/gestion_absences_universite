@@ -1,83 +1,141 @@
-{% extends 'base.html' %}
+{% extends 'base_secretary.html' %}
 
 {% block title %}Modifier l'absence{% endblock %}
 
-{% block content %}
-<div class="max-w-2xl mx-auto space-y-6">
-    <div class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold tracking-tight text-gray-900">Modifier l'absence</h1>
-        <a href="{% url 'absences:validation_list' %}" class="text-indigo-600 hover:text-indigo-900">Retour</a>
-    </div>
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'absences:validation_list' %}">Justificatifs</a></li>
+<li class="breadcrumb-item active">Modifier l'absence</li>
+{% endblock %}
 
-    <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-        <div class="md:grid md:grid-cols-3 md:gap-6">
-            <div class="md:col-span-1">
-                <h3 class="text-lg font-medium leading-6 text-gray-900">Détails de l'absence</h3>
-                <p class="mt-1 text-sm text-gray-500">
-                    Étudiant : {{ absence.id_inscription.id_etudiant.get_full_name }}<br>
-                    Date : {{ absence.id_seance.date_seance }}<br>
-                    Cours : {{ absence.id_seance.id_cours.nom_cours }}
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">
+                    <i class="fas fa-edit me-2"></i>Modifier l'absence
+                </h1>
+                <p class="mb-0 opacity-90">
+                    Modification d'une absence avec traçabilité complète
                 </p>
             </div>
-            <div class="mt-5 md:mt-0 md:col-span-2">
-                <form action="{% url 'absences:edit_absence' absence.pk %}" method="POST">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-6 gap-6">
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="duree_absence" class="block text-sm font-medium text-gray-700">Durée (h)</label>
-                            <input type="number" step="0.5" name="duree_absence" id="duree_absence"
-                                value="{{ absence.duree_absence }}"
-                                class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                        </div>
+            <a href="{% url 'absences:validation_list' %}" class="btn btn-light">
+                <i class="fas fa-arrow-left me-1"></i>Retour aux justificatifs
+            </a>
+        </div>
+    </div>
 
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="type_absence" class="block text-sm font-medium text-gray-700">Type</label>
-                            <select id="type_absence" name="type_absence"
-                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                                <option value="SEANCE" {% if absence.type_absence=='SEANCE' %}selected{% endif %}>Séance
-                                </option>
-                                <option value="HEURE" {% if absence.type_absence=='HEURE' %}selected{% endif %}>Heure
-                                </option>
-                                <option value="JOURNEE" {% if absence.type_absence=='JOURNEE' %}selected{% endif %}>
-                                    Journée</option>
-                            </select>
-                        </div>
-
-                        <div class="col-span-6">
-                            <label for="statut" class="block text-sm font-medium text-gray-700">Statut
-                                (OVERRIDE)</label>
-                            <select id="statut" name="statut"
-                                class="mt-1 block w-full py-2 px-3 border border-red-300 bg-red-50 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                                <option value="EN_ATTENTE" {% if absence.statut=='EN_ATTENTE' %}selected{% endif %}>En
-                                    attente</option>
-                                <option value="JUSTIFIEE" {% if absence.statut=='JUSTIFIEE' %}selected{% endif %}>
-                                    Justifiée</option>
-                                <option value="NON_JUSTIFIEE" {% if absence.statut=='NON_JUSTIFIEE' %}selected{% endif
-                                    %}>Non Justifiée</option>
-                            </select>
-                            <p class="mt-1 text-xs text-red-500">Attention: Modifier ce statut contourne le processus de
-                                validation normal.</p>
-                        </div>
-
-                        <div class="col-span-6">
-                            <label for="reason" class="block text-sm font-medium text-gray-700">Motif de la modification
-                                (Obligatoire)</label>
-                            <textarea id="reason" name="reason" rows="3"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md"
-                                required
-                                placeholder="Ex: Erreur administrative, Justificatif papier reçu..."></textarea>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex items-center justify-end">
-                        <button type="submit"
-                            class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Enregistrer les modifications
-                        </button>
-                    </div>
-                </form>
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>Détails de l'absence
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p class="mb-2">
+                        <strong><i class="fas fa-user-graduate me-2"></i>Étudiant :</strong>
+                        {{ absence.id_inscription.id_etudiant.get_full_name }}
+                    </p>
+                    <p class="mb-2">
+                        <strong><i class="fas fa-calendar me-2"></i>Date :</strong>
+                        {{ absence.id_seance.date_seance|date:"d/m/Y" }}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-2">
+                        <strong><i class="fas fa-book me-2"></i>Cours :</strong>
+                        {{ absence.id_seance.id_cours.code_cours }} - {{ absence.id_seance.id_cours.nom_cours }}
+                    </p>
+                    <p class="mb-2">
+                        <strong><i class="fas fa-clock me-2"></i>Heure :</strong>
+                        {{ absence.id_seance.heure_debut|time:"H:i" }} - {{ absence.id_seance.heure_fin|time:"H:i" }}
+                    </p>
+                </div>
             </div>
+
+            <hr>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="duree_absence" class="form-label">
+                            <i class="fas fa-hourglass-half me-2"></i>Durée (heures)
+                        </label>
+                        <input type="number" step="0.5" min="0" name="duree_absence" id="duree_absence"
+                            value="{{ absence.duree_absence }}"
+                            class="form-control" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="type_absence" class="form-label">
+                            <i class="fas fa-clock me-2"></i>Type d'absence
+                        </label>
+                        <select id="type_absence" name="type_absence" class="form-select" required>
+                            <option value="SEANCE" {% if absence.type_absence == 'SEANCE' %}selected{% endif %}>Séance complète</option>
+                            <option value="HEURE" {% if absence.type_absence == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
+                            <option value="JOURNEE" {% if absence.type_absence == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="statut" class="form-label">
+                        <i class="fas fa-exclamation-triangle me-2 text-warning"></i>Statut (OVERRIDE)
+                    </label>
+                    <select id="statut" name="statut" class="form-select border-warning" required>
+                        <option value="EN_ATTENTE" {% if absence.statut == 'EN_ATTENTE' %}selected{% endif %}>En attente</option>
+                        <option value="JUSTIFIEE" {% if absence.statut == 'JUSTIFIEE' %}selected{% endif %}>Justifiée</option>
+                        <option value="NON_JUSTIFIEE" {% if absence.statut == 'NON_JUSTIFIEE' %}selected{% endif %}>Non Justifiée</option>
+                    </select>
+                    <div class="form-text text-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>Attention :</strong> Modifier ce statut contourne le processus de validation normal. Cette action sera enregistrée dans le journal d'audit.
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="reason" class="form-label">
+                        <i class="fas fa-comment-alt me-2"></i>Motif de la modification <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="reason" name="reason" rows="4"
+                        class="form-control" required
+                        placeholder="Ex: Erreur administrative, Justificatif papier reçu, Correction manuelle..."></textarea>
+                    <div class="form-text">
+                        Ce motif sera enregistré dans le journal d'audit pour traçabilité.
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note :</strong> Toutes les modifications seront enregistrées dans le journal d'audit avec le motif indiqué.
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'absences:validation_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Enregistrer les modifications
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<style>
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+</style>
 {% endblock %}

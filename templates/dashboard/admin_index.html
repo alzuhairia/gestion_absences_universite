@@ -83,7 +83,7 @@
                                     <td>
                                         {{ justif.id_absence.id_seance.id_cours.nom_cours }}<br>
                                         <small>{{ justif.id_absence.id_seance.date_seance|date:"d/m/Y" }} ({{
-                                            justif.id_absence.duree_absence }}h)</small>
+                                            justif.id_absence.duree_absence|floatformat:1 }}h)</small>
                                     </td>
                                     <td class="text-center">
                                         <!-- Lien temporaire car le document est un BinaryField, nécessite une vue de service -->

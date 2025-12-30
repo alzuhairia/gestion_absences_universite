@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_instructor.html' %}
 
 {% block title %}Marquer les Absences - {{ course.nom_cours }}{% endblock %}
 
 {% block breadcrumbs %}
-<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Mes Cours</a></li>
-<li class="breadcrumb-item active" aria-current="page">Appel</li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}">{{ course.code_cours }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Faire l'appel</li>
 {% endblock %}
 
 {% block content %}
@@ -74,29 +75,44 @@
                                     <div class="fw-bold">{{ ins.id_etudiant.get_full_name }}</div>
                                     <div class="small text-muted">{{ ins.id_etudiant.email }}</div>
                                     {% if ins.absence_data %}
-                                    <span class="badge bg-danger mt-1">Déjà absent</span>
-                                    {% if request.user.role == 'PROFESSEUR' %}
-                                    <span class="badge bg-secondary"><i class="fas fa-lock"></i> Modif. interdite</span>
-                                    {% endif %}
+                                        {% if ins.absence_data.statut == 'JUSTIFIEE' %}
+                                        <span class="badge bg-success mt-1">
+                                            <i class="fas fa-check-circle me-1"></i>Absence Justifiée
+                                        </span>
+                                        <span class="badge bg-info mt-1">
+                                            <i class="fas fa-shield-alt me-1"></i>Encodée par le Secrétariat
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-danger mt-1">Déjà absent</span>
+                                        {% if request.user.role == 'PROFESSEUR' %}
+                                        <span class="badge bg-secondary"><i class="fas fa-lock"></i> Modif. interdite</span>
+                                        {% endif %}
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                                 <td class="align-middle">
                                     <div class="btn-group" role="group" aria-label="Status">
                                         <!-- Check restriction -->
-                                        {% if request.user.role == 'PROFESSEUR' and ins.absence_data %}
-                                        <!-- LOCKED VIEW -->
+                                        {% if ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
+                                        <!-- ABSENCE JUSTIFIÉE - LOCKED VIEW (Professeur et Secrétariat) -->
+                                        <input type="radio" class="btn-check" disabled>
+                                        <label class="btn btn-outline-secondary btn-sm disabled">Présent</label>
+
+                                        <input type="radio" class="btn-check" checked disabled>
+                                        <label class="btn btn-success btn-sm disabled">
+                                            <i class="fas fa-check-circle me-1"></i>Absent Justifié
+                                        </label>
+                                        <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
+                                            <i class="fas fa-info-circle me-1"></i>Absence encodée par le Secrétariat
+                                        </small>
+                                        {% elif request.user.role == 'PROFESSEUR' and ins.absence_data %}
+                                        <!-- LOCKED VIEW pour autres absences -->
                                         <input type="radio" class="btn-check" disabled>
                                         <label class="btn btn-outline-secondary btn-sm disabled">Présent</label>
 
                                         <input type="radio" class="btn-check" checked disabled>
                                         <label class="btn btn-danger btn-sm disabled">Absent <i
                                                 class="fas fa-lock"></i></label>
-
-                                        <!-- Hidden inputs to submit nothing or keep state? 
-                                                  Actually, if disabled, they won't submit. 
-                                                  And the view logic ignores them anyway if they were to submit. 
-                                                  So just disabled is fine.
-                                             -->
                                         {% else %}
                                         <!-- Standard View -->
                                         <!-- Present -->
@@ -200,7 +216,7 @@
                 </div>
             </div>
             <div class="card-footer bg-white text-end">
-                <a href="{% url 'dashboard:index' %}" class="btn btn-secondary me-2">Annuler</a>
+                <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}" class="btn btn-secondary me-2">Annuler</a>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-2"></i>Enregistrer l'appel
                 </button>

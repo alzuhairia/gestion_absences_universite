@@ -1,6 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_student.html' %}
 
 {% block title %}Détails du cours — {{ course.code_cours }}{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item active">{{ course.code_cours }}</li>
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -224,7 +229,7 @@
                         <tr>
                             <td>{{ item.absence.id_seance.date_seance|date:"d/m/Y" }}</td>
                             <td>{{ item.absence.id_seance.heure_debut|time:"H:i" }}</td>
-                            <td>{{ item.absence.duree_absence }}h</td>
+                            <td>{{ item.absence.duree_absence|floatformat:1 }}h</td>
                             <td>
                                 {% if item.status == "JUSTIFIÉE" %}
                                     <span class="status-badge bg-success text-white">
