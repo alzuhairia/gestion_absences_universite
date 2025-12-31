@@ -74,23 +74,48 @@ class Departement(models.Model):
 class Cours(models.Model):
     """
     Modèle représentant un cours académique.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    - Chaque cours appartient à un niveau (1, 2 ou 3) et une année académique
+    - Les prérequis sont filtrés par niveau (un cours de niveau N ne peut avoir que des prérequis < N)
+    - Le seuil d'absence peut être personnalisé par cours ou utiliser le seuil par défaut
+    - L'année académique est assignée automatiquement à l'année active lors de la création
     """
+    
+    # ============================================
+    # IDENTIFIANT ET INFORMATIONS DE BASE
+    # ============================================
+    
     id_cours = models.AutoField(primary_key=True)
+    # Clé primaire auto-incrémentée
+    
     code_cours = models.CharField(
         unique=True, 
         max_length=50, 
         verbose_name="Code du cours",
         db_index=True
     )
+    # Code unique du cours (ex: "INFO_01", "MATH_02")
+    # Utilisé pour identifier rapidement un cours
+    
     nom_cours = models.CharField(
         max_length=200, 
         verbose_name="Intitulé du cours"
     )
+    # Nom complet du cours (ex: "Introduction à la programmation")
+    
     nombre_total_periodes = models.IntegerField(
         verbose_name="Total périodes (h)",
         validators=[MinValueValidator(1), MaxValueValidator(1000)],
         help_text="Nombre total d'heures de cours"
     )
+    # Nombre total d'heures de cours pour ce cours
+    # Utilisé pour calculer le taux d'absence : (heures absences / total périodes) * 100
+    
+    # ============================================
+    # GESTION DES ABSENCES
+    # ============================================
+    
     seuil_absence = models.IntegerField(
         blank=True, 
         null=True, 
@@ -99,6 +124,14 @@ class Cours(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système."
     )
+    # Seuil d'absence personnalisé pour ce cours (en pourcentage)
+    # Si None, utilise le seuil par défaut défini dans SystemSettings
+    # Utilisé pour déterminer si un étudiant est bloqué (taux >= seuil)
+    
+    # ============================================
+    # RATTACHEMENT ORGANISATIONNEL
+    # ============================================
+    
     id_departement = models.ForeignKey(
         Departement, 
         models.PROTECT,  # Empêche la suppression d'un département avec des cours
@@ -106,6 +139,10 @@ class Cours(models.Model):
         verbose_name="Département",
         related_name='cours'
     )
+    # Département auquel appartient le cours
+    # PROTECT : empêche la suppression d'un département qui a des cours
+    # Cela garantit l'intégrité référentielle
+    
     professeur = models.ForeignKey(
         'accounts.User',
         models.SET_NULL,  # Si le professeur est supprimé, le champ devient NULL
@@ -116,6 +153,14 @@ class Cours(models.Model):
         limit_choices_to={'role': 'PROFESSEUR'},
         related_name='cours_enseignes'
     )
+    # Professeur assigné au cours
+    # SET_NULL : si le professeur est supprimé, le champ devient NULL (le cours reste)
+    # limit_choices_to : seuls les utilisateurs avec le rôle PROFESSEUR peuvent être assignés
+    
+    # ============================================
+    # ORGANISATION ACADÉMIQUE
+    # ============================================
+    
     id_annee = models.ForeignKey(
         'academic_sessions.AnneeAcademique',
         models.PROTECT,  # Empêche la suppression d'une année avec des cours
@@ -126,6 +171,11 @@ class Cours(models.Model):
         related_name='cours',
         help_text="Année académique à laquelle ce cours appartient (assignée automatiquement)"
     )
+    # Année académique à laquelle ce cours appartient
+    # IMPORTANT : Assignée automatiquement à l'année académique active lors de la création
+    # (voir CoursForm.save() dans apps/dashboard/forms_admin.py)
+    # PROTECT : empêche la suppression d'une année qui a des cours
+    
     niveau = models.IntegerField(
         choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
         verbose_name="Niveau d'étude",
@@ -134,14 +184,29 @@ class Cours(models.Model):
         blank=True,  # Temporairement blank pour la migration
         db_index=True
     )
+    # Niveau académique du cours (1, 2 ou 3)
+    # IMPORTANT POUR LA LOGIQUE MÉTIER :
+    # - Un cours de niveau N ne peut avoir que des prérequis de niveau < N
+    # - Lors de l'inscription à un niveau complet, seuls les cours de ce niveau sont inscrits
+    # - Utilisé pour filtrer les cours disponibles lors de l'inscription
+    
+    # ============================================
+    # PRÉREQUIS
+    # ============================================
+    
     prerequisites = models.ManyToManyField(
         'self', 
-        symmetrical=False, 
+        symmetrical=False,  # Si A est prérequis de B, B n'est pas automatiquement prérequis de A
         blank=True, 
         verbose_name="Prérequis",
         related_name="required_by",
         help_text="Cours qui doivent être validés avant de s'inscrire à ce cours"
     )
+    # Relation many-to-many avec lui-même pour les prérequis
+    # IMPORTANT : Les prérequis sont filtrés par niveau dans le formulaire
+    # (voir CoursForm.__init__ dans apps/dashboard/forms_admin.py)
+    # Règle métier : un cours de niveau N ne peut avoir que des prérequis de niveau < N
+    # Cette règle est appliquée dans le formulaire pour éviter les incohérences
     actif = models.BooleanField(
         default=True,
         verbose_name="Actif",

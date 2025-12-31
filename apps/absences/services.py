@@ -8,11 +8,34 @@ def recalculer_eligibilite(inscription):
     """
     Recalcule l'éligibilité d'un étudiant à l'examen basé sur ses absences non justifiées.
     
-    Cette fonction est appelée automatiquement via un signal Django après chaque
-    modification d'absence pour maintenir la cohérence des données.
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction implémente la règle métier du seuil d'absence :
+    - Un étudiant est bloqué (non éligible) si son taux d'absence >= seuil (40% par défaut)
+    - Exception : si l'étudiant a une exemption (exemption_40 = True)
+    - Le calcul se base UNIQUEMENT sur les absences NON JUSTIFIÉES
+    
+    Logique métier :
+    1. Calculer le total des heures d'absences NON JUSTIFIÉES
+    2. Calculer le taux : (heures absences / total périodes) * 100
+    3. Comparer avec le seuil (personnalisé par cours ou défaut système)
+    4. Si taux >= seuil ET pas d'exemption :
+       - Bloquer l'étudiant (eligible_examen = False)
+       - Envoyer une notification
+       - Logger dans l'audit
+    5. Sinon :
+       - Débloquer l'étudiant si nécessaire (eligible_examen = True)
+       - Envoyer une notification de déblocage
+    
+    Appel automatique :
+    - Cette fonction est appelée automatiquement via un signal Django
+    - Signal : post_save sur le modèle Absence
+    - Garantit la cohérence des données après chaque modification d'absence
     
     Args:
         inscription: Instance de Inscription à recalculer
+        
+    Returns:
+        None (modifie directement l'objet inscription)
     """
     # 1. Calcul des absences NON JUSTIFIÉES uniquement
     total_absence = Absence.objects.filter(

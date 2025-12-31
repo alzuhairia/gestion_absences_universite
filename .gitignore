@@ -5,6 +5,8 @@ env/
 
 # Variables d'environnement (TRÈS IMPORTANT)
 .env
+.env.production
+.env.local
 
 # Fichiers Django
 db.sqlite3
@@ -46,3 +48,6 @@ desktop.ini
 # Scripts temporaires (à nettoyer périodiquement)
 update_imports.py
 fix_imports.py
+
+# Docker
+.dockerignore

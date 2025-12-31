@@ -14,7 +14,6 @@ from apps.accounts.models import User
 from apps.audits.models import LogAudit
 from apps.dashboard.decorators import professor_required, student_required, secretary_required
 from collections import defaultdict
-import random
 
 @login_required
 def dashboard_redirect(request):

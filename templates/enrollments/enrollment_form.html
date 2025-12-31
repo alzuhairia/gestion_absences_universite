@@ -213,12 +213,41 @@
 </div>
 
 <script>
+/**
+ * ============================================
+ * GESTION DYNAMIQUE DU FORMULAIRE D'INSCRIPTION
+ * ============================================
+ * 
+ * IMPORTANT POUR LA SOUTENANCE :
+ * Ce JavaScript gère l'interactivité du formulaire d'inscription :
+ * - Affichage/masquage des sections selon le type d'inscription
+ * - Gestion de la création d'un nouvel étudiant vs sélection d'un étudiant existant
+ * - Chargement dynamique des cours selon l'année académique sélectionnée
+ * 
+ * Objectif : Améliorer l'expérience utilisateur en affichant uniquement
+ * les champs pertinents selon les choix de l'utilisateur.
+ */
+
+/**
+ * Affiche/masque le formulaire de création d'un nouvel étudiant.
+ * 
+ * Logique :
+ * - Si "Créer un nouveau compte étudiant" est coché :
+ *   * Affiche le formulaire de création (nom, prénom, email, niveau, mot de passe)
+ *   * Masque le champ de sélection d'étudiant existant
+ *   * Rend les champs du nouveau formulaire obligatoires
+ * - Sinon :
+ *   * Masque le formulaire de création
+ *   * Affiche le champ de sélection d'étudiant existant
+ *   * Rend le champ email existant obligatoire
+ */
 function toggleStudentForm() {
     const createNew = document.getElementById('create_new_student').checked;
     const newStudentForm = document.getElementById('newStudentForm');
     const existingStudentForm = document.getElementById('existingStudentForm');
     
     if (createNew) {
+        // Mode : Création d'un nouvel étudiant
         newStudentForm.style.display = 'block';
         existingStudentForm.style.display = 'none';
         // Rendre les champs du nouveau formulaire obligatoires
@@ -230,6 +259,7 @@ function toggleStudentForm() {
         // Rendre le champ email existant non obligatoire
         document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = false;
     } else {
+        // Mode : Sélection d'un étudiant existant
         newStudentForm.style.display = 'none';
         existingStudentForm.style.display = 'block';
         // Rendre les champs du nouveau formulaire non obligatoires
@@ -241,6 +271,18 @@ function toggleStudentForm() {
     }
 }
 
+/**
+ * Affiche/masque les sections selon le type d'inscription sélectionné.
+ * 
+ * IMPORTANT POUR LA SOUTENANCE :
+ * Cette fonction gère l'affichage conditionnel des sections :
+ * - "Inscription à un niveau complet" : Affiche le sélecteur de niveau, masque le sélecteur de cours
+ * - "Inscription à un cours spécifique" : Affiche le sélecteur de cours, masque le sélecteur de niveau
+ * 
+ * Logique métier :
+ * - LEVEL : Inscription à tous les cours d'un niveau (1, 2 ou 3)
+ * - COURSE : Inscription à un cours spécifique (avec vérification des prérequis)
+ */
 function toggleSections() {
     const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked');
     if (!enrollmentType) return;
@@ -252,46 +294,73 @@ function toggleSections() {
     const niveauField = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
     
     if (enrollmentTypeValue === 'LEVEL') {
+        // Mode : Inscription à un niveau complet
         courseSection.style.display = 'none';
         levelSection.style.display = 'block';
-        courseField.required = false;
-        if (niveauField) niveauField.required = true;
+        courseField.required = false;  // Le cours n'est pas nécessaire (inscription automatique)
+        if (niveauField) niveauField.required = true;  // Le niveau est obligatoire
     } else {
+        // Mode : Inscription à un cours spécifique
         courseSection.style.display = 'block';
         levelSection.style.display = 'none';
-        courseField.required = true;
-        if (niveauField) niveauField.required = false;
-        // Charger les cours de l'année sélectionnée
+        courseField.required = true;  // Le cours est obligatoire
+        if (niveauField) niveauField.required = false;  // Le niveau n'est pas nécessaire
+        // Charger dynamiquement les cours de l'année académique sélectionnée
         loadCoursesByYear();
     }
 }
 
+/**
+ * Charge dynamiquement les cours disponibles pour une année académique.
+ * 
+ * IMPORTANT POUR LA SOUTENANCE :
+ * Cette fonction fait un appel API asynchrone pour charger les cours.
+ * Cela évite de charger tous les cours au chargement de la page et améliore
+ * les performances.
+ * 
+ * Logique :
+ * 1. Récupère l'ID de l'année académique sélectionnée
+ * 2. Fait un appel API GET vers /enrollments/api/courses-by-year/
+ * 3. Remplit dynamiquement le sélecteur de cours avec les résultats
+ * 4. Gère les erreurs (affichage d'un message d'erreur)
+ * 
+ * Pourquoi une API séparée ?
+ * - Performance : ne charge que les cours nécessaires
+ * - Expérience utilisateur : chargement dynamique sans rechargement de page
+ * - Séparation des responsabilités : logique métier côté serveur
+ */
 async function loadCoursesByYear() {
     const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
     const courseSelect = document.getElementById('{{ enrollment_form.course.id_for_label }}');
     
+    // Vérifier qu'une année académique est sélectionnée
     if (!yearId) {
         courseSelect.innerHTML = '<option value="">Sélectionner une année académique d\'abord</option>';
         courseSelect.disabled = true;
         return;
     }
     
+    // Afficher un indicateur de chargement
     courseSelect.innerHTML = '<option value="">Chargement...</option>';
     courseSelect.disabled = true;
     
     try {
+        // Appel API pour récupérer les cours de l'année sélectionnée
         const response = await fetch(`/enrollments/api/courses-by-year/?year_id=${yearId}`);
         const data = await response.json();
         
+        // Vider et remplir le sélecteur avec les cours récupérés
         courseSelect.innerHTML = '<option value="">Sélectionner un cours...</option>';
         data.forEach(course => {
             const option = document.createElement('option');
             option.value = course.id;
+            // Format d'affichage : [CODE] Nom du cours (Département)
             option.textContent = `[${course.code}] ${course.name} (${course.department})`;
             courseSelect.appendChild(option);
         });
         courseSelect.disabled = false;
     } catch (error) {
+        // Gestion des erreurs (réseau, serveur, etc.)
         console.error('Error:', error);
         courseSelect.innerHTML = '<option value="">Erreur de chargement</option>';
     }

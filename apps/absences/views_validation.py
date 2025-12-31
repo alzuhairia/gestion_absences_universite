@@ -16,7 +16,6 @@ from apps.academic_sessions.models import Seance, AnneeAcademique
 from apps.notifications.models import Notification
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
-import base64
 
 @login_required
 @secretary_required
@@ -51,8 +50,41 @@ def validation_list(request):
 @require_POST
 def process_justification(request, pk):
     """
-    Traite une justification (Approuver/Refuser).
-    SECRÉTAIRE UNIQUEMENT - Les administrateurs ne gèrent pas les justificatifs.
+    Traite une justification d'absence (Approuver/Refuser).
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction permet au secrétariat de valider ou refuser un justificatif
+    soumis par un étudiant.
+    
+    Logique métier :
+    1. Récupération de la justification à traiter
+    2. Selon l'action (approve/reject) :
+       - APPROUVER :
+         * Mise à jour du statut de la justification à ACCEPTEE
+         * Mise à jour du statut de l'absence à JUSTIFIEE
+         * Notification à l'étudiant (acceptation)
+         * Log d'audit
+       - REFUSER :
+         * Mise à jour du statut de la justification à REFUSEE
+         * Mise à jour du statut de l'absence à NON_JUSTIFIEE
+         * Notification à l'étudiant avec le motif du refus
+         * Log d'audit
+    
+    SÉCURITÉ :
+    - @secretary_required : SEUL le secrétariat peut valider/refuser
+    - @require_POST : Seulement via formulaire POST (pas d'accès direct par URL)
+    - ADMIN est explicitement exclu (gère la configuration, pas les opérations)
+    
+    TRAÇABILITÉ :
+    - Toutes les actions sont enregistrées dans le journal d'audit
+    - Le motif du refus est enregistré et communiqué à l'étudiant
+    
+    Args:
+        request: Objet HttpRequest contenant l'action (approve/reject) et le commentaire
+        pk: ID de la justification à traiter
+        
+    Returns:
+        Redirection vers la liste des justificatifs
     """
     justification = get_object_or_404(Justification, pk=pk)
     action = request.POST.get('action') 
@@ -142,7 +174,34 @@ def process_justification(request, pk):
 def create_justified_absence(request):
     """
     Vue pour que le secrétariat encode directement une absence justifiée.
-    Permet de créer une absence avec statut JUSTIFIEE directement, sans passer par le processus de justification.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction permet au secrétariat d'encoder directement une absence justifiée,
+    sans passer par le processus normal de soumission de justificatif par l'étudiant.
+    
+    Cas d'usage :
+    - Un étudiant envoie un email au secrétariat avec un justificatif
+    - Le secrétariat encode directement l'absence comme justifiée
+    - L'absence est officielle et prioritaire (le professeur ne peut pas la modifier)
+    
+    Logique métier :
+    1. Sélection de l'étudiant, de la date et des cours concernés
+    2. Possibilité d'encoder pour plusieurs cours le même jour
+    3. Création automatique de la séance si elle n'existe pas
+    4. Création de l'absence avec statut JUSTIFIEE
+    5. Création de la justification associée (si document fourni)
+    6. Traçabilité complète (journal d'audit)
+    
+    SÉCURITÉ :
+    - @secretary_required : seul le secrétariat peut encoder
+    - Transaction atomique : toutes les absences ou aucune
+    - Vérification que l'étudiant est inscrit au cours
+    
+    Args:
+        request: Objet HttpRequest contenant les données du formulaire
+        
+    Returns:
+        HttpResponse avec le formulaire ou redirection vers la liste des absences justifiées
     """
     if request.method == 'POST':
         form = SecretaryJustifiedAbsenceForm(request.POST, request.FILES)
@@ -373,11 +432,11 @@ def justified_absences_list(request):
             'course_filter': course_filter or '',
         })
     except Exception as e:
-        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
         messages.error(request, f"Une erreur est survenue : {str(e)}")
-        # Log l'erreur pour le débogage
-        print(f"Error in justified_absences_list: {e}")
-        print(traceback.format_exc())
+        # Log l'erreur avec le système de logging Django
+        logger.error(f"Error in justified_absences_list: {e}", exc_info=True)
         return render(request, 'absences/justified_absences_list.html', {
             'page_obj': None,
             'student_filter': '',

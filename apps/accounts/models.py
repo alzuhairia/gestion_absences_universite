@@ -34,28 +34,42 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
-    Modèle utilisateur 100% compatible avec la table PostgreSQL 'utilisateur'
-    CORRECTION: Gestion de is_staff/is_superuser sans colonnes SQL
+    Modèle utilisateur personnalisé pour UniAbsences.
+    
+    Ce modèle représente tous les utilisateurs du système (étudiants, professeurs, 
+    secrétaires, administrateurs). Il est 100% compatible avec la table PostgreSQL 
+    existante 'utilisateur'.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    - Gestion des rôles : 4 rôles distincts avec permissions différentes
+    - Sécurité : mots de passe hashés, changement obligatoire pour nouveaux comptes
+    - Niveau académique : uniquement pour les étudiants (1, 2 ou 3)
     """
     
-    # === CHAMPS DE LA TABLE SQL (EXACTEMENT COMME TON SCHÉMA) ===
+    # ============================================
+    # CHAMPS IDENTIFIANT
+    # ============================================
+    
     id_utilisateur = models.AutoField(
         primary_key=True,
         db_column='id_utilisateur',
         verbose_name=_('ID Utilisateur')
     )
+    # Note : Clé primaire auto-incrémentée, correspond à la colonne SQL 'id_utilisateur'
     
     nom = models.CharField(
         max_length=100,
         db_column='nom',
         verbose_name=_('Nom')
     )
+    # Nom de famille de l'utilisateur
     
     prenom = models.CharField(
         max_length=100,
         db_column='prenom',
         verbose_name=_('Prénom')
     )
+    # Prénom de l'utilisateur
     
     email = models.EmailField(
         max_length=255,
@@ -63,15 +77,33 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_column='email',
         verbose_name=_('Adresse email')
     )
+    # Email unique utilisé comme identifiant de connexion (USERNAME_FIELD)
+    # Contrainte d'unicité garantie au niveau base de données
     
     mot_de_passe = models.CharField(
         max_length=255,
         db_column='mot_de_passe',
         verbose_name=_('Mot de passe hashé')
     )
+    # Mot de passe hashé avec l'algorithme Django (PBKDF2)
+    # Jamais stocké en clair pour des raisons de sécurité
     
-    # Rôles (exactement comme le CHECK SQL)
+    # ============================================
+    # GESTION DES RÔLES
+    # ============================================
+    # IMPORTANT : Le système utilise 4 rôles distincts avec des permissions différentes
+    # Cette séparation est critique pour la sécurité et la gestion des accès
+    
     class Role(models.TextChoices):
+        """
+        Définition des rôles disponibles dans le système.
+        
+        Chaque rôle a des permissions spécifiques :
+        - ETUDIANT : Consultation uniquement, soumission de justificatifs
+        - PROFESSEUR : Saisie des présences/absences, consultation de ses cours
+        - SECRETAIRE : Inscriptions, validation justificatifs, encodage absences justifiées
+        - ADMIN : Configuration système, gestion utilisateurs (pas d'opérations quotidiennes)
+        """
         ETUDIANT = 'ETUDIANT', _('Étudiant')
         PROFESSEUR = 'PROFESSEUR', _('Professeur')
         SECRETAIRE = 'SECRETAIRE', _('Secrétaire')
@@ -83,8 +115,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=Role.ETUDIANT,
         db_column='role',
         verbose_name=_('Rôle'),
-        db_index=True
+        db_index=True  # Index pour accélérer les requêtes filtrées par rôle
     )
+    # Rôle de l'utilisateur dans le système
+    # Détermine les permissions et l'accès aux fonctionnalités
+    
+    # ============================================
+    # GESTION DU COMPTE
+    # ============================================
     
     actif = models.BooleanField(
         default=True,
@@ -93,12 +131,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_index=True,
         help_text=_('Désactiver un compte le masque sans le supprimer')
     )
+    # Permet de désactiver un compte sans le supprimer (soft delete)
+    # Utile pour conserver l'historique tout en bloquant l'accès
     
     date_creation = models.DateTimeField(
         default=timezone.now,
         db_column='date_creation',
         verbose_name=_('Date de création')
     )
+    # Date de création du compte (automatique)
     
     must_change_password = models.BooleanField(
         default=False,
@@ -107,6 +148,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=_('Force l\'utilisateur à changer son mot de passe à la prochaine connexion'),
         db_index=True
     )
+    # IMPORTANT : Utilisé pour les mots de passe temporaires
+    # Lorsqu'un étudiant est créé par le secrétariat, un mot de passe temporaire est généré
+    # et ce champ est mis à True. L'étudiant est alors forcé de changer son mot de passe
+    # au premier login (middleware RoleMiddleware)
+    
+    # ============================================
+    # NIVEAU ACADÉMIQUE (UNIQUEMENT POUR ÉTUDIANTS)
+    # ============================================
     
     niveau = models.IntegerField(
         choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
@@ -117,6 +166,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=_('Niveau actuel de l\'étudiant (1, 2 ou 3). Uniquement pour les étudiants.'),
         db_index=True
     )
+    # Niveau académique de l'étudiant (1, 2 ou 3)
+    # Mis à jour automatiquement lors de l'inscription à un niveau complet
+    # Utilisé pour :
+    # - Filtrer les cours disponibles lors de l'inscription
+    # - Vérifier les prérequis (un cours de niveau N ne peut avoir que des prérequis < N)
+    # - Valider l'inscription à un niveau supérieur (vérification du niveau précédent)
     
     # === PROPRIÉTÉS VIRTUELLES (PAS DANS LA BD) ===
     

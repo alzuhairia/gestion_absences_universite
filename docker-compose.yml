@@ -1,0 +1,124 @@
+# ============================================
+# Docker Compose - Configuration de production
+# ============================================
+# IMPORTANT POUR LA SOUTENANCE :
+# Ce fichier définit l'architecture complète de l'application en production :
+# - web : Application Django (Gunicorn)
+# - db : Base de données PostgreSQL
+# - nginx : Reverse proxy et serveur de fichiers statiques
+#
+# Pour démarrer l'application :
+#   docker compose up -d --build
+#
+# Pour arrêter l'application :
+#   docker compose down
+
+version: '3.8'
+
+services:
+  # ============================================
+  # SERVICE : Base de données PostgreSQL
+  # ============================================
+  db:
+    image: postgres:16-alpine
+    container_name: unabsences_db
+    restart: always
+    environment:
+      # Variables d'environnement pour PostgreSQL
+      POSTGRES_DB: ${DB_NAME:-unabsences_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # Volume persistant pour la base de données
+      # IMPORTANT : Les données sont conservées même si le conteneur est supprimé
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # Vérification de santé : PostgreSQL est prêt quand il accepte les connexions
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - unabsences_network
+
+  # ============================================
+  # SERVICE : Application Django (Gunicorn)
+  # ============================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unabsences_web
+    restart: always
+    env_file:
+      # Charger les variables d'environnement depuis .env
+      - .env
+    environment:
+      # Variables spécifiques pour Docker
+      DB_HOST: db  # Nom du service PostgreSQL dans docker-compose
+      DB_PORT: 5432
+    volumes:
+      # Volumes pour persister les données
+      - static_volume:/app/staticfiles  # Fichiers statiques collectés
+      - media_volume:/app/media  # Fichiers uploadés par les utilisateurs
+      - logs_volume:/app/logs  # Logs de l'application
+    depends_on:
+      db:
+        condition: service_healthy  # Attendre que PostgreSQL soit prêt
+    networks:
+      - unabsences_network
+    # Exposer le port 8000 (interne au réseau Docker)
+    # Nginx y accédera via le réseau Docker
+
+  # ============================================
+  # SERVICE : Nginx (Reverse Proxy)
+  # ============================================
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: unabsences_nginx
+    restart: always
+    ports:
+      # Exposer le port 80 (HTTP) vers l'extérieur
+      # IMPORTANT : Pour HTTPS, ajouter "443:443" après configuration SSL
+      - "80:80"
+      # - "443:443"  # Décommenter après configuration SSL
+    volumes:
+      # Volumes pour servir les fichiers statiques et média
+      - static_volume:/app/staticfiles:ro  # Lecture seule
+      - media_volume:/app/media:ro  # Lecture seule
+    depends_on:
+      - web  # Attendre que l'application Django soit prête
+    networks:
+      - unabsences_network
+
+# ============================================
+# VOLUMES PERSISTANTS
+# ============================================
+# IMPORTANT : Les volumes conservent les données même si les conteneurs sont supprimés
+# - postgres_data : Base de données PostgreSQL
+# - static_volume : Fichiers statiques (CSS, JS, images)
+# - media_volume : Fichiers uploadés (documents justificatifs, etc.)
+# - logs_volume : Logs de l'application
+
+volumes:
+  postgres_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  logs_volume:
+    driver: local
+
+# ============================================
+# RÉSEAU DOCKER
+# ============================================
+# IMPORTANT : Tous les services communiquent via ce réseau isolé
+# L'application Django (web) communique avec PostgreSQL (db) via ce réseau
+# Nginx (nginx) communique avec Django (web) via ce réseau
+
+networks:
+  unabsences_network:
+    driver: bridge
