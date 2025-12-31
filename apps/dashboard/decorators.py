@@ -1,5 +1,16 @@
 """
 Décorateurs de sécurité pour les différents modules (Admin, Secrétaire, Professeur, Étudiant).
+
+IMPORTANT POUR LA SOUTENANCE :
+Ces décorateurs sont la base du système de sécurité et de gestion des permissions.
+Ils garantissent que seuls les utilisateurs autorisés peuvent accéder aux fonctionnalités
+correspondant à leur rôle.
+
+Principe de sécurité :
+- Double vérification : décorateur + vérification dans la vue
+- Messages explicites en cas d'accès non autorisé
+- Redirection vers le dashboard approprié
+- Séparation stricte des rôles (ADMIN exclu des opérations quotidiennes)
 """
 from functools import wraps
 from django.contrib.auth.decorators import user_passes_test
@@ -11,12 +22,34 @@ from apps.accounts.models import User
 def admin_required(view_func):
     """
     Décorateur qui vérifie que l'utilisateur est un administrateur.
-    Utilise @user_passes_test pour une sécurité renforcée.
+    
+    Rôle ADMIN :
+    - Configuration système (facultés, départements, cours, utilisateurs)
+    - Consultation des journaux d'audit
+    - Gestion des années académiques
+    - NE PEUT PAS effectuer d'opérations quotidiennes (inscriptions, validation justificatifs)
+    
+    Utilise @user_passes_test pour une sécurité renforcée au niveau Django.
+    
+    Args:
+        view_func: La fonction de vue à protéger
+        
+    Returns:
+        Fonction wrapper qui vérifie le rôle avant d'exécuter la vue
     """
     def check_admin(user):
-        """Vérifie si l'utilisateur est un administrateur"""
+        """
+        Vérifie si l'utilisateur est un administrateur.
+        
+        Args:
+            user: L'utilisateur à vérifier
+            
+        Returns:
+            True si l'utilisateur est authentifié et a le rôle ADMIN, False sinon
+        """
         return user.is_authenticated and user.role == User.Role.ADMIN
     
+    # Utilisation de user_passes_test de Django pour une sécurité renforcée
     decorated_view = user_passes_test(
         check_admin,
         login_url='accounts:login',
@@ -25,6 +58,9 @@ def admin_required(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        """
+        Wrapper qui vérifie le rôle et affiche un message d'erreur si nécessaire.
+        """
         if not check_admin(request.user):
             messages.error(request, "Accès réservé aux administrateurs.")
             return redirect('dashboard:index')
@@ -36,10 +72,38 @@ def admin_required(view_func):
 def secretary_required(view_func):
     """
     Décorateur qui vérifie que l'utilisateur est un secrétaire.
-    ADMIN est explicitement EXCLU des tâches opérationnelles.
+    
+    IMPORTANT : ADMIN est explicitement EXCLU des tâches opérationnelles.
+    Cette séparation est critique pour la sécurité et la traçabilité.
+    
+    Rôle SECRETAIRE :
+    - Inscription des étudiants (par niveau ou par cours)
+    - Validation/refus des justificatifs d'absence
+    - Encodage direct d'absences justifiées
+    - Modification des absences
+    - Gestion des exemptions au seuil de 40%
+    
+    Args:
+        view_func: La fonction de vue à protéger
+        
+    Returns:
+        Fonction wrapper qui vérifie le rôle avant d'exécuter la vue
     """
     def check_secretary(user):
-        """Vérifie si l'utilisateur est un secrétaire (ADMIN exclu)"""
+        """
+        Vérifie si l'utilisateur est un secrétaire (ADMIN exclu).
+        
+        IMPORTANT : Un ADMIN ne peut pas accéder aux fonctions secrétariat.
+        Cela garantit la séparation des responsabilités :
+        - ADMIN = Configuration système
+        - SECRETAIRE = Opérations quotidiennes
+        
+        Args:
+            user: L'utilisateur à vérifier
+            
+        Returns:
+            True si l'utilisateur est authentifié et a le rôle SECRETAIRE, False sinon
+        """
         return user.is_authenticated and user.role == User.Role.SECRETAIRE
     
     decorated_view = user_passes_test(
@@ -50,7 +114,14 @@ def secretary_required(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        """
+        Wrapper qui vérifie le rôle et affiche un message approprié.
+        
+        Si un ADMIN tente d'accéder, un message d'avertissement explicite est affiché
+        pour expliquer la séparation des responsabilités.
+        """
         if not check_secretary(request.user):
+            # Message spécial pour les ADMIN qui tentent d'accéder
             if request.user.is_authenticated and request.user.role == User.Role.ADMIN:
                 messages.warning(
                     request, 
@@ -68,10 +139,32 @@ def secretary_required(view_func):
 def professor_required(view_func):
     """
     Décorateur qui vérifie que l'utilisateur est un professeur.
-    STRICT: Le professeur ne peut accéder qu'à ses propres cours.
+    
+    Rôle PROFESSEUR :
+    - Consultation de ses cours assignés
+    - Saisie des présences/absences pour chaque séance
+    - Consultation des absences justifiées (lecture seule)
+    - Historique des séances et appels
+    
+    IMPORTANT : Le professeur ne peut accéder qu'à ses propres cours.
+    Cette vérification doit être faite dans la vue elle-même (vérification de propriété).
+    
+    Args:
+        view_func: La fonction de vue à protéger
+        
+    Returns:
+        Fonction wrapper qui vérifie le rôle avant d'exécuter la vue
     """
     def check_professor(user):
-        """Vérifie si l'utilisateur est un professeur"""
+        """
+        Vérifie si l'utilisateur est un professeur.
+        
+        Args:
+            user: L'utilisateur à vérifier
+            
+        Returns:
+            True si l'utilisateur est authentifié et a le rôle PROFESSEUR, False sinon
+        """
         return user.is_authenticated and user.role == User.Role.PROFESSEUR
     
     decorated_view = user_passes_test(
@@ -82,6 +175,9 @@ def professor_required(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        """
+        Wrapper qui vérifie le rôle et affiche un message d'erreur si nécessaire.
+        """
         if not check_professor(request.user):
             messages.error(request, "Accès réservé aux professeurs.")
             return redirect('dashboard:index')
@@ -93,10 +189,32 @@ def professor_required(view_func):
 def student_required(view_func):
     """
     Décorateur qui vérifie que l'utilisateur est un étudiant.
-    STRICT: L'étudiant ne peut accéder qu'à ses propres données.
+    
+    Rôle ETUDIANT :
+    - Consultation de ses cours et inscriptions
+    - Visualisation de ses absences (justifiées/non justifiées)
+    - Soumission de justificatifs d'absence
+    - Suivi du taux d'absence par cours
+    
+    IMPORTANT : L'étudiant ne peut accéder qu'à ses propres données.
+    Cette vérification doit être faite dans la vue elle-même (vérification de propriété).
+    
+    Args:
+        view_func: La fonction de vue à protéger
+        
+    Returns:
+        Fonction wrapper qui vérifie le rôle avant d'exécuter la vue
     """
     def check_student(user):
-        """Vérifie si l'utilisateur est un étudiant"""
+        """
+        Vérifie si l'utilisateur est un étudiant.
+        
+        Args:
+            user: L'utilisateur à vérifier
+            
+        Returns:
+            True si l'utilisateur est authentifié et a le rôle ETUDIANT, False sinon
+        """
         return user.is_authenticated and user.role == User.Role.ETUDIANT
     
     decorated_view = user_passes_test(
@@ -107,6 +225,9 @@ def student_required(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        """
+        Wrapper qui vérifie le rôle et affiche un message d'erreur si nécessaire.
+        """
         if not check_student(request.user):
             messages.error(request, "Accès réservé aux étudiants.")
             return redirect('dashboard:index')

@@ -131,11 +131,36 @@ def check_prerequisites(student, course):
 
 def check_previous_level_validation(student, target_niveau):
     """
-    Vérifie si l'étudiant a validé le niveau précédent.
-    Retourne (is_valid, missing_courses_list)
+    Vérifie si l'étudiant a validé TOUS les cours du niveau précédent.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction implémente la règle métier de progression académique :
+    - Un étudiant ne peut s'inscrire en niveau N que s'il a validé TOUS les cours du niveau N-1
+    - Exception : Les nouveaux étudiants peuvent être inscrits directement en niveau 2 ou 3
+      (étudiants transférés, admissions directes)
+    
+    Logique :
+    1. Si niveau 1 : pas de vérification (retourne True)
+    2. Sinon : récupérer tous les cours du niveau précédent
+    3. Vérifier que l'étudiant a validé TOUS ces cours (status='VALIDE')
+    4. Retourner True si tous validés, False avec la liste des cours manquants
+    
+    Utilisation :
+    - Appelée lors de l'inscription à un niveau complet
+    - Bloque l'inscription si le niveau précédent n'est pas validé
+    - Permet d'afficher un message explicite à l'utilisateur
+    
+    Args:
+        student: Instance de User (étudiant) à vérifier
+        target_niveau: Niveau cible (1, 2 ou 3) pour lequel vérifier le niveau précédent
+        
+    Returns:
+        Tuple (is_valid, missing_courses_list) :
+        - is_valid: True si tous les cours du niveau précédent sont validés
+        - missing_courses_list: Liste des cours non validés avec code et nom
     """
     if target_niveau == 1:
-        # Pas de prérequis pour l'Année 1
+        # Pas de prérequis pour l'Année 1 (premier niveau)
         return (True, [])
     
     previous_niveau = target_niveau - 1
@@ -172,10 +197,37 @@ def check_previous_level_validation(student, target_niveau):
 @require_http_methods(["GET", "POST"])
 def enroll_student(request):
     """
-    Vue pour l'inscription d'un étudiant.
-    Gère deux modes :
-    1. Inscription à une année complète (tous les cours de l'année)
-    2. Inscription à un cours spécifique
+    Vue pour l'inscription d'un étudiant à un cours ou à un niveau complet.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction implémente la logique métier complexe de l'inscription :
+    
+    1. INSCRIPTION À UN NIVEAU COMPLET :
+       - Sélection du niveau (1, 2 ou 3)
+       - Vérification que l'étudiant a validé le niveau précédent
+       - Exception : nouveaux étudiants peuvent être inscrits directement en niveau 2 ou 3
+       - Inscription automatique à tous les cours du niveau sélectionné
+       - Mise à jour du niveau de l'étudiant
+    
+    2. INSCRIPTION À UN COURS SPÉCIFIQUE :
+       - Sélection d'un cours précis
+       - Vérification des prérequis du cours
+       - Blocage si prérequis non validés
+    
+    3. CRÉATION DE COMPTE ÉTUDIANT :
+       - Création d'un compte avec mot de passe temporaire
+       - Champ must_change_password = True (force le changement au premier login)
+    
+    SÉCURITÉ :
+    - Utilise @secretary_required : seul le secrétariat peut inscrire
+    - Transaction atomique : toutes les inscriptions ou aucune (rollback en cas d'erreur)
+    - Logging complet pour traçabilité
+    
+    Args:
+        request: Objet HttpRequest contenant les données du formulaire
+        
+    Returns:
+        HttpResponse avec le formulaire ou redirection vers la liste des inscriptions
     """
     enrollment_form = EnrollmentForm(request.POST or None)
     student_form = StudentCreationForm(request.POST or None, prefix='student')
@@ -239,14 +291,29 @@ def enroll_student(request):
         
         enrollment_type = enrollment_form.cleaned_data['enrollment_type']
         
-        # Traitement selon le type d'inscription
+        # ============================================
+        # TRAITEMENT SELON LE TYPE D'INSCRIPTION
+        # ============================================
+        
         if enrollment_type == 'LEVEL':
-            # Inscription à un niveau complet
+            """
+            INSCRIPTION À UN NIVEAU COMPLET
+            
+            Logique métier :
+            - L'inscription à un niveau complet = inscription à tous les cours du niveau sélectionné
+            - Le niveau de l'étudiant est mis à jour automatiquement
+            - Vérification que l'étudiant a validé le niveau précédent (sauf nouveaux étudiants)
+            """
+            
             niveau = int(enrollment_form.cleaned_data['niveau'])
             
-            # Vérifier que l'étudiant a validé le niveau précédent
-            # Exception : si c'est un nouvel étudiant (créé lors de cette inscription), on autorise l'inscription directe
-            # Cela permet d'inscrire des étudiants transférés ou qui commencent directement en niveau 2 ou 3
+            # ============================================
+            # VÉRIFICATION DES PRÉREQUIS DE NIVEAU
+            # ============================================
+            # IMPORTANT : Un étudiant ne peut s'inscrire en niveau N que s'il a validé le niveau N-1
+            # Exception : Les nouveaux étudiants (créés lors de cette inscription) peuvent être
+            # inscrits directement en niveau 2 ou 3 (étudiants transférés, admissions directes)
+            
             is_new_student = create_new
             is_valid, missing_courses = check_previous_level_validation(student, niveau)
             

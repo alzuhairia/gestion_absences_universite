@@ -310,12 +310,46 @@ def review_justification(request, absence_id):
 
 @login_required
 @professor_required
+@login_required
+@professor_required
 def mark_absence(request, course_id):
     """
     Vue pour qu'un professeur puisse noter les absences d'une séance.
-    Crée une séance à la volée et les absences associées.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette fonction implémente la saisie des présences/absences par le professeur.
+    
+    Logique métier :
+    1. Vérification que le cours appartient au professeur (sécurité)
+    2. Création ou récupération de la séance
+    3. Pour chaque étudiant inscrit :
+       - Marquer comme PRÉSENT, ABSENT, ou ABSENT JUSTIFIÉ
+       - Si absent, définir le type (séance complète, retard/partiel, journée)
+       - Calculer la durée de l'absence
+    
+    RÈGLE CRITIQUE - PROTECTION DES ABSENCES JUSTIFIÉES :
+    - Les absences encodées par le secrétariat (statut JUSTIFIEE) sont PROTÉGÉES
+    - Le professeur peut les VOIR mais ne peut PAS les modifier
+    - Cette règle garantit l'intégrité des absences officielles
+    
+    SÉCURITÉ :
+    - @professor_required : seul un professeur peut accéder
+    - Vérification supplémentaire : course.professeur == request.user
+    - Double vérification pour garantir que le professeur ne peut accéder qu'à ses cours
+    
+    Args:
+        request: Objet HttpRequest contenant les données du formulaire
+        course_id: ID du cours pour lequel faire l'appel
+        
+    Returns:
+        HttpResponse avec le formulaire ou redirection après sauvegarde
     """
-    # 1. Vérification sécurité : le cours doit appartenir au prof
+    # ============================================
+    # VÉRIFICATION DE SÉCURITÉ
+    # ============================================
+    # IMPORTANT : Double vérification (décorateur + vérification de propriété)
+    # Un professeur ne peut accéder qu'à SES propres cours
+    
     course = get_object_or_404(Cours, id_cours=course_id)
     if course.professeur != request.user:
         messages.error(request, "Accès non autorisé à ce cours.")
@@ -363,19 +397,28 @@ def mark_absence(request, course_id):
                 status = value # 'PRESENT' ou 'ABSENT'
                 inscription = Inscription.objects.get(id_inscription=inscription_id)
                 
-                # STRICT RESTRICTION: Professeur ne peut pas modifier/supprimer une absence validée
+                # ============================================
+                # PROTECTION DES ABSENCES JUSTIFIÉES
+                # ============================================
+                # RÈGLE MÉTIER CRITIQUE :
+                # Les absences encodées par le secrétariat (statut JUSTIFIEE) sont OFFICIELLES
+                # Le professeur peut les CONSULTER mais ne peut PAS les modifier
+                # Cela garantit l'intégrité des données et la hiérarchie des rôles
+                
                 existing_absence = Absence.objects.filter(id_inscription=inscription, id_seance=seance).first()
                 is_prof = request.user.role == User.Role.PROFESSEUR
 
                 if status == 'ABSENT':
-                    # Professors CANNOT modify existing absences (especially validated ones)
+                    # Vérifier si une absence existe déjà pour cet étudiant et cette séance
                     if is_prof and existing_absence:
-                        # Skip modification - professor can only create new absences
+                        # Le professeur ne peut pas modifier une absence existante
+                        # (il peut seulement créer de nouvelles absences)
                         continue
                     
-                    # Professors CANNOT modify validated absences
+                    # PROTECTION SPÉCIALE : Absences justifiées par le secrétariat
                     if is_prof and existing_absence and existing_absence.statut == 'JUSTIFIEE':
-                        # Skip - validated absences cannot be modified by professors
+                        # L'absence est justifiée par le secrétariat = OFFICIELLE
+                        # Le professeur ne peut pas la modifier (skip)
                         continue
 
                     type_absence = request.POST.get(f'type_{inscription_id}', 'SEANCE')

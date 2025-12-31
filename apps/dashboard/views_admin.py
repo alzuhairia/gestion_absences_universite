@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count, Q, Sum
@@ -9,8 +9,6 @@ from django.db import IntegrityError, transaction, connection
 from django.db.models.deletion import ProtectedError
 from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.http import require_GET
-from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime, timedelta
 import csv
@@ -1506,6 +1504,33 @@ def admin_export_audit_csv(request):
 @login_required
 @require_GET
 def get_prerequisites_by_level(request):
+    """
+    API endpoint pour récupérer les prérequis disponibles selon le niveau d'un cours.
+    
+    IMPORTANT POUR LA SOUTENANCE :
+    Cette API est utilisée par le JavaScript pour charger dynamiquement les prérequis
+    autorisés lors de la création/modification d'un cours.
+    
+    Règle métier implémentée :
+    - Un cours de niveau N ne peut avoir que des prérequis de niveau < N
+    - Niveau 1 : Aucun prérequis autorisé
+    - Niveau 2 : Prérequis uniquement depuis le niveau 1
+    - Niveau 3 : Prérequis depuis les niveaux 1 ou 2
+    
+    Sécurité :
+    - @login_required : Utilisateur doit être authentifié
+    - Vérification manuelle du rôle : ADMIN ou SECRETAIRE uniquement
+    - @require_GET : Seulement les requêtes GET sont acceptées
+    
+    Args:
+        request: Objet HttpRequest avec les paramètres :
+            - niveau : Niveau du cours (1, 2 ou 3)
+            - course_id : ID du cours (optionnel, pour exclure le cours lui-même)
+        
+    Returns:
+        JsonResponse avec la liste des cours disponibles comme prérequis
+        Format : [{'id': int, 'display': str}, ...]
+    """
     """API pour récupérer les prérequis disponibles selon le niveau (accessible à Admin et Secretary)"""
     # Vérifier que l'utilisateur est admin ou secrétaire
     if request.user.role not in ['ADMIN', 'SECRETAIRE']:
