@@ -1,0 +1,19 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: unabsences_monitoring
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - gestion_absences_universite_unabsences_network
+
+volumes:
+  uptime_kuma_data:
+    driver: local
+
+networks:
+  gestion_absences_universite_unabsences_network:
+    external: true
