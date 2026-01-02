@@ -17,13 +17,14 @@ class RoleMiddleware:
             user = request.user
             
             # Vérifier si l'utilisateur doit changer son mot de passe
-            # Exclure les URLs de changement de mot de passe et de déconnexion
+            # Exclure les URLs de changement de mot de passe, de déconnexion et de monitoring
             path = request.path_info
             excluded_paths = [
                 '/accounts/password_change/',
                 '/accounts/password_change/done/',
                 '/accounts/logout/',
                 '/accounts/login/',
+                '/api/health/',  # Endpoint de monitoring, accessible sans authentification
             ]
             
             # Vérifier si le chemin actuel est exclu

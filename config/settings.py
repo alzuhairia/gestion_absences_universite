@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'apps.notifications',
     'apps.dashboard',
     'apps.audits',
+    'apps.health',
     
     # Third party (si installés)
     'crispy_forms',

@@ -7,6 +7,9 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     
+    # Endpoint de santé pour le monitoring (app health dédiée)
+    path('api/', include('apps.health.urls')),
+    
     # On utilise simplement include(). 
     # Le namespace sera géré par la variable app_name dans chaque dossier urls.py
     path('accounts/', include('apps.accounts.urls')),
