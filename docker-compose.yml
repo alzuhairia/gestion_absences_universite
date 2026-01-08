@@ -1,18 +1,7 @@
 # ============================================
 # Docker Compose - Configuration de production
 # ============================================
-# IMPORTANT POUR LA SOUTENANCE :
-# Ce fichier définit l'architecture complète de l'application en production :
-# - web : Application Django (Gunicorn)
-# - db : Base de données PostgreSQL
-# - nginx : Reverse proxy et serveur de fichiers statiques
-#
-# Pour démarrer l'application :
-#   docker compose up -d --build
-#
-# Pour arrêter l'application :
-#   docker compose down
-
+# AVEC AUTOHEAL + UPTIME KUMA (MONITORING) 📊
 version: '3.8'
 
 services:
@@ -24,17 +13,15 @@ services:
     container_name: unabsences_db
     restart: always
     environment:
-      # Variables d'environnement pour PostgreSQL
       POSTGRES_DB: ${DB_NAME:-unabsences_db}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      # Volume persistant pour la base de données
-      # IMPORTANT : Les données sont conservées même si le conteneur est supprimé
       - postgres_data:/var/lib/postgresql/data
+    labels:
+      - "autoheal=true"
     healthcheck:
-      # Vérification de santé : PostgreSQL est prêt quand il accepte les connexions
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,24 +38,28 @@ services:
     container_name: unabsences_web
     restart: always
     env_file:
-      # Charger les variables d'environnement depuis .env
       - .env
     environment:
-      # Variables spécifiques pour Docker
-      DB_HOST: db  # Nom du service PostgreSQL dans docker-compose
+      DB_HOST: db
       DB_PORT: 5432
     volumes:
-      # Volumes pour persister les données
-      - static_volume:/app/staticfiles  # Fichiers statiques collectés
-      - media_volume:/app/media  # Fichiers uploadés par les utilisateurs
-      - logs_volume:/app/logs  # Logs de l'application
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/app/logs
     depends_on:
       db:
-        condition: service_healthy  # Attendre que PostgreSQL soit prêt
+        condition: service_healthy
     networks:
       - unabsences_network
-    # Exposer le port 8000 (interne au réseau Docker)
-    # Nginx y accédera via le réseau Docker
+
+    labels:
+      - "autoheal=true"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
+      interval: 40s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ============================================
   # SERVICE : Nginx (Reverse Proxy)
@@ -80,27 +71,53 @@ services:
     container_name: unabsences_nginx
     restart: always
     ports:
-      # Exposer le port 80 (HTTP) vers l'extérieur
-      # IMPORTANT : Pour HTTPS, ajouter "443:443" après configuration SSL
       - "80:80"
-      # - "443:443"  # Décommenter après configuration SSL
     volumes:
-      # Volumes pour servir les fichiers statiques et média
-      - static_volume:/app/staticfiles:ro  # Lecture seule
-      - media_volume:/app/media:ro  # Lecture seule
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
     depends_on:
-      - web  # Attendre que l'application Django soit prête
+      - web
     networks:
       - unabsences_network
 
-# ============================================
-# VOLUMES PERSISTANTS
-# ============================================
-# IMPORTANT : Les volumes conservent les données même si les conteneurs sont supprimés
-# - postgres_data : Base de données PostgreSQL
-# - static_volume : Fichiers statiques (CSS, JS, images)
-# - media_volume : Fichiers uploadés (documents justificatifs, etc.)
-# - logs_volume : Logs de l'application
+    labels:
+      - "autoheal=true"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # SERVICE : Autoheal (Le Réparateur) 🚑
+  # ============================================
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: unabsences_autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+      - AUTOHEAL_INTERVAL=10
+      - AUTOHEAL_START_PERIOD=0
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - unabsences_network
+
+  # ============================================
+  # SERVICE : Uptime Kuma (Le Tableau de Bord) 📊
+  # ============================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: unabsences_monitoring
+    restart: always
+    ports:
+      - "3001:3001" # Accessible via http://localhost:3001
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - unabsences_network
 
 volumes:
   postgres_data:
@@ -111,13 +128,9 @@ volumes:
     driver: local
   logs_volume:
     driver: local
-
-# ============================================
-# RÉSEAU DOCKER
-# ============================================
-# IMPORTANT : Tous les services communiquent via ce réseau isolé
-# L'application Django (web) communique avec PostgreSQL (db) via ce réseau
-# Nginx (nginx) communique avec Django (web) via ce réseau
+  # Volume pour sauvegarder la config de Uptime Kuma
+  uptime_kuma_data:
+    driver: local
 
 networks:
   unabsences_network:

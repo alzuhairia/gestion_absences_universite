@@ -18,8 +18,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Installer les dépendances système nécessaires
 # Note: postgresql-client et libpq-dev sont essentiels pour psycopg2
+# AJOUT : 'curl' est nécessaire pour le HEALTHCHECK (Autoheal)
 RUN apt-get update && apt-get install -y \
     postgresql-client \
+    curl \
     gcc \
     python3-dev \
     libpq-dev \
@@ -65,7 +67,8 @@ COPY --chown=django:django . /app/
 
 # Script d'entrée
 COPY --chown=django:django entrypoint.sh /app/
-RUN chmod +x /app/entrypoint.sh
+# C'est cette ligne qui sauve la vie : elle convertit le fichier au format Linux
+RUN sed -i 's/\r$//g' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # --- MODIFICATION ICI ---
 # Nous commentons cette ligne pour rester "root" et avoir le droit d'écrire partout.
