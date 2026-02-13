@@ -1,12 +1,10 @@
 # ============================================
-# Docker Compose - Configuration de production
+# Docker Compose - Production Configuration
 # ============================================
-# AVEC AUTOHEAL + UPTIME KUMA (MONITORING) 📊
-version: '3.8'
-
+# STACK: Django + Nginx + PostgreSQL + Redis + Uptime Kuma
 services:
   # ============================================
-  # SERVICE : Base de données PostgreSQL
+  # SERVICE: PostgreSQL
   # ============================================
   db:
     image: postgres:16-alpine
@@ -18,18 +16,41 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    labels:
-      - "autoheal=true"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - unabsences_network
+      unabsences_network:
+        ipv4_address: 172.30.0.12
 
   # ============================================
-  # SERVICE : Application Django (Gunicorn)
+  # SERVICE: Redis (shared cache for distributed ratelimiting)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: unabsences_redis
+    restart: always
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD}" ]
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD}\" ping | grep -q PONG" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      unabsences_network:
+        ipv4_address: 172.30.0.13
+
+  # ============================================
+  # SERVICE: Django (Gunicorn)
   # ============================================
   web:
     build:
@@ -42,27 +63,33 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379/1}
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-      - logs_volume:/app/logs
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777,uid=1000,gid=1000
+      - /app/logs:rw,noexec,nosuid,size=64m,mode=0775,uid=1000,gid=1000
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - unabsences_network
-
-    labels:
-      - "autoheal=true"
+      unabsences_network:
+        ipv4_address: 172.30.0.11
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
+      test: [ "CMD-SHELL", "curl -fsS -H \"X-Forwarded-Proto: https\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" http://localhost:8000/api/health/ >/dev/null || exit 1" ]
       interval: 40s
       timeout: 10s
       retries: 3
       start_period: 30s
 
   # ============================================
-  # SERVICE : Nginx (Reverse Proxy)
+  # SERVICE: Nginx (Reverse Proxy)
   # ============================================
   nginx:
     build:
@@ -70,68 +97,66 @@ services:
       dockerfile: Dockerfile
     container_name: unabsences_nginx
     restart: always
+    env_file:
+      - .env
+    environment:
+      HEALTHCHECK_ALLOWLIST_CIDRS: ${HEALTHCHECK_ALLOWLIST_CIDRS:-127.0.0.1/32,::1/128}
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - web
     networks:
-      - unabsences_network
-
-    labels:
-      - "autoheal=true"
+      unabsences_network:
+        ipv4_address: 172.30.0.10
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -kfsS -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://localhost/api/health/ >/dev/null || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
   # ============================================
-  # SERVICE : Autoheal (Le Réparateur) 🚑
-  # ============================================
-  autoheal:
-    image: willfarrell/autoheal:latest
-    container_name: unabsences_autoheal
-    restart: always
-    environment:
-      - AUTOHEAL_CONTAINER_LABEL=all
-      - AUTOHEAL_INTERVAL=10
-      - AUTOHEAL_START_PERIOD=0
-      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - unabsences_network
-
-  # ============================================
-  # SERVICE : Uptime Kuma (Le Tableau de Bord) 📊
+  # SERVICE: Uptime Kuma
   # ============================================
   uptime-kuma:
     image: louislam/uptime-kuma:1
     container_name: unabsences_monitoring
     restart: always
+    env_file:
+      - .env
     ports:
-      - "3001:3001" # Accessible via http://localhost:3001
+      - "3001:3001"
     volumes:
       - uptime_kuma_data:/app/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -kfsS -H \"Host: localhost\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://nginx/api/health/ >/dev/null || exit 1" ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
     networks:
-      - unabsences_network
+      unabsences_network:
+        ipv4_address: 172.30.0.14
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
   static_volume:
     driver: local
   media_volume:
     driver: local
-  logs_volume:
-    driver: local
-  # Volume pour sauvegarder la config de Uptime Kuma
   uptime_kuma_data:
     driver: local
 
 networks:
   unabsences_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

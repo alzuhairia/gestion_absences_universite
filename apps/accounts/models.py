@@ -3,7 +3,6 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-from django.contrib.auth.hashers import make_password, check_password
 
 
 class UserManager(BaseUserManager):
@@ -19,16 +18,25 @@ class UserManager(BaseUserManager):
             raise ValueError(_('Le prénom est obligatoire'))
         
         email = self.normalize_email(email)
+        extra_fields.setdefault('role', self.model.Role.ETUDIANT)
         user = self.model(email=email, nom=nom, prenom=prenom, **extra_fields)
         user.set_password(password)
+        user._sync_role_flags()
         user.save(using=self._db)
         return user
     
     def create_superuser(self, email, nom, prenom, password=None, **extra_fields):
         """Crée et sauvegarde un superutilisateur (admin)"""
-        extra_fields.setdefault('role', 'ADMIN')
+        extra_fields.setdefault('role', self.model.Role.ADMIN)
         extra_fields.setdefault('actif', True)
-        
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError(_('Le superutilisateur doit avoir is_staff=True.'))
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError(_('Le superutilisateur doit avoir is_superuser=True.'))
+
         return self.create_user(email, nom, prenom, password, **extra_fields)
 
 
@@ -80,14 +88,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Email unique utilisé comme identifiant de connexion (USERNAME_FIELD)
     # Contrainte d'unicité garantie au niveau base de données
     
-    mot_de_passe = models.CharField(
+    password = models.CharField(
         max_length=255,
         db_column='mot_de_passe',
-        verbose_name=_('Mot de passe hashé')
+        verbose_name=_('Mot de passe hashe')
     )
-    # Mot de passe hashé avec l'algorithme Django (PBKDF2)
-    # Jamais stocké en clair pour des raisons de sécurité
-    
+    # Mot de passe hashe avec l'algorithme Django (PBKDF2)
+    # Jamais stocke en clair pour des raisons de securite
+
     # ============================================
     # GESTION DES RÔLES
     # ============================================
@@ -134,6 +142,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Permet de désactiver un compte sans le supprimer (soft delete)
     # Utile pour conserver l'historique tout en bloquant l'accès
     
+    is_staff = models.BooleanField(
+        default=False,
+        db_column='is_staff',
+        verbose_name=_('Staff'),
+        help_text=_("Definit si l'utilisateur peut acceder a l'interface d'administration."),
+        db_index=True
+    )
+    # Deduit automatiquement du role (ADMIN/SECRETAIRE)
+
     date_creation = models.DateTimeField(
         default=timezone.now,
         db_column='date_creation',
@@ -176,26 +193,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     # === PROPRIÉTÉS VIRTUELLES (PAS DANS LA BD) ===
     
     @property
-    def is_staff(self):
-        """Un utilisateur est staff s'il est admin ou secrétaire"""
-        return self.role in [self.Role.ADMIN, self.Role.SECRETAIRE]
-    
-    @is_staff.setter
-    def is_staff(self, value):
-        """Setter pour compatibilité Django (ignore la valeur)"""
-        pass
-    
-    @property
-    def is_superuser(self):
-        """Un superuser est un admin"""
-        return self.role == self.Role.ADMIN
-    
-    @is_superuser.setter
-    def is_superuser(self, value):
-        """Setter pour compatibilité Django (ignore la valeur)"""
-        pass
-    
-    @property
     def is_active(self):
         """Retourne le statut actif (requis par Django)"""
         return self.actif
@@ -205,27 +202,25 @@ class User(AbstractBaseUser, PermissionsMixin):
         """Setter pour is_active"""
         self.actif = value
     
-    # === GESTION DU MOT DE PASSE ===
-    
-    @property
-    def password(self):
-        """Propriété pour compatibilité Django"""
-        return self.mot_de_passe
-    
-    @password.setter
-    def password(self, raw_password):
-        """Setter qui hash le mot de passe"""
-        self.set_password(raw_password)
-    
-    def set_password(self, raw_password):
-        """Hash le mot de passe avec l'algorithme Django"""
-        if raw_password:
-            self.mot_de_passe = make_password(raw_password)
-    
-    def check_password(self, raw_password):
-        """Vérifie le mot de passe contre le hash Django"""
-        return check_password(raw_password, self.mot_de_passe)
-    
+    def _sync_role_flags(self):
+        """Synchronise is_staff/is_superuser avec le role."""
+        if self.role == self.Role.ADMIN:
+            self.is_staff = True
+            self.is_superuser = True
+        elif self.role == self.Role.SECRETAIRE:
+            self.is_staff = True
+            self.is_superuser = False
+        else:
+            self.is_staff = False
+            self.is_superuser = False
+
+    def save(self, *args, **kwargs):
+        self._sync_role_flags()
+        update_fields = kwargs.get('update_fields')
+        if update_fields:
+            kwargs['update_fields'] = list(set(update_fields) | {'is_staff', 'is_superuser'})
+        super().save(*args, **kwargs)
+
     # === CONFIGURATION DJANGO ===
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['nom', 'prenom']
@@ -246,6 +241,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = _('Utilisateur')
         verbose_name_plural = _('Utilisateurs')
         ordering = ['nom', 'prenom']
+        indexes = [
+            models.Index(fields=['nom', 'prenom'], name='utilisateur_nom_prenom_idx'),
+        ]
         # IMPORTANT: Django ne gère PAS la création/modification de cette table
         managed = True
     

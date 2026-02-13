@@ -22,9 +22,12 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     curl \
+    gosu \
     gcc \
     python3-dev \
     libpq-dev \
+    libmagic1 \
+    file \
     libjpeg-dev \
     zlib1g-dev \
     libtiff-dev \
@@ -70,10 +73,8 @@ COPY --chown=django:django entrypoint.sh /app/
 # C'est cette ligne qui sauve la vie : elle convertit le fichier au format Linux
 RUN sed -i 's/\r$//g' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# --- MODIFICATION ICI ---
-# Nous commentons cette ligne pour rester "root" et avoir le droit d'écrire partout.
-# C'est la solution rapide pour éviter les "Permission denied" sur Windows/Docker.
-# USER django 
+# Exécuter le conteneur applicatif en utilisateur non-root.
+USER django
 
 # Exposer le port par défaut de Gunicorn
 EXPOSE 8000
@@ -82,4 +83,4 @@ EXPOSE 8000
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Commande par défaut : lancer Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "config.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--access-logfile", "-", "--access-logformat", "%(h)s %(l)s %(u)s %(t)s \"%(m)s %(U)s\" %(s)s %(b)s \"%(f)s\" \"%(a)s\"", "--error-logfile", "-", "config.wsgi:application"]

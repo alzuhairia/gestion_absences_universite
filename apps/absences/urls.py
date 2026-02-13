@@ -27,6 +27,9 @@ urlpatterns = [
     # Refuser un justificatif (Remet l'absence en NON_JUSTIFIEE)
     path('refuser/<int:absence_id>/', views.refuser_justificatif, name='refuser_justification'),
 
+    # Telecharger un justificatif (acces controle)
+    path('justification/<int:justification_id>/download/', views.download_justification, name='download_justification'),
+
     # --- Actions Professeur ---
     path('mark/<int:course_id>/', views.mark_absence, name='mark_absence'),
     path('review/<int:absence_id>/', views.review_justification, name='review_justification'),

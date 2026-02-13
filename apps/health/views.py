@@ -1,42 +1,95 @@
 """
 Vues pour l'endpoint de health check.
-Permet de vérifier que l'application Django et la base de données sont opérationnelles.
+Permet de verifier que l'application Django et la base de donnees sont operationnelles.
 """
-from django.http import JsonResponse
+
+import logging
+import ipaddress
+import hmac
+
+from django.conf import settings
 from django.db import connection
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django_ratelimit.decorators import ratelimit
+
+from apps.audits.ip_utils import extract_client_ip, ratelimit_client_ip
+
+logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
+def _health_rate_limit(group, request) -> str:
+    return settings.HEALTHCHECK_RATE_LIMIT
+
+
+def _health_allowlist_networks():
+    networks = []
+    for cidr in settings.HEALTHCHECK_ALLOWLIST_CIDRS:
+        try:
+            networks.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            logger.warning("Ignoring invalid HEALTHCHECK_ALLOWLIST_CIDRS entry: %s", cidr)
+    return networks
+
+
+def _is_health_client_allowed(client_ip: str) -> bool:
+    try:
+        parsed = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    return any(parsed in network for network in _health_allowlist_networks())
+
+
 @require_http_methods(["GET"])
+@ratelimit(key=ratelimit_client_ip, rate=_health_rate_limit, method='GET', block=False)
 def health_check(request):
     """
-    Endpoint de santé pour le monitoring.
-    
-    Vérifie que :
+    Endpoint de sante pour le monitoring.
+
+    Verifie que :
     - L'application Django fonctionne
-    - La base de données PostgreSQL est accessible
-    
+    - La base de donnees PostgreSQL est accessible
+
     Retourne un JSON simple avec le statut.
-    Utilisé par Uptime Kuma et autres outils de monitoring.
-    
-    Returns:
-        JsonResponse: {"status": "ok"} avec HTTP 200 si tout est OK
-        JsonResponse: {"status": "error", "error": "message"} avec HTTP 503 en cas d'erreur
+    Utilise par Uptime Kuma et autres outils de monitoring.
     """
+    # Never log query strings for this endpoint. This avoids accidental token leakage
+    # from malformed requests sent with query parameters.
+    request.META['QUERY_STRING'] = ''
+
+    if getattr(request, 'limited', False):
+        response = JsonResponse({"status": "error", "error": "Too Many Requests"}, status=429)
+        response["Retry-After"] = "60"
+        return response
+
+    client_ip = extract_client_ip(request)
+    if not _is_health_client_allowed(client_ip):
+        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+
+    valid_tokens = [token for token in getattr(settings, 'HEALTHCHECK_VALID_TOKENS', []) if token]
+    if not valid_tokens:
+        logger.error("HEALTHCHECK_TOKEN is not configured; refusing health endpoint access.")
+        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+
+    provided = request.headers.get("X-Healthcheck-Token", "")
+    if not provided:
+        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+
+    if not any(hmac.compare_digest(str(provided), str(expected)) for expected in valid_tokens):
+        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+
     try:
-        # Vérifier la connexion à la base de données
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-        
-        # Tout est OK
         return JsonResponse({"status": "ok"}, status=200)
-    
-    except Exception as e:
-        # Erreur de connexion à la base de données
-        return JsonResponse({
-            "status": "error",
-            "error": str(e)
-        }, status=503)
+    except Exception:
+        logger.exception("Health check failed")
+        return JsonResponse(
+            {
+                "status": "error",
+                "error": "Service unavailable",
+            },
+            status=503,
+        )
+

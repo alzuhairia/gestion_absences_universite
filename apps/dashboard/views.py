@@ -8,7 +8,7 @@ from apps.enrollments.models import Inscription
 from apps.absences.models import Absence, Justification
 from apps.academics.models import Cours, Faculte, Departement
 from apps.academic_sessions.models import Seance, AnneeAcademique
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Min, Max
 from apps.notifications.models import Notification
 from apps.accounts.models import User
 from apps.audits.models import LogAudit
@@ -81,15 +81,24 @@ def student_dashboard(request):
     total_abs_hours = 0
     total_periods = 0
     overall_rate = 0
-    
+
+    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
+    absence_counts = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids
+        ).values('id_inscription').annotate(total=Count('id_absence')).values_list('id_inscription', 'total')
+    )
+
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        # Only count NON_JUSTIFIED absences
-        abs_hours = Absence.objects.filter(
-            id_inscription=ins,
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
+        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
         total_abs_hours += abs_hours
     
     if total_periods > 0:
@@ -105,10 +114,7 @@ def student_dashboard(request):
     for ins in inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            abs_hours = Absence.objects.filter(
-                id_inscription=ins,
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
             rate = (abs_hours / cours.nombre_total_periodes) * 100
             
             if rate >= 40 and not ins.exemption_40:
@@ -126,14 +132,23 @@ def student_dashboard(request):
     # --- Prepare Course Data for "My Courses" Section
     cours_data = []
     
+    sessions_count_map = {}
+    if academic_year:
+        sessions_count_map = dict(
+            Seance.objects.filter(id_cours__in=inscriptions.values_list('id_cours', flat=True), id_annee=academic_year)
+            .values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+    else:
+        sessions_count_map = dict(
+            Seance.objects.filter(id_cours__in=inscriptions.values_list('id_cours', flat=True))
+            .values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+
     for ins in inscriptions:
         cours = ins.id_cours
-        
+
         # Calculate NON_JUSTIFIED absences only
-        total_abs = Absence.objects.filter(
-            id_inscription=ins, 
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
+        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         
         # Calculate absence rate
         absence_rate = (total_abs / cours.nombre_total_periodes) * 100 if cours.nombre_total_periodes > 0 else 0
@@ -149,16 +164,10 @@ def student_dashboard(request):
             course_status_color = "warning"
         
         # Count sessions for this course
-        if academic_year:
-            sessions_count = Seance.objects.filter(
-                id_cours=cours,
-                id_annee=academic_year
-            ).count()
-        else:
-            sessions_count = Seance.objects.filter(id_cours=cours).count()
+        sessions_count = sessions_count_map.get(cours.id_cours, 0)
         
         # Count absences for this course
-        absences_count = Absence.objects.filter(id_inscription=ins).count()
+        absences_count = absence_counts.get(ins.id_inscription, 0)
         
         # Get professor name
         prof_name = "Non assigné"
@@ -262,6 +271,14 @@ def instructor_dashboard(request):
     all_inscriptions = Inscription.objects.filter(
         id_cours__professeur=request.user
     ).select_related('id_cours', 'id_etudiant')
+
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     
     at_risk_count = 0
     at_risk_list = []
@@ -270,10 +287,7 @@ def instructor_dashboard(request):
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             # Calculate NON_JUSTIFIED absences only
-            total_abs = Absence.objects.filter(
-                id_inscription=ins, 
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             
             rate = (total_abs / cours.nombre_total_periodes) * 100
             
@@ -287,30 +301,6 @@ def instructor_dashboard(request):
                     'inscription_id': ins.id_inscription,
                     'is_exempted': ins.exemption_40  # For display only
                 })
-
-    # --- Active Courses Data (for "My Active Courses" section)
-    courses_data = []
-    for course in active_courses.select_related('id_departement', 'id_departement__id_faculte'):
-        # Count enrolled students
-        if academic_year:
-            enrolled_count = Inscription.objects.filter(
-                id_cours=course,
-                id_annee=academic_year,
-                status='EN_COURS'
-            ).count()
-            sessions_count = Seance.objects.filter(
-                id_cours=course,
-                id_annee=academic_year
-            ).count()
-        else:
-            enrolled_count = Inscription.objects.filter(id_cours=course).count()
-            sessions_count = Seance.objects.filter(id_cours=course).count()
-
-        courses_data.append({
-            'course': course,
-            'enrolled_count': enrolled_count,
-            'sessions_count': sessions_count,
-        })
 
     return render(request, 'dashboard/instructor_index.html', {
         'academic_year': academic_year,
@@ -357,25 +347,24 @@ def secretary_dashboard(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by('-id_annee').first()
 
-    # Get current academic year
-    academic_year = AnneeAcademique.objects.filter(active=True).first()
-    if not academic_year:
-        academic_year = AnneeAcademique.objects.order_by('-id_annee').first()
-
     # 1. Pending Justifications Count
     global_pending_count = Justification.objects.filter(state='EN_ATTENTE').count()
 
     # 2. Global "At Risk" Calculation (> 40%)
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     global_at_risk_count = 0
     
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins, 
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             
             rate = (total_abs / cours.nombre_total_periodes) * 100
             
@@ -489,15 +478,19 @@ def secretary_rules_40(request):
     """
     # Get all inscriptions
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant', 'id_cours__id_departement').all()
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     at_risk_list = []
     
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins, 
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             
             rate = (total_abs / cours.nombre_total_periodes) * 100
             
@@ -541,26 +534,35 @@ def secretary_exports(request):
 
     # Calculate statistics for display
     if academic_year:
-        active_inscriptions = Inscription.objects.filter(id_annee=academic_year, status='EN_COURS')
+        active_inscriptions = Inscription.objects.filter(
+            id_annee=academic_year,
+            status='EN_COURS',
+        ).select_related('id_cours')
     else:
-        active_inscriptions = Inscription.objects.filter(status='EN_COURS')
+        active_inscriptions = Inscription.objects.filter(status='EN_COURS').select_related('id_cours')
+
+    active_inscriptions_list = list(active_inscriptions)
+    inscription_ids = [ins.id_inscription for ins in active_inscriptions_list]
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
 
     # Count at-risk students
     at_risk_count = 0
-    for ins in active_inscriptions:
+    for ins in active_inscriptions_list:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins,
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             rate = (total_abs / cours.nombre_total_periodes) * 100
             if rate >= 40 and not ins.exemption_40:
                 at_risk_count += 1
 
     return render(request, 'dashboard/secretary_exports.html', {
         'academic_year': academic_year,
-        'active_inscriptions_count': active_inscriptions.count(),
+        'active_inscriptions_count': len(active_inscriptions_list),
         'at_risk_count': at_risk_count,
     })
 
@@ -587,26 +589,23 @@ def get_active_courses_queryset(academic_year):
     
     Returns: QuerySet of Cours objects
     """
-    # Base query: Courses with assigned professor
     courses = Cours.objects.filter(professeur__isnull=False)
-    
+
     if not academic_year:
-        return courses.none()  # No active year = no active courses
-    
-    # Get courses that have sessions OR enrollments in current year
+        return courses.none()
+
     courses_with_sessions = Seance.objects.filter(
         id_annee=academic_year
-    ).values_list('id_cours', flat=True).distinct()
-    
+    ).values('id_cours')
     courses_with_enrollments = Inscription.objects.filter(
         id_annee=academic_year
-    ).values_list('id_cours', flat=True).distinct()
-    
-    # Union: courses with sessions OR enrollments (or both)
-    active_course_ids = set(courses_with_sessions) | set(courses_with_enrollments)
-    
-    # Filter to only courses with assigned professor that are in the active list
-    return courses.filter(id_cours__in=active_course_ids)
+    ).values('id_cours')
+
+    # Semi-join style filtering avoids correlated subqueries per row.
+    return courses.filter(
+        Q(id_cours__in=courses_with_sessions) |
+        Q(id_cours__in=courses_with_enrollments)
+    )
 
 @login_required
 @student_required
@@ -620,7 +619,7 @@ def student_statistics(request):
         academic_year = AnneeAcademique.objects.order_by('-id_annee').first()
 
     user = request.user
-    inscriptions = Inscription.objects.filter(id_etudiant=user)
+    inscriptions = Inscription.objects.filter(id_etudiant=user).select_related('id_cours')
     
     # Filter by academic year if available
     if academic_year:
@@ -633,16 +632,21 @@ def student_statistics(request):
     
     total_hours_missed = 0
     courses_at_risk = 0
+
+    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods = cours.nombre_total_periodes
         
         # Calculate Unjustified Absences
-        total_abs = Absence.objects.filter(
-            id_inscription=ins, 
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
+        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         
         rate = (total_abs / total_periods * 100) if total_periods > 0 else 0
         
@@ -685,17 +689,14 @@ def student_statistics(request):
         trend_labels = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier"]
         trend_data = [0, 2, 5, 8, 4] # Mock data for "New" student experience
 
-    from django.utils.safestring import mark_safe
-    import json
-    
     context = {
         'academic_year': academic_year,
         'total_hours_missed': round(total_hours_missed, 1),
         'courses_at_risk': courses_at_risk,
-        'course_labels': mark_safe(json.dumps(course_labels)),
-        'absence_percentages': mark_safe(json.dumps(absence_percentages)),
-        'trend_labels': mark_safe(json.dumps(trend_labels)),
-        'trend_data': mark_safe(json.dumps(trend_data)),
+        'course_labels': course_labels,
+        'absence_percentages': absence_percentages,
+        'trend_labels': trend_labels,
+        'trend_data': trend_data,
     }
     
     return render(request, 'dashboard/student_statistics.html', context)
@@ -745,6 +746,38 @@ def active_courses(request):
     # Order by course code
     courses = courses.order_by('code_cours')
 
+    # Evaluate filtered courses first, then aggregate only on relevant IDs.
+    courses = list(courses)
+    course_ids = [course.id_cours for course in courses]
+
+    enrolled_counts = {}
+    session_bounds = {}
+    courses_with_sessions = set()
+    if course_ids:
+        enrollments_qs = Inscription.objects.filter(id_cours__in=course_ids)
+        sessions_qs = Seance.objects.filter(id_cours__in=course_ids)
+
+        if academic_year:
+            enrollments_qs = enrollments_qs.filter(
+                id_annee=academic_year,
+                status='EN_COURS',
+            )
+            sessions_qs = sessions_qs.filter(id_annee=academic_year)
+
+        enrolled_counts = dict(
+            enrollments_qs.values('id_cours')
+            .annotate(total=Count('id_inscription'))
+            .values_list('id_cours', 'total')
+        )
+        session_bounds = {
+            row['id_cours']: row
+            for row in sessions_qs.values('id_cours').annotate(
+                first_session_date=Min('date_seance'),
+                last_session_date=Max('date_seance'),
+            )
+        }
+        courses_with_sessions = set(session_bounds.keys())
+
     # Get filter options
     faculties = Faculte.objects.all().order_by('nom_faculte')
     departments = Departement.objects.all().order_by('nom_departement')
@@ -752,44 +785,31 @@ def active_courses(request):
         departments = departments.filter(id_faculte_id=faculty_filter)
     professors = User.objects.filter(role=User.Role.PROFESSEUR).order_by('nom', 'prenom')
 
-    # Prepare course data with additional info
+    # Prepare course data with additional info (no per-course SQL)
     courses_data = []
     for course in courses:
-        # Get all sessions for this course in current year to determine semester/period
-        sessions = []
-        if academic_year:
-            sessions = Seance.objects.filter(id_cours=course, id_annee=academic_year).order_by('date_seance')
-        
-        # Calculate enrolled students count manually to avoid reverse relation issues
-        enrolled_count = 0
-        if academic_year:
-            enrolled_count = Inscription.objects.filter(
-                id_cours=course,
-                id_annee=academic_year,
-                status='EN_COURS'
-            ).count()
-        else:
-            enrolled_count = Inscription.objects.filter(id_cours=course).count()
-        
-        # Determine semester/period from sessions (if available)
+        # Determine semester/period from pre-aggregated bounds
         semester_info = "N/A"
-        if sessions.exists():
-            first_session = sessions.first()
-            last_session = sessions.last()
-            # Simple heuristic: if sessions span multiple months, it's a full semester
-            if first_session and last_session:
-                months = (last_session.date_seance.year - first_session.date_seance.year) * 12 + \
-                        (last_session.date_seance.month - first_session.date_seance.month)
-                if months > 3:
-                    semester_info = f"Semestre complet ({first_session.date_seance.strftime('%m/%Y')} - {last_session.date_seance.strftime('%m/%Y')})"
-                else:
-                    semester_info = f"{first_session.date_seance.strftime('%B %Y')}"
+        bounds = session_bounds.get(course.id_cours)
+        first_session_date = bounds['first_session_date'] if bounds else None
+        last_session_date = bounds['last_session_date'] if bounds else None
+        if first_session_date and last_session_date:
+            months = (last_session_date.year - first_session_date.year) * 12 + (
+                last_session_date.month - first_session_date.month
+            )
+            if months > 3:
+                semester_info = (
+                    f"Semestre complet ({first_session_date.strftime('%m/%Y')} - "
+                    f"{last_session_date.strftime('%m/%Y')})"
+                )
+            else:
+                semester_info = f"{first_session_date.strftime('%B %Y')}"
 
         courses_data.append({
             'course': course,
-            'enrolled_count': enrolled_count,
+            'enrolled_count': enrolled_counts.get(course.id_cours, 0),
             'semester_info': semester_info,
-            'has_sessions': sessions.exists(),
+            'has_sessions': course.id_cours in courses_with_sessions,
         })
 
     return render(request, 'dashboard/active_courses.html', {
@@ -836,13 +856,16 @@ def instructor_course_detail(request, course_id):
     else:
         inscriptions = Inscription.objects.filter(id_cours=course).select_related('id_etudiant')
 
-    for ins in inscriptions:
-        # Calculate absence rate
-        total_abs = Absence.objects.filter(
-            id_inscription=ins,
+    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
             statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
-        
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
+
+    for ins in inscriptions:
+        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         rate = (total_abs / course.nombre_total_periodes) * 100 if course.nombre_total_periodes > 0 else 0
         is_at_risk = rate >= 40
 
@@ -920,29 +943,54 @@ def instructor_courses(request):
 
     # Prepare course data with statistics
     courses_data = []
-    for course in courses:
-        if academic_year:
-            enrolled_count = Inscription.objects.filter(
-                id_cours=course,
+    course_ids = list(courses.values_list('id_cours', flat=True))
+
+    if academic_year:
+        enrolled_counts = dict(
+            Inscription.objects.filter(
+                id_cours__in=course_ids,
                 id_annee=academic_year,
                 status='EN_COURS'
-            ).count()
-            sessions_count = Seance.objects.filter(
-                id_cours=course,
+            ).values('id_cours').annotate(total=Count('id_inscription')).values_list('id_cours', 'total')
+        )
+        sessions_counts = dict(
+            Seance.objects.filter(
+                id_cours__in=course_ids,
                 id_annee=academic_year
-            ).count()
-        else:
-            enrolled_count = Inscription.objects.filter(id_cours=course).count()
-            sessions_count = Seance.objects.filter(id_cours=course).count()
+            ).values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+    else:
+        enrolled_counts = dict(
+            Inscription.objects.filter(
+                id_cours__in=course_ids
+            ).values('id_cours').annotate(total=Count('id_inscription')).values_list('id_cours', 'total')
+        )
+        sessions_counts = dict(
+            Seance.objects.filter(
+                id_cours__in=course_ids
+            ).values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+
+    all_course_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=all_course_inscriptions.values_list('id_inscription', flat=True),
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
+    inscriptions_by_course = defaultdict(list)
+    for ins in all_course_inscriptions:
+        inscriptions_by_course[ins.id_cours_id].append(ins)
+
+    for course in courses:
+        enrolled_count = enrolled_counts.get(course.id_cours, 0)
+        sessions_count = sessions_counts.get(course.id_cours, 0)
 
         # Calculate at-risk students count
-        inscriptions = Inscription.objects.filter(id_cours=course)
+        inscriptions = inscriptions_by_course.get(course.id_cours, [])
         at_risk = 0
         for ins in inscriptions:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins,
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             rate = (total_abs / course.nombre_total_periodes) * 100 if course.nombre_total_periodes > 0 else 0
             if rate >= 40 and not ins.exemption_40:
                 at_risk += 1
@@ -1025,29 +1073,44 @@ def instructor_statistics(request):
     total_at_risk = 0
     total_absences = 0
 
-    for course in courses:
-        if academic_year:
-            inscriptions = Inscription.objects.filter(
-                id_cours=course,
-                id_annee=academic_year,
-                status='EN_COURS'
-            )
-        else:
-            inscriptions = Inscription.objects.filter(id_cours=course)
+    course_ids = list(courses.values_list('id_cours', flat=True))
+    if academic_year:
+        all_inscriptions = Inscription.objects.filter(
+            id_cours__in=course_ids,
+            id_annee=academic_year,
+            status='EN_COURS'
+        )
+    else:
+        all_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
 
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
+    absence_counts = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids
+        ).values('id_inscription').annotate(total=Count('id_absence')).values_list('id_inscription', 'total')
+    )
+    inscriptions_by_course = defaultdict(list)
+    for ins in all_inscriptions.select_related('id_cours'):
+        inscriptions_by_course[ins.id_cours_id].append(ins)
+
+    for course in courses:
+        inscriptions = inscriptions_by_course.get(course.id_cours, [])
         course_at_risk = 0
         course_absences = 0
         course_avg_rate = 0
 
         rates = []
         for ins in inscriptions:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins,
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             rate = (total_abs / course.nombre_total_periodes) * 100 if course.nombre_total_periodes > 0 else 0
             rates.append(rate)
-            course_absences += Absence.objects.filter(id_inscription=ins).count()
+            course_absences += absence_counts.get(ins.id_inscription, 0) or 0
             if rate >= 40 and not ins.exemption_40:
                 course_at_risk += 1
 
@@ -1056,13 +1119,13 @@ def instructor_statistics(request):
 
         course_stats.append({
             'course': course,
-            'students_count': inscriptions.count(),
+            'students_count': len(inscriptions),
             'at_risk_count': course_at_risk,
             'absences_count': course_absences,
             'avg_rate': round(course_avg_rate, 1),
         })
 
-        total_students += inscriptions.count()
+        total_students += len(inscriptions)
         total_at_risk += course_at_risk
         total_absences += course_absences
 
@@ -1106,13 +1169,16 @@ def student_course_detail(request, inscription_id):
     else:
         sessions = Seance.objects.filter(id_cours=course).order_by('-date_seance', '-heure_debut')
 
+    session_ids = list(sessions.values_list('id_seance', flat=True))
+    absences_by_session = {
+        a.id_seance_id: a
+        for a in Absence.objects.filter(id_inscription=inscription, id_seance_id__in=session_ids)
+    }
+
     sessions_data = []
     for session in sessions:
         # Check if student has absence for this session
-        absence = Absence.objects.filter(
-            id_inscription=inscription,
-            id_seance=session
-        ).first()
+        absence = absences_by_session.get(session.id_seance)
         
         if absence:
             if absence.statut == 'JUSTIFIEE':
@@ -1135,12 +1201,12 @@ def student_course_detail(request, inscription_id):
     # Tab 2: Absences - List with status (JUSTIFIED, UNJUSTIFIED, PENDING)
     absences = Absence.objects.filter(
         id_inscription=inscription
-    ).select_related('id_seance').order_by('-id_seance__date_seance')
+    ).select_related('id_seance', 'justification').order_by('-id_seance__date_seance')
 
     absences_data = []
     for absence in absences:
         # Check if justification exists and its state
-        justification = Justification.objects.filter(id_absence=absence).first()
+        justification = getattr(absence, 'justification', None)
         
         if justification:
             if justification.state == 'ACCEPTEE':
@@ -1217,14 +1283,35 @@ def student_courses(request):
 
     # Prepare course data with statistics
     courses_data = []
+    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    course_ids = list(inscriptions.values_list('id_cours', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
+    absence_counts = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids
+        ).values('id_inscription').annotate(total=Count('id_absence')).values_list('id_inscription', 'total')
+    )
+    if academic_year:
+        sessions_count_map = dict(
+            Seance.objects.filter(id_cours__in=course_ids, id_annee=academic_year)
+            .values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+    else:
+        sessions_count_map = dict(
+            Seance.objects.filter(id_cours__in=course_ids)
+            .values('id_cours').annotate(total=Count('id_seance')).values_list('id_cours', 'total')
+        )
+
     for ins in inscriptions:
         cours = ins.id_cours
         
         # Calculate NON_JUSTIFIED absences only
-        total_abs = Absence.objects.filter(
-            id_inscription=ins,
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
+        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         
         # Calculate absence rate
         absence_rate = (total_abs / cours.nombre_total_periodes) * 100 if cours.nombre_total_periodes > 0 else 0
@@ -1240,15 +1327,9 @@ def student_courses(request):
             course_status_color = "warning"
         
         # Count sessions and absences
-        if academic_year:
-            sessions_count = Seance.objects.filter(
-                id_cours=cours,
-                id_annee=academic_year
-            ).count()
-        else:
-            sessions_count = Seance.objects.filter(id_cours=cours).count()
+        sessions_count = sessions_count_map.get(cours.id_cours, 0)
         
-        absences_count = Absence.objects.filter(id_inscription=ins).count()
+        absences_count = absence_counts.get(ins.id_inscription, 0)
         
         # Get professor name
         prof_name = "Non assigné"
@@ -1301,13 +1382,13 @@ def student_absences(request):
     absences = Absence.objects.filter(
         id_inscription__in=inscriptions
     ).select_related(
-        'id_seance', 'id_seance__id_cours', 'id_inscription'
+        'id_seance', 'id_seance__id_cours', 'id_inscription', 'justification'
     ).order_by('-id_seance__date_seance', '-id_seance__heure_debut')
 
     # Prepare absence data with justification status
     absences_data = []
     for absence in absences:
-        justification = Justification.objects.filter(id_absence=absence).first()
+        justification = getattr(absence, 'justification', None)
         
         if justification:
             if justification.state == 'ACCEPTEE':
@@ -1360,9 +1441,9 @@ def student_reports(request):
             id_etudiant=request.user,
             id_annee=academic_year,
             status='EN_COURS'
-        )
+        ).select_related('id_cours')
     else:
-        inscriptions = Inscription.objects.filter(id_etudiant=request.user)
+        inscriptions = Inscription.objects.filter(id_etudiant=request.user).select_related('id_cours')
 
     # Calculate overall statistics
     total_courses = inscriptions.count()
@@ -1370,13 +1451,16 @@ def student_reports(request):
     
     total_abs_hours = 0
     total_periods = 0
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscriptions.values_list('id_inscription', flat=True),
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        abs_hours = Absence.objects.filter(
-            id_inscription=ins,
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
+        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
         total_abs_hours += abs_hours
     
     overall_rate = (total_abs_hours / total_periods * 100) if total_periods > 0 else 0
