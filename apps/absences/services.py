@@ -4,16 +4,55 @@ from apps.notifications.models import Notification
 from apps.audits.models import LogAudit
 
 
+def calculer_absence_stats(inscription):
+    """
+    Calcule les statistiques d'absence pour une inscription.
+
+    Retourne:
+        dict: {
+            'total_absence': float,
+            'taux': float,
+            'total_periodes': int,
+        }
+    """
+    total_absence = Absence.objects.filter(
+        id_inscription=inscription,
+        statut='NON_JUSTIFIEE'
+    ).aggregate(total=Sum('duree_absence'))['total'] or 0
+
+    total_periodes = inscription.id_cours.nombre_total_periodes or 0
+    taux = (total_absence / total_periodes) * 100 if total_periodes else 0
+
+    return {
+        'total_absence': total_absence,
+        'taux': taux,
+        'total_periodes': total_periodes,
+    }
+
+
+def get_absences_queryset(inscription):
+    """
+    Retourne un queryset optimisé pour afficher les absences d'une inscription.
+    Évite les N+1 via select_related/prefetch_related.
+    """
+    return (
+        Absence.objects.filter(id_inscription=inscription)
+        .select_related('id_seance', 'id_seance__id_cours')
+        .prefetch_related('justification')
+        .order_by('-id_seance__date_seance')
+    )
+
+
 def recalculer_eligibilite(inscription):
     """
     Recalcule l'éligibilité d'un étudiant à l'examen basé sur ses absences non justifiées.
-    
+
     IMPORTANT POUR LA SOUTENANCE :
     Cette fonction implémente la règle métier du seuil d'absence :
     - Un étudiant est bloqué (non éligible) si son taux d'absence >= seuil (40% par défaut)
     - Exception : si l'étudiant a une exemption (exemption_40 = True)
     - Le calcul se base UNIQUEMENT sur les absences NON JUSTIFIÉES
-    
+
     Logique métier :
     1. Calculer le total des heures d'absences NON JUSTIFIÉES
     2. Calculer le taux : (heures absences / total périodes) * 100
@@ -25,40 +64,36 @@ def recalculer_eligibilite(inscription):
     5. Sinon :
        - Débloquer l'étudiant si nécessaire (eligible_examen = True)
        - Envoyer une notification de déblocage
-    
+
     Appel automatique :
     - Cette fonction est appelée automatiquement via un signal Django
     - Signal : post_save sur le modèle Absence
     - Garantit la cohérence des données après chaque modification d'absence
-    
+
     Args:
         inscription: Instance de Inscription à recalculer
-        
+
     Returns:
         None (modifie directement l'objet inscription)
     """
-    # 1. Calcul des absences NON JUSTIFIÉES uniquement
-    total_absence = Absence.objects.filter(
-        id_inscription=inscription,
-        statut='NON_JUSTIFIEE'
-    ).aggregate(total=Sum('duree_absence'))['total'] or 0
+    stats = calculer_absence_stats(inscription)
+    total_absence = stats['total_absence']
+    taux = stats['taux']
+    total_periodes = stats['total_periodes']
 
     cours = inscription.id_cours
-    
+
     # Vérifier que le cours a des périodes
-    if cours.nombre_total_periodes == 0:
+    if total_periodes == 0:
         # Si pas de périodes, l'étudiant est éligible
         if not inscription.eligible_examen:
             inscription.eligible_examen = True
             inscription.save(update_fields=['eligible_examen'])
         return
-    
-    # Calculer le taux d'absence
-    taux = (total_absence / cours.nombre_total_periodes) * 100
-    
+
     # Utiliser le seuil du cours (ou le seuil par défaut)
     seuil = cours.get_seuil_absence()
-    
+
     # 2. Logique de blocage / déblocage
     if taux >= seuil and not inscription.exemption_40:
         # Étudiant dépasse le seuil et n'a pas d'exemption
@@ -72,7 +107,7 @@ def recalculer_eligibilite(inscription):
                 message=f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué.",
                 type='ALERTE'
             )
-            
+
             # Log d'Audit
             LogAudit.objects.create(
                 id_utilisateur=inscription.id_etudiant,
@@ -87,7 +122,7 @@ def recalculer_eligibilite(inscription):
         if not inscription.eligible_examen:
             inscription.eligible_examen = True
             inscription.save(update_fields=['eligible_examen'])
-            
+
             # Notification de déblocage
             Notification.objects.create(
                 id_utilisateur=inscription.id_etudiant,

@@ -1,23 +1,15 @@
-# ============================================
-# Dockerfile pour Nginx
-# ============================================
-# IMPORTANT POUR LA SOUTENANCE :
-# Nginx sert de reverse proxy devant Gunicorn
-# Il gère :
-# - Les requêtes HTTP/HTTPS
-# - Les fichiers statiques (CSS, JS, images)
-# - Les fichiers média (documents uploadés)
-# - La compression et le cache
-
 FROM nginx:alpine
 
-# Copier la configuration Nginx personnalisée
+# OpenSSL is used to generate a fallback self-signed certificate
+# when real certificates are not provided yet.
+RUN apk add --no-cache openssl
+
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY docker-entrypoint.d/10-generate-self-signed-cert.sh /docker-entrypoint.d/10-generate-self-signed-cert.sh
+COPY docker-entrypoint.d/20-generate-health-allowlist.sh /docker-entrypoint.d/20-generate-health-allowlist.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/10-generate-self-signed-cert.sh && chmod +x /docker-entrypoint.d/10-generate-self-signed-cert.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/20-generate-health-allowlist.sh && chmod +x /docker-entrypoint.d/20-generate-health-allowlist.sh
 
-# Créer les répertoires pour les fichiers statiques et média
-RUN mkdir -p /app/staticfiles /app/media
+RUN mkdir -p /app/staticfiles /app/media /etc/nginx/certs
 
-# Exposer les ports HTTP et HTTPS
 EXPOSE 80 443
-
-# Nginx démarre automatiquement (commande par défaut de l'image)

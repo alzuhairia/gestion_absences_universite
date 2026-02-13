@@ -160,22 +160,22 @@
     <!-- Page Header -->
     <div class="page-header text-center">
         <h1 class="mb-2"><i class="fas fa-user-plus me-2"></i>Gestion des Inscriptions</h1>
-        <p class="mb-0 opacity-90">Créer, modifier et gérer les inscriptions étudiantes</p>
+        <p class="mb-0 opacity-90">CrÃ©er, modifier et gÃ©rer les inscriptions Ã©tudiantes</p>
     </div>
 
     <!-- Step Indicator -->
     <div class="step-indicator">
         <div class="step active" id="step1">
             <div class="step-number">1</div>
-            <div class="step-title">Étudiant</div>
+            <div class="step-title">Ã‰tudiant</div>
         </div>
         <div class="step" id="step2">
             <div class="step-number">2</div>
-            <div class="step-title">Année & Faculté</div>
+            <div class="step-title">AnnÃ©e & FacultÃ©</div>
         </div>
         <div class="step" id="step3">
             <div class="step-number">3</div>
-            <div class="step-title">Département</div>
+            <div class="step-title">DÃ©partement</div>
         </div>
         <div class="step" id="step4">
             <div class="step-number">4</div>
@@ -214,12 +214,12 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-user-graduate"></i>
-                    Sélection de l'étudiant
+                    SÃ©lection de l'Ã©tudiant
                 </div>
                 <div class="row">
                     <div class="col-md-8">
                         <label for="student_email" class="form-label">
-                            <i class="fas fa-envelope me-1"></i>Email de l'étudiant
+                            <i class="fas fa-envelope me-1"></i>Email de l'Ã©tudiant
                             <span class="text-danger">*</span>
                         </label>
                         <input type="email" name="student_email" id="student_email" 
@@ -233,7 +233,7 @@
                             <option value="{{ student.email }}">{{ student.get_full_name }}</option>
                             {% endfor %}
                         </datalist>
-                        <small class="text-muted">Commencez à taper pour voir les suggestions</small>
+                        <small class="text-muted">Commencez Ã  taper pour voir les suggestions</small>
                     </div>
                 </div>
             </div>
@@ -242,12 +242,12 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-calendar-alt"></i>
-                    Année académique et faculté
+                    AnnÃ©e acadÃ©mique et facultÃ©
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="academic_year" class="form-label">
-                            <i class="fas fa-calendar me-1"></i>Année Académique
+                            <i class="fas fa-calendar me-1"></i>AnnÃ©e AcadÃ©mique
                             <span class="text-danger">*</span>
                         </label>
                         <select id="academic_year" name="academic_year" class="form-select" required>
@@ -260,12 +260,12 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="faculty" class="form-label">
-                            <i class="fas fa-university me-1"></i>Faculté
+                            <i class="fas fa-university me-1"></i>FacultÃ©
                             <span class="text-danger">*</span>
                         </label>
                         <select id="faculty" name="faculty" class="form-select" 
                                 onchange="loadDepartments(); updateStepIndicator(2)" required>
-                            <option value="">Sélectionner une faculté...</option>
+                            <option value="">SÃ©lectionner une facultÃ©...</option>
                             {% for fac in facultes %}
                             <option value="{{ fac.id_faculte }}">{{ fac.nom_faculte }}</option>
                             {% endfor %}
@@ -278,18 +278,18 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-building"></i>
-                    Département
+                    DÃ©partement
                 </div>
                 <div class="row">
                     <div class="col-md-6">
                         <label for="department" class="form-label">
-                            <i class="fas fa-sitemap me-1"></i>Département
+                            <i class="fas fa-sitemap me-1"></i>DÃ©partement
                             <span class="text-danger">*</span>
                         </label>
                         <select id="department" name="department" class="form-select" 
                                 onchange="loadCourses(); updateStepIndicator(3)" 
                                 disabled required>
-                            <option value="">Sélectionner d'abord une faculté</option>
+                            <option value="">SÃ©lectionner d'abord une facultÃ©</option>
                         </select>
                         <div id="dept-loading" class="text-muted small mt-1" style="display: none;">
                             <i class="fas fa-spinner fa-spin me-1"></i>Chargement...
@@ -313,7 +313,7 @@
                         <select id="course" name="course" class="form-select" 
                                 onchange="updateStepIndicator(4); showCourseInfo(this)" 
                                 disabled required>
-                            <option value="">Sélectionner d'abord un département</option>
+                            <option value="">SÃ©lectionner d'abord un dÃ©partement</option>
                         </select>
                         <div id="course-info" class="mt-2"></div>
                         <div id="course-loading" class="text-muted small mt-1" style="display: none;">
@@ -326,7 +326,7 @@
             <!-- Submit Button -->
             <div class="d-flex justify-content-end mt-4">
                 <button type="submit" class="btn btn-primary btn-submit" id="submitBtn" disabled>
-                    <i class="fas fa-check-circle me-2"></i>Inscrire l'étudiant
+                    <i class="fas fa-check-circle me-2"></i>Inscrire l'Ã©tudiant
                 </button>
             </div>
         </form>
@@ -335,6 +335,53 @@
 
 <script>
     let currentStep = 0;
+
+    function getApiErrorMessage(payload) {
+        if (!payload || typeof payload !== 'object') {
+            return '';
+        }
+        if (payload.error && typeof payload.error === 'object' && payload.error.message) {
+            return String(payload.error.message);
+        }
+        if (typeof payload.error === 'string') {
+            return payload.error;
+        }
+        return '';
+    }
+
+    function setSingleOption(selectEl, label) {
+        selectEl.replaceChildren();
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = label;
+        selectEl.appendChild(option);
+    }
+
+    async function fetchJson(url) {
+        const response = await fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.includes('application/json')) {
+            throw new Error('Session expiree ou reponse invalide.');
+        }
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_) {
+            throw new Error('Reponse JSON invalide.');
+        }
+
+        if (!response.ok) {
+            throw new Error(getApiErrorMessage(payload) || `HTTP ${response.status}`);
+        }
+
+        return payload;
+    }
 
     function updateStepIndicator(step) {
         // Reset all steps
@@ -360,11 +407,7 @@
         const department = document.getElementById('department').value;
         const course = document.getElementById('course').value;
 
-        if (studentEmail && academicYear && faculty && department && course) {
-            document.getElementById('submitBtn').disabled = false;
-        } else {
-            document.getElementById('submitBtn').disabled = true;
-        }
+        document.getElementById('submitBtn').disabled = !(studentEmail && academicYear && faculty && department && course);
     }
 
     async function loadDepartments() {
@@ -373,25 +416,27 @@
         const courseSelect = document.getElementById('course');
         const loadingEl = document.getElementById('dept-loading');
 
-        deptSelect.innerHTML = '<option value="">Chargement...</option>';
+        setSingleOption(deptSelect, 'Chargement...');
         deptSelect.disabled = true;
         loadingEl.style.display = 'block';
-        courseSelect.innerHTML = '<option value="">Sélectionner d\'abord un département</option>';
+        setSingleOption(courseSelect, 'Selectionner d\'abord un departement');
         courseSelect.disabled = true;
 
         if (!facultyId) {
-            deptSelect.innerHTML = '<option value="">Sélectionner d\'abord une faculté</option>';
+            setSingleOption(deptSelect, 'Selectionner d\'abord une faculte');
             loadingEl.style.display = 'none';
             updateStepIndicator(2);
             return;
         }
 
         try {
-            const response = await fetch(`/enrollments/api/departments/?faculty_id=${facultyId}`);
-            const data = await response.json();
+            const data = await fetchJson(`/enrollments/api/departments/?faculty_id=${facultyId}`);
+            if (!Array.isArray(data)) {
+                throw new Error('Reponse API invalide.');
+            }
 
-            deptSelect.innerHTML = '<option value="">Sélectionner un département...</option>';
-            data.forEach(dept => {
+            setSingleOption(deptSelect, 'Selectionner un departement...');
+            data.forEach((dept) => {
                 const option = document.createElement('option');
                 option.value = dept.id;
                 option.textContent = dept.name;
@@ -402,7 +447,7 @@
             updateStepIndicator(2);
         } catch (error) {
             console.error('Error:', error);
-            deptSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            setSingleOption(deptSelect, 'Erreur de chargement');
             loadingEl.style.display = 'none';
         }
     }
@@ -412,27 +457,29 @@
         const courseSelect = document.getElementById('course');
         const loadingEl = document.getElementById('course-loading');
 
-        courseSelect.innerHTML = '<option value="">Chargement...</option>';
+        setSingleOption(courseSelect, 'Chargement...');
         courseSelect.disabled = true;
         loadingEl.style.display = 'block';
 
         if (!deptId) {
-            courseSelect.innerHTML = '<option value="">Sélectionner d\'abord un département</option>';
+            setSingleOption(courseSelect, 'Selectionner d\'abord un departement');
             loadingEl.style.display = 'none';
             updateStepIndicator(3);
             return;
         }
 
         try {
-            const response = await fetch(`/enrollments/api/courses/?dept_id=${deptId}`);
-            const data = await response.json();
+            const data = await fetchJson(`/enrollments/api/courses/?dept_id=${deptId}`);
+            if (!Array.isArray(data)) {
+                throw new Error('Reponse API invalide.');
+            }
 
-            courseSelect.innerHTML = '<option value="">Sélectionner un cours...</option>';
-            data.forEach(course => {
+            setSingleOption(courseSelect, 'Selectionner un cours...');
+            data.forEach((course) => {
                 const option = document.createElement('option');
                 option.value = course.id;
-                option.textContent = course.name + (course.has_prereq ? ' (Prérequis requis)' : '');
-                option.dataset.hasPrereq = course.has_prereq || false;
+                option.textContent = course.name + (course.has_prereq ? ' (Prerequis requis)' : '');
+                option.dataset.hasPrereq = String(Boolean(course.has_prereq));
                 courseSelect.appendChild(option);
             });
             courseSelect.disabled = false;
@@ -440,7 +487,7 @@
             updateStepIndicator(3);
         } catch (error) {
             console.error('Error:', error);
-            courseSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            setSingleOption(courseSelect, 'Erreur de chargement');
             loadingEl.style.display = 'none';
         }
     }
@@ -448,11 +495,20 @@
     function showCourseInfo(select) {
         const infoEl = document.getElementById('course-info');
         const selectedOption = select.options[select.selectedIndex];
-        
+
+        infoEl.replaceChildren();
         if (selectedOption && selectedOption.dataset.hasPrereq === 'true') {
-            infoEl.innerHTML = '<div class="info-badge"><i class="fas fa-info-circle"></i>Ce cours nécessite des prérequis. Le système vérifiera automatiquement.</div>';
-        } else {
-            infoEl.innerHTML = '';
+            const badge = document.createElement('div');
+            badge.className = 'info-badge';
+
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-info-circle';
+
+            const text = document.createTextNode('Ce cours necessite des prerequis. Le systeme verifiera automatiquement.');
+
+            badge.appendChild(icon);
+            badge.appendChild(text);
+            infoEl.appendChild(badge);
         }
         updateStepIndicator(4);
     }
@@ -463,4 +519,7 @@
     });
 </script>
 {% endblock %}
+
+
+
 
