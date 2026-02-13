@@ -59,10 +59,10 @@
                     {{ justification.commentaire|default:"Aucun commentaire." }}
                 </div>
 
-                {% if file_data %}
+                {% if document_url %}
                 <p><strong>Document joint :</strong></p>
-                <a download="justificatif_{{ absence.id_absence }}.pdf"
-                    href="data:application/pdf;base64,{{ file_data }}" class="btn btn-primary btn-icon-split">
+                <a download="{{ document_name|default:'justificatif' }}"
+                    href="{{ document_url }}" class="btn btn-primary btn-icon-split">
                     <span class="icon text-white-50">
                         <i class="fas fa-download"></i>
                     </span>
@@ -77,7 +77,7 @@
 
     <!-- Right Column: Actions -->
     <div class="col-lg-6">
-        <form method="POST">
+        <form method="POST" action="{% url 'absences:review_justification' absence.id_absence %}">
             {% csrf_token %}
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-secondary text-white">
@@ -95,29 +95,39 @@
                     <button type="submit" class="btn btn-primary mb-3">
                         <i class="fas fa-save me-1"></i> Enregistrer le commentaire
                     </button>
-
-                    <hr>
-
-                    {% if is_secretary %}
-                    <h5 class="mt-4 mb-3">Décision (Secrétariat)</h5>
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'absences:valider_justification' absence.id_absence %}" class="btn btn-success">
-                            <i class="fas fa-check-circle me-2"></i> Valider la justification
-                        </a>
-                        <a href="{% url 'absences:refuser_justification' absence.id_absence %}" class="btn btn-danger">
-                            <i class="fas fa-times-circle me-2"></i> Refuser la justification
-                        </a>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Seul le secrétariat peut valider ou refuser les justificatifs.
-                        Les administrateurs gèrent la configuration, pas les opérations quotidiennes.
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </form>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-secondary text-white">
+                <h6 class="m-0 font-weight-bold">Décision</h6>
+            </div>
+            <div class="card-body">
+                {% if is_secretary %}
+                <div class="d-grid gap-2">
+                    <form method="POST" action="{% url 'absences:valider_justification' absence.id_absence %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-check-circle me-2"></i> Valider la justification
+                        </button>
+                    </form>
+                    <form method="POST" action="{% url 'absences:refuser_justification' absence.id_absence %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-times-circle me-2"></i> Refuser la justification
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Seul le secrétariat peut valider ou refuser les justificatifs.
+                    Les administrateurs gèrent la configuration, pas les opérations quotidiennes.
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

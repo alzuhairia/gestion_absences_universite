@@ -98,8 +98,21 @@ class Seance(models.Model):
         indexes = [
             models.Index(fields=['id_cours', 'date_seance']),
             models.Index(fields=['id_annee', 'date_seance']),
+            models.Index(
+                fields=['id_cours', 'id_annee', 'date_seance', 'heure_debut'],
+                name='seance_cours_annee_dt_h_idx',
+            ),
         ]
-        # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
+        constraints = [
+            models.UniqueConstraint(
+                fields=['id_cours', 'date_seance', 'heure_debut', 'heure_fin'],
+                name='unique_seance_per_course_time'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(heure_fin__gt=models.F('heure_debut')),
+                name='seance_heure_fin_after_debut',
+            ),
+        ]
 
     def clean(self):
         """Validation: heure fin après heure début"""
@@ -170,3 +183,4 @@ class Seance(models.Model):
 
     def __str__(self):
         return f"{self.id_cours.nom_cours} - {self.date_seance} ({self.heure_debut})"
+
