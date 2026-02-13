@@ -8,6 +8,8 @@
 Django==6.0
 django-crispy-forms==2.3
 crispy-bootstrap5>=1.1.0
+django-ratelimit==4.1.0
+django-redis==5.4.0
 
 # Base de données PostgreSQL 
 # Mise à jour vers 2.9.10 indispensable pour le support de Python 3.13
@@ -24,5 +26,7 @@ reportlab==4.0.7
 
 # Utilitaires (Gestion des images)
 Pillow>=10.2.0,<11
+python-magic==0.4.27
 
 openpyxl==3.1.2
+redis==5.0.8

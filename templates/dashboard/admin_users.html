@@ -73,6 +73,7 @@
                     <i class="fas fa-trash me-1"></i>Supprimer sélectionnés (<span id="selectedCount">0</span>)
                 </button>
             </div>
+            <div id="bulkActionFeedback" class="text-danger small mt-2 d-none" role="alert" aria-live="assertive"></div>
         </div>
         <div class="card-body">
             {% if users %}
@@ -83,7 +84,7 @@
                         <thead>
                             <tr>
                                 <th width="40">
-                                    <input type="checkbox" id="selectAllCheckbox" title="Sélectionner tout">
+                                    <input type="checkbox" id="selectAllCheckbox" title="Sélectionner tout" aria-label="Sélectionner tous les utilisateurs">
                                 </th>
                                 <th>Nom</th>
                                 <th>Email</th>
@@ -273,12 +274,28 @@
     const selectedCountSpan = document.getElementById('selectedCount');
     const deleteMultipleForm = document.getElementById('deleteMultipleForm');
     const deleteMultipleModal = new bootstrap.Modal(document.getElementById('deleteMultipleModal'));
+    const bulkActionFeedback = document.getElementById('bulkActionFeedback');
+
+    function clearFeedback() {
+        if (!bulkActionFeedback) return;
+        bulkActionFeedback.textContent = '';
+        bulkActionFeedback.classList.add('d-none');
+    }
+
+    function showFeedback(message) {
+        if (!bulkActionFeedback) return;
+        bulkActionFeedback.textContent = message;
+        bulkActionFeedback.classList.remove('d-none');
+    }
     
     function updateSelectedCount() {
         const selected = document.querySelectorAll('.user-checkbox:checked');
         const count = selected.length;
         selectedCountSpan.textContent = count;
         deleteSelectedBtn.disabled = count === 0;
+        if (count > 0) {
+            clearFeedback();
+        }
         
         // Mettre à jour le checkbox "Tout sélectionner"
         if (selectAllCheckbox) {
@@ -329,20 +346,35 @@
         deleteSelectedBtn.addEventListener('click', function() {
             const selected = document.querySelectorAll('.user-checkbox:checked');
             if (selected.length === 0) {
-                alert('Veuillez sélectionner au moins un utilisateur à supprimer.');
+                showFeedback('Veuillez sélectionner au moins un utilisateur à supprimer.');
                 return;
             }
+            clearFeedback();
             
             // Mettre à jour le modal avec les utilisateurs sélectionnés
             document.getElementById('modalUserCount').textContent = selected.length;
             const usersList = document.getElementById('selectedUsersList');
-            usersList.innerHTML = '<ul class="list-unstyled">';
+            usersList.replaceChildren();
+
+            const list = document.createElement('ul');
+            list.className = 'list-unstyled';
             selected.forEach(checkbox => {
-                const name = checkbox.dataset.userName;
-                const email = checkbox.dataset.userEmail;
-                usersList.innerHTML += `<li><i class="fas fa-user me-2"></i><strong>${name}</strong> (${email})</li>`;
+                const name = checkbox.dataset.userName || '';
+                const email = checkbox.dataset.userEmail || '';
+
+                const item = document.createElement('li');
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-user me-2';
+                item.appendChild(icon);
+
+                const strong = document.createElement('strong');
+                strong.textContent = name;
+                item.appendChild(strong);
+                item.appendChild(document.createTextNode(` (${email})`));
+
+                list.appendChild(item);
             });
-            usersList.innerHTML += '</ul>';
+            usersList.appendChild(list);
             
             // Afficher le modal
             deleteMultipleModal.show();
@@ -353,4 +385,5 @@
     updateSelectedCount();
 </script>
 {% endblock extra_js %}
+
 
