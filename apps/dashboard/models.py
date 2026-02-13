@@ -83,8 +83,30 @@ class SystemSettings(models.Model):
         app_label = 'dashboard'
         verbose_name = "Paramètres système"
         verbose_name_plural = "Paramètres système"
-        # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
-        # pour éviter les problèmes de dépendances circulaires
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(id=1),
+                name='system_settings_singleton_id_1',
+            ),
+            models.CheckConstraint(
+                condition=
+                    models.Q(default_absence_threshold__gte=0)
+                    & models.Q(default_absence_threshold__lte=100),
+                name='system_settings_default_threshold_range',
+            ),
+            models.CheckConstraint(
+                condition=
+                    models.Q(password_min_length__gte=4)
+                    & models.Q(password_min_length__lte=128),
+                name='system_settings_password_min_length_range',
+            ),
+            models.CheckConstraint(
+                condition=
+                    models.Q(data_retention_days__gte=1)
+                    & models.Q(data_retention_days__lte=3650),
+                name='system_settings_data_retention_days_range',
+            ),
+        ]
     
     def __str__(self):
         return "Paramètres système"
@@ -129,4 +151,5 @@ class SystemSettings(models.Model):
             raise ValidationError({
                 'data_retention_days': 'La rétention des données doit être entre 1 et 3650 jours.'
             })
+
 

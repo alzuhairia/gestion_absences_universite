@@ -76,8 +76,12 @@ class Absence(models.Model):
             models.Index(fields=['id_seance', 'statut']),
             models.Index(fields=['statut', 'type_absence']),
         ]
-        # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
-        # Une absence unique par inscription et séance
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(duree_absence__gte=0),
+                name='absence_duree_absence_non_negative',
+            ),
+        ]
         unique_together = (('id_inscription', 'id_seance'),)
 
     def clean(self):
@@ -113,10 +117,11 @@ class Justification(models.Model):
         verbose_name="Absence à justifier",
         related_name='justification'
     )
-    document = models.BinaryField(
-        blank=True, 
-        null=True, 
-        verbose_name="Fichier (BLOB)",
+    document = models.FileField(
+        upload_to='justifications/',
+        blank=True,
+        null=True,
+        verbose_name="Fichier",
         help_text="Document justificatif (PDF, image, etc.)"
     )
     commentaire = models.TextField(
@@ -186,3 +191,4 @@ class Justification(models.Model):
 
     def __str__(self):
         return f"Justification pour l'absence n°{self.id_absence.id_absence}"
+

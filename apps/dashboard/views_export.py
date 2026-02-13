@@ -1,10 +1,11 @@
 import datetime
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
 from openpyxl import Workbook
 
 from apps.enrollments.models import Inscription
@@ -12,6 +13,7 @@ from apps.absences.models import Absence
 from apps.accounts.models import User
 from apps.dashboard.decorators import secretary_required
 
+@login_required
 def export_student_pdf(request, student_id=None):
     """
     Generate a PDF report of absences for a specific student.
@@ -20,11 +22,12 @@ def export_student_pdf(request, student_id=None):
     # STRICT: Students can only export their own reports
     if request.user.role == User.Role.ETUDIANT:
         student = request.user
-    elif student_id:
-        # Admin/Secretary can view others
-        student = User.objects.get(pk=student_id)
+    elif request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
+        if not student_id:
+            return HttpResponseBadRequest("student_id requis")
+        student = get_object_or_404(User, pk=student_id, role=User.Role.ETUDIANT)
     else:
-        student = request.user
+        raise PermissionDenied("Acces non autorise")
     
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="absence_report_{student.email}.pdf"'
@@ -45,7 +48,14 @@ def export_student_pdf(request, student_id=None):
     p.line(50, height - 140, width - 50, height - 140)
     y_position = height - 160
     
-    inscriptions = Inscription.objects.filter(id_etudiant=student)
+    inscriptions = Inscription.objects.filter(id_etudiant=student).select_related('id_cours')
+    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     
     p.setFont("Helvetica-Bold", 14)
     p.drawString(50, y_position, "Résumé par Cours")
@@ -54,7 +64,7 @@ def export_student_pdf(request, student_id=None):
     p.setFont("Helvetica", 10)
     for ins in inscriptions:
         cours = ins.id_cours
-        total_abs = Absence.objects.filter(id_inscription=ins, statut='NON_JUSTIFIEE').aggregate(total=Sum('duree_absence'))['total'] or 0
+        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         
         text = f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiées"
         p.drawString(60, y_position, text)
@@ -71,7 +81,11 @@ def export_student_pdf(request, student_id=None):
     y_position -= 20
     
     p.setFont("Helvetica", 10)
-    absences = Absence.objects.filter(id_inscription__in=inscriptions, statut='NON_JUSTIFIEE').order_by('id_seance__date_seance')
+    absences = (
+        Absence.objects.filter(id_inscription__in=inscriptions, statut='NON_JUSTIFIEE')
+        .select_related('id_seance', 'id_seance__id_cours')
+        .order_by('id_seance__date_seance')
+    )
     
     for abs in absences:
         line = f"Date: {abs.id_seance.date_seance} | Cours: {abs.id_seance.id_cours.code_cours} | Durée: {abs.duree_absence}h"
@@ -106,14 +120,18 @@ def export_at_risk_excel(request):
     
     # Data
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE'
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins, 
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             
             rate = (total_abs / cours.nombre_total_periodes) * 100
             

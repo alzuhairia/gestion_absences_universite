@@ -86,9 +86,8 @@
                                             justif.id_absence.duree_absence|floatformat:1 }}h)</small>
                                     </td>
                                     <td class="text-center">
-                                        <!-- Lien temporaire car le document est un BinaryField, nécessite une vue de service -->
                                         {% if justif.document %}
-                                        <a href="#" class="btn btn-sm btn-info" target="_blank">
+                                        <a href="{% url 'absences:download_justification' justif.id_justification %}" class="btn btn-sm btn-info" target="_blank" rel="noopener">
                                             <i class="fas fa-eye"></i> Voir
                                         </a>
                                         {% else %}
@@ -99,14 +98,18 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group">
-                                            <a href="{% url 'absences:valider_justification' justif.id_absence.id_absence %}"
-                                                class="btn btn-success btn-sm" title="Valider">
-                                                <i class="fas fa-check"></i>
-                                            </a>
-                                            <a href="{% url 'absences:refuser_justification' justif.id_absence.id_absence %}"
-                                                class="btn btn-danger btn-sm" title="Rejeter">
-                                                <i class="fas fa-times"></i>
-                                            </a>
+                                            <form method="POST" action="{% url 'absences:valider_justification' justif.id_absence.id_absence %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-success btn-sm" title="Valider">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{% url 'absences:refuser_justification' justif.id_absence.id_absence %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Rejeter">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>
