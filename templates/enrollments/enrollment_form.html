@@ -3,7 +3,7 @@
 {% block title %}Nouvelle Inscription{% endblock %}
 
 {% block breadcrumbs %}
-<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Secrétariat</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">SecrÃ©tariat</a></li>
 <li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_enrollments' %}">Inscriptions</a></li>
 <li class="breadcrumb-item active">Nouvelle Inscription</li>
 {% endblock %}
@@ -53,10 +53,10 @@
                             {% endif %}
                         </div>
                         
-                        <!-- Section 1.5: Niveau (si inscription à un niveau complet) -->
+                        <!-- Section 1.5: Niveau (si inscription Ã  un niveau complet) -->
                         <div id="levelSection" class="mb-4" style="display: none;">
                             <h5 class="mb-3">
-                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'étude
+                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'Ã©tude
                             </h5>
                             <div class="mb-3">
                                 <label for="{{ enrollment_form.niveau.id_for_label }}" class="form-label">Niveau <span class="text-danger">*</span></label>
@@ -70,31 +70,31 @@
                             </div>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du niveau sélectionné pour l'année académique en cours.
+                                <strong>Inscription Ã  un niveau complet :</strong> L'Ã©tudiant sera inscrit automatiquement Ã  tous les cours actifs du niveau sÃ©lectionnÃ© pour l'annÃ©e acadÃ©mique en cours.
                                 <br>
-                                <small>Le système vérifiera automatiquement que l'étudiant a validé le niveau précédent (si applicable) et que tous les prérequis sont satisfaits pour chaque cours.</small>
+                                <small>Le systÃ¨me vÃ©rifiera automatiquement que l'Ã©tudiant a validÃ© le niveau prÃ©cÃ©dent (si applicable) et que tous les prÃ©requis sont satisfaits pour chaque cours.</small>
                             </div>
                         </div>
 
                         <hr class="my-4">
 
-                        <!-- Section 2: Étudiant -->
+                        <!-- Section 2: Ã‰tudiant -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-user-graduate me-2 text-primary"></i>Étudiant
+                                <i class="fas fa-user-graduate me-2 text-primary"></i>Ã‰tudiant
                             </h5>
                             
-                            <!-- Option: Créer un nouvel étudiant -->
+                            <!-- Option: CrÃ©er un nouvel Ã©tudiant -->
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student" onchange="toggleStudentForm()">
                                     <label class="form-check-label" for="create_new_student">
-                                        <strong>Créer un nouveau compte étudiant</strong>
+                                        <strong>CrÃ©er un nouveau compte Ã©tudiant</strong>
                                     </label>
                                 </div>
                             </div>
 
-                            <!-- Formulaire de création d'étudiant (masqué par défaut) -->
+                            <!-- Formulaire de crÃ©ation d'Ã©tudiant (masquÃ© par dÃ©faut) -->
                             <div id="newStudentForm" style="display: none;" class="border rounded p-3 mb-3 bg-light">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -105,7 +105,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="{{ student_form.prenom.id_for_label }}" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                        <label for="{{ student_form.prenom.id_for_label }}" class="form-label">PrÃ©nom <span class="text-danger">*</span></label>
                                         {{ student_form.prenom }}
                                         {% if student_form.prenom.errors %}
                                         <div class="text-danger small">{{ student_form.prenom.errors }}</div>
@@ -142,34 +142,34 @@
                                 </div>
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    L'étudiant devra changer ce mot de passe lors de sa première connexion.
+                                    L'Ã©tudiant devra changer ce mot de passe lors de sa premiÃ¨re connexion.
                                 </div>
                             </div>
 
-                            <!-- Option: Utiliser un étudiant existant -->
+                            <!-- Option: Utiliser un Ã©tudiant existant -->
                             <div id="existingStudentForm">
                                 <div class="mb-3">
                                     <label for="{{ enrollment_form.student_email.id_for_label }}" class="form-label">
-                                        E-mail de l'étudiant existant
+                                        E-mail de l'Ã©tudiant existant
                                     </label>
                                     {{ enrollment_form.student_email }}
                                     {% if enrollment_form.student_email.errors %}
                                     <div class="text-danger small">{{ enrollment_form.student_email.errors }}</div>
                                     {% endif %}
-                                    <small class="form-text text-muted">Entrez l'e-mail d'un étudiant existant</small>
+                                    <small class="form-text text-muted">Entrez l'e-mail d'un Ã©tudiant existant</small>
                                 </div>
                             </div>
                         </div>
 
                         <hr class="my-4">
 
-                        <!-- Section 3: Année académique -->
+                        <!-- Section 3: AnnÃ©e acadÃ©mique -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Année Académique
+                                <i class="fas fa-calendar-alt me-2 text-primary"></i>AnnÃ©e AcadÃ©mique
                             </h5>
                             <div class="mb-3">
-                                <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">Année Académique <span class="text-danger">*</span></label>
+                                <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">AnnÃ©e AcadÃ©mique <span class="text-danger">*</span></label>
                                 {{ enrollment_form.academic_year }}
                                 {% if enrollment_form.academic_year.errors %}
                                 <div class="text-danger small">{{ enrollment_form.academic_year.errors }}</div>
@@ -179,7 +179,7 @@
 
                         <hr class="my-4">
 
-                        <!-- Section 4: Cours (si inscription à un cours spécifique) -->
+                        <!-- Section 4: Cours (si inscription Ã  un cours spÃ©cifique) -->
                         <div id="courseSection" class="mb-4">
                             <h5 class="mb-3">
                                 <i class="fas fa-book me-2 text-primary"></i>Cours
@@ -187,12 +187,12 @@
                             <div class="mb-3">
                                 <label for="{{ enrollment_form.course.id_for_label }}" class="form-label">Cours <span class="text-danger">*</span></label>
                                 <select name="{{ enrollment_form.course.name }}" id="{{ enrollment_form.course.id_for_label }}" class="form-select" required>
-                                    <option value="">Sélectionner une année académique d'abord</option>
+                                    <option value="">SÃ©lectionner une annÃ©e acadÃ©mique d'abord</option>
                                 </select>
                                 {% if enrollment_form.course.errors %}
                                 <div class="text-danger small">{{ enrollment_form.course.errors }}</div>
                                 {% endif %}
-                                <small class="form-text text-muted">Sélectionnez un cours spécifique pour l'inscription. Les cours sont filtrés selon l'année académique sélectionnée.</small>
+                                <small class="form-text text-muted">SÃ©lectionnez un cours spÃ©cifique pour l'inscription. Les cours sont filtrÃ©s selon l'annÃ©e acadÃ©mique sÃ©lectionnÃ©e.</small>
                             </div>
                         </div>
 
@@ -213,165 +213,138 @@
 </div>
 
 <script>
-/**
- * ============================================
- * GESTION DYNAMIQUE DU FORMULAIRE D'INSCRIPTION
- * ============================================
- * 
- * IMPORTANT POUR LA SOUTENANCE :
- * Ce JavaScript gère l'interactivité du formulaire d'inscription :
- * - Affichage/masquage des sections selon le type d'inscription
- * - Gestion de la création d'un nouvel étudiant vs sélection d'un étudiant existant
- * - Chargement dynamique des cours selon l'année académique sélectionnée
- * 
- * Objectif : Améliorer l'expérience utilisateur en affichant uniquement
- * les champs pertinents selon les choix de l'utilisateur.
- */
-
-/**
- * Affiche/masque le formulaire de création d'un nouvel étudiant.
- * 
- * Logique :
- * - Si "Créer un nouveau compte étudiant" est coché :
- *   * Affiche le formulaire de création (nom, prénom, email, niveau, mot de passe)
- *   * Masque le champ de sélection d'étudiant existant
- *   * Rend les champs du nouveau formulaire obligatoires
- * - Sinon :
- *   * Masque le formulaire de création
- *   * Affiche le champ de sélection d'étudiant existant
- *   * Rend le champ email existant obligatoire
- */
 function toggleStudentForm() {
     const createNew = document.getElementById('create_new_student').checked;
     const newStudentForm = document.getElementById('newStudentForm');
     const existingStudentForm = document.getElementById('existingStudentForm');
-    
+
     if (createNew) {
-        // Mode : Création d'un nouvel étudiant
         newStudentForm.style.display = 'block';
         existingStudentForm.style.display = 'none';
-        // Rendre les champs du nouveau formulaire obligatoires
-        newStudentForm.querySelectorAll('input').forEach(input => {
+        newStudentForm.querySelectorAll('input').forEach((input) => {
             if (input.type !== 'checkbox') {
                 input.required = true;
             }
         });
-        // Rendre le champ email existant non obligatoire
         document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = false;
     } else {
-        // Mode : Sélection d'un étudiant existant
         newStudentForm.style.display = 'none';
         existingStudentForm.style.display = 'block';
-        // Rendre les champs du nouveau formulaire non obligatoires
-        newStudentForm.querySelectorAll('input').forEach(input => {
+        newStudentForm.querySelectorAll('input').forEach((input) => {
             input.required = false;
         });
-        // Rendre le champ email existant obligatoire
         document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = true;
     }
 }
 
-/**
- * Affiche/masque les sections selon le type d'inscription sélectionné.
- * 
- * IMPORTANT POUR LA SOUTENANCE :
- * Cette fonction gère l'affichage conditionnel des sections :
- * - "Inscription à un niveau complet" : Affiche le sélecteur de niveau, masque le sélecteur de cours
- * - "Inscription à un cours spécifique" : Affiche le sélecteur de cours, masque le sélecteur de niveau
- * 
- * Logique métier :
- * - LEVEL : Inscription à tous les cours d'un niveau (1, 2 ou 3)
- * - COURSE : Inscription à un cours spécifique (avec vérification des prérequis)
- */
 function toggleSections() {
     const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked');
     if (!enrollmentType) return;
-    
+
     const enrollmentTypeValue = enrollmentType.value;
     const courseSection = document.getElementById('courseSection');
     const levelSection = document.getElementById('levelSection');
     const courseField = document.getElementById('{{ enrollment_form.course.id_for_label }}');
     const niveauField = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
-    
+
     if (enrollmentTypeValue === 'LEVEL') {
-        // Mode : Inscription à un niveau complet
         courseSection.style.display = 'none';
         levelSection.style.display = 'block';
-        courseField.required = false;  // Le cours n'est pas nécessaire (inscription automatique)
-        if (niveauField) niveauField.required = true;  // Le niveau est obligatoire
+        courseField.required = false;
+        if (niveauField) niveauField.required = true;
     } else {
-        // Mode : Inscription à un cours spécifique
         courseSection.style.display = 'block';
         levelSection.style.display = 'none';
-        courseField.required = true;  // Le cours est obligatoire
-        if (niveauField) niveauField.required = false;  // Le niveau n'est pas nécessaire
-        // Charger dynamiquement les cours de l'année académique sélectionnée
+        courseField.required = true;
+        if (niveauField) niveauField.required = false;
         loadCoursesByYear();
     }
 }
 
-/**
- * Charge dynamiquement les cours disponibles pour une année académique.
- * 
- * IMPORTANT POUR LA SOUTENANCE :
- * Cette fonction fait un appel API asynchrone pour charger les cours.
- * Cela évite de charger tous les cours au chargement de la page et améliore
- * les performances.
- * 
- * Logique :
- * 1. Récupère l'ID de l'année académique sélectionnée
- * 2. Fait un appel API GET vers /enrollments/api/courses-by-year/
- * 3. Remplit dynamiquement le sélecteur de cours avec les résultats
- * 4. Gère les erreurs (affichage d'un message d'erreur)
- * 
- * Pourquoi une API séparée ?
- * - Performance : ne charge que les cours nécessaires
- * - Expérience utilisateur : chargement dynamique sans rechargement de page
- * - Séparation des responsabilités : logique métier côté serveur
- */
+function getApiErrorMessage(payload) {
+    if (!payload || typeof payload !== 'object') {
+        return '';
+    }
+    if (payload.error && typeof payload.error === 'object' && payload.error.message) {
+        return String(payload.error.message);
+    }
+    if (typeof payload.error === 'string') {
+        return payload.error;
+    }
+    return '';
+}
+
+function setSingleOption(selectEl, label) {
+    selectEl.replaceChildren();
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = label;
+    selectEl.appendChild(option);
+}
+
+async function fetchJson(url) {
+    const response = await fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+        throw new Error('Session expiree ou reponse invalide.');
+    }
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_) {
+        throw new Error('Reponse JSON invalide.');
+    }
+
+    if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload) || `HTTP ${response.status}`);
+    }
+
+    return payload;
+}
+
 async function loadCoursesByYear() {
     const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
     const courseSelect = document.getElementById('{{ enrollment_form.course.id_for_label }}');
-    
-    // Vérifier qu'une année académique est sélectionnée
+
     if (!yearId) {
-        courseSelect.innerHTML = '<option value="">Sélectionner une année académique d\'abord</option>';
+        setSingleOption(courseSelect, 'Selectionner une annee academique d\'abord');
         courseSelect.disabled = true;
         return;
     }
-    
-    // Afficher un indicateur de chargement
-    courseSelect.innerHTML = '<option value="">Chargement...</option>';
+
+    setSingleOption(courseSelect, 'Chargement...');
     courseSelect.disabled = true;
-    
+
     try {
-        // Appel API pour récupérer les cours de l'année sélectionnée
-        const response = await fetch(`/enrollments/api/courses-by-year/?year_id=${yearId}`);
-        const data = await response.json();
-        
-        // Vider et remplir le sélecteur avec les cours récupérés
-        courseSelect.innerHTML = '<option value="">Sélectionner un cours...</option>';
-        data.forEach(course => {
+        const data = await fetchJson(`/enrollments/api/courses-by-year/?year_id=${yearId}`);
+        if (!Array.isArray(data)) {
+            throw new Error('Reponse API invalide.');
+        }
+
+        setSingleOption(courseSelect, 'Selectionner un cours...');
+        data.forEach((course) => {
             const option = document.createElement('option');
             option.value = course.id;
-            // Format d'affichage : [CODE] Nom du cours (Département)
             option.textContent = `[${course.code}] ${course.name} (${course.department})`;
             courseSelect.appendChild(option);
         });
         courseSelect.disabled = false;
     } catch (error) {
-        // Gestion des erreurs (réseau, serveur, etc.)
         console.error('Error:', error);
-        courseSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+        setSingleOption(courseSelect, 'Erreur de chargement');
     }
 }
 
-// Initialiser au chargement
 document.addEventListener('DOMContentLoaded', function() {
     toggleStudentForm();
     toggleSections();
-    
-    // Écouter les changements d'année académique
+
     const yearField = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}');
     if (yearField) {
         yearField.addEventListener('change', function() {
@@ -380,12 +353,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Écouter les changements de type d'inscription
-    document.querySelectorAll('input[name="enrollment_type"]').forEach(radio => {
+
+    document.querySelectorAll('input[name="enrollment_type"]').forEach((radio) => {
         radio.addEventListener('change', toggleSections);
     });
 });
 </script>
 {% endblock %}
+
+
 

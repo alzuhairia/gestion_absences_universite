@@ -1,5 +1,4 @@
 from django.db import models
-from django.db.models import Sum
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
@@ -89,7 +88,18 @@ class Inscription(models.Model):
             models.Index(fields=['id_cours', 'id_annee', 'status']),
             models.Index(fields=['eligible_examen', 'status']),
         ]
-        # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(exemption_40=False)
+                    | (
+                        models.Q(motif_exemption__isnull=False)
+                        & ~models.Q(motif_exemption='')
+                    )
+                ),
+                name='inscription_exemption_requires_motif',
+            ),
+        ]
 
     def clean(self):
         """Validation: motif requis si exemption activée"""
@@ -112,22 +122,18 @@ class Inscription(models.Model):
         if self.exemption_40:
             return True
         
-        from apps.absences.models import Absence
-        
-        # Calculer les absences non justifiées
-        total_absence = Absence.objects.filter(
-            id_inscription=self,
-            statut='NON_JUSTIFIEE'
-        ).aggregate(total=Sum('duree_absence'))['total'] or 0
-        
-        if self.id_cours.nombre_total_periodes == 0:
+        from apps.absences.services import calculer_absence_stats
+
+        stats = calculer_absence_stats(self)
+        if stats['total_periodes'] == 0:
             return True
-        
-        # Utiliser le seuil du cours ou le seuil par défaut
+
+        # Utiliser le seuil du cours ou le seuil par defaut
         seuil = self.id_cours.get_seuil_absence()
-        taux = (total_absence / self.id_cours.nombre_total_periodes) * 100
-        
+        taux = stats['taux']
+
         return taux < seuil
 
     def __str__(self):
         return f"{self.id_etudiant.nom} {self.id_etudiant.prenom} -> {self.id_cours.nom_cours}"
+
