@@ -122,10 +122,14 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     // --- Data passed from Django View ---
-    const courseLabels = {{ course_labels|safe }};
-    const absencePercentages = {{ absence_percentages|safe }};
-    const trendLabels = {{ trend_labels|safe }};
-    const trendData = {{ trend_data|safe }};
+    {{ course_labels|json_script:"course-labels" }}
+    {{ absence_percentages|json_script:"absence-percentages" }}
+    {{ trend_labels|json_script:"trend-labels" }}
+    {{ trend_data|json_script:"trend-data" }}
+    const courseLabels = JSON.parse(document.getElementById("course-labels").textContent);
+    const absencePercentages = JSON.parse(document.getElementById("absence-percentages").textContent);
+    const trendLabels = JSON.parse(document.getElementById("trend-labels").textContent);
+    const trendData = JSON.parse(document.getElementById("trend-data").textContent);
 
     // --- Bar Chart Config ---
     const ctxBar = document.getElementById("absenceBarChart");

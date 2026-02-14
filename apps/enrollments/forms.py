@@ -3,6 +3,7 @@ Formulaires pour la gestion des inscriptions.
 """
 from django import forms
 from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 from apps.accounts.models import User
 from apps.academics.models import Cours
 from apps.academic_sessions.models import AnneeAcademique
@@ -58,6 +59,18 @@ class StudentCreationForm(forms.Form):
             raise ValidationError({
                 'password_confirm': 'Les mots de passe ne correspondent pas.'
             })
+
+        if password:
+            tentative_user = User(
+                email=cleaned_data.get('email', ''),
+                nom=cleaned_data.get('nom', ''),
+                prenom=cleaned_data.get('prenom', ''),
+                role=User.Role.ETUDIANT,
+            )
+            try:
+                validate_password(password, user=tentative_user)
+            except ValidationError as exc:
+                raise ValidationError({'password': exc.messages})
         
         return cleaned_data
     
