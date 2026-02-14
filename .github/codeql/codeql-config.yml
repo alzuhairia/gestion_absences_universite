@@ -1,0 +1,18 @@
+name: "codeql-config"
+
+# Scope explicite pour eviter les faux positifs et les parse warnings
+# sur des scripts utilitaires non deployes.
+paths:
+  - manage.py
+  - apps
+  - config
+  - tests
+
+paths-ignore:
+  - scripts/**
+  - backups/**
+  - env/**
+  - venv/**
+  - .venv/**
+  - media/**
+  - logs/**
