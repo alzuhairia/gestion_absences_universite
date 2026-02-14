@@ -1,0 +1,203 @@
+name: Security Deep Scan
+
+on:
+  # Scan complet declenchable a la demande.
+  workflow_dispatch:
+  # Surveillance continue quotidienne.
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Requis pour publier les resultats SARIF dans l'onglet Security.
+  security-events: write
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_AUDIT_ALLOWLIST_FILE: .github/security/pip-audit-allowlist.txt
+
+jobs:
+  python-security:
+    name: Python SAST + Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies and tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+
+      - name: Run Bandit (SARIF)
+        id: bandit_scan
+        continue-on-error: true
+        run: bandit -r apps config tests -x "apps/*/migrations" -f sarif -o bandit.sarif -ll
+
+      - name: Upload Bandit SARIF
+        if: always() && hashFiles('bandit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+      - name: Fail on Bandit findings
+        if: steps.bandit_scan.outcome != 'success'
+        run: |
+          echo "Bandit reported medium/high findings."
+          exit 1
+
+      - name: Run pip-audit (JSON report)
+        run: pip-audit -r requirements.txt --format json --output pip-audit.json --progress-spinner off || true
+
+      - name: Enforce pip-audit policy (fix available + allowlist)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          report_path = Path("pip-audit.json")
+          if not report_path.exists():
+              print("pip-audit report was not generated.")
+              sys.exit(1)
+
+          data = json.loads(report_path.read_text(encoding="utf-8"))
+          allowlist_path = Path(os.getenv("PIP_AUDIT_ALLOWLIST_FILE", ".github/security/pip-audit-allowlist.txt"))
+          allowlist = set()
+          if allowlist_path.exists():
+              for raw_line in allowlist_path.read_text(encoding="utf-8").splitlines():
+                  line = raw_line.strip()
+                  if line and not line.startswith("#"):
+                      allowlist.add(line)
+
+          blocking = []
+          deferred = []
+
+          for dependency in data.get("dependencies", []):
+              package = dependency.get("name", "unknown")
+              version = dependency.get("version", "unknown")
+              for vuln in dependency.get("vulns", []):
+                  vuln_id = vuln.get("id", "UNKNOWN")
+                  if vuln_id in allowlist:
+                      continue
+
+                  fix_versions = vuln.get("fix_versions") or []
+                  item = {
+                      "package": package,
+                      "version": version,
+                      "id": vuln_id,
+                      "fix_versions": fix_versions,
+                  }
+                  if fix_versions:
+                      blocking.append(item)
+                  else:
+                      deferred.append(item)
+
+          print(f"Allowlisted vulnerabilities: {len(allowlist)}")
+          print(f"Deferred vulnerabilities (no known fix): {len(deferred)}")
+          print(f"Blocking vulnerabilities (fix available): {len(blocking)}")
+
+          if blocking:
+              for entry in blocking:
+                  fixes = ", ".join(entry["fix_versions"])
+                  print(
+                      f"- {entry['package']}=={entry['version']} | {entry['id']} | fix versions: {fixes}"
+                  )
+              sys.exit(1)
+
+          print("pip-audit policy passed.")
+          PY
+
+      - name: Upload pip-audit report
+        if: always() && hashFiles('pip-audit.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report-security-${{ github.run_id }}
+          path: pip-audit.json
+          retention-days: 30
+
+  container-security:
+    name: Container Security (Trivy + SARIF)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for security scan
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          pull: true
+          push: false
+          load: true
+          tags: unabsences-security:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy (SARIF)
+        id: trivy_scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: unabsences-security:${{ github.sha }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: unabsences-security:${{ github.sha }}
+          format: cyclonedx
+          output: sbom.cdx.json
+          exit-code: "0"
+
+      - name: Upload SBOM
+        if: always() && hashFiles('sbom.cdx.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-security-${{ github.run_id }}
+          path: sbom.cdx.json
+          retention-days: 30
+
+      - name: Fail on Trivy findings
+        if: steps.trivy_scan.outcome != 'success'
+        run: |
+          echo "Trivy detected HIGH/CRITICAL vulnerabilities."
+          exit 1

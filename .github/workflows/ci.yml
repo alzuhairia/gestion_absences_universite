@@ -1,0 +1,388 @@
+name: CI
+
+on:
+  # Gate principal de merge.
+  pull_request:
+  # Validation continue sur branches d'integration.
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  # Evite les executions concurrentes inutiles sur la meme ref.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_AUDIT_ALLOWLIST_FILE: .github/security/pip-audit-allowlist.txt
+
+jobs:
+  quality:
+    name: Quality Gate (changed Python files)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install quality tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort ruff
+
+      - name: Detect changed Python files
+        if: github.event_name == 'pull_request'
+        id: changed_python
+        uses: tj-actions/changed-files@v46
+        with:
+          separator: "\n"
+          files: |
+            manage.py
+            config/**/*.py
+            apps/**/*.py
+            tests/**/*.py
+
+      - name: Run Black, isort, Ruff on changed files (PR)
+        if: github.event_name == 'pull_request' && steps.changed_python.outputs.any_changed == 'true'
+        shell: bash
+        run: |
+          mapfile -t PY_FILES < <(printf '%s\n' "${{ steps.changed_python.outputs.all_changed_files }}" | sed '/^[[:space:]]*$/d')
+          CHECK_FILES=()
+          for file in "${PY_FILES[@]}"; do
+            if [[ -f "$file" ]]; then
+              CHECK_FILES+=("$file")
+            fi
+          done
+
+          if [[ ${#CHECK_FILES[@]} -eq 0 ]]; then
+            echo "No existing Python file to check (deleted/renamed-only change set)."
+            exit 0
+          fi
+
+          echo "Python files checked:"
+          printf ' - %s\n' "${CHECK_FILES[@]}"
+
+          black --check "${CHECK_FILES[@]}"
+          isort --profile black --check-only "${CHECK_FILES[@]}"
+          # Ruff cible ici les erreurs bloquantes (syntaxe/runtime) en complement de Black/isort.
+          ruff check --select E9,F63,F7,F82 "${CHECK_FILES[@]}"
+
+      - name: Run full Black, isort, Ruff scan (main/develop push and manual)
+        if: github.event_name != 'pull_request'
+        run: |
+          black --check manage.py config apps tests
+          isort --profile black --check-only manage.py config apps tests
+          ruff check --select E9,F63,F7,F82 manage.py config apps tests
+
+      - name: Skip quality gate when no Python file changed
+        if: github.event_name == 'pull_request' && steps.changed_python.outputs.any_changed != 'true'
+        run: echo "No managed Python file changed; quality gate skipped."
+
+  dependency-review:
+    name: Dependency Review (PR)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  django-tests:
+    name: Django Tests + Deploy Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gestion_absences_universite_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gestion_absences_universite_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Variables CI non sensibles (ne pas reutiliser en prod).
+      SECRET_KEY: ci-secret-key-not-for-production-2026-02-14-rotation-token-1234567890
+      DEBUG: "False"
+      ALLOWED_HOSTS: ci.example.internal
+      CSRF_TRUSTED_ORIGINS: https://ci.example.internal
+      TRUSTED_PROXY_CIDRS: 127.0.0.1/32
+      HEALTHCHECK_ALLOWLIST_CIDRS: 127.0.0.1/32
+      HEALTHCHECK_TOKEN: ci-healthcheck-token
+      REDIS_PASSWORD: ci-required-placeholder
+      REDIS_URL: redis://redis:6379/1
+      DB_NAME: gestion_absences_universite_ci
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1 postgresql-client redis-tools
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for PostgreSQL and Redis
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" && break
+            sleep 2
+          done
+          pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"
+
+          for i in {1..30}; do
+            redis-cli -h redis ping | grep -q PONG && break
+            sleep 2
+          done
+          redis-cli -h redis ping | grep -q PONG
+
+      - name: Check migrations drift
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations
+        run: python manage.py migrate --noinput
+
+      - name: Django deploy hardening checks
+        run: python manage.py check --deploy
+
+      - name: Run Django tests
+        run: python manage.py test --verbosity 2
+
+  security-python:
+    name: Security (Bandit + pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install security tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+
+      - name: Bandit (fail on high severity issues)
+        run: bandit -r apps config tests -x "apps/*/migrations" -lll
+
+      - name: Dependency audit (JSON report)
+        run: pip-audit -r requirements.txt --format json --output pip-audit.json --progress-spinner off || true
+
+      - name: Enforce pip-audit policy (fix available + allowlist)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          report_path = Path("pip-audit.json")
+          if not report_path.exists():
+              print("pip-audit report was not generated.")
+              sys.exit(1)
+
+          data = json.loads(report_path.read_text(encoding="utf-8"))
+          allowlist_path = Path(os.getenv("PIP_AUDIT_ALLOWLIST_FILE", ".github/security/pip-audit-allowlist.txt"))
+          allowlist = set()
+          if allowlist_path.exists():
+              for raw_line in allowlist_path.read_text(encoding="utf-8").splitlines():
+                  line = raw_line.strip()
+                  if line and not line.startswith("#"):
+                      allowlist.add(line)
+
+          blocking = []
+          deferred = []
+
+          for dependency in data.get("dependencies", []):
+              package = dependency.get("name", "unknown")
+              version = dependency.get("version", "unknown")
+              for vuln in dependency.get("vulns", []):
+                  vuln_id = vuln.get("id", "UNKNOWN")
+                  if vuln_id in allowlist:
+                      continue
+
+                  fix_versions = vuln.get("fix_versions") or []
+                  item = {
+                      "package": package,
+                      "version": version,
+                      "id": vuln_id,
+                      "fix_versions": fix_versions,
+                  }
+                  if fix_versions:
+                      blocking.append(item)
+                  else:
+                      deferred.append(item)
+
+          print(f"Allowlisted vulnerabilities: {len(allowlist)}")
+          print(f"Deferred vulnerabilities (no known fix): {len(deferred)}")
+          print(f"Blocking vulnerabilities (fix available): {len(blocking)}")
+
+          if blocking:
+              for entry in blocking:
+                  fixes = ", ".join(entry["fix_versions"])
+                  print(
+                      f"- {entry['package']}=={entry['version']} | {entry['id']} | fix versions: {fixes}"
+                  )
+              sys.exit(1)
+
+          print("pip-audit policy passed.")
+          PY
+
+      - name: Upload pip-audit report
+        if: always() && hashFiles('pip-audit.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report-${{ github.run_id }}
+          path: pip-audit.json
+          retention-days: 30
+
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.2/gitleaks_8.24.2_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run Gitleaks (working tree)
+        run: |
+          gitleaks detect --source . --no-git --redact --verbose --report-format sarif --report-path gitleaks.sarif
+
+      - name: Upload Gitleaks report
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report-${{ github.run_id }}
+          path: gitleaks.sarif
+          retention-days: 30
+
+  docker-build-scan:
+    name: Docker Build + Trivy Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - quality
+      - django-tests
+      - security-python
+      - secret-scan
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          pull: true
+          push: false
+          load: true
+          tags: unabsences-ci:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: unabsences-ci:${{ github.sha }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: unabsences-ci:${{ github.sha }}
+          format: cyclonedx
+          output: sbom.cdx.json
+          exit-code: "0"
+
+      - name: Upload SBOM
+        if: always() && hashFiles('sbom.cdx.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.run_id }}
+          path: sbom.cdx.json
+          retention-days: 30

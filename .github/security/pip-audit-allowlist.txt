@@ -1,0 +1,5 @@
+# One vulnerability ID per line (e.g., CVE-2024-12345 or GHSA-xxxx-xxxx-xxxx).
+# Keep this file temporary: each entry must have an expiry date and ticket reference.
+#
+# Format recommendation:
+# CVE-YYYY-NNNNN  # expires: YYYY-MM-DD | ticket: SEC-123 | reason: short rationale
