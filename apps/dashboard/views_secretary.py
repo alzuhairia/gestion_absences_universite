@@ -91,70 +91,40 @@ def secretary_faculty_edit(request, faculte_id):
 @require_http_methods(["POST"])
 def secretary_faculty_delete(request, faculte_id):
     """Suppression d'une faculté avec suppression en cascade des départements et cours"""
-    
+
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
     faculte_nom = faculte.nom_faculte
-    
+
     try:
-        # Récupérer tous les départements de cette faculté
+        from apps.academic_sessions.models import Seance
+
         departements = Departement.objects.filter(id_faculte=faculte)
         departements_count = departements.count()
-        
-        # Compteurs pour les éléments supprimés en cascade
-        cours_count = 0
-        inscriptions_count = 0
-        seances_count = 0
-        absences_count = 0
-        justifications_count = 0
-        
-        # Si la faculté a des départements, supprimer en cascade
-        if departements_count > 0:
-            # Pour chaque département, supprimer ses cours et leurs dépendances
-            for departement in departements:
-                # Récupérer tous les cours de ce département
-                cours = Cours.objects.filter(id_departement=departement)
-                cours_count += cours.count()
-                
-                # Pour chaque cours, supprimer les dépendances
-                for cours_item in cours:
-                    # Supprimer les inscriptions liées à ce cours
-                    inscriptions = Inscription.objects.filter(id_cours=cours_item)
-                    inscriptions_count += inscriptions.count()
-                    
-                    # Pour chaque inscription, supprimer les absences et justifications
-                    for inscription in inscriptions:
-                        # Récupérer les absences liées à cette inscription
-                        absences = Absence.objects.filter(id_inscription=inscription)
-                        absences_count += absences.count()
-                        
-                        # Supprimer les justifications liées à ces absences
-                        for absence in absences:
-                            justif_count = Justification.objects.filter(id_absence=absence).count()
-                            if justif_count > 0:
-                                justifications_count += justif_count
-                                Justification.objects.filter(id_absence=absence).delete()
-                        
-                        # Supprimer les absences
-                        absences.delete()
-                    
-                    # Supprimer les inscriptions
-                    inscriptions.delete()
-                    
-                    # Supprimer les séances liées à ce cours
-                    from apps.academic_sessions.models import Seance
-                    seances = Seance.objects.filter(id_cours=cours_item)
-                    seances_count += seances.count()
-                    seances.delete()
-                
-                # Supprimer les cours du département
-                cours.delete()
-            
-            # Supprimer les départements
+
+        cours = Cours.objects.filter(id_departement__in=departements)
+        cours_count = cours.count()
+
+        inscriptions = Inscription.objects.filter(id_cours__in=cours)
+        inscriptions_count = inscriptions.count()
+
+        absences = Absence.objects.filter(id_inscription__in=inscriptions)
+        absences_count = absences.count()
+
+        justifications = Justification.objects.filter(id_absence__in=absences)
+        justifications_count = justifications.count()
+
+        seances = Seance.objects.filter(id_cours__in=cours)
+        seances_count = seances.count()
+
+        with transaction.atomic():
+            justifications.delete()
+            absences.delete()
+            inscriptions.delete()
+            seances.delete()
+            cours.delete()
             departements.delete()
-        
-        # Supprimer la faculté
-        faculte.delete()
-        
+            faculte.delete()
+
         # Construire le message de cascade
         cascade_info = []
         if departements_count > 0:
@@ -169,9 +139,9 @@ def secretary_faculty_delete(request, faculte_id):
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
-        
+
         cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
-        
+
         # Journaliser la suppression
         log_action(
             request.user,
@@ -181,18 +151,18 @@ def secretary_faculty_delete(request, faculte_id):
             objet_type='FACULTE',
             objet_id=faculte_id
         )
-        
+
         success_msg = f"Faculté '{faculte_nom}' supprimée avec succès."
         if cascade_info:
             success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
         messages.success(request, success_msg)
-        
+
     except ProtectedError as e:
         # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
-        
+
         logger.error(f"ProtectedError lors de la suppression de la faculté {faculte_nom}: {e}")
         messages.error(
             request,
@@ -207,7 +177,7 @@ def secretary_faculty_delete(request, faculte_id):
             f"Erreur lors de la suppression de la faculté '{faculte_nom}'. "
             f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
         )
-    
+
     return redirect('dashboard:secretary_faculties')
 
 
@@ -279,61 +249,37 @@ def secretary_department_edit(request, dept_id):
 @require_http_methods(["POST"])
 def secretary_department_delete(request, dept_id):
     """Suppression d'un département avec suppression en cascade des cours"""
-    
+
     dept = get_object_or_404(Departement, id_departement=dept_id)
     dept_nom = dept.nom_departement
     faculte_nom = dept.id_faculte.nom_faculte
-    
+
     try:
-        # Récupérer tous les cours de ce département
+        from apps.academic_sessions.models import Seance
+
         cours = Cours.objects.filter(id_departement=dept)
         cours_count = cours.count()
-        
-        # Compteurs pour les éléments supprimés en cascade
-        inscriptions_count = 0
-        seances_count = 0
-        absences_count = 0
-        justifications_count = 0
-        
-        # Si le département a des cours, supprimer en cascade
-        if cours_count > 0:
-            # Pour chaque cours, supprimer ses dépendances
-            for cours_item in cours:
-                # Supprimer les inscriptions liées à ce cours
-                inscriptions = Inscription.objects.filter(id_cours=cours_item)
-                inscriptions_count += inscriptions.count()
-                
-                # Pour chaque inscription, supprimer les absences et justifications
-                for inscription in inscriptions:
-                    # Récupérer les absences liées à cette inscription
-                    absences = Absence.objects.filter(id_inscription=inscription)
-                    absences_count += absences.count()
-                    
-                    # Supprimer les justifications liées à ces absences
-                    for absence in absences:
-                        justif_count = Justification.objects.filter(id_absence=absence).count()
-                        if justif_count > 0:
-                            justifications_count += justif_count
-                            Justification.objects.filter(id_absence=absence).delete()
-                    
-                    # Supprimer les absences
-                    absences.delete()
-                
-                # Supprimer les inscriptions
-                inscriptions.delete()
-                
-                # Supprimer les séances liées à ce cours
-                from apps.academic_sessions.models import Seance
-                seances = Seance.objects.filter(id_cours=cours_item)
-                seances_count += seances.count()
-                seances.delete()
-            
-            # Supprimer les cours du département
+
+        inscriptions = Inscription.objects.filter(id_cours__in=cours)
+        inscriptions_count = inscriptions.count()
+
+        absences = Absence.objects.filter(id_inscription__in=inscriptions)
+        absences_count = absences.count()
+
+        justifications = Justification.objects.filter(id_absence__in=absences)
+        justifications_count = justifications.count()
+
+        seances = Seance.objects.filter(id_cours__in=cours)
+        seances_count = seances.count()
+
+        with transaction.atomic():
+            justifications.delete()
+            absences.delete()
+            inscriptions.delete()
+            seances.delete()
             cours.delete()
-        
-        # Supprimer le département
-        dept.delete()
-        
+            dept.delete()
+
         # Construire le message de cascade
         cascade_info = []
         if cours_count > 0:
@@ -346,9 +292,9 @@ def secretary_department_delete(request, dept_id):
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
-        
+
         cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
-        
+
         # Journaliser la suppression
         log_action(
             request.user,
@@ -358,18 +304,18 @@ def secretary_department_delete(request, dept_id):
             objet_type='DEPARTEMENT',
             objet_id=dept_id
         )
-        
+
         success_msg = f"Département '{dept_nom}' supprimé avec succès."
         if cascade_info:
             success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
         messages.success(request, success_msg)
-        
+
     except ProtectedError as e:
         # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
-        
+
         logger.error(f"ProtectedError lors de la suppression du département {dept_nom}: {e}")
         messages.error(
             request,
@@ -384,7 +330,7 @@ def secretary_department_delete(request, dept_id):
             f"Erreur lors de la suppression du département '{dept_nom}'. "
             f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
         )
-    
+
     return redirect('dashboard:secretary_departments')
 
 
@@ -450,10 +396,13 @@ def secretary_course_edit(request, course_id):
             return redirect('dashboard:secretary_courses')
     else:
         form = CoursForm(instance=cours)
+
+    has_prerequisites_options = form.fields['prerequisites'].queryset.exists()
     
     return render(request, 'dashboard/secretary_course_edit.html', {
         'course': cours,
         'form': form,
+        'has_prerequisites_options': has_prerequisites_options,
     })
 
 
@@ -461,51 +410,34 @@ def secretary_course_edit(request, course_id):
 @require_http_methods(["POST"])
 def secretary_course_delete(request, course_id):
     """Suppression d'un cours avec suppression en cascade des inscriptions et absences"""
-    
+
     cours = get_object_or_404(Cours, id_cours=course_id)
     cours_code = cours.code_cours
     cours_nom = cours.nom_cours
     dept_nom = cours.id_departement.nom_departement
-    
+
     try:
-        # Compteurs pour les éléments supprimés en cascade
-        inscriptions_count = 0
-        seances_count = 0
-        absences_count = 0
-        justifications_count = 0
-        
-        # Supprimer les inscriptions liées à ce cours
+        from apps.academic_sessions.models import Seance
+
         inscriptions = Inscription.objects.filter(id_cours=cours)
         inscriptions_count = inscriptions.count()
-        
-        # Pour chaque inscription, supprimer les absences et justifications
-        for inscription in inscriptions:
-            # Récupérer les absences liées à cette inscription
-            absences = Absence.objects.filter(id_inscription=inscription)
-            absences_count += absences.count()
-            
-            # Supprimer les justifications liées à ces absences
-            for absence in absences:
-                justif_count = Justification.objects.filter(id_absence=absence).count()
-                if justif_count > 0:
-                    justifications_count += justif_count
-                    Justification.objects.filter(id_absence=absence).delete()
-            
-            # Supprimer les absences
-            absences.delete()
-        
-        # Supprimer les inscriptions
-        inscriptions.delete()
-        
-        # Supprimer les séances liées à ce cours
-        from apps.academic_sessions.models import Seance
+
+        absences = Absence.objects.filter(id_inscription__in=inscriptions)
+        absences_count = absences.count()
+
+        justifications = Justification.objects.filter(id_absence__in=absences)
+        justifications_count = justifications.count()
+
         seances = Seance.objects.filter(id_cours=cours)
         seances_count = seances.count()
-        seances.delete()
-        
-        # Supprimer le cours
-        cours.delete()
-        
+
+        with transaction.atomic():
+            justifications.delete()
+            absences.delete()
+            inscriptions.delete()
+            seances.delete()
+            cours.delete()
+
         # Construire le message de cascade
         cascade_info = []
         if inscriptions_count > 0:
@@ -516,9 +448,9 @@ def secretary_course_delete(request, course_id):
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
-        
+
         cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
-        
+
         # Journaliser la suppression
         log_action(
             request.user,
@@ -528,18 +460,18 @@ def secretary_course_delete(request, course_id):
             objet_type='COURS',
             objet_id=course_id
         )
-        
+
         success_msg = f"Cours '{cours_code}' supprimé avec succès."
         if cascade_info:
             success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
         messages.success(request, success_msg)
-        
+
     except ProtectedError as e:
         # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
-        
+
         logger.error(f"ProtectedError lors de la suppression du cours {cours_code}: {e}")
         messages.error(
             request,
@@ -554,7 +486,7 @@ def secretary_course_delete(request, course_id):
             f"Erreur lors de la suppression du cours '{cours_code}'. "
             f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
         )
-    
+
     return redirect('dashboard:secretary_courses')
 
 
@@ -621,18 +553,12 @@ def secretary_academic_year_set_active(request, year_id):
 @require_http_methods(["POST"])
 def secretary_academic_year_delete(request, year_id):
     """Suppression d'une année académique avec suppression en cascade des inscriptions et séances"""
-    
+
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
     year_libelle = year.libelle
     is_active = year.active
-    
+
     try:
-        # Compteurs pour les éléments supprimés en cascade
-        inscriptions_count = 0
-        seances_count = 0
-        absences_count = 0
-        justifications_count = 0
-        
         # Vérifier si l'année est active
         if is_active:
             messages.error(
@@ -641,39 +567,28 @@ def secretary_academic_year_delete(request, year_id):
                 f"Veuillez d'abord définir une autre année comme active."
             )
             return redirect('dashboard:secretary_academic_years')
-        
-        # Supprimer les inscriptions liées à cette année
+
+        from apps.academic_sessions.models import Seance
+
         inscriptions = Inscription.objects.filter(id_annee=year)
         inscriptions_count = inscriptions.count()
-        
-        # Pour chaque inscription, supprimer les absences et justifications
-        for inscription in inscriptions:
-            # Récupérer les absences liées à cette inscription
-            absences = Absence.objects.filter(id_inscription=inscription)
-            absences_count += absences.count()
-            
-            # Supprimer les justifications liées à ces absences
-            for absence in absences:
-                justif_count = Justification.objects.filter(id_absence=absence).count()
-                if justif_count > 0:
-                    justifications_count += justif_count
-                    Justification.objects.filter(id_absence=absence).delete()
-            
-            # Supprimer les absences
-            absences.delete()
-        
-        # Supprimer les inscriptions
-        inscriptions.delete()
-        
-        # Supprimer les séances liées à cette année
-        from apps.academic_sessions.models import Seance
+
+        absences = Absence.objects.filter(id_inscription__in=inscriptions)
+        absences_count = absences.count()
+
+        justifications = Justification.objects.filter(id_absence__in=absences)
+        justifications_count = justifications.count()
+
         seances = Seance.objects.filter(id_annee=year)
         seances_count = seances.count()
-        seances.delete()
-        
-        # Supprimer l'année académique
-        year.delete()
-        
+
+        with transaction.atomic():
+            justifications.delete()
+            absences.delete()
+            inscriptions.delete()
+            seances.delete()
+            year.delete()
+
         # Construire le message de cascade
         cascade_info = []
         if inscriptions_count > 0:
@@ -684,9 +599,9 @@ def secretary_academic_year_delete(request, year_id):
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
-        
+
         cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
-        
+
         # Journaliser la suppression
         log_action(
             request.user,
@@ -696,18 +611,18 @@ def secretary_academic_year_delete(request, year_id):
             objet_type='AUTRE',
             objet_id=year_id
         )
-        
+
         success_msg = f"Année académique '{year_libelle}' supprimée avec succès."
         if cascade_info:
             success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
         messages.success(request, success_msg)
-        
+
     except ProtectedError as e:
         # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
-        
+
         logger.error(f"ProtectedError lors de la suppression de l'année académique {year_libelle}: {e}")
         messages.error(
             request,
@@ -722,8 +637,9 @@ def secretary_academic_year_delete(request, year_id):
             f"Erreur lors de la suppression de l'année académique '{year_libelle}'. "
             f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
         )
-    
+
     return redirect('dashboard:secretary_academic_years')
+
 
 
 # ========== JOURNAUX D'AUDIT ==========
@@ -776,4 +692,8 @@ def secretary_audit_logs(request):
         'user_filter': user_filter,
         'search_query': search_query,
     })
+
+
+
+
 
