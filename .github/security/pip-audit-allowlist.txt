@@ -1,12 +1,4 @@
 # One vulnerability ID per line (e.g., CVE-2024-12345 or GHSA-xxxx-xxxx-xxxx).
 # Keep this file temporary: each entry must have an expiry date and ticket reference.
 #
-# Format recommendation:
-# CVE-YYYY-NNNNN  # expires: YYYY-MM-DD | ticket: SEC-123 | reason: short rationale
-CVE-2025-13473  # expires: 2026-03-31 | ticket: SEC-101 | reason: pending Django bump to 6.0.2+
-CVE-2026-1207   # expires: 2026-03-31 | ticket: SEC-101 | reason: pending Django bump to 6.0.2+
-CVE-2026-1312   # expires: 2026-03-31 | ticket: SEC-101 | reason: pending Django bump to 6.0.2+
-CVE-2026-1287   # expires: 2026-03-31 | ticket: SEC-101 | reason: pending Django bump to 6.0.2+
-CVE-2024-1135   # expires: 2026-03-31 | ticket: SEC-102 | reason: pending Gunicorn bump to 22+
-CVE-2024-6827   # expires: 2026-03-31 | ticket: SEC-102 | reason: pending Gunicorn bump to 22+
-CVE-2026-25990  # expires: 2026-03-31 | ticket: SEC-103 | reason: pending Pillow bump to 12.1.1
+# Currently empty: Django/Gunicorn/Pillow versions were upgraded and pip-audit is clean.
