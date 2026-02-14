@@ -252,9 +252,9 @@ jobs:
           allowlist = set()
           if allowlist_path.exists():
               for raw_line in allowlist_path.read_text(encoding="utf-8").splitlines():
-                  line = raw_line.strip()
-                  if line and not line.startswith("#"):
-                      allowlist.add(line)
+                  line = raw_line.split("#", 1)[0].strip()
+                  if line:
+                      allowlist.add(line.split()[0])
 
           blocking = []
           deferred = []
