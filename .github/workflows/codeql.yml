@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - dev
+      - Dev
   schedule:
     - cron: "29 2 * * 1"
   workflow_dispatch:
@@ -51,6 +52,8 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
+          # Evite toute tentative implicite d'autobuild Python.
+          setup-python-dependencies: false
           build-mode: none
           queries: security-and-quality
           config-file: ./.github/codeql/codeql-config.yml
