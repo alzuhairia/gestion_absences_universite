@@ -63,7 +63,3 @@ def verify():
 
 if __name__ == "__main__":
     verify()
-ite not found.")
-
-if __name__ == "__main__":
-    verify()

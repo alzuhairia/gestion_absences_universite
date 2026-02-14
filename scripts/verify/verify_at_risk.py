@@ -117,7 +117,3 @@ def verify_at_risk():
 
 if __name__ == '__main__':
     verify_at_risk()
-TML.")
-
-if __name__ == '__main__':
-    verify_at_risk()
