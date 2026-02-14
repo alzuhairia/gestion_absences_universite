@@ -63,7 +63,3 @@ def verify():
 
 if __name__ == "__main__":
     verify()
-r incorrect.")
-
-if __name__ == "__main__":
-    verify()
