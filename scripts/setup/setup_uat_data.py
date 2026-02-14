@@ -121,5 +121,3 @@ def create_uat_data():
 
 if __name__ == "__main__":
     create_uat_data()
-n__":
-    create_uat_data()

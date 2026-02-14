@@ -50,7 +50,3 @@ def create_justification():
 
 if __name__ == "__main__":
     create_justification()
-")
-
-if __name__ == "__main__":
-    create_justification()

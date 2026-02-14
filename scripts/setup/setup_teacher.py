@@ -62,7 +62,3 @@ def create_teacher_test_data():
 
 if __name__ == "__main__":
     create_teacher_test_data()
-rs_other} (No Professor)")
-
-if __name__ == "__main__":
-    create_teacher_test_data()
