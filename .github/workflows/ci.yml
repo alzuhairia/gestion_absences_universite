@@ -149,11 +149,11 @@ jobs:
       HEALTHCHECK_ALLOWLIST_CIDRS: 127.0.0.1/32
       HEALTHCHECK_TOKEN: ci-healthcheck-token
       REDIS_PASSWORD: ci-required-placeholder
-      REDIS_URL: redis://redis:6379/1
+      REDIS_URL: redis://127.0.0.1:6379/1
       DB_NAME: gestion_absences_universite_ci
       DB_USER: postgres
       DB_PASSWORD: postgres
-      DB_HOST: postgres
+      DB_HOST: 127.0.0.1
       DB_PORT: "5432"
       PGPASSWORD: postgres
 
@@ -188,10 +188,10 @@ jobs:
           pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"
 
           for i in {1..30}; do
-            redis-cli -h redis ping | grep -q PONG && break
+            redis-cli -h 127.0.0.1 ping | grep -q PONG && break
             sleep 2
           done
-          redis-cli -h redis ping | grep -q PONG
+          redis-cli -h 127.0.0.1 ping | grep -q PONG
 
       - name: Check migrations drift
         run: python manage.py makemigrations --check --dry-run
