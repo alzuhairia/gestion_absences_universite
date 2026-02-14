@@ -46,7 +46,7 @@ jobs:
           pip install black isort ruff
 
       - name: Detect changed Python files
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'workflow_dispatch'
         id: changed_python
         uses: tj-actions/changed-files@v46
         with:
@@ -57,8 +57,8 @@ jobs:
             apps/**/*.py
             tests/**/*.py
 
-      - name: Run Black, isort, Ruff on changed files (PR)
-        if: github.event_name == 'pull_request' && steps.changed_python.outputs.any_changed == 'true'
+      - name: Run Black, isort, Ruff on changed files (PR/Push)
+        if: github.event_name != 'workflow_dispatch' && steps.changed_python.outputs.any_changed == 'true'
         shell: bash
         run: |
           mapfile -t PY_FILES < <(printf '%s\n' "${{ steps.changed_python.outputs.all_changed_files }}" | sed '/^[[:space:]]*$/d')
@@ -82,15 +82,15 @@ jobs:
           # Ruff cible ici les erreurs bloquantes (syntaxe/runtime) en complement de Black/isort.
           ruff check --select E9,F63,F7,F82 "${CHECK_FILES[@]}"
 
-      - name: Run full Black, isort, Ruff scan (main/dev push and manual)
-        if: github.event_name != 'pull_request'
+      - name: Run full Black, isort, Ruff scan (manual)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           black --check manage.py config apps tests
           isort --profile black --check-only manage.py config apps tests
           ruff check --select E9,F63,F7,F82 manage.py config apps tests
 
       - name: Skip quality gate when no Python file changed
-        if: github.event_name == 'pull_request' && steps.changed_python.outputs.any_changed != 'true'
+        if: github.event_name != 'workflow_dispatch' && steps.changed_python.outputs.any_changed != 'true'
         run: echo "No managed Python file changed; quality gate skipped."
 
   dependency-review:

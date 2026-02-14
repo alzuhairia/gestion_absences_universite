@@ -5,7 +5,8 @@
 # Mise à jour pour compatibilité Python 3.13
 
 # Framework Django
-Django==6.0
+# Patche les CVE 2026 connues sur la branche 6.0.x
+Django==6.0.2
 django-crispy-forms==2.3
 crispy-bootstrap5>=1.1.0
 django-ratelimit==4.1.0
@@ -19,13 +20,15 @@ psycopg2-binary==2.9.10
 python-dotenv==1.0.1
 
 # Serveur WSGI pour la production (Gunicorn)
-gunicorn==21.2.0
+# >=22.0.0 pour corriger les CVE de request smuggling
+gunicorn==22.0.0
 
 # Génération de PDF
 reportlab==4.0.7
 
 # Utilitaires (Gestion des images)
-Pillow>=10.2.0,<11
+# 12.1.1+ corrige la vulnérabilité PSD out-of-bounds write
+Pillow>=12.1.1,<13
 python-magic==0.4.27
 
 openpyxl==3.1.2
