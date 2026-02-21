@@ -103,7 +103,6 @@ def absence_details(request, id_inscription):
 
     # Calculate absence statistics
     stats = calculer_absence_stats(inscription)
-    total_abs_hours = stats["total_absence"]
     absence_rate = stats["taux"]
     # CORRECTION BUG CRITIQUE #4a — Utiliser le seuil configuré du cours
     # Avant : seuil fixe 40% ignorant la personnalisation par cours
@@ -202,7 +201,6 @@ def upload_justification(request, absence_id):
                 justification.document = file
                 justification.commentaire = comment
                 justification.state = "EN_ATTENTE"
-                justification.validee = False
                 justification.validee_par = None
                 justification.date_validation = None
                 justification.save()
@@ -214,7 +212,6 @@ def upload_justification(request, absence_id):
                     document=file,
                     commentaire=comment,
                     state="EN_ATTENTE",
-                    validee=False,
                 )
             else:
                 # Should not happen due to checks above, but handle gracefully

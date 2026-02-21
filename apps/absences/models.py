@@ -150,13 +150,6 @@ class Justification(models.Model):
         help_text="Commentaire interne du secrétariat",
     )
 
-    # DEPRECATED: Utiliser 'state' à la place
-    validee = models.BooleanField(
-        default=False,
-        editable=False,
-        help_text="DEPRECATED: Utiliser 'state' à la place. Conservé pour compatibilité.",
-    )
-
     state = models.CharField(
         max_length=20,
         choices=STATE_CHOICES,
@@ -194,12 +187,6 @@ class Justification(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """Synchroniser validee (deprecated) avec state"""
-        # Synchroniser le champ deprecated avec state
-        if self.state == "ACCEPTEE":
-            self.validee = True
-        elif self.state == "REFUSEE":
-            self.validee = False
         super().save(*args, **kwargs)
 
     def __str__(self):
