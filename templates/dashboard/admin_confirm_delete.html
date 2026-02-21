@@ -1,0 +1,77 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Confirmer la suppression{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Administration</a></li>
+<li class="breadcrumb-item"><a href="{{ cancel_url }}">{{ cancel_label }}</a></li>
+<li class="breadcrumb-item active">Confirmer la suppression</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white py-3">
+                    <h5 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Confirmer la suppression
+                    </h5>
+                </div>
+                <div class="card-body">
+
+                    <div class="alert alert-danger">
+                        <strong>ATTENTION — Action irréversible.</strong><br>
+                        Vous êtes sur le point de supprimer définitivement :
+                        <br><br>
+                        <span class="fs-5"><i class="fas fa-times-circle me-1"></i> {{ object_label }}</span>
+                    </div>
+
+                    {% if cascade_items %}
+                    <div class="card mb-3 border-warning">
+                        <div class="card-header bg-warning text-dark py-2">
+                            <i class="fas fa-sitemap me-1"></i>
+                            <strong>Suppression en cascade — données associées</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <ul class="mb-0">
+                                {% for item in cascade_items %}
+                                <li>
+                                    <i class="fas fa-trash-alt text-danger me-1"></i>
+                                    <strong>{{ item.count }}</strong> {{ item.label }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if extra_warning %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-1"></i> {{ extra_warning }}
+                    </div>
+                    {% endif %}
+
+                    <p class="text-muted small">
+                        Cette action sera journalisée dans le journal d'audit avec votre identifiant.
+                    </p>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <form method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Oui, supprimer définitivement
+                            </button>
+                        </form>
+                        <a href="{{ cancel_url }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Annuler
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
