@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose an improvement or new feature
+title: "feat(<scope>): <short description>"
+labels: ["feature"]
+body:
+  - type: input
+    id: scope
+    attributes:
+      label: Scope
+      description: Module or area targeted (dashboard, absences, ci, etc.)
+      placeholder: dashboard
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What pain point are we solving?
+      placeholder: Today, users cannot...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the expected behavior
+      placeholder: Add a page to...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Option A / Option B...
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
