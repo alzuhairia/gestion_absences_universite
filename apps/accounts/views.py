@@ -3,12 +3,48 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
+from django.conf import settings
 from django.http import HttpResponse
+from django.utils.decorators import method_decorator
 from django.db.models import Sum
+from django_ratelimit.decorators import ratelimit
 from apps.enrollments.models import Inscription
 from apps.absences.models import Absence
 from apps.absences.utils import generate_absence_report
-from apps.accounts.forms import CustomPasswordChangeForm
+from apps.accounts.forms import CustomPasswordChangeForm, CustomAuthenticationForm
+from apps.audits.ip_utils import ratelimit_client_ip, ratelimit_login_ip_username
+
+
+@method_decorator(
+    ratelimit(
+        key=ratelimit_client_ip,
+        rate=settings.LOGIN_RATE_LIMIT_IP,
+        method='POST',
+        block=False
+    ),
+    name='dispatch'
+)
+@method_decorator(
+    ratelimit(
+        key=ratelimit_login_ip_username,
+        rate=settings.LOGIN_RATE_LIMIT_COMBINED,
+        method='POST',
+        block=False
+    ),
+    name='dispatch'
+)
+class RateLimitedLoginView(auth_views.LoginView):
+    template_name = 'accounts/login.html'
+    redirect_authenticated_user = True
+    authentication_form = CustomAuthenticationForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            messages.error(request, "Trop de tentatives de connexion. Reessayez dans quelques minutes.")
+            response = self.render_to_response(self.get_context_data(form=self.get_form()), status=429)
+            response['Retry-After'] = '300'
+            return response
+        return super().dispatch(request, *args, **kwargs)
 
 @login_required
 def profile_view(request):

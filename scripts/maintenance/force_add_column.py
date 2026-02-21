@@ -21,7 +21,3 @@ def force_add_column():
 
 if __name__ == '__main__':
     force_add_column()
-e}")
-
-if __name__ == '__main__':
-    force_add_column()
