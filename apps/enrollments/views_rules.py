@@ -15,15 +15,19 @@ def rules_management(request):
     List students violating the 40% rule.
     """
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut='NON_JUSTIFIEE',
+        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+    )
     at_risk_list = []
     
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = Absence.objects.filter(
-                id_inscription=ins, 
-                statut='NON_JUSTIFIEE'
-            ).aggregate(total=Sum('duree_absence'))['total'] or 0
+            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             
             rate = (total_abs / cours.nombre_total_periodes) * 100
             

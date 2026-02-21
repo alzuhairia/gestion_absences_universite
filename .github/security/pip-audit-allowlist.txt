@@ -1,0 +1,4 @@
+# One vulnerability ID per line (e.g., CVE-2024-12345 or GHSA-xxxx-xxxx-xxxx).
+# Keep this file temporary: each entry must have an expiry date and ticket reference.
+#
+# Currently empty: Django/Gunicorn/Pillow versions were upgraded and pip-audit is clean.

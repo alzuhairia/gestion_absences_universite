@@ -1,4 +1,6 @@
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from apps.academics.models import Faculte, Departement, Cours
 from apps.accounts.models import User
 from apps.dashboard.models import SystemSettings
@@ -233,11 +235,16 @@ class UserForm(forms.ModelForm):
                 raise forms.ValidationError({
                     'password_confirm': 'Les mots de passe ne correspondent pas.'
                 })
-            # Valider la longueur minimale
-            if len(password) < 8:
-                raise forms.ValidationError({
-                    'password': 'Le mot de passe doit contenir au moins 8 caractères.'
-                })
+            validation_user = self.instance if self.instance and self.instance.pk else User(
+                email=cleaned_data.get('email', ''),
+                nom=cleaned_data.get('nom', ''),
+                prenom=cleaned_data.get('prenom', ''),
+                role=cleaned_data.get('role') or User.Role.ETUDIANT,
+            )
+            try:
+                validate_password(password, user=validation_user)
+            except DjangoValidationError as exc:
+                raise forms.ValidationError({'password': exc.messages})
         
         return cleaned_data
     

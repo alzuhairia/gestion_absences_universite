@@ -60,7 +60,3 @@ def verify():
 
 if __name__ == "__main__":
     verify()
-arch failed.")
-
-if __name__ == "__main__":
-    verify()
