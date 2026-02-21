@@ -197,12 +197,14 @@ def admin_faculties(request):
         form = FaculteForm()
 
     faculties = Faculte.objects.all().order_by("nom_faculte")
+    paginator = Paginator(faculties, 20)
+    faculties_page = paginator.get_page(request.GET.get("page"))
 
     return render(
         request,
         "dashboard/admin_faculties.html",
         {
-            "faculties": faculties,
+            "faculties": faculties_page,
             "form": form,
         },
     )
@@ -247,34 +249,51 @@ def admin_faculty_edit(request, faculte_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_faculty_delete(request, faculte_id):
     """Suppression d'une facultÃ© avec suppression en cascade des dÃ©partements et cours"""
 
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
     faculte_nom = faculte.nom_faculte
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+    from apps.enrollments.models import Inscription
+
+    departements = Departement.objects.filter(id_faculte=faculte)
+    departements_count = departements.count()
+    cours = Cours.objects.filter(id_departement__in=departements)
+    cours_count = cours.count()
+    inscriptions = Inscription.objects.filter(id_cours__in=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours__in=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": departements_count, "label": "département(s)"},
+                {"count": cours_count, "label": "cours"},
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Faculté « {faculte_nom} »",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/faculties/",
+            "cancel_label": "Facultés",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-        from apps.enrollments.models import Inscription
-
-        departements = Departement.objects.filter(id_faculte=faculte)
-        departements_count = departements.count()
-        cours = Cours.objects.filter(id_departement__in=departements)
-        cours_count = cours.count()
-
-        inscriptions = Inscription.objects.filter(id_cours__in=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours__in=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -380,12 +399,14 @@ def admin_departments(request):
         .all()
         .order_by("id_faculte__nom_faculte", "nom_departement")
     )
+    paginator = Paginator(departments, 20)
+    departments_page = paginator.get_page(request.GET.get("page"))
 
     return render(
         request,
         "dashboard/admin_departments.html",
         {
-            "departments": departments,
+            "departments": departments_page,
             "form": form,
         },
     )
@@ -430,7 +451,7 @@ def admin_department_edit(request, dept_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_department_delete(request, dept_id):
     """Suppression d'un dÃ©partement avec suppression en cascade des cours"""
 
@@ -438,24 +459,40 @@ def admin_department_delete(request, dept_id):
     dept_nom = dept.nom_departement
     faculte_nom = dept.id_faculte.nom_faculte
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+
+    cours = Cours.objects.filter(id_departement=dept)
+    cours_count = cours.count()
+    inscriptions = Inscription.objects.filter(id_cours__in=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours__in=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": cours_count, "label": "cours"},
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Département « {dept_nom} » (Faculté : {faculte_nom})",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/departments/",
+            "cancel_label": "Départements",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-
-        cours = Cours.objects.filter(id_departement=dept)
-        cours_count = cours.count()
-
-        inscriptions = Inscription.objects.filter(id_cours__in=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours__in=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -615,7 +652,7 @@ def admin_course_edit(request, course_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_course_delete(request, course_id):
     """Suppression d'un cours avec suppression en cascade des inscriptions et absences"""
 
@@ -624,21 +661,37 @@ def admin_course_delete(request, course_id):
     cours_nom = cours.nom_cours
     dept_nom = cours.id_departement.nom_departement
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+
+    inscriptions = Inscription.objects.filter(id_cours=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Cours « {cours_code} — {cours_nom} » (Département : {dept_nom})",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/courses/",
+            "cancel_label": "Cours",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-
-        inscriptions = Inscription.objects.filter(id_cours=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -1088,7 +1141,7 @@ def admin_users_delete_multiple(request):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_user_delete(request, user_id):
     """Suppression d'un utilisateur avec verifications de securite"""
 
@@ -1104,6 +1157,37 @@ def admin_user_delete(request, user_id):
         absences_encoded_count = Absence.objects.filter(encodee_par=user).count()
         audit_logs_count = LogAudit.objects.filter(id_utilisateur=user).count()
         cours_count = Cours.objects.filter(professeur=user).count()
+
+        # FIX VERT #19 — Page de confirmation avant suppression définitive
+        if request.method == "GET":
+            if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
+                # Pas de page de confirmation : on sait déjà que ce sera une désactivation
+                cascade_items = [
+                    item for item in [
+                        {"count": inscriptions_count, "label": "inscription(s)"},
+                        {"count": absences_encoded_count, "label": "absence(s) encodée(s)"},
+                        {"count": audit_logs_count, "label": "entrée(s) d'audit"},
+                    ] if item["count"] > 0
+                ]
+                return render(request, "dashboard/admin_confirm_delete.html", {
+                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                    "cascade_items": cascade_items,
+                    "extra_warning": "Des dépendances ont été détectées. Le compte sera DÉSACTIVÉ (pas supprimé).",
+                    "cancel_url": "/dashboard/admin/users/",
+                    "cancel_label": "Utilisateurs",
+                })
+            else:
+                cascade_items = [
+                    item for item in [
+                        {"count": cours_count, "label": "cours (sera détaché du professeur)"},
+                    ] if item["count"] > 0
+                ]
+                return render(request, "dashboard/admin_confirm_delete.html", {
+                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                    "cascade_items": cascade_items,
+                    "cancel_url": "/dashboard/admin/users/",
+                    "cancel_label": "Utilisateurs",
+                })
 
         if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
             user.actif = False
@@ -1510,33 +1594,22 @@ def admin_export_audit_csv(request):
 @require_GET
 def get_prerequisites_by_level(request):
     """
-    API endpoint pour rÃ©cupÃ©rer les prÃ©requis disponibles selon le niveau d'un cours.
+    API — Liste les cours disponibles comme prérequis selon le niveau cible.
 
-    IMPORTANT POUR LA SOUTENANCE :
-    Cette API est utilisÃ©e par le JavaScript pour charger dynamiquement les prÃ©requis
-    autorisÃ©s lors de la crÃ©ation/modification d'un cours.
+    Règle métier : un cours de niveau N ne peut avoir que des prérequis de niveau < N.
 
-    RÃ¨gle mÃ©tier implÃ©mentÃ©e :
-    - Un cours de niveau N ne peut avoir que des prÃ©requis de niveau < N
-    - Niveau 1 : Aucun prÃ©requis autorisÃ©
-    - Niveau 2 : PrÃ©requis uniquement depuis le niveau 1
-    - Niveau 3 : PrÃ©requis depuis les niveaux 1 ou 2
+    Query params:
+        niveau    (int, requis)    : niveau cible (1, 2 ou 3)
+        course_id (int, optionnel) : exclut ce cours des résultats (mode édition)
 
-    SÃ©curitÃ© :
-    - @login_required : Utilisateur doit Ãªtre authentifiÃ©
-    - VÃ©rification manuelle du rÃ´le : ADMIN ou SECRETAIRE uniquement
-    - @require_GET : Seulement les requÃªtes GET sont acceptÃ©es
-
-    Args:
-        request: Objet HttpRequest avec les paramÃ¨tres :
-            - niveau : Niveau du cours (1, 2 ou 3)
-            - course_id : ID du cours (optionnel, pour exclure le cours lui-mÃªme)
-
-    Returns:
-        JsonResponse avec la liste des cours disponibles comme prÃ©requis
-        Format : [{'id': int, 'display': str}, ...]
+    Réponses:
+        200 [{"id": int, "code": str, "name": str, "niveau": int, "display": str}, ...]
+        400 {"error": {"code": "bad_request", "message": "..."}}
+        401 {"error": {"code": "auth_required", ...}}
+        403 {"error": {"code": "forbidden", ...}}
+        429 Rate limit dépassé (30/5m par IP)
+        500 {"error": {"code": "server_error", ...}}
     """
-    """API pour rÃ©cupÃ©rer les prÃ©requis disponibles selon le niveau (accessible Ã  Admin et Secretary)"""
     if getattr(request, "limited", False):
         return api_error(
             "Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited"
@@ -1545,7 +1618,7 @@ def get_prerequisites_by_level(request):
     niveau = request.GET.get("niveau")
     course_id = request.GET.get(
         "course_id", None
-    )  # Pour exclure le cours actuel lors de l'Ã©dition
+    )  # Pour exclure le cours actuel lors de l'edition
 
     if not niveau:
         return api_error("niveau requis", status=400, code="bad_request")
@@ -1558,7 +1631,7 @@ def get_prerequisites_by_level(request):
     try:
         # Filtrer selon le niveau
         if niveau == 1:
-            # AnnÃ©e 1 : pas de prÃ©requis
+            # Annee 1 : pas de prerequis
             prerequisites = Cours.objects.none()
         elif niveau == 2:
             # AnnÃ©e 2 : prÃ©requis uniquement d'AnnÃ©e 1
