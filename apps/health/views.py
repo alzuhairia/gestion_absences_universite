@@ -44,14 +44,17 @@ def _is_health_client_allowed(client_ip: str) -> bool:
 @ratelimit(key=ratelimit_client_ip, rate=_health_rate_limit, method='GET', block=False)
 def health_check(request):
     """
-    Endpoint de sante pour le monitoring.
+    API — Endpoint de santé pour le monitoring.
 
-    Verifie que :
-    - L'application Django fonctionne
-    - La base de donnees PostgreSQL est accessible
+    Authentification:
+        Header X-Healthcheck-Token (requis) : token configuré dans HEALTHCHECK_TOKEN
+        IP source doit être dans HEALTHCHECK_ALLOWLIST_CIDRS
 
-    Retourne un JSON simple avec le statut.
-    Utilise par Uptime Kuma et autres outils de monitoring.
+    Réponses:
+        200 {"status": "ok"}
+        403 {"status": "error", "error": "Forbidden"}  — IP non autorisée ou token invalide
+        429 {"status": "error", "error": "Too Many Requests"}  — rate limit (HEALTHCHECK_RATE_LIMIT)
+        503 {"status": "error", "error": "Service unavailable"}  — DB inaccessible
     """
     # Never log query strings for this endpoint. This avoids accidental token leakage
     # from malformed requests sent with query parameters.
