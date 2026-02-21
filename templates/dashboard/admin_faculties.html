@@ -19,7 +19,6 @@
     </div>
 
     <div class="row">
-        <!-- Create Form -->
         <div class="col-lg-4 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 bg-primary text-white">
@@ -51,7 +50,6 @@
             </div>
         </div>
 
-        <!-- List -->
         <div class="col-lg-8">
             <div class="card shadow">
                 <div class="card-header py-3 bg-white">
@@ -80,16 +78,19 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'dashboard:admin_faculty_edit' faculte.id_faculte %}" 
+                                        <a href="{% url 'dashboard:admin_faculty_edit' faculte.id_faculte %}"
                                            class="btn btn-sm btn-primary">
                                             <i class="fas fa-edit"></i> Modifier
                                         </a>
-                                        <button type="button" 
-                                                class="btn btn-sm btn-danger" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteFacultyModal{{ faculte.id_faculte }}">
-                                            <i class="fas fa-trash"></i> Supprimer
-                                        </button>
+                                        <form method="post"
+                                              action="{% url 'dashboard:admin_faculty_delete' faculte.id_faculte %}"
+                                              class="d-inline"
+                                              onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement cette faculté ?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-trash"></i> Supprimer
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -104,39 +105,4 @@
         </div>
     </div>
 </div>
-
-<!-- Modals de confirmation de suppression -->
-{% for faculte in faculties %}
-<div class="modal fade" id="deleteFacultyModal{{ faculte.id_faculte }}" tabindex="-1" aria-labelledby="deleteFacultyModalLabel{{ faculte.id_faculte }}" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteFacultyModalLabel{{ faculte.id_faculte }}">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmer la suppression
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
-            </div>
-            <div class="modal-body">
-                <p>Êtes-vous sûr de vouloir supprimer définitivement la faculté <strong>{{ faculte.nom_faculte }}</strong> ?</p>
-                <p class="text-danger mb-0">
-                    <i class="fas fa-exclamation-circle me-1"></i>
-                    <strong>Attention :</strong> Cette action est irréversible. Si cette faculté contient des départements, la suppression sera impossible.
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i> Annuler
-                </button>
-                <form method="post" action="{% url 'dashboard:admin_faculty_delete' faculte.id_faculte %}" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-trash me-1"></i> Supprimer définitivement
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
 {% endblock %}
-
