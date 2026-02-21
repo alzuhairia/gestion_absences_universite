@@ -51,3 +51,6 @@ fix_imports.py
 
 # Docker
 .dockerignore
+
+# Local backup artifacts
+backups/
