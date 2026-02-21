@@ -2,8 +2,9 @@ name: "codeql-config"
 
 # Scope explicite pour eviter les faux positifs et les parse warnings
 # sur des scripts utilitaires non deployes.
+# Note: keep only directories here. Including single files (e.g. manage.py)
+# can break Python extractor indexing in CodeQL autobuild.
 paths:
-  - manage.py
   - apps
   - config
   - tests
