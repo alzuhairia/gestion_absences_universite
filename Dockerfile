@@ -13,16 +13,13 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # System deps needed at runtime.
+# Keep this list minimal to reduce OS-level CVE surface in image scans.
 # psycopg2-binary bundles PostgreSQL client libs, so no postgresql-client/libpq-dev.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    file \
-    libmagic1 \
-    libjpeg-dev \
-    zlib1g-dev \
-    libtiff-dev \
-    libfreetype6-dev \
-    libwebp-dev \
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================
