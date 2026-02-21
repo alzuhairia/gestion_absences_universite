@@ -6,14 +6,14 @@ from django.test.utils import override_settings
 
 
 class MigrationCheckTests(SimpleTestCase):
-    databases = {'default'}
+    databases = {"default"}
 
     def test_makemigrations_check_dry_run(self):
         stdout = StringIO()
         stderr = StringIO()
 
         call_command(
-            'makemigrations',
+            "makemigrations",
             check=True,
             dry_run=True,
             stdout=stdout,
@@ -21,7 +21,7 @@ class MigrationCheckTests(SimpleTestCase):
         )
 
         combined_output = f"{stdout.getvalue()}\n{stderr.getvalue()}"
-        self.assertIn('No changes detected', combined_output)
+        self.assertIn("No changes detected", combined_output)
 
     def test_check_deploy(self):
         stdout = StringIO()
@@ -37,11 +37,11 @@ class MigrationCheckTests(SimpleTestCase):
             CSRF_COOKIE_SECURE=True,
         ):
             call_command(
-                'check',
+                "check",
                 deploy=True,
                 stdout=stdout,
                 stderr=stderr,
             )
 
         combined_output = f"{stdout.getvalue()}\n{stderr.getvalue()}".lower()
-        self.assertNotIn('warning', combined_output)
+        self.assertNotIn("warning", combined_output)
