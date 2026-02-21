@@ -1,95 +1,96 @@
 #!/bin/bash
 # ============================================
-# Script d'entrée pour le conteneur Docker
+# Container entrypoint for UniAbsences
 # ============================================
-# IMPORTANT POUR LA SOUTENANCE :
-# Ce script s'exécute automatiquement au démarrage du conteneur
-# Il garantit que la base de données est prête avant de lancer l'application
+set -euo pipefail
 
-set -e  # Arrêter le script en cas d'erreur
+echo "[entrypoint] Starting UniAbsences container..."
 
-echo "🚀 Démarrage du conteneur UniAbsences..."
+if [ "$(id -u)" -eq 0 ]; then
+  mkdir -p /app/staticfiles /app/media /app/logs /tmp
+  chown -R django:django /app/staticfiles /app/media /app/logs
+  chmod -R u+rwX,g+rwX /app/staticfiles /app/media /app/logs
 
-# ============================================
-# ÉTAPE 1 : Attendre que PostgreSQL soit prêt
-# ============================================
-# IMPORTANT : Django ne peut pas démarrer si PostgreSQL n'est pas disponible
-# Ce script attend jusqu'à ce que PostgreSQL accepte les connexions
+  if command -v runuser >/dev/null 2>&1; then
+    run_as_app() {
+      runuser -u django -- "$@"
+    }
+  else
+    run_as_app() {
+      su -s /bin/bash django -c "$*"
+    }
+  fi
+else
+  run_as_app() {
+    "$@"
+  }
+fi
 
-echo "⏳ Attente de la disponibilité de PostgreSQL..."
-until PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "postgres" -c '\q' 2>/dev/null; do
-    echo "   PostgreSQL n'est pas encore prêt, nouvelle tentative dans 2 secondes..."
-    sleep 2
-done
-echo "✅ PostgreSQL est prêt !"
+echo "[entrypoint] Waiting for PostgreSQL and ensuring target database exists..."
+python - <<'PY'
+import os
+import sys
+import time
 
-# ============================================
-# ÉTAPE 2 : Créer la base de données si elle n'existe pas
-# ============================================
-# Cette étape crée automatiquement la base de données si elle n'existe pas
-# Utile pour le premier déploiement
+import psycopg2
+from psycopg2 import OperationalError, sql
 
-echo "📊 Vérification de l'existence de la base de données..."
-PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "postgres" -tc \
-    "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | \
-    grep -q 1 || \
-    PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "postgres" -c \
-    "CREATE DATABASE $DB_NAME"
-echo "✅ Base de données '$DB_NAME' prête !"
 
-# ============================================
-# ÉTAPE 3 : Exécuter les migrations Django
-# ============================================
-# IMPORTANT : Les migrations créent/modifient les tables de la base de données
-# Elles doivent être exécutées avant de lancer l'application
+db_host = os.getenv("DB_HOST", "db")
+db_port = int(os.getenv("DB_PORT", "5432"))
+db_user = os.getenv("DB_USER", "postgres")
+db_password = os.getenv("DB_PASSWORD", "")
+db_name = os.getenv("DB_NAME", "gestion_absences_universite")
+max_attempts = int(os.getenv("DB_WAIT_MAX_ATTEMPTS", "60"))
+sleep_seconds = float(os.getenv("DB_WAIT_SLEEP_SECONDS", "2"))
 
-echo "🔄 Exécution des migrations Django..."
-python manage.py migrate --noinput
-echo "✅ Migrations terminées !"
+for attempt in range(1, max_attempts + 1):
+    try:
+        conn = psycopg2.connect(
+            dbname="postgres",
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port,
+            connect_timeout=5,
+        )
+        conn.autocommit = True
 
-# ============================================
-# ÉTAPE 4 : Collecter les fichiers statiques
-# ============================================
-# IMPORTANT : En production, Django ne sert pas les fichiers statiques
-# Ils doivent être collectés dans un répertoire et servis par Nginx
-# Cette commande copie tous les fichiers statiques (CSS, JS, images) dans /app/staticfiles
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            if cur.fetchone() is None:
+                cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+                print(f"[entrypoint] Database '{db_name}' created.")
+            else:
+                print(f"[entrypoint] Database '{db_name}' already exists.")
 
-echo "📦 Collecte des fichiers statiques..."
-python manage.py collectstatic --noinput --clear
-echo "✅ Fichiers statiques collectés !"
+        conn.close()
+        print("[entrypoint] PostgreSQL is ready.")
+        break
+    except OperationalError as exc:
+        if attempt == max_attempts:
+            print(f"[entrypoint] PostgreSQL unavailable after {max_attempts} attempts: {exc}")
+            sys.exit(1)
+        print(
+            f"[entrypoint] PostgreSQL not ready (attempt {attempt}/{max_attempts}), "
+            f"retrying in {sleep_seconds:.0f}s..."
+        )
+        time.sleep(sleep_seconds)
+PY
 
-# ============================================
-# ÉTAPE 5 : Créer un superutilisateur si nécessaire (optionnel)
-# ============================================
-# Cette étape est commentée par défaut
-# Décommenter si vous voulez créer automatiquement un superutilisateur au premier démarrage
-# ATTENTION : Ne pas utiliser en production avec des mots de passe en dur !
+echo "[entrypoint] Running migrations..."
+run_as_app python manage.py migrate --noinput
 
-# echo "👤 Création du superutilisateur (si nécessaire)..."
-# python manage.py shell << EOF
-# from apps.accounts.models import User
-# if not User.objects.filter(role=User.Role.ADMIN).exists():
-#     User.objects.create_superuser(
-#         email='admin@example.com',
-#         nom='Admin',
-#         prenom='System',
-#         password='changeme123'
-#     )
-#     print("Superutilisateur créé !")
-# else:
-#     print("Superutilisateur existe déjà.")
-# EOF
+echo "[entrypoint] Collecting static files..."
+run_as_app python manage.py collectstatic --noinput --clear
 
-# ============================================
-# ÉTAPE 6 : Lancer Gunicorn
-# ============================================
-# Gunicorn est le serveur WSGI recommandé pour Django en production
-# Il remplace le serveur de développement (runserver) qui n'est pas sécurisé
-# Les paramètres sont définis dans le CMD du Dockerfile
-
-echo "🎯 Lancement de Gunicorn..."
-echo "   Application disponible sur http://0.0.0.0:8000"
-echo "   (Nginx reverse proxy sur le port 80)"
-
-# Exécuter la commande passée en argument (généralement Gunicorn)
-exec "$@"
+echo "[entrypoint] Launching application process..."
+if [ "$(id -u)" -eq 0 ]; then
+  if command -v runuser >/dev/null 2>&1; then
+    exec runuser -u django -- "$@"
+  else
+    exec su -s /bin/bash django -c "$*"
+  fi
+else
+  exec "$@"
+fi

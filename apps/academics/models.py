@@ -165,8 +165,6 @@ class Cours(models.Model):
         'academic_sessions.AnneeAcademique',
         models.PROTECT,  # Empêche la suppression d'une année avec des cours
         db_column='id_annee',
-        null=True,  # Temporairement nullable pour la migration
-        blank=True,  # Temporairement blank pour la migration
         verbose_name="Année Académique",
         related_name='cours',
         help_text="Année académique à laquelle ce cours appartient (assignée automatiquement)"
@@ -180,8 +178,6 @@ class Cours(models.Model):
         choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
         verbose_name="Niveau d'étude",
         help_text="Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés.",
-        null=True,  # Temporairement nullable pour la migration
-        blank=True,  # Temporairement blank pour la migration
         db_index=True
     )
     # Niveau académique du cours (1, 2 ou 3)
@@ -226,8 +222,35 @@ class Cours(models.Model):
             models.Index(fields=['professeur', 'actif']),
             models.Index(fields=['id_annee', 'actif']),
             models.Index(fields=['niveau', 'actif']),
+            models.Index(
+                fields=['code_cours'],
+                condition=models.Q(actif=True),
+                name='cours_code_active_idx',
+            ),
         ]
-        # Note: Les contraintes CHECK seront ajoutées via des migrations séparées
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(nombre_total_periodes__gte=1)
+                    & models.Q(nombre_total_periodes__lte=1000)
+                ),
+                name='cours_nombre_total_periodes_range',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(seuil_absence__isnull=True)
+                    | (
+                        models.Q(seuil_absence__gte=0)
+                        & models.Q(seuil_absence__lte=100)
+                    )
+                ),
+                name='cours_seuil_absence_range_or_null',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(niveau__in=[1, 2, 3]),
+                name='cours_niveau_allowed_values',
+            ),
+        ]
 
     def __str__(self):
         return f"[{self.code_cours}] {self.nom_cours}"
@@ -241,3 +264,4 @@ class Cours(models.Model):
         # Import ici pour éviter l'importation circulaire
         from apps.dashboard.models import SystemSettings
         return SystemSettings.get_settings().default_absence_threshold
+

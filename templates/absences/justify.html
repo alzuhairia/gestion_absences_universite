@@ -122,6 +122,7 @@
                                    accept=".pdf,.jpg,.jpeg,.png"
                                    onchange="validateFile(this)">
                             <small class="text-muted">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</small>
+                            <div id="fileValidationError" class="text-danger small mt-2 d-none" role="alert" aria-live="assertive"></div>
                         </div>
 
                         <div class="mb-4">
@@ -166,21 +167,36 @@
 </div>
 
 <script>
+    function showFileError(message) {
+        const errorEl = document.getElementById('fileValidationError');
+        if (!errorEl) return;
+        errorEl.textContent = message;
+        errorEl.classList.remove('d-none');
+    }
+
+    function clearFileError() {
+        const errorEl = document.getElementById('fileValidationError');
+        if (!errorEl) return;
+        errorEl.textContent = '';
+        errorEl.classList.add('d-none');
+    }
+
     function validateFile(input) {
         const file = input.files[0];
+        clearFileError();
         if (!file) return;
         
         const maxSize = 5 * 1024 * 1024; // 5MB
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
         
         if (file.size > maxSize) {
-            alert('Le fichier est trop volumineux. Taille maximale : 5 Mo.');
+            showFileError('Le fichier est trop volumineux. Taille maximale : 5 Mo.');
             input.value = '';
             return;
         }
         
         if (!allowedTypes.includes(file.type)) {
-            alert('Format de fichier non accepté. Formats acceptés : PDF, JPG, PNG.');
+            showFileError('Format de fichier non accepté. Formats acceptés : PDF, JPG, PNG.');
             input.value = '';
             return;
         }

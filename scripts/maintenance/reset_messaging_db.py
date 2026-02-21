@@ -22,7 +22,3 @@ def reset_messaging_db():
 
 if __name__ == "__main__":
     reset_messaging_db()
-ation history for 'messaging'.")
-
-if __name__ == "__main__":
-    reset_messaging_db()

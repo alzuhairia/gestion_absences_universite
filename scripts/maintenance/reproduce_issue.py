@@ -36,6 +36,3 @@ except Exception as e:
         f.write(f"CRITICAL ERROR CAUGHT:\n{e}\n")
         traceback.print_exc(file=f)
     print("Error occurred, check traceback.txt")
-)
-        traceback.print_exc(file=f)
-    print("Error occurred, check traceback.txt")

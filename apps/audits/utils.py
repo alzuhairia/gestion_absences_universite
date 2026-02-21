@@ -1,5 +1,6 @@
 from .models import LogAudit
 from apps.accounts.models import User
+from .ip_utils import extract_client_ip
 
 
 def get_client_ip(request):
@@ -7,12 +8,7 @@ def get_client_ip(request):
     Extrait l'adresse IP du client depuis la requête Django.
     Gère les proxies et load balancers.
     """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
-    return ip
+    return extract_client_ip(request)
 
 
 def log_action(user, action, request=None, niveau='INFO', objet_type=None, objet_id=None):
