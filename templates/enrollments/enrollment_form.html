@@ -3,7 +3,7 @@
 {% block title %}Nouvelle Inscription{% endblock %}
 
 {% block breadcrumbs %}
-<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">SecrÃ©tariat</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Secrétariat</a></li>
 <li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_enrollments' %}">Inscriptions</a></li>
 <li class="breadcrumb-item active">Nouvelle Inscription</li>
 {% endblock %}
@@ -53,10 +53,10 @@
                             {% endif %}
                         </div>
                         
-                        <!-- Section 1.5: Niveau (si inscription Ã  un niveau complet) -->
+                        <!-- Section 1.5: Niveau (si inscription à un niveau complet) -->
                         <div id="levelSection" class="mb-4" style="display: none;">
                             <h5 class="mb-3">
-                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'Ã©tude
+                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'étude
                             </h5>
                             <div class="mb-3">
                                 <label for="{{ enrollment_form.niveau.id_for_label }}" class="form-label">Niveau <span class="text-danger">*</span></label>
@@ -70,31 +70,31 @@
                             </div>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Inscription Ã  un niveau complet :</strong> L'Ã©tudiant sera inscrit automatiquement Ã  tous les cours actifs du niveau sÃ©lectionnÃ© pour l'annÃ©e acadÃ©mique en cours.
+                                <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du niveau sélectionné pour l'année académique en cours.
                                 <br>
-                                <small>Le systÃ¨me vÃ©rifiera automatiquement que l'Ã©tudiant a validÃ© le niveau prÃ©cÃ©dent (si applicable) et que tous les prÃ©requis sont satisfaits pour chaque cours.</small>
+                                <small>Le système vérifiera automatiquement que l'étudiant a validé le niveau précédent (si applicable) et que tous les prérequis sont satisfaits pour chaque cours.</small>
                             </div>
                         </div>
 
                         <hr class="my-4">
 
-                        <!-- Section 2: Ã‰tudiant -->
+                        <!-- Section 2: Étudiant -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-user-graduate me-2 text-primary"></i>Ã‰tudiant
+                                <i class="fas fa-user-graduate me-2 text-primary"></i>Étudiant
                             </h5>
                             
-                            <!-- Option: CrÃ©er un nouvel Ã©tudiant -->
+                            <!-- Option: Créer un nouvel étudiant -->
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student" onchange="toggleStudentForm()">
                                     <label class="form-check-label" for="create_new_student">
-                                        <strong>CrÃ©er un nouveau compte Ã©tudiant</strong>
+                                        <strong>Créer un nouveau compte étudiant</strong>
                                     </label>
                                 </div>
                             </div>
 
-                            <!-- Formulaire de crÃ©ation d'Ã©tudiant (masquÃ© par dÃ©faut) -->
+                            <!-- Formulaire de création d'étudiant (masqué par défaut) -->
                             <div id="newStudentForm" style="display: none;" class="border rounded p-3 mb-3 bg-light">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -105,7 +105,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="{{ student_form.prenom.id_for_label }}" class="form-label">PrÃ©nom <span class="text-danger">*</span></label>
+                                        <label for="{{ student_form.prenom.id_for_label }}" class="form-label">Prénom <span class="text-danger">*</span></label>
                                         {{ student_form.prenom }}
                                         {% if student_form.prenom.errors %}
                                         <div class="text-danger small">{{ student_form.prenom.errors }}</div>
@@ -142,34 +142,34 @@
                                 </div>
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    L'Ã©tudiant devra changer ce mot de passe lors de sa premiÃ¨re connexion.
+                                    L'étudiant devra changer ce mot de passe lors de sa première connexion.
                                 </div>
                             </div>
 
-                            <!-- Option: Utiliser un Ã©tudiant existant -->
+                            <!-- Option: Utiliser un étudiant existant -->
                             <div id="existingStudentForm">
                                 <div class="mb-3">
                                     <label for="{{ enrollment_form.student_email.id_for_label }}" class="form-label">
-                                        E-mail de l'Ã©tudiant existant
+                                        E-mail de l'étudiant existant
                                     </label>
                                     {{ enrollment_form.student_email }}
                                     {% if enrollment_form.student_email.errors %}
                                     <div class="text-danger small">{{ enrollment_form.student_email.errors }}</div>
                                     {% endif %}
-                                    <small class="form-text text-muted">Entrez l'e-mail d'un Ã©tudiant existant</small>
+                                    <small class="form-text text-muted">Entrez l'e-mail d'un étudiant existant</small>
                                 </div>
                             </div>
                         </div>
 
                         <hr class="my-4">
 
-                        <!-- Section 3: AnnÃ©e acadÃ©mique -->
+                        <!-- Section 3: Année académique -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-calendar-alt me-2 text-primary"></i>AnnÃ©e AcadÃ©mique
+                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Année Académique
                             </h5>
                             <div class="mb-3">
-                                <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">AnnÃ©e AcadÃ©mique <span class="text-danger">*</span></label>
+                                <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">Année Académique <span class="text-danger">*</span></label>
                                 {{ enrollment_form.academic_year }}
                                 {% if enrollment_form.academic_year.errors %}
                                 <div class="text-danger small">{{ enrollment_form.academic_year.errors }}</div>
@@ -179,7 +179,7 @@
 
                         <hr class="my-4">
 
-                        <!-- Section 4: Cours (si inscription Ã  un cours spÃ©cifique) -->
+                        <!-- Section 4: Cours (si inscription à un cours spécifique) -->
                         <div id="courseSection" class="mb-4">
                             <h5 class="mb-3">
                                 <i class="fas fa-book me-2 text-primary"></i>Cours
@@ -187,12 +187,12 @@
                             <div class="mb-3">
                                 <label for="{{ enrollment_form.course.id_for_label }}" class="form-label">Cours <span class="text-danger">*</span></label>
                                 <select name="{{ enrollment_form.course.name }}" id="{{ enrollment_form.course.id_for_label }}" class="form-select" required>
-                                    <option value="">SÃ©lectionner une annÃ©e acadÃ©mique d'abord</option>
+                                    <option value="">Sélectionner une année académique d'abord</option>
                                 </select>
                                 {% if enrollment_form.course.errors %}
                                 <div class="text-danger small">{{ enrollment_form.course.errors }}</div>
                                 {% endif %}
-                                <small class="form-text text-muted">SÃ©lectionnez un cours spÃ©cifique pour l'inscription. Les cours sont filtrÃ©s selon l'annÃ©e acadÃ©mique sÃ©lectionnÃ©e.</small>
+                                <small class="form-text text-muted">Sélectionnez un cours spécifique pour l'inscription. Les cours sont filtrés selon l'année académique sélectionnée.</small>
                             </div>
                         </div>
 
