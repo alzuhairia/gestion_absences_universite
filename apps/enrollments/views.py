@@ -42,6 +42,20 @@ def enrollment_manager(request):
 @api_login_required(roles=[User.Role.ADMIN, User.Role.SECRETAIRE])
 @require_GET
 def get_departments(request):
+    """
+    API — Liste les départements d'une faculté.
+
+    Query params:
+        faculty_id (int, requis) : ID de la faculté
+
+    Réponses:
+        200 [{"id": int, "name": str}, ...]
+        400 {"error": {"code": "bad_request", "message": "..."}}
+        401 {"error": {"code": "auth_required", ...}}
+        403 {"error": {"code": "forbidden", ...}}
+        429 Rate limit dépassé (30/5m par IP)
+        500 {"error": {"code": "server_error", ...}}
+    """
     if getattr(request, 'limited', False):
         return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
     try:
@@ -63,7 +77,20 @@ def get_departments(request):
 @api_login_required(roles=[User.Role.ADMIN, User.Role.SECRETAIRE])
 @require_GET
 def get_courses(request):
-    """API pour rÃƒÂ©cupÃƒÂ©rer les cours d'un dÃƒÂ©partement pour une annÃƒÂ©e acadÃƒÂ©mique"""
+    """
+    API — Liste les cours actifs d'un département.
+
+    Query params:
+        dept_id  (int, requis)    : ID du département
+        year_id  (int, optionnel) : filtre par année académique
+
+    Réponses:
+        200 [{"id": int, "name": str, "code": str, "has_prereq": bool, "year": str|null}, ...]
+        401 {"error": {"code": "auth_required", ...}}
+        403 {"error": {"code": "forbidden", ...}}
+        429 Rate limit dépassé (30/5m par IP)
+        500 {"error": {"code": "server_error", ...}}
+    """
     if getattr(request, 'limited', False):
         return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
     try:
@@ -105,7 +132,20 @@ def get_courses(request):
 @api_login_required(roles=[User.Role.ADMIN, User.Role.SECRETAIRE])
 @require_GET
 def get_courses_by_year(request):
-    """API pour rÃƒÂ©cupÃƒÂ©rer tous les cours d'une annÃƒÂ©e acadÃƒÂ©mique"""
+    """
+    API — Liste tous les cours actifs d'une année académique.
+
+    Query params:
+        year_id (int, requis) : ID de l'année académique
+
+    Réponses:
+        200 [{"id": int, "code": str, "name": str, "department": str, "has_prereq": bool}, ...]
+        400 {"error": {"code": "bad_request", "message": "year_id requis"}}
+        401 {"error": {"code": "auth_required", ...}}
+        403 {"error": {"code": "forbidden", ...}}
+        429 Rate limit dépassé (30/5m par IP)
+        500 {"error": {"code": "server_error", ...}}
+    """
     if getattr(request, 'limited', False):
         return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
     year_id = request.GET.get('year_id')
