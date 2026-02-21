@@ -102,7 +102,7 @@ def get_courses(request):
             'id_departement',
         )
 
-        # Filtrer par annÃƒÂ©e acadÃƒÂ©mique si fournie
+        # Filtrer par année académique si fournie
         if year_id:
             courses = courses.filter(id_annee_id=year_id)
 
@@ -183,34 +183,34 @@ def get_courses_by_year(request):
 
 def check_prerequisites(student, course):
     """
-    VÃƒÂ©rifie si l'ÃƒÂ©tudiant a validÃƒÂ© tous les prÃƒÂ©requis d'un cours.
-    Les prÃƒÂ©requis doivent ÃƒÂªtre d'annÃƒÂ©es acadÃƒÂ©miques infÃƒÂ©rieures.
+    Vérifie si l'étudiant a validé tous les prérequis d'un cours.
+    Les prérequis doivent être d'années académiques inférieures.
     Retourne (is_valid, missing_prereqs_list)
     """
     prerequisites = course.prerequisites.all()
     missing_prereqs = []
     
-    # RÃƒÂ©cupÃƒÂ©rer l'annÃƒÂ©e du cours
+    # Récupérer l'année du cours
     course_year = course.id_annee
     
     for prereq in prerequisites:
-        # VÃƒÂ©rifier que le prÃƒÂ©requis est d'une annÃƒÂ©e infÃƒÂ©rieure
+        # Vérifier que le prérequis est d'une année inférieure
         if prereq.id_annee and course_year:
-            # Comparer les annÃƒÂ©es (on suppose que le libellÃƒÂ© suit un format AAAA-AAAA)
-            # On peut aussi comparer par ID si les annÃƒÂ©es sont triÃƒÂ©es
+            # Comparer les années (on suppose que le libellé suit un format AAAA-AAAA)
+            # On peut aussi comparer par ID si les années sont triées
             prereq_year = prereq.id_annee
             if prereq_year.id_annee >= course_year.id_annee:
-                # Le prÃƒÂ©requis ne devrait pas ÃƒÂªtre d'une annÃƒÂ©e supÃƒÂ©rieure ou ÃƒÂ©gale
+                # Le prérequis ne devrait pas être d'une année supérieure ou égale
                 # Ce cas ne devrait pas arriver si la validation du formulaire est correcte
                 missing_prereqs.append({
                     'code': prereq.code_cours,
                     'name': prereq.nom_cours,
                     'year': prereq_year.libelle,
-                    'reason': 'Le prÃƒÂ©requis doit ÃƒÂªtre d\'une annÃƒÂ©e acadÃƒÂ©mique infÃƒÂ©rieure'
+                    'reason': 'Le prérequis doit être d\'une année académique inférieure'
                 })
                 continue
         
-        # VÃƒÂ©rifier si l'ÃƒÂ©tudiant a validÃƒÂ© le prÃƒÂ©requis (statut = 'VALIDE')
+        # Vérifier si l'étudiant a validé le prérequis (statut = 'VALIDE')
         has_validated = Inscription.objects.filter(
             id_etudiant=student,
             id_cours=prereq,
@@ -222,7 +222,7 @@ def check_prerequisites(student, course):
                 'code': prereq.code_cours,
                 'name': prereq.nom_cours,
                 'year': prereq.id_annee.libelle if prereq.id_annee else 'N/A',
-                'reason': 'PrÃƒÂ©requis non validÃƒÂ©'
+                'reason': 'Prérequis non validé'
             })
     
     return (len(missing_prereqs) == 0, missing_prereqs)
@@ -230,50 +230,50 @@ def check_prerequisites(student, course):
 
 def check_previous_level_validation(student, target_niveau):
     """
-    VÃƒÂ©rifie si l'ÃƒÂ©tudiant a validÃƒÂ© TOUS les cours du niveau prÃƒÂ©cÃƒÂ©dent.
+    Vérifie si l'étudiant a validé TOUS les cours du niveau précédent.
     
     IMPORTANT POUR LA SOUTENANCE :
-    Cette fonction implÃƒÂ©mente la rÃƒÂ¨gle mÃƒÂ©tier de progression acadÃƒÂ©mique :
-    - Un ÃƒÂ©tudiant ne peut s'inscrire en niveau N que s'il a validÃƒÂ© TOUS les cours du niveau N-1
-    - Exception : Les nouveaux ÃƒÂ©tudiants peuvent ÃƒÂªtre inscrits directement en niveau 2 ou 3
-      (ÃƒÂ©tudiants transfÃƒÂ©rÃƒÂ©s, admissions directes)
+    Cette fonction implémente la règle métier de progression académique :
+    - Un étudiant ne peut s'inscrire en niveau N que s'il a validé TOUS les cours du niveau N-1
+    - Exception : Les nouveaux étudiants peuvent être inscrits directement en niveau 2 ou 3
+      (étudiants transférés, admissions directes)
     
     Logique :
-    1. Si niveau 1 : pas de vÃƒÂ©rification (retourne True)
-    2. Sinon : rÃƒÂ©cupÃƒÂ©rer tous les cours du niveau prÃƒÂ©cÃƒÂ©dent
-    3. VÃƒÂ©rifier que l'ÃƒÂ©tudiant a validÃƒÂ© TOUS ces cours (status='VALIDE')
-    4. Retourner True si tous validÃƒÂ©s, False avec la liste des cours manquants
+    1. Si niveau 1 : pas de vérification (retourne True)
+    2. Sinon : récupérer tous les cours du niveau précédent
+    3. Vérifier que l'étudiant a validé TOUS ces cours (status='VALIDE')
+    4. Retourner True si tous validés, False avec la liste des cours manquants
     
     Utilisation :
-    - AppelÃƒÂ©e lors de l'inscription ÃƒÂ  un niveau complet
-    - Bloque l'inscription si le niveau prÃƒÂ©cÃƒÂ©dent n'est pas validÃƒÂ©
-    - Permet d'afficher un message explicite ÃƒÂ  l'utilisateur
+    - Appelée lors de l'inscription à un niveau complet
+    - Bloque l'inscription si le niveau précédent n'est pas validé
+    - Permet d'afficher un message explicite à l'utilisateur
     
     Args:
-        student: Instance de User (ÃƒÂ©tudiant) ÃƒÂ  vÃƒÂ©rifier
-        target_niveau: Niveau cible (1, 2 ou 3) pour lequel vÃƒÂ©rifier le niveau prÃƒÂ©cÃƒÂ©dent
+        student: Instance de User (étudiant) à vérifier
+        target_niveau: Niveau cible (1, 2 ou 3) pour lequel vérifier le niveau précédent
         
     Returns:
         Tuple (is_valid, missing_courses_list) :
-        - is_valid: True si tous les cours du niveau prÃƒÂ©cÃƒÂ©dent sont validÃƒÂ©s
-        - missing_courses_list: Liste des cours non validÃƒÂ©s avec code et nom
+        - is_valid: True si tous les cours du niveau précédent sont validés
+        - missing_courses_list: Liste des cours non validés avec code et nom
     """
     if target_niveau == 1:
-        # Pas de prÃƒÂ©requis pour l'AnnÃƒÂ©e 1 (premier niveau)
+        # Pas de prérequis pour l'Année 1 (premier niveau)
         return (True, [])
     
     previous_niveau = target_niveau - 1
     
-    # RÃƒÂ©cupÃƒÂ©rer tous les cours du niveau prÃƒÂ©cÃƒÂ©dent
+    # Récupérer tous les cours du niveau précédent
     previous_level_courses = Cours.objects.filter(
         niveau=previous_niveau,
         actif=True
     )
     
     if not previous_level_courses.exists():
-        return (True, [])  # Pas de cours dans le niveau prÃƒÂ©cÃƒÂ©dent
+        return (True, [])  # Pas de cours dans le niveau précédent
     
-    # VÃƒÂ©rifier que l'ÃƒÂ©tudiant a validÃƒÂ© TOUS les cours du niveau prÃƒÂ©cÃƒÂ©dent
+    # Vérifier que l'étudiant a validé TOUS les cours du niveau précédent
     missing_courses = []
     for course in previous_level_courses:
         has_validated = Inscription.objects.filter(
@@ -296,34 +296,34 @@ def check_previous_level_validation(student, target_niveau):
 @require_http_methods(["GET", "POST"])
 def enroll_student(request):
     """
-    Vue pour l'inscription d'un ÃƒÂ©tudiant ÃƒÂ  un cours ou ÃƒÂ  un niveau complet.
+    Vue pour l'inscription d'un étudiant à un cours ou à un niveau complet.
     
     IMPORTANT POUR LA SOUTENANCE :
-    Cette fonction implÃƒÂ©mente la logique mÃƒÂ©tier complexe de l'inscription :
+    Cette fonction implémente la logique métier complexe de l'inscription :
     
-    1. INSCRIPTION Ãƒâ‚¬ UN NIVEAU COMPLET :
-       - SÃƒÂ©lection du niveau (1, 2 ou 3)
-       - VÃƒÂ©rification que l'ÃƒÂ©tudiant a validÃƒÂ© le niveau prÃƒÂ©cÃƒÂ©dent
-       - Exception : nouveaux ÃƒÂ©tudiants peuvent ÃƒÂªtre inscrits directement en niveau 2 ou 3
-       - Inscription automatique ÃƒÂ  tous les cours du niveau sÃƒÂ©lectionnÃƒÂ©
-       - Mise ÃƒÂ  jour du niveau de l'ÃƒÂ©tudiant
+    1. INSCRIPTION À UN NIVEAU COMPLET :
+       - Sélection du niveau (1, 2 ou 3)
+       - Vérification que l'étudiant a validé le niveau précédent
+       - Exception : nouveaux étudiants peuvent être inscrits directement en niveau 2 ou 3
+       - Inscription automatique à tous les cours du niveau sélectionné
+       - Mise à jour du niveau de l'étudiant
     
-    2. INSCRIPTION Ãƒâ‚¬ UN COURS SPÃƒâ€°CIFIQUE :
-       - SÃƒÂ©lection d'un cours prÃƒÂ©cis
-       - VÃƒÂ©rification des prÃƒÂ©requis du cours
-       - Blocage si prÃƒÂ©requis non validÃƒÂ©s
+    2. INSCRIPTION À UN COURS SPÉCIFIQUE :
+       - Sélection d'un cours précis
+       - Vérification des prérequis du cours
+       - Blocage si prérequis non validés
     
-    3. CRÃƒâ€°ATION DE COMPTE Ãƒâ€°TUDIANT :
-       - CrÃƒÂ©ation d'un compte avec mot de passe temporaire
+    3. CRÉATION DE COMPTE ÉTUDIANT :
+       - Création d'un compte avec mot de passe temporaire
        - Champ must_change_password = True (force le changement au premier login)
     
-    SÃƒâ€°CURITÃƒâ€° :
-    - Utilise @secretary_required : seul le secrÃƒÂ©tariat peut inscrire
+    SÉCURITÉ :
+    - Utilise @secretary_required : seul le secrétariat peut inscrire
     - Transaction atomique : toutes les inscriptions ou aucune (rollback en cas d'erreur)
-    - Logging complet pour traÃƒÂ§abilitÃƒÂ©
+    - Logging complet pour traçabilité
     
     Args:
-        request: Objet HttpRequest contenant les donnÃƒÂ©es du formulaire
+        request: Objet HttpRequest contenant les données du formulaire
         
     Returns:
         HttpResponse avec le formulaire ou redirection vers la liste des inscriptions
@@ -332,38 +332,38 @@ def enroll_student(request):
     student_form = StudentCreationForm(request.POST or None, prefix='student')
     
     if request.method == 'POST':
-        # DÃƒÂ©terminer si on crÃƒÂ©e un nouvel ÃƒÂ©tudiant
+        # Déterminer si on crée un nouvel étudiant
         create_new = request.POST.get('create_new_student') == 'on'
         
         # Valider les formulaires
         if create_new:
             if not student_form.is_valid():
-                messages.error(request, "Erreur dans les donnÃƒÂ©es de l'ÃƒÂ©tudiant.")
+                messages.error(request, "Erreur dans les données de l'étudiant.")
                 return render(request, 'enrollments/enrollment_form.html', {
                     'enrollment_form': enrollment_form,
                     'student_form': student_form,
                 })
         
         if not enrollment_form.is_valid():
-            messages.error(request, "Erreur dans les donnÃƒÂ©es d'inscription.")
+            messages.error(request, "Erreur dans les données d'inscription.")
             return render(request, 'enrollments/enrollment_form.html', {
                 'enrollment_form': enrollment_form,
                 'student_form': student_form,
             })
         
-        # RÃƒÂ©cupÃƒÂ©rer ou crÃƒÂ©er l'ÃƒÂ©tudiant
+        # Récupérer ou créer l'étudiant
         if create_new:
             try:
                 student = student_form.create_student()
                 log_action(
                     request.user,
-                    f"CRITIQUE: CrÃƒÂ©ation du compte ÃƒÂ©tudiant '{student.email}' ({student.get_full_name()}) lors de l'inscription",
+                    f"CRITIQUE: Création du compte étudiant '{student.email}' ({student.get_full_name()}) lors de l'inscription",
                     request,
                     niveau='CRITIQUE',
                     objet_type='USER',
                     objet_id=student.id_utilisateur
                 )
-                messages.info(request, f"Compte ÃƒÂ©tudiant crÃƒÂ©ÃƒÂ© pour {student.get_full_name()} ({student.email}).")
+                messages.info(request, f"Compte étudiant créé pour {student.get_full_name()} ({student.email}).")
             except Exception:
                 logger.exception("Erreur lors de la creation du compte etudiant")
                 messages.error(request, "Une erreur interne est survenue lors de la creation du compte etudiant.")
@@ -376,17 +376,17 @@ def enroll_student(request):
             try:
                 student = User.objects.get(email=student_email, role=User.Role.ETUDIANT)
             except User.DoesNotExist:
-                messages.error(request, f"Aucun ÃƒÂ©tudiant trouvÃƒÂ© avec l'e-mail {student_email}.")
+                messages.error(request, f"Aucun étudiant trouvé avec l'e-mail {student_email}.")
                 return render(request, 'enrollments/enrollment_form.html', {
                     'enrollment_form': enrollment_form,
                     'student_form': student_form,
                 })
         
-        # RÃƒÂ©cupÃƒÂ©rer l'annÃƒÂ©e acadÃƒÂ©mique (utiliser l'annÃƒÂ©e active si disponible)
+        # Récupérer l'année académique (utiliser l'année active si disponible)
         selected_year = enrollment_form.cleaned_data['academic_year']
         active_year = AnneeAcademique.objects.filter(active=True).first()
         
-        # Utiliser l'annÃƒÂ©e active si elle existe, sinon celle sÃƒÂ©lectionnÃƒÂ©e
+        # Utiliser l'année active si elle existe, sinon celle sélectionnée
         year = active_year if active_year else selected_year
         
         enrollment_type = enrollment_form.cleaned_data['enrollment_type']
@@ -397,87 +397,87 @@ def enroll_student(request):
         
         if enrollment_type == 'LEVEL':
             """
-            INSCRIPTION Ãƒâ‚¬ UN NIVEAU COMPLET
+            INSCRIPTION À UN NIVEAU COMPLET
             
-            Logique mÃƒÂ©tier :
-            - L'inscription ÃƒÂ  un niveau complet = inscription ÃƒÂ  tous les cours du niveau sÃƒÂ©lectionnÃƒÂ©
-            - Le niveau de l'ÃƒÂ©tudiant est mis ÃƒÂ  jour automatiquement
-            - VÃƒÂ©rification que l'ÃƒÂ©tudiant a validÃƒÂ© le niveau prÃƒÂ©cÃƒÂ©dent (sauf nouveaux ÃƒÂ©tudiants)
+            Logique métier :
+            - L'inscription à un niveau complet = inscription à tous les cours du niveau sélectionné
+            - Le niveau de l'étudiant est mis à jour automatiquement
+            - Vérification que l'étudiant a validé le niveau précédent (sauf nouveaux étudiants)
             """
             
             niveau = int(enrollment_form.cleaned_data['niveau'])
             
             # ============================================
-            # VÃƒâ€°RIFICATION DES PRÃƒâ€°REQUIS DE NIVEAU
+            # VÉRIFICATION DES PRÉREQUIS DE NIVEAU
             # ============================================
-            # IMPORTANT : Un ÃƒÂ©tudiant ne peut s'inscrire en niveau N que s'il a validÃƒÂ© le niveau N-1
-            # Exception : Les nouveaux ÃƒÂ©tudiants (crÃƒÂ©ÃƒÂ©s lors de cette inscription) peuvent ÃƒÂªtre
-            # inscrits directement en niveau 2 ou 3 (ÃƒÂ©tudiants transfÃƒÂ©rÃƒÂ©s, admissions directes)
+            # IMPORTANT : Un étudiant ne peut s'inscrire en niveau N que s'il a validé le niveau N-1
+            # Exception : Les nouveaux étudiants (créés lors de cette inscription) peuvent être
+            # inscrits directement en niveau 2 ou 3 (étudiants transférés, admissions directes)
             
             is_new_student = create_new
             is_valid, missing_courses = check_previous_level_validation(student, niveau)
             
             if not is_valid and not is_new_student:
-                # Pour un ÃƒÂ©tudiant existant, on vÃƒÂ©rifie strictement les prÃƒÂ©requis
+                # Pour un étudiant existant, on vérifie strictement les prérequis
                 missing_list = ', '.join([f"{c['code']} - {c['name']}" for c in missing_courses])
                 messages.error(
                     request,
-                    f"L'ÃƒÂ©tudiant {student.get_full_name()} n'a pas validÃƒÂ© tous les cours de l'AnnÃƒÂ©e {niveau - 1}. "
+                    f"L'étudiant {student.get_full_name()} n'a pas validé tous les cours de l'Année {niveau - 1}. "
                     f"Cours manquants : {missing_list}. "
-                    f"Il ne peut pas s'inscrire ÃƒÂ  l'AnnÃƒÂ©e {niveau}."
+                    f"Il ne peut pas s'inscrire à l'Année {niveau}."
                 )
-                logger.warning(f"Tentative d'inscription bloquÃƒÂ©e pour {student.email} en niveau {niveau}: prÃƒÂ©requis manquants")
+                logger.warning(f"Tentative d'inscription bloquée pour {student.email} en niveau {niveau}: prérequis manquants")
                 return render(request, 'enrollments/enrollment_form.html', {
                     'enrollment_form': enrollment_form,
                     'student_form': student_form,
                 })
             elif not is_valid and is_new_student:
-                # Pour un nouvel ÃƒÂ©tudiant, on autorise mais on avertit
+                # Pour un nouvel étudiant, on autorise mais on avertit
                 missing_list = ', '.join([f"{c['code']} - {c['name']}" for c in missing_courses])
                 messages.warning(
                     request,
-                    f"Attention : L'ÃƒÂ©tudiant {student.get_full_name()} est inscrit directement en AnnÃƒÂ©e {niveau} "
-                    f"sans avoir validÃƒÂ© l'AnnÃƒÂ©e {niveau - 1} (cours manquants : {missing_list}). "
-                    f"Cette inscription est autorisÃƒÂ©e car il s'agit d'un nouvel ÃƒÂ©tudiant (ÃƒÂ©tudiant transfÃƒÂ©rÃƒÂ© ou admission directe)."
+                    f"Attention : L'étudiant {student.get_full_name()} est inscrit directement en Année {niveau} "
+                    f"sans avoir validé l'Année {niveau - 1} (cours manquants : {missing_list}). "
+                    f"Cette inscription est autorisée car il s'agit d'un nouvel étudiant (étudiant transféré ou admission directe)."
                 )
-                logger.info(f"Inscription directe en niveau {niveau} autorisÃƒÂ©e pour nouvel ÃƒÂ©tudiant {student.email}")
+                logger.info(f"Inscription directe en niveau {niveau} autorisée pour nouvel étudiant {student.email}")
             
-            # RÃƒÂ©cupÃƒÂ©rer tous les cours du niveau pour l'annÃƒÂ©e acadÃƒÂ©mique
+            # Récupérer tous les cours du niveau pour l'année académique
             level_courses = Cours.objects.filter(
                 niveau=niveau,
                 id_annee=year,
                 actif=True
             )
             
-            # Log de dÃƒÂ©bogage
-            logger.info(f"Inscription niveau {niveau} pour ÃƒÂ©tudiant {student.email}")
-            logger.info(f"AnnÃƒÂ©e acadÃƒÂ©mique utilisÃƒÂ©e: {year.libelle} (ID: {year.id_annee})")
-            logger.info(f"Cours trouvÃƒÂ©s: {level_courses.count()}")
+            # Log de débogage
+            logger.info(f"Inscription niveau {niveau} pour étudiant {student.email}")
+            logger.info(f"Année académique utilisée: {year.libelle} (ID: {year.id_annee})")
+            logger.info(f"Cours trouvés: {level_courses.count()}")
             for c in level_courses:
-                logger.info(f"  - {c.code_cours} (niveau={c.niveau}, annÃƒÂ©e={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})")
+                logger.info(f"  - {c.code_cours} (niveau={c.niveau}, année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})")
             
             if not level_courses.exists():
-                # VÃƒÂ©rifier si des cours existent avec ce niveau mais sans annÃƒÂ©e acadÃƒÂ©mique
+                # Vérifier si des cours existent avec ce niveau mais sans année académique
                 courses_without_year = Cours.objects.filter(
                     niveau=niveau,
                     actif=True,
                     id_annee__isnull=True
                 )
                 
-                # VÃƒÂ©rifier si des cours existent avec ce niveau mais avec une autre annÃƒÂ©e
+                # Vérifier si des cours existent avec ce niveau mais avec une autre année
                 courses_other_year = Cours.objects.filter(
                     niveau=niveau,
                     actif=True
                 ).exclude(id_annee=year)
                 
-                error_msg = f"Aucun cours actif trouvÃƒÂ© pour l'AnnÃƒÂ©e {niveau} dans l'annÃƒÂ©e acadÃƒÂ©mique {year.libelle}."
+                error_msg = f"Aucun cours actif trouvé pour l'Année {niveau} dans l'année académique {year.libelle}."
                 
                 if courses_without_year.exists():
-                    error_msg += f" {courses_without_year.count()} cours trouvÃƒÂ©(s) sans annÃƒÂ©e acadÃƒÂ©mique assignÃƒÂ©e."
+                    error_msg += f" {courses_without_year.count()} cours trouvé(s) sans année académique assignée."
                 
                 if courses_other_year.exists():
                     other_years = courses_other_year.values_list('id_annee__libelle', flat=True).distinct()
-                    error_msg += f" {courses_other_year.count()} cours trouvÃƒÂ©(s) dans d'autres annÃƒÂ©es : {', '.join([y for y in other_years if y])}."
+                    error_msg += f" {courses_other_year.count()} cours trouvé(s) dans d'autres années : {', '.join([y for y in other_years if y])}."
                 
                 messages.warning(request, error_msg)
                 return render(request, 'enrollments/enrollment_form.html', {
@@ -485,11 +485,11 @@ def enroll_student(request):
                     'student_form': student_form,
                 })
             
-            # Mettre ÃƒÂ  jour le niveau de l'ÃƒÂ©tudiant
+            # Mettre à jour le niveau de l'étudiant
             student.niveau = niveau
             student.save()
             
-            # Inscrire l'ÃƒÂ©tudiant ÃƒÂ  tous les cours du niveau
+            # Inscrire l'étudiant à tous les cours du niveau
             enrolled_count = 0
             skipped_count = 0
             errors = []
@@ -497,7 +497,7 @@ def enroll_student(request):
             try:
                 with transaction.atomic():
                     for course in level_courses:
-                        # VÃƒÂ©rifier si dÃƒÂ©jÃƒÂ  inscrit
+                        # Vérifier si déjà inscrit
                         if Inscription.objects.filter(
                             id_etudiant=student,
                             id_cours=course,
@@ -506,15 +506,15 @@ def enroll_student(request):
                             skipped_count += 1
                             continue
                         
-                        # VÃƒÂ©rifier les prÃƒÂ©requis
+                        # Vérifier les prérequis
                         is_valid, missing_prereqs = check_prerequisites(student, course)
                         
                         if not is_valid:
                             prereq_list = ', '.join([f"{p['code']} - {p['name']}" for p in missing_prereqs])
-                            errors.append(f"{course.code_cours}: prÃƒÂ©requis manquants ({prereq_list})")
+                            errors.append(f"{course.code_cours}: prérequis manquants ({prereq_list})")
                             continue
                         
-                        # CrÃƒÂ©er l'inscription
+                        # Créer l'inscription
                         try:
                             inscription = Inscription.objects.create(
                                 id_etudiant=student,
@@ -524,7 +524,7 @@ def enroll_student(request):
                                 eligible_examen=True,
                                 status='EN_COURS'
                             )
-                            logger.info(f"Inscription crÃƒÂ©ÃƒÂ©e: ID={inscription.id_inscription}, Ãƒâ€°tudiant={student.email}, Cours={course.code_cours}, AnnÃƒÂ©e={year.libelle}")
+                            logger.info(f"Inscription créée: ID={inscription.id_inscription}, Étudiant={student.email}, Cours={course.code_cours}, Année={year.libelle}")
                             enrolled_count += 1
                         except Exception:
                             error_msg = f"{course.code_cours}: erreur lors de la creation de l'inscription"
@@ -536,14 +536,14 @@ def enroll_student(request):
                     if enrolled_count > 0:
                         log_action(
                             request.user,
-                            f"CRITIQUE: Inscription de l'ÃƒÂ©tudiant {student.get_full_name()} ({student.email}) au niveau {niveau} complet pour l'annÃƒÂ©e {year.libelle} ({enrolled_count} cours(s))",
+                            f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au niveau {niveau} complet pour l'année {year.libelle} ({enrolled_count} cours(s))",
                             request,
                             niveau='CRITIQUE',
                             objet_type='INSCRIPTION',
                             objet_id=None
                         )
                 
-                logger.info(f"RÃƒÂ©sultat final - Inscrits: {enrolled_count}, IgnorÃƒÂ©s: {skipped_count}, Erreurs: {len(errors)}")
+                logger.info(f"Résultat final - Inscrits: {enrolled_count}, Ignorés: {skipped_count}, Erreurs: {len(errors)}")
             except Exception:
                 messages.error(request, "Une erreur interne est survenue lors de l'inscription.")
                 logger.exception("Erreur d'inscription")
@@ -552,64 +552,64 @@ def enroll_student(request):
                     'student_form': student_form,
                 })
             
-            # Messages de rÃƒÂ©sultat
+            # Messages de résultat
             if enrolled_count > 0:
                 messages.success(
                     request,
-                    f"L'ÃƒÂ©tudiant {student.get_full_name()} a ÃƒÂ©tÃƒÂ© inscrit ÃƒÂ  {enrolled_count} cours(s) de l'AnnÃƒÂ©e {niveau} pour l'annÃƒÂ©e acadÃƒÂ©mique {year.libelle}. "
-                    f"Son niveau acadÃƒÂ©mique a ÃƒÂ©tÃƒÂ© mis ÃƒÂ  jour ÃƒÂ  AnnÃƒÂ©e {niveau}."
+                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours(s) de l'Année {niveau} pour l'année académique {year.libelle}. "
+                    f"Son niveau académique a été mis à jour à Année {niveau}."
                 )
             else:
-                # Si aucune inscription n'a ÃƒÂ©tÃƒÂ© crÃƒÂ©ÃƒÂ©e, donner plus de dÃƒÂ©tails
+                # Si aucune inscription n'a été créée, donner plus de détails
                 if skipped_count > 0:
                     messages.warning(
                         request,
-                        f"Aucune nouvelle inscription crÃƒÂ©ÃƒÂ©e. {skipped_count} cours(s) dÃƒÂ©jÃƒÂ  existant(s) pour cet ÃƒÂ©tudiant."
+                        f"Aucune nouvelle inscription créée. {skipped_count} cours(s) déjà existant(s) pour cet étudiant."
                     )
                 if errors:
                     messages.error(
                         request,
-                        f"Aucune inscription crÃƒÂ©ÃƒÂ©e. {len(errors)} erreur(s) de prÃƒÂ©requis dÃƒÂ©tectÃƒÂ©e(s)."
+                        f"Aucune inscription créée. {len(errors)} erreur(s) de prérequis détectée(s)."
                     )
-                    for error in errors[:5]:  # Limiter ÃƒÂ  5 erreurs
+                    for error in errors[:5]:  # Limiter à 5 erreurs
                         messages.error(request, error)
                     if len(errors) > 5:
                         messages.error(request, f"... et {len(errors) - 5} autre(s) erreur(s).")
                 else:
-                    # Aucune erreur, mais aucune inscription crÃƒÂ©ÃƒÂ©e non plus
+                    # Aucune erreur, mais aucune inscription créée non plus
                     messages.error(
                         request,
-                        f"ERREUR: Aucune inscription n'a ÃƒÂ©tÃƒÂ© crÃƒÂ©ÃƒÂ©e pour l'ÃƒÂ©tudiant {student.get_full_name()}. "
-                        f"VÃƒÂ©rifiez que les cours de niveau {niveau} existent pour l'annÃƒÂ©e acadÃƒÂ©mique {year.libelle} "
-                        f"(trouvÃƒÂ© {level_courses.count()} cours)."
+                        f"ERREUR: Aucune inscription n'a été créée pour l'étudiant {student.get_full_name()}. "
+                        f"Vérifiez que les cours de niveau {niveau} existent pour l'année académique {year.libelle} "
+                        f"(trouvé {level_courses.count()} cours)."
                     )
             
             if skipped_count > 0 and enrolled_count > 0:
                 messages.warning(
                     request,
-                    f"{skipped_count} cours(s) dÃƒÂ©jÃƒÂ  existant(s) pour cet ÃƒÂ©tudiant."
+                    f"{skipped_count} cours(s) déjà existant(s) pour cet étudiant."
                 )
             
-            # Toujours rediriger vers la page des inscriptions pour voir les rÃƒÂ©sultats
+            # Toujours rediriger vers la page des inscriptions pour voir les résultats
             return redirect('dashboard:secretary_enrollments')
         
         else:
-            # Inscription ÃƒÂ  un cours spÃƒÂ©cifique
+            # Inscription à un cours spécifique
             course = enrollment_form.cleaned_data['course']
             
-            # VÃƒÂ©rifier que le cours appartient ÃƒÂ  l'annÃƒÂ©e acadÃƒÂ©mique sÃƒÂ©lectionnÃƒÂ©e
+            # Vérifier que le cours appartient à l'année académique sélectionnée
             if course.id_annee and course.id_annee.id_annee != year.id_annee:
                 messages.error(
                     request,
-                    f"Le cours {course.code_cours} n'appartient pas ÃƒÂ  l'annÃƒÂ©e acadÃƒÂ©mique {year.libelle}. "
-                    f"Il appartient ÃƒÂ  l'annÃƒÂ©e {course.id_annee.libelle}."
+                    f"Le cours {course.code_cours} n'appartient pas à l'année académique {year.libelle}. "
+                    f"Il appartient à l'année {course.id_annee.libelle}."
                 )
                 return render(request, 'enrollments/enrollment_form.html', {
                     'enrollment_form': enrollment_form,
                     'student_form': student_form,
                 })
             
-            # VÃƒÂ©rifier si dÃƒÂ©jÃƒÂ  inscrit
+            # Vérifier si déjà inscrit
             if Inscription.objects.filter(
                 id_etudiant=student,
                 id_cours=course,
@@ -617,26 +617,26 @@ def enroll_student(request):
             ).exists():
                 messages.warning(
                     request,
-                    f"L'ÃƒÂ©tudiant {student.get_full_name()} est dÃƒÂ©jÃƒÂ  inscrit ÃƒÂ  {course.code_cours} pour l'annÃƒÂ©e {year.libelle}."
+                    f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour l'année {year.libelle}."
                 )
                 return redirect('enrollments:enroll_student')
             
-            # VÃƒÂ©rifier les prÃƒÂ©requis
+            # Vérifier les prérequis
             is_valid, missing_prereqs = check_prerequisites(student, course)
             
             if not is_valid:
-                prereq_list = ', '.join([f"{p['code']} - {p['name']} ({p.get('reason', 'non validÃƒÂ©')})" for p in missing_prereqs])
+                prereq_list = ', '.join([f"{p['code']} - {p['name']} ({p.get('reason', 'non validé')})" for p in missing_prereqs])
                 messages.error(
                     request,
-                    f"PrÃƒÂ©requis non satisfaits pour {course.code_cours}. "
-                    f"ProblÃƒÂ¨mes dÃƒÂ©tectÃƒÂ©s : {prereq_list}"
+                    f"Prérequis non satisfaits pour {course.code_cours}. "
+                    f"Problèmes détectés : {prereq_list}"
                 )
                 return render(request, 'enrollments/enrollment_form.html', {
                     'enrollment_form': enrollment_form,
                     'student_form': student_form,
                 })
             
-            # CrÃƒÂ©er l'inscription
+            # Créer l'inscription
             inscription = Inscription.objects.create(
                 id_etudiant=student,
                 id_cours=course,
@@ -649,7 +649,7 @@ def enroll_student(request):
             # Journaliser
             log_action(
                 request.user,
-                f"CRITIQUE: Inscription de l'ÃƒÂ©tudiant {student.get_full_name()} ({student.email}) au cours {course.code_cours} pour l'annÃƒÂ©e {year.libelle}",
+                f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au cours {course.code_cours} pour l'année {year.libelle}",
                 request,
                 niveau='CRITIQUE',
                 objet_type='INSCRIPTION',
@@ -658,13 +658,13 @@ def enroll_student(request):
             
             messages.success(
                 request,
-                f"L'ÃƒÂ©tudiant {student.get_full_name()} a ÃƒÂ©tÃƒÂ© inscrit avec succÃƒÂ¨s au cours {course.code_cours} pour l'annÃƒÂ©e acadÃƒÂ©mique {year.libelle}."
+                f"L'étudiant {student.get_full_name()} a été inscrit avec succès au cours {course.code_cours} pour l'année académique {year.libelle}."
             )
         
         return redirect('dashboard:secretary_enrollments')
     
     # GET request - afficher le formulaire
-    # Filtrer les cours selon l'annÃƒÂ©e acadÃƒÂ©mique par dÃƒÂ©faut (annÃƒÂ©e active)
+    # Filtrer les cours selon l'année académique par défaut (année active)
     academic_years = AnneeAcademique.objects.all().order_by('-libelle')
     default_year = academic_years.filter(active=True).first() or academic_years.first()
     
@@ -675,11 +675,11 @@ def enroll_student(request):
         ).select_related('id_annee', 'id_departement').order_by('code_cours')
         enrollment_form.fields['academic_year'].initial = default_year
     
-    # Afficher un message d'information sur l'annÃƒÂ©e acadÃƒÂ©mique utilisÃƒÂ©e
+    # Afficher un message d'information sur l'année académique utilisée
     if default_year:
         messages.info(
             request,
-            f"L'annÃƒÂ©e acadÃƒÂ©mique active ({default_year.libelle}) sera utilisÃƒÂ©e pour l'inscription."
+            f"L'année académique active ({default_year.libelle}) sera utilisée pour l'inscription."
         )
     
     return render(request, 'enrollments/enrollment_form.html', {

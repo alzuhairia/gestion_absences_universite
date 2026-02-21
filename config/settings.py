@@ -243,6 +243,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "fr"
 TIME_ZONE = "Europe/Brussels"
+DEFAULT_CHARSET = "utf-8"
 USE_I18N = True
 USE_TZ = True
 
