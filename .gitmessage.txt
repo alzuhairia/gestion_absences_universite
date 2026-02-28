@@ -1,0 +1,16 @@
+# <type>(<scope>): <short message>
+#
+# Allowed types:
+# feat, fix, style, docs, refactor, test, chore
+#
+# Examples:
+# feat(dashboard): add caching for SystemSettings.get_settings()
+# fix(admin): add pagination on faculties and departments
+#
+# Body (optional):
+# - Why this change was needed
+# - Main implementation choices
+# - Impact / migration notes
+#
+# Footer (optional):
+# Closes #123

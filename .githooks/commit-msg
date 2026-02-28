@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+set -eu
+
+MSG_FILE="$1"
+FIRST_LINE="$(sed -n '1p' "$MSG_FILE" | tr -d '\r')"
+
+case "$FIRST_LINE" in
+  Merge*|Revert*|fixup\!*|squash\!*)
+    exit 0
+    ;;
+esac
+
+PATTERN='^(feat|fix|style|docs|refactor|test|chore)(\([a-z0-9._/-]+\))?!?: .+'
+
+if printf '%s' "$FIRST_LINE" | grep -Eq "$PATTERN"; then
+  exit 0
+fi
+
+cat <<'EOF'
+[commit-msg] Invalid commit message format.
+
+Expected:
+  <type>(<scope>): <short message>
+
+Allowed types:
+  feat, fix, style, docs, refactor, test, chore
+
+Examples:
+  feat(dashboard): add caching for SystemSettings.get_settings()
+  fix(admin): add pagination on faculties and departments
+EOF
+
+exit 1

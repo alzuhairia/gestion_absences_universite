@@ -45,8 +45,8 @@ from apps.enrollments.models import Inscription
 
 def is_admin(user):
     """
-    VÃ©rifie si l'utilisateur est un administrateur.
-    IMPORTANT: SÃ©parÃ© de is_secretary() pour Ã©viter la confusion des rÃ´les.
+    Vérifie si l'utilisateur est un administrateur.
+    IMPORTANT: Séparé de is_secretary() pour éviter la confusion des rôles.
     """
     return user.is_authenticated and user.role == User.Role.ADMIN
 
@@ -55,13 +55,13 @@ def is_admin(user):
 def admin_dashboard_main(request):
     """
     Tableau de bord principal de l'administrateur avec KPIs et vue d'ensemble.
-    IMPORTANT: L'administrateur configure et audite, il ne gÃ¨re PAS les opÃ©rations quotidiennes.
+    IMPORTANT: L'administrateur configure et audite, il ne gère PAS les opérations quotidiennes.
     """
 
-    # RÃ©cupÃ©rer l'annÃ©e acadÃ©mique active
+    # Récupérer l'année académique active
     academic_year = AnneeAcademique.objects.filter(active=True).first()
 
-    # KPI 1: Nombre total d'Ã©tudiants
+    # KPI 1: Nombre total d'étudiants
     total_students = User.objects.filter(role=User.Role.ETUDIANT, actif=True).count()
 
     # KPI 2: Nombre total de professeurs
@@ -69,18 +69,18 @@ def admin_dashboard_main(request):
         role=User.Role.PROFESSEUR, actif=True
     ).count()
 
-    # KPI 3: Nombre de secrÃ©taires
+    # KPI 3: Nombre de secrétaires
     total_secretaries = User.objects.filter(
         role=User.Role.SECRETAIRE, actif=True
     ).count()
 
     # KPI 4: Nombre de cours actifs
-    # Pour le dashboard admin, on compte tous les cours actifs (configurÃ©s et prÃªts Ã  Ãªtre utilisÃ©s)
-    # Un cours est considÃ©rÃ© comme "actif" s'il est marquÃ© comme actif dans le systÃ¨me
+    # Pour le dashboard admin, on compte tous les cours actifs (configurés et prêts à être utilisés)
+    # Un cours est considéré comme "actif" s'il est marqué comme actif dans le système
     active_courses = Cours.objects.filter(actif=True).count()
 
-    # Optionnel : Compter aussi les cours avec professeur assignÃ© ET utilisÃ©s dans l'annÃ©e active
-    # (pour avoir une vue plus dÃ©taillÃ©e)
+    # Optionnel : Compter aussi les cours avec professeur assigné ET utilisés dans l'année active
+    # (pour avoir une vue plus détaillée)
     if academic_year:
         active_courses_with_activity = (
             Cours.objects.filter(actif=True, professeur__isnull=False)
@@ -102,7 +102,7 @@ def admin_dashboard_main(request):
     else:
         active_courses_with_activity = 0
 
-    # KPI 5: Nombre d'alertes systÃ¨me (Ã©tudiants Ã  risque > 40%)
+    # KPI 5: Nombre d'alertes système (étudiants à risque > 40%)
     at_risk_count = 0
     all_inscriptions = Inscription.objects.select_related(
         "id_cours", "id_etudiant"
@@ -136,7 +136,7 @@ def admin_dashboard_main(request):
     else:
         total_inscriptions = 0
 
-    # KPI 8: Total d'absences enregistrÃ©es (annÃ©e active)
+    # KPI 8: Total d'absences enregistrées (année active)
     if academic_year:
         total_absences = Absence.objects.filter(
             id_inscription__id_annee=academic_year
@@ -144,12 +144,12 @@ def admin_dashboard_main(request):
     else:
         total_absences = 0
 
-    # Journaux d'audit rÃ©cents
+    # Journaux d'audit récents
     recent_audits = LogAudit.objects.select_related("id_utilisateur").order_by(
         "-date_action"
     )[:10]
 
-    # ParamÃ¨tres systÃ¨me
+    # Paramètres système
     settings = SystemSettings.get_settings()
 
     context = {
@@ -169,13 +169,13 @@ def admin_dashboard_main(request):
     return render(request, "dashboard/admin_dashboard.html", context)
 
 
-# ========== GESTION DE LA STRUCTURE ACADÃ‰MIQUE ==========
+# ========== GESTION DE LA STRUCTURE ACADÉMIQUE ==========
 
 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_faculties(request):
-    """Liste et crÃ©ation de facultÃ©s"""
+    """Liste et création de facultés"""
 
     if request.method == "POST":
         form = FaculteForm(request.POST)
@@ -183,26 +183,28 @@ def admin_faculties(request):
             faculte = form.save()
             log_action(
                 request.user,
-                f"CRITIQUE: CrÃ©ation de la facultÃ© '{faculte.nom_faculte}' (Configuration systÃ¨me)",
+                f"CRITIQUE: Création de la faculté '{faculte.nom_faculte}' (Configuration système)",
                 request,
                 niveau="CRITIQUE",
                 objet_type="FACULTE",
                 objet_id=faculte.id_faculte,
             )
             messages.success(
-                request, f"FacultÃ© '{faculte.nom_faculte}' crÃ©Ã©e avec succÃ¨s."
+                request, f"Faculté '{faculte.nom_faculte}' créée avec succès."
             )
             return redirect("dashboard:admin_faculties")
     else:
         form = FaculteForm()
 
     faculties = Faculte.objects.all().order_by("nom_faculte")
+    paginator = Paginator(faculties, 20)
+    faculties_page = paginator.get_page(request.GET.get("page"))
 
     return render(
         request,
         "dashboard/admin_faculties.html",
         {
-            "faculties": faculties,
+            "faculties": faculties_page,
             "form": form,
         },
     )
@@ -211,7 +213,7 @@ def admin_faculties(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_faculty_edit(request, faculte_id):
-    """Modification ou dÃ©sactivation d'une facultÃ©"""
+    """Modification ou désactivation d'une faculté"""
 
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
 
@@ -220,17 +222,17 @@ def admin_faculty_edit(request, faculte_id):
         if form.is_valid():
             old_name = faculte.nom_faculte
             faculte = form.save()
-            action = "modifiÃ©e" if faculte.actif else "dÃ©sactivÃ©e"
+            action = "modifiée" if faculte.actif else "désactivée"
             log_action(
                 request.user,
-                f"CRITIQUE: FacultÃ© '{old_name}' {action} (Configuration systÃ¨me - {'Activation' if faculte.actif else 'DÃ©sactivation'})",
+                f"CRITIQUE: Faculté '{old_name}' {action} (Configuration système - {'Activation' if faculte.actif else 'Désactivation'})",
                 request,
                 niveau="CRITIQUE",
                 objet_type="FACULTE",
                 objet_id=faculte.id_faculte,
             )
             messages.success(
-                request, f"FacultÃ© '{faculte.nom_faculte}' {action} avec succÃ¨s."
+                request, f"Faculté '{faculte.nom_faculte}' {action} avec succès."
             )
             return redirect("dashboard:admin_faculties")
     else:
@@ -247,34 +249,51 @@ def admin_faculty_edit(request, faculte_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_faculty_delete(request, faculte_id):
-    """Suppression d'une facultÃ© avec suppression en cascade des dÃ©partements et cours"""
+    """Suppression d'une faculté avec suppression en cascade des départements et cours"""
 
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
     faculte_nom = faculte.nom_faculte
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+    from apps.enrollments.models import Inscription
+
+    departements = Departement.objects.filter(id_faculte=faculte)
+    departements_count = departements.count()
+    cours = Cours.objects.filter(id_departement__in=departements)
+    cours_count = cours.count()
+    inscriptions = Inscription.objects.filter(id_cours__in=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours__in=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": departements_count, "label": "département(s)"},
+                {"count": cours_count, "label": "cours"},
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Faculté « {faculte_nom} »",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/faculties/",
+            "cancel_label": "Facultés",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-        from apps.enrollments.models import Inscription
-
-        departements = Departement.objects.filter(id_faculte=faculte)
-        departements_count = departements.count()
-        cours = Cours.objects.filter(id_departement__in=departements)
-        cours_count = cours.count()
-
-        inscriptions = Inscription.objects.filter(id_cours__in=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours__in=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -287,13 +306,13 @@ def admin_faculty_delete(request, faculte_id):
         # Construire le message de cascade
         cascade_info = []
         if departements_count > 0:
-            cascade_info.append(f"{departements_count} dÃ©partement(s)")
+            cascade_info.append(f"{departements_count} département(s)")
         if cours_count > 0:
             cascade_info.append(f"{cours_count} cours")
         if inscriptions_count > 0:
             cascade_info.append(f"{inscriptions_count} inscription(s)")
         if seances_count > 0:
-            cascade_info.append(f"{seances_count} sÃ©ance(s)")
+            cascade_info.append(f"{seances_count} séance(s)")
         if absences_count > 0:
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
@@ -308,44 +327,44 @@ def admin_faculty_delete(request, faculte_id):
         # Journaliser la suppression
         log_action(
             request.user,
-            f"CRITIQUE: Suppression de la facultÃ© '{faculte_nom}' (ID: {faculte_id}){cascade_msg} - Configuration systÃ¨me",
+            f"CRITIQUE: Suppression de la faculté '{faculte_nom}' (ID: {faculte_id}){cascade_msg} - Configuration système",
             request,
             niveau="CRITIQUE",
             objet_type="FACULTE",
             objet_id=faculte_id,
         )
 
-        success_msg = f"FacultÃ© '{faculte_nom}' supprimÃ©e avec succÃ¨s."
+        success_msg = f"Faculté '{faculte_nom}' supprimée avec succès."
         if cascade_info:
             success_msg += (
-                f" Suppression en cascade effectuÃ©e : {', '.join(cascade_info)}."
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
             )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
-        # GÃ©rer les erreurs PROTECT
+        # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
         logger.error(
-            f"ProtectedError lors de la suppression de la facultÃ© {faculte_nom}: {e}"
+            f"ProtectedError lors de la suppression de la faculté {faculte_nom}: {e}"
         )
         messages.error(
             request,
-            f"Impossible de supprimer la facultÃ© '{faculte_nom}'. "
-            f"DÃ©pendances trouvÃ©es : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces Ã©lÃ©ments.",
+            f"Impossible de supprimer la faculté '{faculte_nom}'. "
+            f"Dépendances trouvées : {', '.join(protected_objects)}. "
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
         logger.error(
-            f"Erreur lors de la suppression de la facultÃ© {faculte_nom}: {e}",
+            f"Erreur lors de la suppression de la faculté {faculte_nom}: {e}",
             exc_info=True,
         )
         messages.error(
             request,
-            f"Erreur lors de la suppression de la facultÃ© '{faculte_nom}'. "
-            f"Veuillez vÃ©rifier les dÃ©pendances ou contacter l'administrateur systÃ¨me.",
+            f"Erreur lors de la suppression de la faculté '{faculte_nom}'. "
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
     return redirect("dashboard:admin_faculties")
@@ -354,7 +373,7 @@ def admin_faculty_delete(request, faculte_id):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_departments(request):
-    """Liste et crÃ©ation de dÃ©partements"""
+    """Liste et création de départements"""
 
     if request.method == "POST":
         form = DepartementForm(request.POST)
@@ -362,14 +381,14 @@ def admin_departments(request):
             dept = form.save()
             log_action(
                 request.user,
-                f"CRITIQUE: CrÃ©ation du dÃ©partement '{dept.nom_departement}' dans la facultÃ© '{dept.id_faculte.nom_faculte}' (Configuration systÃ¨me)",
+                f"CRITIQUE: Création du département '{dept.nom_departement}' dans la faculté '{dept.id_faculte.nom_faculte}' (Configuration système)",
                 request,
                 niveau="CRITIQUE",
                 objet_type="DEPARTEMENT",
                 objet_id=dept.id_departement,
             )
             messages.success(
-                request, f"DÃ©partement '{dept.nom_departement}' crÃ©Ã© avec succÃ¨s."
+                request, f"Département '{dept.nom_departement}' créé avec succès."
             )
             return redirect("dashboard:admin_departments")
     else:
@@ -380,12 +399,14 @@ def admin_departments(request):
         .all()
         .order_by("id_faculte__nom_faculte", "nom_departement")
     )
+    paginator = Paginator(departments, 20)
+    departments_page = paginator.get_page(request.GET.get("page"))
 
     return render(
         request,
         "dashboard/admin_departments.html",
         {
-            "departments": departments,
+            "departments": departments_page,
             "form": form,
         },
     )
@@ -394,7 +415,7 @@ def admin_departments(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_department_edit(request, dept_id):
-    """Modification ou dÃ©sactivation d'un dÃ©partement"""
+    """Modification ou désactivation d'un département"""
 
     dept = get_object_or_404(Departement, id_departement=dept_id)
 
@@ -403,17 +424,17 @@ def admin_department_edit(request, dept_id):
         if form.is_valid():
             old_name = dept.nom_departement
             dept = form.save()
-            action = "modifiÃ©" if dept.actif else "dÃ©sactivÃ©"
+            action = "modifié" if dept.actif else "désactivé"
             log_action(
                 request.user,
-                f"CRITIQUE: DÃ©partement '{old_name}' {action} (Configuration systÃ¨me - {'Activation' if dept.actif else 'DÃ©sactivation'})",
+                f"CRITIQUE: Département '{old_name}' {action} (Configuration système - {'Activation' if dept.actif else 'Désactivation'})",
                 request,
                 niveau="CRITIQUE",
                 objet_type="DEPARTEMENT",
                 objet_id=dept.id_departement,
             )
             messages.success(
-                request, f"DÃ©partement '{dept.nom_departement}' {action} avec succÃ¨s."
+                request, f"Département '{dept.nom_departement}' {action} avec succès."
             )
             return redirect("dashboard:admin_departments")
     else:
@@ -430,32 +451,48 @@ def admin_department_edit(request, dept_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_department_delete(request, dept_id):
-    """Suppression d'un dÃ©partement avec suppression en cascade des cours"""
+    """Suppression d'un département avec suppression en cascade des cours"""
 
     dept = get_object_or_404(Departement, id_departement=dept_id)
     dept_nom = dept.nom_departement
     faculte_nom = dept.id_faculte.nom_faculte
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+
+    cours = Cours.objects.filter(id_departement=dept)
+    cours_count = cours.count()
+    inscriptions = Inscription.objects.filter(id_cours__in=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours__in=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": cours_count, "label": "cours"},
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Département « {dept_nom} » (Faculté : {faculte_nom})",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/departments/",
+            "cancel_label": "Départements",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-
-        cours = Cours.objects.filter(id_departement=dept)
-        cours_count = cours.count()
-
-        inscriptions = Inscription.objects.filter(id_cours__in=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours__in=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -471,7 +508,7 @@ def admin_department_delete(request, dept_id):
         if inscriptions_count > 0:
             cascade_info.append(f"{inscriptions_count} inscription(s)")
         if seances_count > 0:
-            cascade_info.append(f"{seances_count} sÃ©ance(s)")
+            cascade_info.append(f"{seances_count} séance(s)")
         if absences_count > 0:
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
@@ -486,44 +523,44 @@ def admin_department_delete(request, dept_id):
         # Journaliser la suppression
         log_action(
             request.user,
-            f"CRITIQUE: Suppression du dÃ©partement '{dept_nom}' (FacultÃ©: {faculte_nom}, ID: {dept_id}){cascade_msg} - Configuration systÃ¨me",
+            f"CRITIQUE: Suppression du département '{dept_nom}' (Faculté: {faculte_nom}, ID: {dept_id}){cascade_msg} - Configuration système",
             request,
             niveau="CRITIQUE",
             objet_type="DEPARTEMENT",
             objet_id=dept_id,
         )
 
-        success_msg = f"DÃ©partement '{dept_nom}' supprimÃ© avec succÃ¨s."
+        success_msg = f"Département '{dept_nom}' supprimé avec succès."
         if cascade_info:
             success_msg += (
-                f" Suppression en cascade effectuÃ©e : {', '.join(cascade_info)}."
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
             )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
-        # GÃ©rer les erreurs PROTECT
+        # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
         logger.error(
-            f"ProtectedError lors de la suppression du dÃ©partement {dept_nom}: {e}"
+            f"ProtectedError lors de la suppression du département {dept_nom}: {e}"
         )
         messages.error(
             request,
-            f"Impossible de supprimer le dÃ©partement '{dept_nom}'. "
-            f"DÃ©pendances trouvÃ©es : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces Ã©lÃ©ments.",
+            f"Impossible de supprimer le département '{dept_nom}'. "
+            f"Dépendances trouvées : {', '.join(protected_objects)}. "
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
         logger.error(
-            f"Erreur lors de la suppression du dÃ©partement {dept_nom}: {e}",
+            f"Erreur lors de la suppression du département {dept_nom}: {e}",
             exc_info=True,
         )
         messages.error(
             request,
-            f"Erreur lors de la suppression du dÃ©partement '{dept_nom}'. "
-            f"Veuillez vÃ©rifier les dÃ©pendances ou contacter l'administrateur systÃ¨me.",
+            f"Erreur lors de la suppression du département '{dept_nom}'. "
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
     return redirect("dashboard:admin_departments")
@@ -532,7 +569,7 @@ def admin_department_delete(request, dept_id):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_courses(request):
-    """Liste et crÃ©ation de cours"""
+    """Liste et création de cours"""
 
     if request.method == "POST":
         form = CoursForm(request.POST)
@@ -540,14 +577,14 @@ def admin_courses(request):
             cours = form.save()
             log_action(
                 request.user,
-                f"CRITIQUE: CrÃ©ation du cours '{cours.code_cours} - {cours.nom_cours}' (DÃ©partement: {cours.id_departement.nom_departement}, Seuil: {cours.get_seuil_absence()}%)",
+                f"CRITIQUE: Création du cours '{cours.code_cours} - {cours.nom_cours}' (Département: {cours.id_departement.nom_departement}, Seuil: {cours.get_seuil_absence()}%)",
                 request,
                 niveau="CRITIQUE",
                 objet_type="COURS",
                 objet_id=cours.id_cours,
             )
             messages.success(
-                request, f"Cours '{cours.code_cours}' crÃ©Ã© avec succÃ¨s."
+                request, f"Cours '{cours.code_cours}' créé avec succès."
             )
             return redirect("dashboard:admin_courses")
     else:
@@ -579,7 +616,7 @@ def admin_courses(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_course_edit(request, course_id):
-    """Modification ou dÃ©sactivation d'un cours"""
+    """Modification ou désactivation d'un cours"""
 
     cours = get_object_or_404(Cours, id_cours=course_id)
 
@@ -588,17 +625,17 @@ def admin_course_edit(request, course_id):
         if form.is_valid():
             old_code = cours.code_cours
             cours = form.save()
-            action = "modifiÃ©" if cours.actif else "dÃ©sactivÃ©"
+            action = "modifié" if cours.actif else "désactivé"
             log_action(
                 request.user,
-                f"CRITIQUE: Cours '{old_code}' {action} (Configuration systÃ¨me - {'Activation' if cours.actif else 'DÃ©sactivation'})",
+                f"CRITIQUE: Cours '{old_code}' {action} (Configuration système - {'Activation' if cours.actif else 'Désactivation'})",
                 request,
                 niveau="CRITIQUE",
                 objet_type="COURS",
                 objet_id=cours.id_cours,
             )
             messages.success(
-                request, f"Cours '{cours.code_cours}' {action} avec succÃ¨s."
+                request, f"Cours '{cours.code_cours}' {action} avec succès."
             )
             return redirect("dashboard:admin_courses")
     else:
@@ -615,7 +652,7 @@ def admin_course_edit(request, course_id):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_course_delete(request, course_id):
     """Suppression d'un cours avec suppression en cascade des inscriptions et absences"""
 
@@ -624,21 +661,37 @@ def admin_course_delete(request, course_id):
     cours_nom = cours.nom_cours
     dept_nom = cours.id_departement.nom_departement
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+
+    inscriptions = Inscription.objects.filter(id_cours=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/admin_confirm_delete.html", {
+            "object_label": f"Cours « {cours_code} — {cours_nom} » (Département : {dept_nom})",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/admin/courses/",
+            "cancel_label": "Cours",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-
-        inscriptions = Inscription.objects.filter(id_cours=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -651,7 +704,7 @@ def admin_course_delete(request, course_id):
         if inscriptions_count > 0:
             cascade_info.append(f"{inscriptions_count} inscription(s)")
         if seances_count > 0:
-            cascade_info.append(f"{seances_count} sÃ©ance(s)")
+            cascade_info.append(f"{seances_count} séance(s)")
         if absences_count > 0:
             cascade_info.append(f"{absences_count} absence(s)")
         if justifications_count > 0:
@@ -666,22 +719,22 @@ def admin_course_delete(request, course_id):
         # Journaliser la suppression
         log_action(
             request.user,
-            f"CRITIQUE: Suppression du cours '{cours_code} - {cours_nom}' (DÃ©partement: {dept_nom}, ID: {course_id}){cascade_msg} - Configuration systÃ¨me",
+            f"CRITIQUE: Suppression du cours '{cours_code} - {cours_nom}' (Département: {dept_nom}, ID: {course_id}){cascade_msg} - Configuration système",
             request,
             niveau="CRITIQUE",
             objet_type="COURS",
             objet_id=course_id,
         )
 
-        success_msg = f"Cours '{cours_code}' supprimÃ© avec succÃ¨s."
+        success_msg = f"Cours '{cours_code}' supprimé avec succès."
         if cascade_info:
             success_msg += (
-                f" Suppression en cascade effectuÃ©e : {', '.join(cascade_info)}."
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
             )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
-        # GÃ©rer les erreurs PROTECT
+        # Gérer les erreurs PROTECT
         protected_objects = []
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
@@ -692,8 +745,8 @@ def admin_course_delete(request, course_id):
         messages.error(
             request,
             f"Impossible de supprimer le cours '{cours_code}'. "
-            f"DÃ©pendances trouvÃ©es : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces Ã©lÃ©ments.",
+            f"Dépendances trouvées : {', '.join(protected_objects)}. "
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
         logger.error(
@@ -702,7 +755,7 @@ def admin_course_delete(request, course_id):
         messages.error(
             request,
             f"Erreur lors de la suppression du cours '{cours_code}'. "
-            f"Veuillez vÃ©rifier les dÃ©pendances ou contacter l'administrateur systÃ¨me.",
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
     return redirect("dashboard:admin_courses")
@@ -757,7 +810,7 @@ def admin_users(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_user_create(request):
-    """CrÃ©ation d'un nouvel utilisateur"""
+    """Création d'un nouvel utilisateur"""
 
     if request.method == "POST":
         form = UserForm(request.POST)
@@ -765,14 +818,14 @@ def admin_user_create(request):
             user = form.save()
             log_action(
                 request.user,
-                f"CRITIQUE: CrÃ©ation de l'utilisateur '{user.email}' (RÃ´le: {user.get_role_display()}, Nom: {user.get_full_name()}) - Gestion des utilisateurs",
+                f"CRITIQUE: Création de l'utilisateur '{user.email}' (Rôle: {user.get_role_display()}, Nom: {user.get_full_name()}) - Gestion des utilisateurs",
                 request,
                 niveau="CRITIQUE",
                 objet_type="USER",
                 objet_id=user.id_utilisateur,
             )
             messages.success(
-                request, f"Utilisateur '{user.email}' crÃ©Ã© avec succÃ¨s."
+                request, f"Utilisateur '{user.email}' créé avec succès."
             )
             return redirect("dashboard:admin_users")
     else:
@@ -783,8 +836,8 @@ def admin_user_create(request):
         "dashboard/admin_user_form.html",
         {
             "form": form,
-            "title": "CrÃ©er un utilisateur",
-            "editing_user": None,  # Pas d'utilisateur en cours d'Ã©dition lors de la crÃ©ation
+            "title": "Créer un utilisateur",
+            "editing_user": None,  # Pas d'utilisateur en cours d'édition lors de la création
         },
     )
 
@@ -803,22 +856,22 @@ def admin_user_edit(request, user_id):
         if form.is_valid():
             user = form.save()
 
-            # Journaliser les changements de rÃ´le
+            # Journaliser les changements de rôle
             if old_role != user.role:
                 old_role_display = dict(User.Role.choices).get(old_role, old_role)
                 log_action(
                     request.user,
-                    f"CRITIQUE: Modification du rÃ´le de '{user.email}' de {old_role_display} Ã  {user.get_role_display()} - Gestion des utilisateurs",
+                    f"CRITIQUE: Modification du rôle de '{user.email}' de {old_role_display} à {user.get_role_display()} - Gestion des utilisateurs",
                     request,
                     niveau="CRITIQUE",
                     objet_type="USER",
                     objet_id=user.id_utilisateur,
                 )
             if old_active != user.actif:
-                action = "activÃ©" if user.actif else "dÃ©sactivÃ©"
+                action = "activé" if user.actif else "désactivé"
                 log_action(
                     request.user,
-                    f"CRITIQUE: Compte '{user.email}' {action} (Gestion des utilisateurs - {'RÃ©activation' if user.actif else 'DÃ©sactivation'})",
+                    f"CRITIQUE: Compte '{user.email}' {action} (Gestion des utilisateurs - {'Réactivation' if user.actif else 'Désactivation'})",
                     request,
                     niveau="CRITIQUE",
                     objet_type="USER",
@@ -826,7 +879,7 @@ def admin_user_edit(request, user_id):
                 )
 
             messages.success(
-                request, f"Utilisateur '{user.email}' modifiÃ© avec succÃ¨s."
+                request, f"Utilisateur '{user.email}' modifié avec succès."
             )
             return redirect("dashboard:admin_users")
     else:
@@ -837,7 +890,7 @@ def admin_user_edit(request, user_id):
         "dashboard/admin_user_form.html",
         {
             "form": form,
-            "editing_user": user,  # Utilisateur en cours d'Ã©dition
+            "editing_user": user,  # Utilisateur en cours d'édition
             "title": f"Modifier l'utilisateur {user.get_full_name()}",
         },
     )
@@ -846,13 +899,13 @@ def admin_user_edit(request, user_id):
 @admin_required
 @require_http_methods(["POST"])
 def admin_user_reset_password(request, user_id):
-    """RÃ©initialisation du mot de passe d'un utilisateur"""
+    """Réinitialisation du mot de passe d'un utilisateur"""
 
     user = get_object_or_404(User, id_utilisateur=user_id)
 
     new_password = (request.POST.get("new_password") or "").strip()
     if not new_password:
-        messages.error(request, "Le mot de passe ne peut pas Ãªtre vide.")
+        messages.error(request, "Le mot de passe ne peut pas être vide.")
         return redirect("dashboard:admin_user_edit", user_id=user_id)
 
     try:
@@ -863,12 +916,12 @@ def admin_user_reset_password(request, user_id):
         return redirect("dashboard:admin_user_edit", user_id=user_id)
 
     user.set_password(new_password)
-    # Forcer l'utilisateur Ã  changer son mot de passe Ã  la prochaine connexion
+    # Forcer l'utilisateur à changer son mot de passe à la prochaine connexion
     user.must_change_password = True
     user.save()
     log_action(
         request.user,
-        f"CRITIQUE: RÃ©initialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sÃ©curitÃ©)",
+        f"CRITIQUE: Réinitialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sécurité)",
         request,
         niveau="CRITIQUE",
         objet_type="USER",
@@ -876,7 +929,7 @@ def admin_user_reset_password(request, user_id):
     )
     messages.success(
         request,
-        f"Mot de passe rÃ©initialisÃ© pour '{user.email}'. L'utilisateur devra le changer lors de sa prochaine connexion.",
+        f"Mot de passe réinitialisé pour '{user.email}'. L'utilisateur devra le changer lors de sa prochaine connexion.",
     )
 
     return redirect("dashboard:admin_user_edit", user_id=user_id)
@@ -884,7 +937,7 @@ def admin_user_reset_password(request, user_id):
 
 @admin_required
 def admin_user_audit(request, user_id):
-    """Consultation des journaux d'audit pour un utilisateur spÃ©cifique"""
+    """Consultation des journaux d'audit pour un utilisateur spécifique"""
 
     user = get_object_or_404(User, id_utilisateur=user_id)
     logs = LogAudit.objects.filter(id_utilisateur=user).order_by("-date_action")
@@ -1088,7 +1141,7 @@ def admin_users_delete_multiple(request):
 
 
 @admin_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def admin_user_delete(request, user_id):
     """Suppression d'un utilisateur avec verifications de securite"""
 
@@ -1104,6 +1157,37 @@ def admin_user_delete(request, user_id):
         absences_encoded_count = Absence.objects.filter(encodee_par=user).count()
         audit_logs_count = LogAudit.objects.filter(id_utilisateur=user).count()
         cours_count = Cours.objects.filter(professeur=user).count()
+
+        # FIX VERT #19 — Page de confirmation avant suppression définitive
+        if request.method == "GET":
+            if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
+                # Pas de page de confirmation : on sait déjà que ce sera une désactivation
+                cascade_items = [
+                    item for item in [
+                        {"count": inscriptions_count, "label": "inscription(s)"},
+                        {"count": absences_encoded_count, "label": "absence(s) encodée(s)"},
+                        {"count": audit_logs_count, "label": "entrée(s) d'audit"},
+                    ] if item["count"] > 0
+                ]
+                return render(request, "dashboard/admin_confirm_delete.html", {
+                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                    "cascade_items": cascade_items,
+                    "extra_warning": "Des dépendances ont été détectées. Le compte sera DÉSACTIVÉ (pas supprimé).",
+                    "cancel_url": "/dashboard/admin/users/",
+                    "cancel_label": "Utilisateurs",
+                })
+            else:
+                cascade_items = [
+                    item for item in [
+                        {"count": cours_count, "label": "cours (sera détaché du professeur)"},
+                    ] if item["count"] > 0
+                ]
+                return render(request, "dashboard/admin_confirm_delete.html", {
+                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                    "cascade_items": cascade_items,
+                    "cancel_url": "/dashboard/admin/users/",
+                    "cancel_label": "Utilisateurs",
+                })
 
         if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
             user.actif = False
@@ -1167,13 +1251,13 @@ def admin_user_delete(request, user_id):
         return redirect("dashboard:admin_users")
 
 
-# ========== PARAMÃˆTRES SYSTÃˆME ==========
+# ========== PARAMÈTRES SYSTÈME ==========
 
 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_settings(request):
-    """Gestion des paramÃ¨tres systÃ¨me globaux"""
+    """Gestion des paramètres système globaux"""
 
     settings = SystemSettings.get_settings()
 
@@ -1189,7 +1273,7 @@ def admin_settings(request):
             if old_threshold != settings.default_absence_threshold:
                 log_action(
                     request.user,
-                    f"CRITIQUE: Modification du seuil d'absence par dÃ©faut de {old_threshold}% Ã  {settings.default_absence_threshold}% (ParamÃ¨tres systÃ¨me - Impact global)",
+                    f"CRITIQUE: Modification du seuil d'absence par défaut de {old_threshold}% à {settings.default_absence_threshold}% (Paramètres système - Impact global)",
                     request,
                     niveau="CRITIQUE",
                     objet_type="SYSTEM",
@@ -1198,13 +1282,13 @@ def admin_settings(request):
 
             log_action(
                 request.user,
-                f"CRITIQUE: Modification des paramÃ¨tres systÃ¨me (Seuil: {settings.default_absence_threshold}%, Blocage: {settings.get_block_type_display()})",
+                f"CRITIQUE: Modification des paramètres système (Seuil: {settings.default_absence_threshold}%, Blocage: {settings.get_block_type_display()})",
                 request,
                 niveau="CRITIQUE",
                 objet_type="SYSTEM",
                 objet_id=1,
             )
-            messages.success(request, "ParamÃ¨tres systÃ¨me mis Ã  jour avec succÃ¨s.")
+            messages.success(request, "Paramètres système mis à jour avec succès.")
             return redirect("dashboard:admin_settings")
     else:
         form = SystemSettingsForm(instance=settings)
@@ -1219,12 +1303,12 @@ def admin_settings(request):
     )
 
 
-# ========== GESTION DES ANNÃ‰ES ACADÃ‰MIQUES ==========
+# ========== GESTION DES ANNÉES ACADÉMIQUES ==========
 
 
 @admin_required
 def admin_academic_years(request):
-    """Liste et gestion des annÃ©es acadÃ©miques"""
+    """Liste et gestion des années académiques"""
 
     if request.method == "POST":
         form = AnneeAcademiqueForm(request.POST)
@@ -1232,14 +1316,14 @@ def admin_academic_years(request):
             year = form.save()
             log_action(
                 request.user,
-                f"CRITIQUE: CrÃ©ation de l'annÃ©e acadÃ©mique '{year.libelle}' (Configuration systÃ¨me - {'AnnÃ©e active' if year.active else 'AnnÃ©e inactive'})",
+                f"CRITIQUE: Création de l'année académique '{year.libelle}' (Configuration système - {'Année active' if year.active else 'Année inactive'})",
                 request,
                 niveau="CRITIQUE",
                 objet_type="AUTRE",
                 objet_id=year.id_annee,
             )
             messages.success(
-                request, f"AnnÃ©e acadÃ©mique '{year.libelle}' crÃ©Ã©e avec succÃ¨s."
+                request, f"Année académique '{year.libelle}' créée avec succès."
             )
             return redirect("dashboard:admin_academic_years")
     else:
@@ -1260,27 +1344,27 @@ def admin_academic_years(request):
 @admin_required
 @require_http_methods(["POST"])
 def admin_academic_year_set_active(request, year_id):
-    """DÃ©finir une annÃ©e acadÃ©mique comme active"""
+    """Définir une année académique comme active"""
 
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
 
-    # DÃ©sactiver toutes les annÃ©es
+    # Désactiver toutes les années
     AnneeAcademique.objects.update(active=False)
 
-    # Activer l'annÃ©e sÃ©lectionnÃ©e
+    # Activer l'année sélectionnée
     year.active = True
     year.save()
 
     log_action(
         request.user,
-        f"CRITIQUE: AnnÃ©e acadÃ©mique '{year.libelle}' dÃ©finie comme active (Configuration systÃ¨me - Changement d'annÃ©e acadÃ©mique)",
+        f"CRITIQUE: Année académique '{year.libelle}' définie comme active (Configuration système - Changement d'année académique)",
         request,
         niveau="CRITIQUE",
         objet_type="AUTRE",
         objet_id=year.id_annee,
     )
     messages.success(
-        request, f"AnnÃ©e acadÃ©mique '{year.libelle}' dÃ©finie comme active."
+        request, f"Année académique '{year.libelle}' définie comme active."
     )
 
     return redirect("dashboard:admin_academic_years")
@@ -1461,14 +1545,14 @@ def admin_export_audit_csv(request):
 
     writer = csv.writer(response)
     writer.writerow(
-        ["Date/Heure", "Utilisateur", "Email", "RÃ´le", "Action", "Adresse IP"]
+        ["Date/Heure", "Utilisateur", "Email", "Rôle", "Action", "Adresse IP"]
     )
 
     logs = (
         LogAudit.objects.select_related("id_utilisateur").all().order_by("-date_action")
     )
 
-    # Appliquer les mÃªmes filtres que dans la vue
+    # Appliquer les mêmes filtres que dans la vue
     role_filter = request.GET.get("role", "")
     action_filter = request.GET.get("action", "")
     date_from = request.GET.get("date_from", "")
@@ -1510,33 +1594,22 @@ def admin_export_audit_csv(request):
 @require_GET
 def get_prerequisites_by_level(request):
     """
-    API endpoint pour rÃ©cupÃ©rer les prÃ©requis disponibles selon le niveau d'un cours.
+    API — Liste les cours disponibles comme prérequis selon le niveau cible.
 
-    IMPORTANT POUR LA SOUTENANCE :
-    Cette API est utilisÃ©e par le JavaScript pour charger dynamiquement les prÃ©requis
-    autorisÃ©s lors de la crÃ©ation/modification d'un cours.
+    Règle métier : un cours de niveau N ne peut avoir que des prérequis de niveau < N.
 
-    RÃ¨gle mÃ©tier implÃ©mentÃ©e :
-    - Un cours de niveau N ne peut avoir que des prÃ©requis de niveau < N
-    - Niveau 1 : Aucun prÃ©requis autorisÃ©
-    - Niveau 2 : PrÃ©requis uniquement depuis le niveau 1
-    - Niveau 3 : PrÃ©requis depuis les niveaux 1 ou 2
+    Query params:
+        niveau    (int, requis)    : niveau cible (1, 2 ou 3)
+        course_id (int, optionnel) : exclut ce cours des résultats (mode édition)
 
-    SÃ©curitÃ© :
-    - @login_required : Utilisateur doit Ãªtre authentifiÃ©
-    - VÃ©rification manuelle du rÃ´le : ADMIN ou SECRETAIRE uniquement
-    - @require_GET : Seulement les requÃªtes GET sont acceptÃ©es
-
-    Args:
-        request: Objet HttpRequest avec les paramÃ¨tres :
-            - niveau : Niveau du cours (1, 2 ou 3)
-            - course_id : ID du cours (optionnel, pour exclure le cours lui-mÃªme)
-
-    Returns:
-        JsonResponse avec la liste des cours disponibles comme prÃ©requis
-        Format : [{'id': int, 'display': str}, ...]
+    Réponses:
+        200 [{"id": int, "code": str, "name": str, "niveau": int, "display": str}, ...]
+        400 {"error": {"code": "bad_request", "message": "..."}}
+        401 {"error": {"code": "auth_required", ...}}
+        403 {"error": {"code": "forbidden", ...}}
+        429 Rate limit dépassé (30/5m par IP)
+        500 {"error": {"code": "server_error", ...}}
     """
-    """API pour rÃ©cupÃ©rer les prÃ©requis disponibles selon le niveau (accessible Ã  Admin et Secretary)"""
     if getattr(request, "limited", False):
         return api_error(
             "Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited"
@@ -1545,7 +1618,7 @@ def get_prerequisites_by_level(request):
     niveau = request.GET.get("niveau")
     course_id = request.GET.get(
         "course_id", None
-    )  # Pour exclure le cours actuel lors de l'Ã©dition
+    )  # Pour exclure le cours actuel lors de l'edition
 
     if not niveau:
         return api_error("niveau requis", status=400, code="bad_request")
@@ -1558,20 +1631,20 @@ def get_prerequisites_by_level(request):
     try:
         # Filtrer selon le niveau
         if niveau == 1:
-            # AnnÃ©e 1 : pas de prÃ©requis
+            # Annee 1 : pas de prerequis
             prerequisites = Cours.objects.none()
         elif niveau == 2:
-            # AnnÃ©e 2 : prÃ©requis uniquement d'AnnÃ©e 1
+            # Année 2 : prérequis uniquement d'Année 1
             prerequisites = Cours.objects.filter(actif=True, niveau=1)
         elif niveau == 3:
-            # AnnÃ©e 3 : prÃ©requis uniquement d'AnnÃ©e 1 ou 2
+            # Année 3 : prérequis uniquement d'Année 1 ou 2
             prerequisites = Cours.objects.filter(actif=True, niveau__in=[1, 2])
         else:
             return api_error(
-                "niveau invalide (doit Ãªtre 1, 2 ou 3)", status=400, code="bad_request"
+                "niveau invalide (doit être 1, 2 ou 3)", status=400, code="bad_request"
             )
 
-        # Exclure le cours actuel si on est en mode Ã©dition
+        # Exclure le cours actuel si on est en mode édition
         if course_id:
             try:
                 prerequisites = prerequisites.exclude(id_cours=int(course_id))
@@ -1586,7 +1659,7 @@ def get_prerequisites_by_level(request):
                     "code": course.code_cours,
                     "name": course.nom_cours,
                     "niveau": course.niveau,
-                    "display": f"[{course.code_cours}] {course.nom_cours} (AnnÃ©e {course.niveau})",
+                    "display": f"[{course.code_cours}] {course.nom_cours} (Année {course.niveau})",
                 }
             )
 

@@ -160,22 +160,22 @@
     <!-- Page Header -->
     <div class="page-header text-center">
         <h1 class="mb-2"><i class="fas fa-user-plus me-2"></i>Gestion des Inscriptions</h1>
-        <p class="mb-0 opacity-90">CrÃ©er, modifier et gÃ©rer les inscriptions Ã©tudiantes</p>
+        <p class="mb-0 opacity-90">Créer, modifier et gérer les inscriptions étudiantes</p>
     </div>
 
     <!-- Step Indicator -->
     <div class="step-indicator">
         <div class="step active" id="step1">
             <div class="step-number">1</div>
-            <div class="step-title">Ã‰tudiant</div>
+            <div class="step-title">Étudiant</div>
         </div>
         <div class="step" id="step2">
             <div class="step-number">2</div>
-            <div class="step-title">AnnÃ©e & FacultÃ©</div>
+            <div class="step-title">Année & Faculté</div>
         </div>
         <div class="step" id="step3">
             <div class="step-number">3</div>
-            <div class="step-title">DÃ©partement</div>
+            <div class="step-title">Département</div>
         </div>
         <div class="step" id="step4">
             <div class="step-number">4</div>
@@ -214,12 +214,12 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-user-graduate"></i>
-                    SÃ©lection de l'Ã©tudiant
+                    Sélection de l'étudiant
                 </div>
                 <div class="row">
                     <div class="col-md-8">
                         <label for="student_email" class="form-label">
-                            <i class="fas fa-envelope me-1"></i>Email de l'Ã©tudiant
+                            <i class="fas fa-envelope me-1"></i>Email de l'étudiant
                             <span class="text-danger">*</span>
                         </label>
                         <input type="email" name="student_email" id="student_email" 
@@ -233,7 +233,7 @@
                             <option value="{{ student.email }}">{{ student.get_full_name }}</option>
                             {% endfor %}
                         </datalist>
-                        <small class="text-muted">Commencez Ã  taper pour voir les suggestions</small>
+                        <small class="text-muted">Commencez à taper pour voir les suggestions</small>
                     </div>
                 </div>
             </div>
@@ -242,12 +242,12 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-calendar-alt"></i>
-                    AnnÃ©e acadÃ©mique et facultÃ©
+                    Année académique et faculté
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="academic_year" class="form-label">
-                            <i class="fas fa-calendar me-1"></i>AnnÃ©e AcadÃ©mique
+                            <i class="fas fa-calendar me-1"></i>Année Académique
                             <span class="text-danger">*</span>
                         </label>
                         <select id="academic_year" name="academic_year" class="form-select" required>
@@ -260,12 +260,12 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="faculty" class="form-label">
-                            <i class="fas fa-university me-1"></i>FacultÃ©
+                            <i class="fas fa-university me-1"></i>Faculté
                             <span class="text-danger">*</span>
                         </label>
                         <select id="faculty" name="faculty" class="form-select" 
                                 onchange="loadDepartments(); updateStepIndicator(2)" required>
-                            <option value="">SÃ©lectionner une facultÃ©...</option>
+                            <option value="">Sélectionner une faculté...</option>
                             {% for fac in facultes %}
                             <option value="{{ fac.id_faculte }}">{{ fac.nom_faculte }}</option>
                             {% endfor %}
@@ -278,18 +278,18 @@
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-building"></i>
-                    DÃ©partement
+                    Département
                 </div>
                 <div class="row">
                     <div class="col-md-6">
                         <label for="department" class="form-label">
-                            <i class="fas fa-sitemap me-1"></i>DÃ©partement
+                            <i class="fas fa-sitemap me-1"></i>Département
                             <span class="text-danger">*</span>
                         </label>
                         <select id="department" name="department" class="form-select" 
                                 onchange="loadCourses(); updateStepIndicator(3)" 
                                 disabled required>
-                            <option value="">SÃ©lectionner d'abord une facultÃ©</option>
+                            <option value="">Sélectionner d'abord une faculté</option>
                         </select>
                         <div id="dept-loading" class="text-muted small mt-1" style="display: none;">
                             <i class="fas fa-spinner fa-spin me-1"></i>Chargement...
@@ -313,7 +313,7 @@
                         <select id="course" name="course" class="form-select" 
                                 onchange="updateStepIndicator(4); showCourseInfo(this)" 
                                 disabled required>
-                            <option value="">SÃ©lectionner d'abord un dÃ©partement</option>
+                            <option value="">Sélectionner d'abord un département</option>
                         </select>
                         <div id="course-info" class="mt-2"></div>
                         <div id="course-loading" class="text-muted small mt-1" style="display: none;">
@@ -326,7 +326,7 @@
             <!-- Submit Button -->
             <div class="d-flex justify-content-end mt-4">
                 <button type="submit" class="btn btn-primary btn-submit" id="submitBtn" disabled>
-                    <i class="fas fa-check-circle me-2"></i>Inscrire l'Ã©tudiant
+                    <i class="fas fa-check-circle me-2"></i>Inscrire l'étudiant
                 </button>
             </div>
         </form>

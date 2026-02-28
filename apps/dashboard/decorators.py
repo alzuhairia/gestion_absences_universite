@@ -23,7 +23,7 @@ from apps.accounts.models import User
 
 def api_ok(payload=None, status=200):
     """
-    Retourne une JsonResponse cohÃ©rente sans imposer un format unique.
+    Retourne une JsonResponse cohérente sans imposer un format unique.
     - dict: retour standard JsonResponse
     - list/primitive: safe=False pour conserver le contrat API existant
     """
