@@ -16,10 +16,12 @@ def rules_management(request):
     """
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
     inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    # EN_ATTENTE counts as non-justified (loophole closed — consistent with
+    # all other views: services.py, views_professor.py, views_student.py).
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut='NON_JUSTIFIEE',
+            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
         ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
     )
     at_risk_list = []
