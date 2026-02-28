@@ -220,9 +220,9 @@ def student_statistics(request):
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
     user = request.user
-    inscriptions = Inscription.objects.filter(id_etudiant=user).select_related(
-        "id_cours"
-    )
+    inscriptions = Inscription.objects.filter(
+        id_etudiant=user, status="EN_COURS"
+    ).select_related("id_cours")
 
     # Filter by academic year if available
     if academic_year:
@@ -236,6 +236,15 @@ def student_statistics(request):
     courses_at_risk = 0
 
     inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
+
+    # --- Compteurs globaux (tous statuts) ---
+    total_absences = Absence.objects.filter(
+        id_inscription__in=inscription_ids
+    ).count()
+    total_justified = Absence.objects.filter(
+        id_inscription__in=inscription_ids, statut="JUSTIFIEE"
+    ).count()
+
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -246,6 +255,8 @@ def student_statistics(request):
         .annotate(total=Sum("duree_absence"))
         .values_list("id_inscription", "total")
     )
+
+    system_threshold = get_system_threshold()
 
     for ins in inscriptions:
         cours = ins.id_cours
@@ -301,7 +312,7 @@ def student_statistics(request):
             trend_labels.append(
                 month_names_fr.get(month_num, entry["month"].strftime("%B"))
             )
-            trend_data.append(float(entry["total_hours"]))
+            trend_data.append(float(entry["total_hours"] or 0))
 
     # CORRECTION BUG CRITIQUE #7 — Suppression des données fictives
     # Avant : des données inventées (0, 2, 5, 8, 4) étaient présentées à un
@@ -314,10 +325,15 @@ def student_statistics(request):
         "academic_year": academic_year,
         "total_hours_missed": round(total_hours_missed, 1),
         "courses_at_risk": courses_at_risk,
+        "total_absences": total_absences,
+        "total_justified": total_justified,
+        "system_threshold": system_threshold,
         "course_labels": course_labels,
         "absence_percentages": absence_percentages,
         "trend_labels": trend_labels,
         "trend_data": trend_data,
+        "has_inscriptions": bool(course_labels),
+        "has_trend_data": bool(trend_data),
     }
 
     return render(request, "dashboard/student_statistics.html", context)
