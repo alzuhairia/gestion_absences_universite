@@ -247,7 +247,9 @@ class AbsenceQueryTests(BaseAbsenceTestCase):
             )
 
         qs = get_absences_queryset(self.inscription1)
-        with self.assertNumQueries(2):
+        # select_related("justification") does a single JOIN — 1 query total,
+        # accessing absence.justification triggers no extra query.
+        with self.assertNumQueries(1):
             absences = list(qs)
             for absence in absences:
                 _ = absence.justification
