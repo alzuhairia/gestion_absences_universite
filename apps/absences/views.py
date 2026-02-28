@@ -695,7 +695,8 @@ def mark_absence(request, course_id):
 
         abs_list = Absence.objects.filter(id_seance=existing_seance)
         for ab in abs_list:
-            existing_absences[ab.id_inscription.id_inscription] = {
+            # ab.id_inscription_id is the raw FK int — no extra query per row
+            existing_absences[ab.id_inscription_id] = {
                 "type": ab.type_absence,
                 "duree": ab.duree_absence,
                 "statut": ab.statut,
