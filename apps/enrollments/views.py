@@ -553,33 +553,30 @@ def enroll_student(request):
             try:
                 with transaction.atomic():
                     for course in level_courses:
-                        # Vérifier si déjà inscrit
-                        if Inscription.objects.filter(
-                            id_etudiant=student,
-                            id_cours=course,
-                            id_annee=year
-                        ).exists():
-                            skipped_count += 1
-                            continue
-                        
                         # Vérifier les prérequis
                         is_valid, missing_prereqs = check_prerequisites(student, course)
-                        
+
                         if not is_valid:
                             prereq_list = ', '.join([f"{p['code']} - {p['name']}" for p in missing_prereqs])
                             errors.append(f"{course.code_cours}: prérequis manquants ({prereq_list})")
                             continue
-                        
-                        # Créer l'inscription
+
+                        # get_or_create : atomique — élimine la race condition
+                        # entre exists() et create() de l'ancien code.
                         try:
-                            inscription = Inscription.objects.create(
+                            inscription, created = Inscription.objects.get_or_create(
                                 id_etudiant=student,
                                 id_cours=course,
                                 id_annee=year,
-                                type_inscription='NORMALE',
-                                eligible_examen=True,
-                                status='EN_COURS'
+                                defaults={
+                                    'type_inscription': 'NORMALE',
+                                    'eligible_examen': True,
+                                    'status': 'EN_COURS',
+                                }
                             )
+                            if not created:
+                                skipped_count += 1
+                                continue
                             logger.info(f"Inscription créée: ID={inscription.id_inscription}, Étudiant={student.email}, Cours={course.code_cours}, Année={year.libelle}")
                             enrolled_count += 1
                         except Exception:
