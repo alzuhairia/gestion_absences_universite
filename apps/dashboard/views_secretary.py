@@ -548,13 +548,13 @@ def secretary_academic_year_set_active(request, year_id):
     """Définir une année académique comme active"""
     
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
-    
-    # Désactiver toutes les années
-    AnneeAcademique.objects.update(active=False)
-    
-    # Activer l'année sélectionnée
-    year.active = True
-    year.save()
+
+    # Atomic: désactiver tout + activer la sélection — pas de fenêtre
+    # où zéro année n'est active en cas de crash entre les deux opérations.
+    with transaction.atomic():
+        AnneeAcademique.objects.update(active=False)
+        year.active = True
+        year.save()
     
     log_action(
         request.user, 
