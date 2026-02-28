@@ -181,6 +181,62 @@ def get_courses_by_year(request):
             request_id=request_id,
         )
 
+@ratelimit(key=ratelimit_client_ip, rate=API_RATE_LIMIT, method='GET', block=False)
+@api_login_required(roles=[User.Role.ADMIN, User.Role.SECRETAIRE])
+@require_GET
+def get_courses_by_student(request):
+    """
+    API — Liste les cours auxquels un étudiant est inscrit (année active).
+
+    Query params:
+        student_id (int, requis) : ID de l'étudiant
+
+    Réponses:
+        200 [{"id": int, "code": str, "name": str, "department": str, "level": int, "year": str}, ...]
+        400 {"error": {"code": "bad_request", "message": "student_id requis"}}
+        401/403/429/500 — formats habituels
+    """
+    if getattr(request, 'limited', False):
+        return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
+
+    student_id = request.GET.get('student_id')
+    if not student_id:
+        return api_error('student_id requis', status=400, code='bad_request')
+
+    try:
+        annee_active = AnneeAcademique.objects.filter(active=True).first()
+        if not annee_active:
+            return api_ok([])
+
+        inscriptions = (
+            Inscription.objects.filter(
+                id_etudiant_id=student_id,
+                id_annee=annee_active,
+                status="EN_COURS",
+            )
+            .select_related('id_cours', 'id_cours__id_departement', 'id_cours__id_annee')
+            .order_by('id_cours__code_cours')
+        )
+
+        data = [
+            {
+                'id': ins.id_cours.id_cours,
+                'code': ins.id_cours.code_cours,
+                'name': ins.id_cours.nom_cours,
+                'department': ins.id_cours.id_departement.nom_departement,
+                'level': ins.id_cours.niveau,
+                'year': ins.id_cours.id_annee.libelle if ins.id_cours.id_annee else "",
+            }
+            for ins in inscriptions
+        ]
+        return api_ok(data)
+    except Exception:
+        request_id = new_request_id()
+        logger.exception("Erreur API get_courses_by_student [request_id=%s]", request_id)
+        return api_error("Une erreur interne est survenue.", status=500, code="server_error",
+                         request_id=request_id)
+
+
 def check_prerequisites(student, course):
     """
     Vérifie si l'étudiant a validé tous les prérequis d'un cours.

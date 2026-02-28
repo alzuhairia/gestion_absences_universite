@@ -5,13 +5,21 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
+from apps.accounts.models import User
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.audits.utils import log_action
-from apps.dashboard.decorators import secretary_required
+from apps.dashboard.decorators import (
+    api_error,
+    api_login_required,
+    api_ok,
+    new_request_id,
+    secretary_required,
+)
 from apps.enrollments.models import Inscription
 from apps.notifications.models import Notification
 
@@ -239,7 +247,9 @@ def create_justified_absence(request):
             if not annee_active:
                 messages.error(request, "Aucune annee academique active n'est definie.")
                 return render(
-                    request, "absences/create_justified_absence.html", {"form": form}
+                    request,
+                    "absences/create_justified_absence.html",
+                    {"form": form, "annee_active": None},
                 )
 
             # Traiter le document si fourni
@@ -255,7 +265,7 @@ def create_justified_absence(request):
                     return render(
                         request,
                         "absences/create_justified_absence.html",
-                        {"form": form},
+                        {"form": form, "annee_active": annee_active},
                     )
 
                 document_bytes = document_file.read()
@@ -375,10 +385,11 @@ def create_justified_absence(request):
                     )
 
             if absences_created:
+                cours_list_str = ", ".join(a["cours"] for a in absences_created)
                 messages.success(
                     request,
-                    f"Absence(s) justifiee(s) encodee(s) avec succes pour {etudiant.get_full_name()} "
-                    f"le {date_absence} ({len(absences_created)} cours).",
+                    f"Absence(s) justifiée(s) encodée(s) pour {etudiant.get_full_name()} "
+                    f"le {date_absence} — cours : {cours_list_str}.",
                 )
                 return redirect("absences:validation_list")
             else:
@@ -389,7 +400,95 @@ def create_justified_absence(request):
     else:
         form = SecretaryJustifiedAbsenceForm()
 
-    return render(request, "absences/create_justified_absence.html", {"form": form})
+    annee_active = AnneeAcademique.objects.filter(active=True).first()
+    return render(
+        request,
+        "absences/create_justified_absence.html",
+        {
+            "form": form,
+            "annee_active": annee_active,
+        },
+    )
+
+
+@api_login_required(roles=[User.Role.SECRETAIRE])
+@require_GET
+def student_absence_history_api(request):
+    """
+    API — Historique recent des absences d'un etudiant.
+
+    Query params:
+        student_id (int, requis) : ID de l'etudiant
+
+    Reponses:
+        200 {"items": [...], "stats": {...}}
+        400 {"error": {"code": "bad_request", "message": "student_id requis"}}
+        401/403/500 — formats habituels
+    """
+    student_id = request.GET.get("student_id")
+    if not student_id:
+        return api_error("student_id requis", status=400, code="bad_request")
+
+    try:
+        absences_qs = Absence.objects.filter(
+            id_inscription__id_etudiant_id=student_id
+        ).select_related(
+            "id_seance",
+            "id_seance__id_cours",
+        )
+
+        stats = absences_qs.aggregate(
+            total=Count("id_absence"),
+            justified=Count("id_absence", filter=Q(statut="JUSTIFIEE")),
+            pending=Count("id_absence", filter=Q(statut="EN_ATTENTE")),
+            unjustified=Count("id_absence", filter=Q(statut="NON_JUSTIFIEE")),
+        )
+
+        recent_absences = absences_qs.order_by(
+            "-id_seance__date_seance", "-id_seance__heure_debut", "-id_absence"
+        )[:10]
+
+        items = []
+        for absence in recent_absences:
+            seance = absence.id_seance
+            items.append(
+                {
+                    "id": absence.id_absence,
+                    "date": seance.date_seance.isoformat(),
+                    "date_display": seance.date_seance.strftime("%d/%m/%Y"),
+                    "time_start": seance.heure_debut.strftime("%H:%M"),
+                    "time_end": seance.heure_fin.strftime("%H:%M"),
+                    "course_code": seance.id_cours.code_cours,
+                    "course_name": seance.id_cours.nom_cours,
+                    "type": absence.type_absence,
+                    "type_display": absence.get_type_absence_display(),
+                    "status": absence.statut,
+                    "status_display": absence.get_statut_display(),
+                    "duration": float(absence.duree_absence),
+                }
+            )
+
+        payload = {
+            "items": items,
+            "stats": {
+                "total": stats.get("total", 0),
+                "justified": stats.get("justified", 0),
+                "pending": stats.get("pending", 0),
+                "unjustified": stats.get("unjustified", 0),
+            },
+        }
+        return api_ok(payload)
+    except Exception:
+        request_id = new_request_id()
+        logger.exception(
+            "Erreur API student_absence_history_api [request_id=%s]", request_id
+        )
+        return api_error(
+            "Une erreur interne est survenue.",
+            status=500,
+            code="server_error",
+            request_id=request_id,
+        )
 
 
 @login_required
