@@ -10,7 +10,6 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.academic_sessions.models import AnneeAcademique, Seance
-from apps.academics.models import Cours
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
@@ -114,7 +113,6 @@ def process_justification(request, pk):
     if action == "approve":
         with transaction.atomic():
             justification.state = "ACCEPTEE"
-            justification.validee = True  # Legacy support
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
             justification.date_validation = timezone.now()
@@ -140,7 +138,6 @@ def process_justification(request, pk):
     elif action == "reject":
         with transaction.atomic():
             justification.state = "REFUSEE"
-            justification.validee = False  # Legacy support
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
             justification.date_validation = timezone.now()
@@ -358,7 +355,6 @@ def create_justified_absence(request):
                                 "commentaire": commentaire,
                                 "commentaire_gestion": f"Absence encodee directement par le secretariat le {timezone.now().strftime('%d/%m/%Y a %H:%M')}",
                                 "state": "ACCEPTEE",
-                                "validee": True,
                                 "validee_par": request.user,
                                 "date_validation": timezone.now(),
                             },

@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 @student_required
 def absence_details(request, id_inscription):
     """
-    Affiche les dÃ©tails des absences pour un Ã©tudiant - Lecture seule.
-    STRICT: Les Ã©tudiants peuvent uniquement consulter leurs absences et soumettre des justificatifs via la vue upload_justification.
+    Affiche les détails des absences pour un étudiant - Lecture seule.
+    STRICT: Les étudiants peuvent uniquement consulter leurs absences et soumettre des justificatifs via la vue upload_justification.
     """
     # STRICT: Verify the inscription belongs to the logged-in student
     inscription = get_object_or_404(
@@ -55,20 +55,20 @@ def absence_details(request, id_inscription):
 
         if justification:
             if justification.state == "ACCEPTEE":
-                status = "JUSTIFIÃ‰E"
+                status = "JUSTIFIÉE"
                 status_color = "success"
             elif justification.state == "REFUSEE":
-                status = "NON JUSTIFIÃ‰E"
+                status = "NON JUSTIFIÉE"
                 status_color = "danger"
             else:  # EN_ATTENTE
                 status = "EN ATTENTE"
                 status_color = "warning"
         else:
             if absence.statut == "JUSTIFIEE":
-                status = "JUSTIFIÃ‰E"
+                status = "JUSTIFIÉE"
                 status_color = "success"
             else:
-                status = "NON JUSTIFIÃ‰E"
+                status = "NON JUSTIFIÉE"
                 status_color = "danger"
 
         # CORRECTION BUG CRITIQUE #2a — Logique can_submit corrigée
@@ -97,13 +97,12 @@ def absence_details(request, id_inscription):
 
     # Get course and professor info
     course = inscription.id_cours
-    prof_name = "Non assignÃ©"
+    prof_name = "Non assigné"
     if course.professeur:
         prof_name = course.professeur.get_full_name()
 
     # Calculate absence statistics
     stats = calculer_absence_stats(inscription)
-    total_abs_hours = stats["total_absence"]
     absence_rate = stats["taux"]
     # CORRECTION BUG CRITIQUE #4a — Utiliser le seuil configuré du cours
     # Avant : seuil fixe 40% ignorant la personnalisation par cours
@@ -202,7 +201,6 @@ def upload_justification(request, absence_id):
                 justification.document = file
                 justification.commentaire = comment
                 justification.state = "EN_ATTENTE"
-                justification.validee = False
                 justification.validee_par = None
                 justification.date_validation = None
                 justification.save()
@@ -214,7 +212,6 @@ def upload_justification(request, absence_id):
                     document=file,
                     commentaire=comment,
                     state="EN_ATTENTE",
-                    validee=False,
                 )
             else:
                 # Should not happen due to checks above, but handle gracefully
@@ -409,45 +406,45 @@ def download_justification(request, justification_id):
 @professor_required
 def mark_absence(request, course_id):
     """
-    Vue pour qu'un professeur puisse noter les absences d'une sÃ©ance.
+    Vue pour qu'un professeur puisse noter les absences d'une séance.
 
     IMPORTANT POUR LA SOUTENANCE :
-    Cette fonction implÃ©mente la saisie des prÃ©sences/absences par le professeur.
+    Cette fonction implémente la saisie des présences/absences par le professeur.
 
-    Logique mÃ©tier :
-    1. VÃ©rification que le cours appartient au professeur (sÃ©curitÃ©)
-    2. CrÃ©ation ou rÃ©cupÃ©ration de la sÃ©ance
-    3. Pour chaque Ã©tudiant inscrit :
-       - Marquer comme PRÃ‰SENT, ABSENT, ou ABSENT JUSTIFIÃ‰
-       - Si absent, dÃ©finir le type (sÃ©ance complÃ¨te, retard/partiel, journÃ©e)
-       - Calculer la durÃ©e de l'absence
+    Logique métier :
+    1. Vérification que le cours appartient au professeur (sécurité)
+    2. Création ou récupération de la séance
+    3. Pour chaque étudiant inscrit :
+       - Marquer comme PRÉSENT, ABSENT, ou ABSENT JUSTIFIÉ
+       - Si absent, définir le type (séance complète, retard/partiel, journée)
+       - Calculer la durée de l'absence
 
-    RÃˆGLE CRITIQUE - PROTECTION DES ABSENCES JUSTIFIÃ‰ES :
-    - Les absences encodÃ©es par le secrÃ©tariat (statut JUSTIFIEE) sont PROTÃ‰GÃ‰ES
+    RÈGLE CRITIQUE - PROTECTION DES ABSENCES JUSTIFIÉES :
+    - Les absences encodées par le secrétariat (statut JUSTIFIEE) sont PROTÉGÉES
     - Le professeur peut les VOIR mais ne peut PAS les modifier
-    - Cette rÃ¨gle garantit l'intÃ©gritÃ© des absences officielles
+    - Cette règle garantit l'intégrité des absences officielles
 
-    SÃ‰CURITÃ‰ :
-    - @professor_required : seul un professeur peut accÃ©der
-    - VÃ©rification supplÃ©mentaire : course.professeur == request.user
-    - Double vÃ©rification pour garantir que le professeur ne peut accÃ©der qu'Ã  ses cours
+    SÉCURITÉ :
+    - @professor_required : seul un professeur peut accéder
+    - Vérification supplémentaire : course.professeur == request.user
+    - Double vérification pour garantir que le professeur ne peut accéder qu'à ses cours
 
     Args:
-        request: Objet HttpRequest contenant les donnÃ©es du formulaire
+        request: Objet HttpRequest contenant les données du formulaire
         course_id: ID du cours pour lequel faire l'appel
 
     Returns:
-        HttpResponse avec le formulaire ou redirection aprÃ¨s sauvegarde
+        HttpResponse avec le formulaire ou redirection après sauvegarde
     """
     # ============================================
-    # VÃ‰RIFICATION DE SÃ‰CURITÃ‰
+    # VÉRIFICATION DE SÉCURITÉ
     # ============================================
-    # IMPORTANT : Double vÃ©rification (dÃ©corateur + vÃ©rification de propriÃ©tÃ©)
-    # Un professeur ne peut accÃ©der qu'Ã  SES propres cours
+    # IMPORTANT : Double vérification (décorateur + vérification de propriété)
+    # Un professeur ne peut accéder qu'à SES propres cours
 
     course = get_object_or_404(Cours, id_cours=course_id)
     if course.professeur != request.user:
-        messages.error(request, "AccÃ¨s non autorisÃ© Ã  ce cours.")
+        messages.error(request, "Accès non autorisé à ce cours.")
         return redirect("dashboard:instructor_dashboard")
 
     inscriptions_qs = Inscription.objects.filter(id_cours=course).select_related(
@@ -650,7 +647,7 @@ def mark_absence(request, course_id):
                 if created:
                     log_action(
                         request.user,
-                        f"Professeur a crÃ©Ã© une sÃ©ance pour {course.code_cours} le {date_seance}",
+                        f"Professeur a créé une séance pour {course.code_cours} le {date_seance}",
                         request,
                         niveau="INFO",
                         objet_type="SEANCE",
@@ -660,7 +657,7 @@ def mark_absence(request, course_id):
                     )
                 log_action(
                     request.user,
-                    f"Professeur a enregistrÃ© la prÃ©sence pour {course.code_cours} le {date_seance}",
+                    f"Professeur a enregistré la présence pour {course.code_cours} le {date_seance}",
                     request,
                     niveau="INFO",
                     objet_type="SEANCE",
@@ -669,8 +666,8 @@ def mark_absence(request, course_id):
 
             messages.success(
                 request,
-                f"Les absences ont Ã©tÃ© enregistrÃ©es avec succÃ¨s pour la sÃ©ance du {date_seance}. "
-                "Vous pouvez consulter les dÃ©tails dans la page du cours.",
+                f"Les absences ont été enregistrées avec succès pour la séance du {date_seance}. "
+                "Vous pouvez consulter les détails dans la page du cours.",
             )
             return redirect("dashboard:instructor_dashboard")
 

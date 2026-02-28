@@ -48,9 +48,11 @@ def secretary_faculties(request):
         form = FaculteForm()
     
     faculties = Faculte.objects.all().order_by('nom_faculte')
-    
+    paginator = Paginator(faculties, 20)
+    faculties_page = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'dashboard/secretary_faculties.html', {
-        'faculties': faculties,
+        'faculties': faculties_page,
         'form': form,
     })
 
@@ -88,34 +90,50 @@ def secretary_faculty_edit(request, faculte_id):
 
 
 @secretary_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def secretary_faculty_delete(request, faculte_id):
     """Suppression d'une faculté avec suppression en cascade des départements et cours"""
 
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
     faculte_nom = faculte.nom_faculte
 
+    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
+    from apps.academic_sessions.models import Seance
+
+    departements = Departement.objects.filter(id_faculte=faculte)
+    departements_count = departements.count()
+    cours = Cours.objects.filter(id_departement__in=departements)
+    cours_count = cours.count()
+    inscriptions = Inscription.objects.filter(id_cours__in=cours)
+    inscriptions_count = inscriptions.count()
+    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+    absences_count = absences.count()
+    justifications = Justification.objects.filter(id_absence__in=absences)
+    justifications_count = justifications.count()
+    seances = Seance.objects.filter(id_cours__in=cours)
+    seances_count = seances.count()
+
+    # GET — page de confirmation avec impact cascade
+    if request.method == "GET":
+        cascade_items = [
+            item for item in [
+                {"count": departements_count, "label": "département(s)"},
+                {"count": cours_count, "label": "cours"},
+                {"count": seances_count, "label": "séance(s)"},
+                {"count": inscriptions_count, "label": "inscription(s)"},
+                {"count": absences_count, "label": "absence(s)"},
+                {"count": justifications_count, "label": "justification(s)"},
+            ] if item["count"] > 0
+        ]
+        return render(request, "dashboard/secretary_confirm_delete.html", {
+            "object_label": f"Faculté « {faculte_nom} »",
+            "cascade_items": cascade_items,
+            "cancel_url": "/dashboard/secretary/faculties/",
+            "cancel_label": "Facultés",
+        })
+
+    # POST — exécution de la suppression
     try:
-        from apps.academic_sessions.models import Seance
-
-        departements = Departement.objects.filter(id_faculte=faculte)
-        departements_count = departements.count()
-
-        cours = Cours.objects.filter(id_departement__in=departements)
-        cours_count = cours.count()
-
-        inscriptions = Inscription.objects.filter(id_cours__in=cours)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_cours__in=cours)
-        seances_count = seances.count()
-
         with transaction.atomic():
             justifications.delete()
             absences.delete()
@@ -206,9 +224,11 @@ def secretary_departments(request):
         form = DepartementForm()
     
     departments = Departement.objects.select_related('id_faculte').all().order_by('id_faculte__nom_faculte', 'nom_departement')
-    
+    paginator = Paginator(departments, 20)
+    departments_page = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'dashboard/secretary_departments.html', {
-        'departments': departments,
+        'departments': departments_page,
         'form': form,
     })
 
