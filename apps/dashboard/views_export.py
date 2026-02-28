@@ -156,21 +156,24 @@ def export_at_risk_excel(request):
     # Data
     all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
     inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    from apps.absences.services import get_system_threshold
+    system_threshold = get_system_threshold()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut='NON_JUSTIFIEE'
+            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
         ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
     )
-    
+
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             total_abs = absence_sums.get(ins.id_inscription, 0) or 0
-            
+
             rate = (total_abs / cours.nombre_total_periodes) * 100
-            
-            if rate >= 40:
+            seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+
+            if rate >= seuil:
                 statut = "EXEMPTÉ" if ins.exemption_40 else "BLOQUÉ"
                 
                 ws.append([
