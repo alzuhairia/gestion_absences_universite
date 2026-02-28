@@ -55,6 +55,7 @@ def validation_list(request):
             "id_absence__id_inscription",
             "id_absence__id_inscription__id_etudiant",
             "id_absence__id_seance__id_cours",
+            "validee_par",
         )
         .order_by("-id_justification")
     )
