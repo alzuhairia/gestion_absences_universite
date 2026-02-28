@@ -18,12 +18,17 @@
         </a>
     </div>
 
-    {% if academic_year %}
+    {% if not academic_year %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Aucune année académique configurée.</strong> Veuillez contacter le secrétariat.
+    </div>
+    {% else %}
+
     <div class="alert alert-info">
         <i class="fas fa-calendar me-2"></i>
         <strong>Année académique :</strong> {{ academic_year.libelle }}
     </div>
-    {% endif %}
 
     <!-- Statistics Summary -->
     <div class="row mb-4">
@@ -55,6 +60,13 @@
         </div>
     </div>
 
+    {% if total_courses == 0 %}
+    <div class="alert alert-warning">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Aucune inscription active.</strong> Vous n'avez aucun cours inscrit pour cette année académique.
+        Le rapport PDF n'est pas disponible tant qu'aucune inscription n'est enregistrée.
+    </div>
+    {% else %}
     <!-- PDF Report Download -->
     <div class="card shadow student-card">
         <div class="card-header py-3 bg-danger text-white student-card-header">
@@ -79,7 +91,7 @@
                 <div class="col-md-4 text-center">
                     <i class="fas fa-file-pdf fa-5x text-danger mb-3"></i>
                     <div>
-                        <a href="{% url 'dashboard:export_student_pdf' %}" 
+                        <a href="{% url 'dashboard:export_student_pdf' %}"
                            class="btn btn-danger btn-lg" title="Télécharger le rapport PDF" data-bs-toggle="tooltip">
                             <i class="fas fa-download me-2"></i> Télécharger PDF
                         </a>
@@ -88,13 +100,15 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Information -->
     <div class="alert alert-info mt-4">
         <i class="fas fa-info-circle me-2"></i>
-        <strong>Note :</strong> Le rapport PDF contient uniquement les absences non justifiées. 
+        <strong>Note :</strong> Le rapport PDF contient uniquement les absences non justifiées et en attente de validation.
         Les absences justifiées ne sont pas comptabilisées dans le calcul du taux d'absence.
     </div>
+
+    {% endif %}
 </div>
 {% endblock %}
-
