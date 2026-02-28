@@ -17,6 +17,7 @@ urlpatterns = [
     path('process/<int:pk>/', views_validation.process_justification, name='process_justification'),
     path('create-justified/', views_validation.create_justified_absence, name='create_justified_absence'),
     path('justified-list/', views_validation.justified_absences_list, name='justified_absences_list'),
+    path('api/student-history/', views_validation.student_absence_history_api, name='student_absence_history_api'),
     
     # Edit/Override Absence
     path('edit/<int:pk>/', views_manager.edit_absence, name='edit_absence'),

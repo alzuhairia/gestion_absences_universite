@@ -31,6 +31,7 @@ class ApiAuthContractTests(TestCase):
             (reverse('enrollments:get_courses'), {'dept_id': 999, 'year_id': 999}),
             (reverse('enrollments:get_courses_by_year'), {'year_id': 999}),
             (reverse('dashboard:get_prerequisites_by_level'), {'niveau': 2}),
+            (reverse('absences:student_absence_history_api'), {'student_id': self.student.id_utilisateur}),
         )
 
     def assert_json_error(self, response, *, status, code, message):
@@ -128,6 +129,17 @@ class ApiAuthContractTests(TestCase):
             status=400,
             code='bad_request',
             message='niveau requis',
+        )
+
+        response_history = self.client.get(
+            reverse('absences:student_absence_history_api'),
+            secure=True,
+        )
+        self.assert_json_error(
+            response_history,
+            status=400,
+            code='bad_request',
+            message='student_id requis',
         )
 
     def test_server_error_is_sanitized_and_contains_request_id(self):
