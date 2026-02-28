@@ -8,228 +8,811 @@
 <li class="breadcrumb-item active" aria-current="page">Encoder une Absence Justifiée</li>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .hero-justified {
+        background: linear-gradient(120deg, #1f3b5b 0%, #2f5f86 100%);
+        color: #fff;
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #405a73;
+        margin-bottom: 0.75rem;
+    }
+
+    .info-muted {
+        color: #5f6c7b;
+        font-size: 0.8rem;
+    }
+
+    .drop-zone {
+        border: 2px dashed #9cb3cf;
+        border-radius: 0.9rem;
+        background: #f8fbff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .drop-zone.dragover {
+        border-color: #2563eb;
+        background: #eef5ff;
+    }
+
+    .course-table thead th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #4f6075;
+    }
+
+    .course-meta {
+        color: #617285;
+        font-size: 0.8rem;
+    }
+
+    .summary-label {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.74rem;
+        color: #5f6c7b;
+        font-weight: 700;
+    }
+
+    .history-kpi {
+        border: 1px solid #dbe6f2;
+        border-radius: 0.7rem;
+        padding: 0.5rem;
+        background: #f8fbff;
+    }
+
+    .history-kpi-value {
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .history-kpi-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #5f6c7b;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
-    <div class="page-header mb-4">
-        <div class="d-flex justify-content-between align-items-center">
+    <section class="hero-justified mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
-                <h1 class="mb-2">
-                    <i class="fas fa-check-circle me-2"></i>Encoder une Absence Justifiée
-                </h1>
-                <p class="mb-0 opacity-90">
-                    Créez directement une absence justifiée pour un étudiant. Cette absence sera officielle et prioritaire.
-                </p>
+                <h1 class="h3 mb-2"><i class="fas fa-check-circle me-2"></i>Encoder une Absence Justifiée</h1>
+                <p class="mb-0 opacity-75">Formulaire modernisé avec résumé dynamique et historique étudiant.</p>
             </div>
-            <a href="{% url 'absences:validation_list' %}" class="btn btn-light">
-                <i class="fas fa-arrow-left me-1"></i>Retour aux justificatifs
-            </a>
-        </div>
-    </div>
-
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-file-medical me-2"></i>Informations de l'Absence
-            </h5>
-        </div>
-        <div class="card-body">
-            <form method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-
-                {% if form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {% for error in form.non_field_errors %}
-                    <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
-                    {% endfor %}
-                </div>
+            <div class="text-end">
+                {% if annee_active %}
+                <span class="badge rounded-pill bg-light text-dark mb-2 d-inline-block">Année active : {{ annee_active.libelle }}</span>
                 {% endif %}
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label for="{{ form.etudiant.id_for_label }}" class="form-label">
-                            <i class="fas fa-user-graduate me-2"></i>{{ form.etudiant.label }}
-                        </label>
-                        {{ form.etudiant }}
-                        {% if form.etudiant.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.etudiant.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if form.etudiant.help_text %}
-                        <small class="form-text text-muted">{{ form.etudiant.help_text }}</small>
-                        {% endif %}
-                    </div>
-
-                    <div class="col-md-6">
-                        <label for="{{ form.date_absence.id_for_label }}" class="form-label">
-                            <i class="fas fa-calendar me-2"></i>{{ form.date_absence.label }}
-                        </label>
-                        {{ form.date_absence }}
-                        {% if form.date_absence.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.date_absence.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if form.date_absence.help_text %}
-                        <small class="form-text text-muted">{{ form.date_absence.help_text }}</small>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label">
-                        <i class="fas fa-book me-2"></i>{{ form.cours.label }}
-                    </label>
-                    <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
-                        {% for checkbox in form.cours %}
-                        <div class="form-check">
-                            {{ checkbox.tag }}
-                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
-                                {{ checkbox.choice_label }}
-                            </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% if form.cours.errors %}
-                    <div class="text-danger small">
-                        {% for error in form.cours.errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if form.cours.help_text %}
-                    <small class="form-text text-muted">{{ form.cours.help_text }}</small>
-                    {% endif %}
-                </div>
-
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <label for="{{ form.type_absence.id_for_label }}" class="form-label">
-                            <i class="fas fa-clock me-2"></i>{{ form.type_absence.label }}
-                        </label>
-                        {{ form.type_absence }}
-                        {% if form.type_absence.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.type_absence.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="col-md-4">
-                        <label for="{{ form.heure_debut.id_for_label }}" class="form-label">
-                            <i class="fas fa-clock me-2"></i>{{ form.heure_debut.label }}
-                        </label>
-                        {{ form.heure_debut }}
-                        {% if form.heure_debut.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.heure_debut.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if form.heure_debut.help_text %}
-                        <small class="form-text text-muted">{{ form.heure_debut.help_text }}</small>
-                        {% endif %}
-                    </div>
-
-                    <div class="col-md-4">
-                        <label for="{{ form.heure_fin.id_for_label }}" class="form-label">
-                            <i class="fas fa-clock me-2"></i>{{ form.heure_fin.label }}
-                        </label>
-                        {{ form.heure_fin }}
-                        {% if form.heure_fin.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.heure_fin.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if form.heure_fin.help_text %}
-                        <small class="form-text text-muted">{{ form.heure_fin.help_text }}</small>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="row mb-4" id="duree-row" style="display: none;">
-                    <div class="col-md-6">
-                        <label for="{{ form.duree_absence.id_for_label }}" class="form-label">
-                            <i class="fas fa-hourglass-half me-2"></i>{{ form.duree_absence.label }}
-                        </label>
-                        {{ form.duree_absence }}
-                        {% if form.duree_absence.errors %}
-                        <div class="text-danger small">
-                            {% for error in form.duree_absence.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if form.duree_absence.help_text %}
-                        <small class="form-text text-muted">{{ form.duree_absence.help_text }}</small>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="{{ form.commentaire.id_for_label }}" class="form-label">
-                        <i class="fas fa-comment me-2"></i>{{ form.commentaire.label }}
-                    </label>
-                    {{ form.commentaire }}
-                    {% if form.commentaire.errors %}
-                    <div class="text-danger small">
-                        {% for error in form.commentaire.errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if form.commentaire.help_text %}
-                    <small class="form-text text-muted">{{ form.commentaire.help_text }}</small>
-                    {% endif %}
-                </div>
-
-                <div class="mb-4">
-                    <label for="{{ form.document.id_for_label }}" class="form-label">
-                        <i class="fas fa-file-upload me-2"></i>{{ form.document.label }}
-                    </label>
-                    {{ form.document }}
-                    {% if form.document.errors %}
-                    <div class="text-danger small">
-                        {% for error in form.document.errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if form.document.help_text %}
-                    <small class="form-text text-muted">{{ form.document.help_text }}</small>
-                    {% endif %}
-                </div>
-
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Note :</strong> Cette absence sera créée avec le statut "Justifiée" directement. 
-                    Elle sera prioritaire et ne pourra pas être modifiée par les professeurs.
-                </div>
-
-                <div class="d-flex justify-content-end gap-2">
-                    <a href="{% url 'absences:validation_list' %}" class="btn btn-secondary">
-                        <i class="fas fa-times me-2"></i>Annuler
+                <div>
+                    <a href="{% url 'absences:validation_list' %}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Retour aux justificatifs
                     </a>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Encoder l'Absence Justifiée
-                    </button>
                 </div>
-            </form>
+            </div>
+        </div>
+    </section>
+
+    <div class="row g-4 align-items-start">
+        <div class="col-xl-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-file-medical me-2"></i>Informations de l'Absence</h5>
+                </div>
+                <div class="card-body">
+                    <form id="justified-form" method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            <div><i class="fas fa-exclamation-circle me-2"></i>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div id="cours-error" class="alert alert-danger d-none" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>Veuillez sélectionner au moins un cours.
+                        </div>
+                        <div id="doc-error" class="alert alert-danger d-none" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>Le document justificatif est obligatoire.
+                        </div>
+
+                        <div class="section-title"><i class="fas fa-user-graduate me-2"></i>Étudiant</div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-12">
+                                <label for="student-search" class="form-label fw-semibold">Recherche rapide étudiant</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input id="student-search" type="text" class="form-control" placeholder="Nom, prénom, e-mail ou numéro étudiant">
+                                </div>
+                                <div class="info-muted mt-1">Le filtre agit sur la liste ci-dessous.</div>
+                            </div>
+                            <div class="col-12">
+                                <label for="{{ form.etudiant.id_for_label }}" class="form-label fw-semibold">{{ form.etudiant.label }}</label>
+                                {{ form.etudiant }}
+                                {% if form.etudiant.errors %}
+                                <div class="text-danger small mt-1">{% for error in form.etudiant.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                                {% if form.etudiant.help_text %}<div class="info-muted mt-1">{{ form.etudiant.help_text }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="section-title"><i class="fas fa-calendar-check me-2"></i>Détails de l'absence</div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="{{ form.date_absence.id_for_label }}" class="form-label fw-semibold">{{ form.date_absence.label }}</label>
+                                {{ form.date_absence }}
+                                {% if form.date_absence.errors %}<div class="text-danger small mt-1">{% for error in form.date_absence.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.type_absence.id_for_label }}" class="form-label fw-semibold">{{ form.type_absence.label }}</label>
+                                {{ form.type_absence }}
+                                {% if form.type_absence.errors %}<div class="text-danger small mt-1">{% for error in form.type_absence.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.heure_debut.id_for_label }}" class="form-label fw-semibold">{{ form.heure_debut.label }}</label>
+                                {{ form.heure_debut }}
+                                {% if form.heure_debut.errors %}<div class="text-danger small mt-1">{% for error in form.heure_debut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                <div class="info-muted mt-1">{{ form.heure_debut.help_text }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.heure_fin.id_for_label }}" class="form-label fw-semibold">{{ form.heure_fin.label }}</label>
+                                {{ form.heure_fin }}
+                                {% if form.heure_fin.errors %}<div class="text-danger small mt-1">{% for error in form.heure_fin.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                <div class="info-muted mt-1">{{ form.heure_fin.help_text }}</div>
+                            </div>
+                        </div>
+
+                        <div id="duree-row" class="row g-3 mb-4 d-none">
+                            <div class="col-md-6">
+                                <label for="{{ form.duree_absence.id_for_label }}" class="form-label fw-semibold">{{ form.duree_absence.label }}</label>
+                                {{ form.duree_absence }}
+                                {% if form.duree_absence.errors %}<div class="text-danger small mt-1">{% for error in form.duree_absence.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                <div class="info-muted mt-1">{{ form.duree_absence.help_text }}</div>
+                            </div>
+                        </div>
+
+                        <div class="section-title"><i class="fas fa-book me-2"></i>Cours concernés</div>
+                        <div class="card bg-light border-0 mb-4">
+                            <div class="card-body">
+                                <div class="row g-2 mb-3">
+                                    <div class="col-lg-5">
+                                        <label for="course-search" class="form-label small fw-semibold mb-1">Recherche cours</label>
+                                        <input id="course-search" type="text" class="form-control form-control-sm" placeholder="Code, nom, département">
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label for="course-department-filter" class="form-label small fw-semibold mb-1">Département</label>
+                                        <select id="course-department-filter" class="form-select form-select-sm"><option value="">Tous</option></select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label for="course-level-filter" class="form-label small fw-semibold mb-1">Niveau</label>
+                                        <select id="course-level-filter" class="form-select form-select-sm"><option value="">Tous</option></select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label for="course-year-filter" class="form-label small fw-semibold mb-1">Année</label>
+                                        <select id="course-year-filter" class="form-select form-select-sm"><option value="">Toutes</option></select>
+                                    </div>
+                                </div>
+
+                                <div id="courses-empty" class="text-muted small fst-italic"><i class="fas fa-info-circle me-1"></i>Sélectionnez d'abord un étudiant pour afficher ses cours.</div>
+                                <div id="courses-loading" class="d-none text-center py-3"><div class="spinner-border spinner-border-sm text-primary me-2" role="status" aria-hidden="true"></div><span class="small text-muted">Chargement des cours...</span></div>
+                                <div id="courses-none" class="d-none text-muted small fst-italic"><i class="fas fa-triangle-exclamation text-warning me-1"></i>Aucun cours actif trouvé pour cet étudiant.</div>
+                                <div id="courses-filter-empty" class="d-none text-muted small fst-italic"><i class="fas fa-filter me-1"></i>Aucun cours ne correspond aux filtres.</div>
+                                <div id="courses-list" class="d-none"></div>
+
+                                {% if form.cours.errors %}<div class="text-danger small mt-1">{% for error in form.cours.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                <div class="info-muted mt-2">{{ form.cours.help_text }}</div>
+                            </div>
+                        </div>
+
+                        <div class="section-title"><i class="fas fa-file-upload me-2"></i>Document justificatif</div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">{{ form.document.label }} <span class="text-danger">*</span></label>
+                            <div id="drop-zone" class="drop-zone text-center p-4">
+                                <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                <p class="mb-1 text-muted">Glissez votre fichier ici ou <strong>cliquez pour sélectionner</strong></p>
+                                <small class="text-muted">PDF, JPG, PNG — max 5 Mo</small>
+                                <div class="d-none">{{ form.document }}</div>
+                            </div>
+                            <div id="file-preview" class="d-none mt-2 d-flex align-items-center gap-2 p-2 border rounded bg-light">
+                                <i id="file-icon" class="fas fa-file fa-lg text-primary"></i>
+                                <span id="file-name" class="small fw-semibold text-truncate flex-grow-1"></span>
+                                <button type="button" id="remove-file" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                            </div>
+                            {% if form.document.errors %}<div class="text-danger small mt-1">{% for error in form.document.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            <div class="info-muted mt-1">{{ form.document.help_text }}</div>
+                        </div>
+
+                        <div class="section-title"><i class="fas fa-comment me-2"></i>Commentaire</div>
+                        <div class="mb-4">
+                            <label for="{{ form.commentaire.id_for_label }}" class="form-label fw-semibold">{{ form.commentaire.label }}</label>
+                            {{ form.commentaire }}
+                            {% if form.commentaire.errors %}<div class="text-danger small mt-1">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            <div class="info-muted mt-1">{{ form.commentaire.help_text }}</div>
+                        </div>
+
+                        <div class="alert alert-info mb-4 small">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note :</strong> Cette absence sera créée avec le statut <em>Justifiée</em> directement.
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'absences:validation_list' %}" class="btn btn-secondary"><i class="fas fa-times me-2"></i>Annuler</a>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Encoder l'Absence Justifiée</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="sticky-lg-top" style="top: 1rem;">
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Résumé dynamique</h5></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="summary-label">Étudiant</div>
+                            <div id="summary-student" class="fw-semibold">—</div>
+                            <small id="summary-student-id" class="text-muted">ID : —</small>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge rounded-pill text-bg-success">Justifiée</span>
+                            <span id="summary-type" class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle">Séance complète</span>
+                        </div>
+                        <div class="mb-3">
+                            <div class="summary-label">Date et heures</div>
+                            <div id="summary-datetime" class="fw-semibold">—</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="summary-label">Justificatif</div>
+                            <div id="summary-doc" class="fw-semibold">Aucun fichier</div>
+                        </div>
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="summary-label mb-0">Cours sélectionnés</div>
+                                <span id="summary-courses-count" class="badge rounded-pill text-bg-light">0</span>
+                            </div>
+                            <ul id="summary-courses" class="list-group list-group-flush">
+                                <li class="list-group-item px-0 text-muted fst-italic">Aucun cours sélectionné</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-history me-2"></i>Historique de l'étudiant</h6>
+                        <span class="badge text-bg-light">10 derniers</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-md-3"><div class="history-kpi"><div id="history-total" class="history-kpi-value">0</div><div class="history-kpi-label">Total</div></div></div>
+                            <div class="col-6 col-md-3"><div class="history-kpi"><div id="history-justified" class="history-kpi-value text-success">0</div><div class="history-kpi-label">Justifiées</div></div></div>
+                            <div class="col-6 col-md-3"><div class="history-kpi"><div id="history-pending" class="history-kpi-value text-warning">0</div><div class="history-kpi-label">Attente</div></div></div>
+                            <div class="col-6 col-md-3"><div class="history-kpi"><div id="history-unjustified" class="history-kpi-value text-danger">0</div><div class="history-kpi-label">Non justif.</div></div></div>
+                        </div>
+
+                        <div id="history-loading" class="d-none text-center py-2"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div><span class="small text-muted">Chargement...</span></div>
+                        <div id="history-empty" class="small text-muted fst-italic"><i class="fas fa-info-circle me-1"></i>Sélectionnez un étudiant pour afficher son historique.</div>
+                        <div id="history-error" class="alert alert-danger d-none py-2 px-3 small mb-2"><span id="history-error-message">Impossible de charger l'historique.</span></div>
+
+                        <div id="history-table-wrap" class="table-responsive d-none">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Date</th><th>Cours</th><th>Horaire</th><th>Type</th><th>Statut</th><th>Durée</th></tr>
+                                </thead>
+                                <tbody id="history-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('justified-form');
+    if (!form) return;
+
+    const etudiantSelect = document.getElementById('id_etudiant');
+    const studentSearch = document.getElementById('student-search');
+    const dateInput = document.getElementById('id_date_absence');
     const typeSelect = document.getElementById('id_type_absence');
+    const heureDebutInput = document.getElementById('id_heure_debut');
+    const heureFinInput = document.getElementById('id_heure_fin');
     const dureeRow = document.getElementById('duree-row');
     const dureeInput = document.getElementById('id_duree_absence');
 
-    function toggleDureeField() {
+    const coursesEmpty = document.getElementById('courses-empty');
+    const coursesLoading = document.getElementById('courses-loading');
+    const coursesNone = document.getElementById('courses-none');
+    const coursesFilterEmpty = document.getElementById('courses-filter-empty');
+    const coursesList = document.getElementById('courses-list');
+
+    const courseSearchInput = document.getElementById('course-search');
+    const courseDepartmentFilter = document.getElementById('course-department-filter');
+    const courseLevelFilter = document.getElementById('course-level-filter');
+    const courseYearFilter = document.getElementById('course-year-filter');
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('id_document');
+    const filePreview = document.getElementById('file-preview');
+    const fileIcon = document.getElementById('file-icon');
+    const fileName = document.getElementById('file-name');
+    const removeFileBtn = document.getElementById('remove-file');
+
+    const coursError = document.getElementById('cours-error');
+    const docError = document.getElementById('doc-error');
+
+    const summaryStudent = document.getElementById('summary-student');
+    const summaryStudentId = document.getElementById('summary-student-id');
+    const summaryType = document.getElementById('summary-type');
+    const summaryDatetime = document.getElementById('summary-datetime');
+    const summaryCourses = document.getElementById('summary-courses');
+    const summaryCoursesCount = document.getElementById('summary-courses-count');
+    const summaryDoc = document.getElementById('summary-doc');
+
+    const historyLoading = document.getElementById('history-loading');
+    const historyEmpty = document.getElementById('history-empty');
+    const historyError = document.getElementById('history-error');
+    const historyErrorMessage = document.getElementById('history-error-message');
+    const historyTableWrap = document.getElementById('history-table-wrap');
+    const historyBody = document.getElementById('history-body');
+    const historyTotal = document.getElementById('history-total');
+    const historyJustified = document.getElementById('history-justified');
+    const historyPending = document.getElementById('history-pending');
+    const historyUnjustified = document.getElementById('history-unjustified');
+
+    const coursesApiUrl = '{% url "enrollments:get_courses_by_student" %}';
+    const historyApiUrl = '{% url "absences:student_absence_history_api" %}';
+
+    const initialStudentId = '{{ form.etudiant.value|default_if_none:""|escapejs }}';
+    const preselectedCourseIds = new Set([
+        {% for value in form.cours.value %}
+        '{{ value|escapejs }}',
+        {% endfor %}
+    ]);
+    let applyInitialCourseSelection = preselectedCourseIds.size > 0;
+
+    function normalizeText(value) {
+        return (value || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function formatDate(value) {
+        if (!value) return '—';
+        const parts = value.split('-');
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+    }
+
+    function formatDuration(value) {
+        const number = Number(value);
+        if (Number.isNaN(number)) return '—';
+        return (Number.isInteger(number) ? number.toString() : number.toFixed(1)) + 'h';
+    }
+
+    async function fetchJson(url) {
+        const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.toLowerCase().includes('application/json') ? await response.json() : null;
+        if (!response.ok) {
+            throw new Error(payload && payload.error && payload.error.message ? payload.error.message : `Erreur HTTP ${response.status}`);
+        }
+        return payload;
+    }
+
+    function showCoursesState(state) {
+        [coursesEmpty, coursesLoading, coursesNone, coursesFilterEmpty, coursesList].forEach(function (el) { el.classList.add('d-none'); });
+        if (state === 'empty') coursesEmpty.classList.remove('d-none');
+        if (state === 'loading') coursesLoading.classList.remove('d-none');
+        if (state === 'none') coursesNone.classList.remove('d-none');
+        if (state === 'list') coursesList.classList.remove('d-none');
+    }
+
+    function resetFilters() {
+        courseSearchInput.value = '';
+        courseDepartmentFilter.innerHTML = '<option value="">Tous</option>';
+        courseLevelFilter.innerHTML = '<option value="">Tous</option>';
+        courseYearFilter.innerHTML = '<option value="">Toutes</option>';
+    }
+
+    function populateFilters(courses) {
+        resetFilters();
+        const departments = [...new Set(courses.map(c => c.department).filter(Boolean))].sort();
+        const levels = [...new Set(courses.map(c => c.level).filter(Boolean))].sort((a, b) => a - b);
+        const years = [...new Set(courses.map(c => c.year).filter(Boolean))].sort().reverse();
+
+        departments.forEach(function (value) {
+            const option = document.createElement('option'); option.value = value; option.textContent = value; courseDepartmentFilter.appendChild(option);
+        });
+        levels.forEach(function (value) {
+            const option = document.createElement('option'); option.value = String(value); option.textContent = 'Année ' + value; courseLevelFilter.appendChild(option);
+        });
+        years.forEach(function (value) {
+            const option = document.createElement('option'); option.value = value; option.textContent = value; courseYearFilter.appendChild(option);
+        });
+    }
+
+    function renderCourses(courses) {
+        coursesList.innerHTML = '';
+        if (!courses.length) {
+            resetFilters();
+            updateSummaryCourses();
+            return;
+        }
+
+        populateFilters(courses);
+
+        const tableWrap = document.createElement('div');
+        tableWrap.className = 'table-responsive';
+        const table = document.createElement('table');
+        table.className = 'table table-sm align-middle mb-0 course-table';
+        const thead = document.createElement('thead');
+        thead.className = 'table-light';
+        const headRow = document.createElement('tr');
+        ['Choix', 'Code', 'Cours', 'Département', 'Année'].forEach(function (title) {
+            const th = document.createElement('th'); th.textContent = title; headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+
+        const tbody = document.createElement('tbody');
+        courses.forEach(function (course) {
+            const row = document.createElement('tr');
+            row.className = 'course-row';
+            row.dataset.search = normalizeText([course.code, course.name, course.department, course.year, course.level].join(' '));
+            row.dataset.department = normalizeText(course.department || '');
+            row.dataset.level = String(course.level || '');
+            row.dataset.year = course.year || '';
+
+            const tdCheck = document.createElement('td');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox'; checkbox.name = 'cours'; checkbox.value = String(course.id);
+            checkbox.className = 'form-check-input course-checkbox'; checkbox.id = `cours_${course.id}`;
+            checkbox.dataset.code = course.code || ''; checkbox.dataset.name = course.name || '';
+            checkbox.dataset.department = course.department || ''; checkbox.dataset.year = course.year || '';
+            checkbox.dataset.level = course.level || '';
+            if (applyInitialCourseSelection && etudiantSelect.value === initialStudentId && preselectedCourseIds.has(String(course.id))) {
+                checkbox.checked = true;
+            }
+            tdCheck.appendChild(checkbox);
+
+            const tdCode = document.createElement('td');
+            const codeBadge = document.createElement('span'); codeBadge.className = 'badge text-bg-light border'; codeBadge.textContent = course.code || '—'; tdCode.appendChild(codeBadge);
+
+            const tdName = document.createElement('td');
+            const nameMain = document.createElement('div'); nameMain.className = 'fw-semibold'; nameMain.textContent = course.name || 'Cours'; tdName.appendChild(nameMain);
+            const nameMeta = document.createElement('div'); nameMeta.className = 'course-meta'; nameMeta.textContent = course.level ? `Niveau : Année ${course.level}` : 'Niveau : N/A'; tdName.appendChild(nameMeta);
+
+            const tdDept = document.createElement('td'); tdDept.textContent = course.department || '—';
+            const tdYear = document.createElement('td'); tdYear.textContent = course.year || '—';
+
+            row.appendChild(tdCheck); row.appendChild(tdCode); row.appendChild(tdName); row.appendChild(tdDept); row.appendChild(tdYear);
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(thead); table.appendChild(tbody); tableWrap.appendChild(table); coursesList.appendChild(tableWrap);
+        applyCourseFilters();
+        updateSummaryCourses();
+        if (applyInitialCourseSelection && etudiantSelect.value === initialStudentId) applyInitialCourseSelection = false;
+    }
+
+    function applyCourseFilters() {
+        const term = normalizeText(courseSearchInput.value);
+        const dep = normalizeText(courseDepartmentFilter.value);
+        const lvl = courseLevelFilter.value;
+        const year = courseYearFilter.value;
+
+        const rows = coursesList.querySelectorAll('.course-row');
+        let visible = 0;
+        rows.forEach(function (row) {
+            const ok = (!term || row.dataset.search.includes(term))
+                && (!dep || row.dataset.department === dep)
+                && (!lvl || row.dataset.level === lvl)
+                && (!year || row.dataset.year === year);
+            row.classList.toggle('d-none', !ok);
+            if (ok) visible += 1;
+        });
+        coursesFilterEmpty.classList.toggle('d-none', !(rows.length && visible === 0));
+    }
+    function updateSummaryStudent() {
+        if (!etudiantSelect.value) {
+            summaryStudent.textContent = '—';
+            summaryStudentId.textContent = 'ID : —';
+            return;
+        }
+        const option = etudiantSelect.options[etudiantSelect.selectedIndex];
+        summaryStudent.textContent = option ? option.text.trim() : 'Étudiant sélectionné';
+        summaryStudentId.textContent = 'ID : ' + etudiantSelect.value;
+    }
+
+    function updateSummaryDateTime() {
+        const date = dateInput.value;
+        const start = heureDebutInput.value;
+        const end = heureFinInput.value;
+        let slot = '08:00 - 10:00 (par défaut)';
+        if (start && end) slot = `${start} - ${end}`;
+        else if (start || end) slot = start || end;
+
+        if (!date) {
+            summaryDatetime.textContent = slot === '08:00 - 10:00 (par défaut)' ? '—' : slot;
+            return;
+        }
+        summaryDatetime.textContent = `${formatDate(date)} | ${slot}`;
+    }
+
+    function updateTypeBadge() {
+        const map = {
+            SEANCE: { label: 'Séance complète', cls: 'badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle' },
+            HEURE: { label: 'Retard / Partiel', cls: 'badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle' },
+            JOURNEE: { label: 'Journée complète', cls: 'badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle' },
+        };
+        const conf = map[typeSelect.value] || map.SEANCE;
+        summaryType.className = conf.cls;
+        summaryType.textContent = conf.label;
+
         if (typeSelect.value === 'HEURE') {
-            dureeRow.style.display = 'block';
+            dureeRow.classList.remove('d-none');
             dureeInput.required = true;
         } else {
-            dureeRow.style.display = 'none';
+            dureeRow.classList.add('d-none');
             dureeInput.required = false;
             dureeInput.value = '';
         }
     }
 
-    typeSelect.addEventListener('change', toggleDureeField);
-    toggleDureeField(); // Initial call
+    function updateSummaryCourses() {
+        const checked = form.querySelectorAll('input[name="cours"]:checked');
+        summaryCourses.innerHTML = '';
+        summaryCoursesCount.textContent = String(checked.length);
+
+        if (!checked.length) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item px-0 text-muted fst-italic';
+            li.textContent = 'Aucun cours sélectionné';
+            summaryCourses.appendChild(li);
+            return;
+        }
+
+        checked.forEach(function (checkbox) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item px-0';
+            const title = document.createElement('div');
+            title.className = 'fw-semibold small';
+            title.textContent = `${checkbox.dataset.code} - ${checkbox.dataset.name}`;
+            const meta = document.createElement('div');
+            meta.className = 'course-meta';
+            const level = checkbox.dataset.level ? `Année ${checkbox.dataset.level}` : null;
+            meta.textContent = [checkbox.dataset.department, level, checkbox.dataset.year].filter(Boolean).join(' • ');
+            li.appendChild(title); li.appendChild(meta);
+            summaryCourses.appendChild(li);
+        });
+    }
+
+    function setHistoryState(state, message) {
+        historyLoading.classList.add('d-none');
+        historyEmpty.classList.add('d-none');
+        historyError.classList.add('d-none');
+        historyTableWrap.classList.add('d-none');
+
+        if (state === 'loading') historyLoading.classList.remove('d-none');
+        if (state === 'empty') {
+            historyEmpty.classList.remove('d-none');
+            if (message) {
+                historyEmpty.textContent = '';
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-info-circle me-1';
+                historyEmpty.appendChild(icon);
+                historyEmpty.appendChild(document.createTextNode(message));
+            }
+        }
+        if (state === 'error') {
+            historyError.classList.remove('d-none');
+            historyErrorMessage.textContent = message || 'Impossible de charger l\'historique.';
+        }
+        if (state === 'table') historyTableWrap.classList.remove('d-none');
+    }
+
+    function updateHistoryStats(stats) {
+        historyTotal.textContent = String(stats.total || 0);
+        historyJustified.textContent = String(stats.justified || 0);
+        historyPending.textContent = String(stats.pending || 0);
+        historyUnjustified.textContent = String(stats.unjustified || 0);
+    }
+
+    function renderHistory(items, stats) {
+        updateHistoryStats(stats || {});
+        historyBody.innerHTML = '';
+        if (!items.length) {
+            setHistoryState('empty', 'Aucune absence enregistrée pour cet étudiant.');
+            return;
+        }
+
+        const statusMap = {
+            JUSTIFIEE: 'badge rounded-pill text-bg-success',
+            EN_ATTENTE: 'badge rounded-pill text-bg-warning',
+            NON_JUSTIFIEE: 'badge rounded-pill text-bg-danger',
+        };
+
+        items.forEach(function (item) {
+            const tr = document.createElement('tr');
+
+            const dateTd = document.createElement('td'); dateTd.textContent = item.date_display || formatDate(item.date || '');
+            const coursTd = document.createElement('td');
+            const code = document.createElement('div'); code.className = 'fw-semibold'; code.textContent = item.course_code || '—';
+            const name = document.createElement('small'); name.className = 'text-muted d-block'; name.textContent = item.course_name || '';
+            coursTd.appendChild(code); coursTd.appendChild(name);
+
+            const hourTd = document.createElement('td'); hourTd.textContent = `${item.time_start || '—'} - ${item.time_end || '—'}`;
+            const typeTd = document.createElement('td'); typeTd.textContent = item.type_display || item.type || '—';
+            const statusTd = document.createElement('td');
+            const statusBadge = document.createElement('span');
+            statusBadge.className = statusMap[item.status] || 'badge rounded-pill text-bg-secondary';
+            statusBadge.textContent = item.status_display || item.status || '—';
+            statusTd.appendChild(statusBadge);
+            const durationTd = document.createElement('td'); durationTd.textContent = formatDuration(item.duration);
+
+            tr.appendChild(dateTd); tr.appendChild(coursTd); tr.appendChild(hourTd); tr.appendChild(typeTd); tr.appendChild(statusTd); tr.appendChild(durationTd);
+            historyBody.appendChild(tr);
+        });
+
+        setHistoryState('table');
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+        const icons = { pdf: 'fas fa-file-pdf fa-lg text-danger', jpg: 'fas fa-file-image fa-lg text-success', jpeg: 'fas fa-file-image fa-lg text-success', png: 'fas fa-file-image fa-lg text-success' };
+        fileIcon.className = icons[ext] || 'fas fa-file fa-lg text-primary';
+        fileName.textContent = file.name;
+        filePreview.classList.remove('d-none');
+        summaryDoc.textContent = file.name;
+        docError.classList.add('d-none');
+    }
+
+    function clearFile() {
+        fileInput.value = '';
+        fileName.textContent = '';
+        filePreview.classList.add('d-none');
+        summaryDoc.textContent = 'Aucun fichier';
+    }
+
+    async function loadStudentContext(studentId) {
+        renderCourses([]);
+        if (!studentId) {
+            showCoursesState('empty');
+            updateHistoryStats({ total: 0, justified: 0, pending: 0, unjustified: 0 });
+            setHistoryState('empty', 'Sélectionnez un étudiant pour afficher son historique.');
+            return;
+        }
+
+        showCoursesState('loading');
+        setHistoryState('loading');
+
+        const [coursesResult, historyResult] = await Promise.allSettled([
+            fetchJson(`${coursesApiUrl}?student_id=${encodeURIComponent(studentId)}`),
+            fetchJson(`${historyApiUrl}?student_id=${encodeURIComponent(studentId)}`),
+        ]);
+
+        if (coursesResult.status === 'fulfilled') {
+            const payload = coursesResult.value;
+            const data = Array.isArray(payload) ? payload : (Array.isArray(payload && payload.data) ? payload.data : []);
+            if (!data.length) showCoursesState('none');
+            else { renderCourses(data); showCoursesState('list'); }
+        } else {
+            showCoursesState('none');
+        }
+
+        if (historyResult.status === 'fulfilled') {
+            const payloadRaw = historyResult.value || {};
+            const payload = payloadRaw.data || payloadRaw;
+            renderHistory(Array.isArray(payload.items) ? payload.items : [], payload.stats || {});
+        } else {
+            updateHistoryStats({ total: 0, justified: 0, pending: 0, unjustified: 0 });
+            setHistoryState('error', historyResult.reason && historyResult.reason.message ? historyResult.reason.message : 'Impossible de charger l\'historique.');
+        }
+    }
+
+    etudiantSelect.addEventListener('change', function () {
+        updateSummaryStudent();
+        loadStudentContext(etudiantSelect.value);
+    });
+
+    studentSearch.addEventListener('input', function () {
+        const term = normalizeText(studentSearch.value);
+        Array.from(etudiantSelect.options).forEach(function (option) {
+            if (!option.value) { option.hidden = false; return; }
+            option.hidden = Boolean(term) && !(normalizeText(option.text).includes(term) || option.value.includes(term));
+        });
+    });
+
+    [dateInput, heureDebutInput, heureFinInput].forEach(function (input) { input.addEventListener('change', updateSummaryDateTime); });
+    typeSelect.addEventListener('change', updateTypeBadge);
+
+    [courseSearchInput, courseDepartmentFilter, courseLevelFilter, courseYearFilter].forEach(function (el) {
+        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(evt, applyCourseFilters);
+    });
+
+    coursesList.addEventListener('change', function (event) {
+        if (event.target && event.target.matches('input[name="cours"]')) {
+            coursError.classList.add('d-none');
+            updateSummaryCourses();
+        }
+    });
+
+    dropZone.addEventListener('click', function () { fileInput.click(); });
+    ['dragenter', 'dragover'].forEach(function (name) {
+        dropZone.addEventListener(name, function (event) { event.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (name) {
+        dropZone.addEventListener(name, function (event) { event.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+    dropZone.addEventListener('drop', function (event) {
+        const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+        if (!file) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        handleFile(file);
+    });
+
+    fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files.length) handleFile(fileInput.files[0]);
+        else clearFile();
+    });
+    removeFileBtn.addEventListener('click', clearFile);
+
+    form.addEventListener('submit', function (event) {
+        let valid = true;
+        if (!form.querySelectorAll('input[name="cours"]:checked').length) {
+            coursError.classList.remove('d-none');
+            valid = false;
+        } else {
+            coursError.classList.add('d-none');
+        }
+
+        if (!fileInput.files || !fileInput.files.length) {
+            docError.classList.remove('d-none');
+            valid = false;
+        } else {
+            docError.classList.add('d-none');
+        }
+
+        if (!valid) {
+            event.preventDefault();
+        }
+    });
+
+    updateSummaryStudent();
+    updateSummaryDateTime();
+    updateTypeBadge();
+    updateSummaryCourses();
+
+    if (etudiantSelect.value) {
+        loadStudentContext(etudiantSelect.value);
+    } else {
+        showCoursesState('empty');
+        updateHistoryStats({ total: 0, justified: 0, pending: 0, unjustified: 0 });
+        setHistoryState('empty', 'Sélectionnez un étudiant pour afficher son historique.');
+    }
 });
 </script>
 {% endblock %}
-

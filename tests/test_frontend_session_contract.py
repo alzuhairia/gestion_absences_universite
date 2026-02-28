@@ -81,6 +81,7 @@ class FrontendSessionExpiryContractTests(TestCase):
             (reverse('enrollments:get_courses'), {'dept_id': 999, 'year_id': 999}),
             (reverse('enrollments:get_courses_by_year'), {'year_id': 999}),
             (reverse('dashboard:get_prerequisites_by_level'), {'niveau': 2}),
+            (reverse('absences:student_absence_history_api'), {'student_id': 1}),
         )
 
     def test_expired_session_returns_json_401_for_front_endpoints(self):

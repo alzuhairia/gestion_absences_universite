@@ -10,6 +10,7 @@ urlpatterns = [
     path('api/departments/', views.get_departments, name='get_departments'),
     path('api/courses/', views.get_courses, name='get_courses'),
     path('api/courses-by-year/', views.get_courses_by_year, name='get_courses_by_year'),
+    path('api/courses-by-student/', views.get_courses_by_student, name='get_courses_by_student'),
     
     # Rules Management
     path('rules/', views_rules.rules_management, name='rules_management'),
