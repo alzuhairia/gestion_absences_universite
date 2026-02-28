@@ -1,5 +1,9 @@
+from django.core.cache import cache
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+SYSTEM_SETTINGS_CACHE_KEY = 'system_settings_singleton'
+SYSTEM_SETTINGS_CACHE_TIMEOUT = 300  # 5 minutes
 
 
 class SystemSettings(models.Model):
@@ -113,25 +117,25 @@ class SystemSettings(models.Model):
     
     @classmethod
     def get_settings(cls):
-        """
-        Récupère ou crée l'instance singleton des paramètres système.
-        """
-        settings, created = cls.objects.get_or_create(
-            id=1,
-            defaults={
-                'default_absence_threshold': 40,
-                'block_type': cls.BlockType.EXAM_BLOCK,
-            }
-        )
-        return settings
-    
+        """Récupère le singleton depuis le cache, ou depuis la DB en fallback."""
+        obj = cache.get(SYSTEM_SETTINGS_CACHE_KEY)
+        if obj is None:
+            obj, _ = cls.objects.get_or_create(
+                id=1,
+                defaults={
+                    'default_absence_threshold': 40,
+                    'block_type': cls.BlockType.EXAM_BLOCK,
+                }
+            )
+            cache.set(SYSTEM_SETTINGS_CACHE_KEY, obj, SYSTEM_SETTINGS_CACHE_TIMEOUT)
+        return obj
+
     def save(self, *args, **kwargs):
-        """
-        Garantit qu'une seule instance existe (singleton).
-        """
+        """Singleton + invalidation du cache à chaque modification admin."""
         self.id = 1
         self.full_clean()
         super().save(*args, **kwargs)
+        cache.delete(SYSTEM_SETTINGS_CACHE_KEY)
     
     def clean(self):
         """Validation des paramètres"""
