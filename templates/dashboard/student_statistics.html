@@ -33,17 +33,24 @@
         Cette page présente vos statistiques détaillées d'absences. Les graphiques vous permettent de visualiser votre situation par cours et dans le temps.
     </div>
 
+    {% if not has_inscriptions %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Aucun cours inscrit pour cette année académique. Vos statistiques seront disponibles une fois vos inscriptions enregistrées.
+    </div>
+    {% endif %}
+
     <!-- KPIs -->
     <div class="row mb-4">
-        <div class="col-xl-6 col-md-6 mb-4">
-            <div class="card border-left-danger shadow h-100 py-2 kpi-card">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2 kpi-card">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                Heures d'absence non justifiées
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total absences
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_hours_missed }}h</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_absences }}</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-calendar-times fa-2x text-gray-300"></i>
@@ -52,13 +59,47 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-6 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Absences justifiées
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_justified }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2 kpi-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Heures non justifiées
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_hours_missed }}h</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-warning shadow h-100 py-2 kpi-card">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Cours à risque (≥ 40%)
+                                Cours à risque (≥ {{ system_threshold }}%)
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ courses_at_risk }}</div>
                         </div>
@@ -82,13 +123,20 @@
                     </h6>
                 </div>
                 <div class="card-body">
+                    {% if has_inscriptions %}
                     <div class="chart-bar" style="height: 300px;">
                         <canvas id="absenceBarChart"></canvas>
                     </div>
+                    {% else %}
+                    <div class="d-flex flex-column align-items-center justify-content-center text-muted py-5" style="height: 300px;">
+                        <i class="fas fa-book-open fa-3x mb-3"></i>
+                        <p class="mb-0">Aucun cours inscrit pour cette période.</p>
+                    </div>
+                    {% endif %}
                     <hr>
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        La ligne rouge indique le seuil critique de 40%. Au-delà de ce seuil, l'accès à l'examen est bloqué.
+                        La ligne rouge indique le seuil critique de {{ system_threshold }}%. Au-delà de ce seuil, l'accès à l'examen est bloqué.
                     </small>
                 </div>
             </div>
@@ -103,9 +151,16 @@
                     </h6>
                 </div>
                 <div class="card-body">
+                    {% if has_trend_data %}
                     <div class="chart-area" style="height: 300px;">
                         <canvas id="absenceTrendChart"></canvas>
                     </div>
+                    {% else %}
+                    <div class="d-flex flex-column align-items-center justify-content-center text-muted py-5" style="height: 300px;">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p class="mb-0">Aucune absence enregistrée pour cette période.</p>
+                    </div>
+                    {% endif %}
                     <hr>
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
@@ -121,17 +176,20 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // --- Data passed from Django View ---
+    // --- Données transmises depuis la vue Django ---
     {{ course_labels|json_script:"course-labels" }}
     {{ absence_percentages|json_script:"absence-percentages" }}
     {{ trend_labels|json_script:"trend-labels" }}
     {{ trend_data|json_script:"trend-data" }}
+    {{ system_threshold|json_script:"system-threshold" }}
+
     const courseLabels = JSON.parse(document.getElementById("course-labels").textContent);
     const absencePercentages = JSON.parse(document.getElementById("absence-percentages").textContent);
     const trendLabels = JSON.parse(document.getElementById("trend-labels").textContent);
     const trendData = JSON.parse(document.getElementById("trend-data").textContent);
+    const systemThreshold = JSON.parse(document.getElementById("system-threshold").textContent);
 
-    // --- Bar Chart Config ---
+    // --- Graphique en barres : Taux d'absence par cours ---
     const ctxBar = document.getElementById("absenceBarChart");
     if (ctxBar) {
         new Chart(ctxBar, {
@@ -142,15 +200,15 @@
                     label: "Taux d'absence (%)",
                     backgroundColor: (context) => {
                         const value = context.raw;
-                        return value >= 40 ? '#dc3545' : '#1cc88a'; // Red if >= 40, else Green (student color)
+                        return value >= systemThreshold ? '#dc3545' : '#1cc88a';
                     },
                     hoverBackgroundColor: (context) => {
                         const value = context.raw;
-                        return value >= 40 ? '#c82333' : '#17a673';
+                        return value >= systemThreshold ? '#c82333' : '#17a673';
                     },
                     borderColor: (context) => {
                         const value = context.raw;
-                        return value >= 40 ? '#dc3545' : '#1cc88a';
+                        return value >= systemThreshold ? '#dc3545' : '#1cc88a';
                     },
                     data: absencePercentages,
                     borderRadius: 5,
@@ -170,13 +228,13 @@
                         },
                         grid: {
                             color: (context) => {
-                                if (context.tick.value === 40) {
-                                    return 'rgba(220, 53, 69, 0.8)'; // Red line at 40%
+                                if (context.tick.value === systemThreshold) {
+                                    return 'rgba(220, 53, 69, 0.8)';
                                 }
                                 return 'rgba(0, 0, 0, 0.1)';
                             },
                             lineWidth: (context) => {
-                                if (context.tick.value === 40) return 2;
+                                if (context.tick.value === systemThreshold) return 2;
                                 return 1;
                             }
                         }
@@ -189,7 +247,7 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return 'Taux d\'absence : ' + context.parsed.y + '%';
+                                return "Taux d'absence : " + context.parsed.y + '%';
                             }
                         }
                     }
@@ -198,7 +256,7 @@
         });
     }
 
-    // --- Line Chart Config ---
+    // --- Graphique linéaire : Tendance mensuelle ---
     const ctxLine = document.getElementById("absenceTrendChart");
     if (ctxLine) {
         new Chart(ctxLine, {
@@ -207,7 +265,7 @@
                 labels: trendLabels,
                 datasets: [{
                     label: "Heures d'absence",
-                    lineTension: 0.3,
+                    tension: 0.3,
                     backgroundColor: "rgba(28, 200, 138, 0.1)",
                     borderColor: "rgba(28, 200, 138, 1)",
                     pointRadius: 4,
@@ -253,4 +311,3 @@
     }
 </script>
 {% endblock %}
-
