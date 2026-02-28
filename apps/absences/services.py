@@ -45,8 +45,7 @@ def get_absences_queryset(inscription):
     """
     return (
         Absence.objects.filter(id_inscription=inscription)
-        .select_related("id_seance", "id_seance__id_cours")
-        .prefetch_related("justification")
+        .select_related("id_seance", "id_seance__id_cours", "justification")
         .order_by("-id_seance__date_seance")
     )
 
