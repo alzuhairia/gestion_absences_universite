@@ -541,17 +541,18 @@ def enroll_student(request):
                     'student_form': student_form,
                 })
             
-            # Mettre à jour le niveau de l'étudiant
-            student.niveau = niveau
-            student.save()
-            
             # Inscrire l'étudiant à tous les cours du niveau
             enrolled_count = 0
             skipped_count = 0
             errors = []
-            
+
             try:
                 with transaction.atomic():
+                    # Mettre à jour le niveau DANS la transaction
+                    # pour garantir la cohérence si les inscriptions échouent
+                    student.niveau = niveau
+                    student.save(update_fields=['niveau'])
+
                     for course in level_courses:
                         # Vérifier les prérequis
                         is_valid, missing_prereqs = check_prerequisites(student, course)
