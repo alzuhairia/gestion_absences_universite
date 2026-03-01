@@ -78,10 +78,12 @@ def instructor_dashboard(request):
         id_seance__id_cours__professeur=request.user
     ).count()
 
-    # --- KPI 5: Students At Risk (>40%) - READ ONLY, INDICATIVE ONLY
+    # --- KPI 5: Students At Risk - READ ONLY, INDICATIVE ONLY
     all_inscriptions = Inscription.objects.filter(
         id_cours__professeur=request.user
     ).select_related("id_cours", "id_etudiant")
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
 
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
@@ -108,7 +110,7 @@ def instructor_dashboard(request):
 
             # CORRECTION BUG CRITIQUE #4h — seuil configuré par cours
             seuil = cours.get_seuil_absence()
-            if rate >= seuil:
+            if rate >= seuil and not ins.exemption_40:
                 at_risk_count += 1
                 at_risk_list.append(
                     {

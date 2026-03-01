@@ -2,7 +2,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth import views as auth_views
+from django.contrib.auth import views as auth_views, update_session_auth_hash
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils.decorators import method_decorator
@@ -136,9 +136,9 @@ def download_report_pdf(request):
         cours = ins.id_cours
         total_periodes = cours.nombre_total_periodes or 0
         seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
-        seuil_h = (total_periodes * seuil) / 100 if total_periodes > 0 else 0
         absence_rate = (total_abs / total_periodes) * 100 if total_periodes > 0 else 0
-        is_eligible = total_abs < seuil_h
+        # Cohérent avec le reste du système : bloqué si taux >= seuil
+        is_eligible = absence_rate < seuil
 
         cours_data.append({
             'nom': cours.nom_cours,
@@ -183,7 +183,10 @@ class CustomPasswordChangeView(auth_views.PasswordChangeView):
         
         # Changer le mot de passe
         form.save()
-        
+
+        # Maintenir la session active après le changement de mot de passe
+        update_session_auth_hash(self.request, form.user)
+
         # Désactiver le flag must_change_password si nécessaire
         if must_change:
             user.must_change_password = False
