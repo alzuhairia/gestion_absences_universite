@@ -334,6 +334,4 @@ class AnneeAcademiqueForm(forms.ModelForm):
             'active': "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
         }
     
-    def clean_active(self):
-        return self.cleaned_data.get('active')
 

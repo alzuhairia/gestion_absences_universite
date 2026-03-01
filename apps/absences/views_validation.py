@@ -115,16 +115,17 @@ def process_justification(request, pk):
     """
     justification = get_object_or_404(Justification, pk=pk)
 
-    # Empêcher le re-traitement d'un justificatif déjà traité
-    if justification.state != "EN_ATTENTE":
-        messages.warning(request, "Ce justificatif a déjà été traité.")
-        return redirect("absences:validation_list")
-
     action = request.POST.get("action")
     comment = request.POST.get("comment", "")
 
     if action == "approve":
         with transaction.atomic():
+            # Lock row to prevent concurrent processing by two secretaries
+            justification = Justification.objects.select_for_update().get(pk=pk)
+            if justification.state != "EN_ATTENTE":
+                messages.warning(request, "Ce justificatif a déjà été traité.")
+                return redirect("absences:validation_list")
+
             justification.state = "ACCEPTEE"
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
@@ -150,6 +151,11 @@ def process_justification(request, pk):
 
     elif action == "reject":
         with transaction.atomic():
+            justification = Justification.objects.select_for_update().get(pk=pk)
+            if justification.state != "EN_ATTENTE":
+                messages.warning(request, "Ce justificatif a déjà été traité.")
+                return redirect("absences:validation_list")
+
             justification.state = "REFUSEE"
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
@@ -180,6 +186,7 @@ def process_justification(request, pk):
     Notification.objects.create(
         id_utilisateur=justification.id_absence.id_inscription.id_etudiant,
         message=msg_text,
+        type="INFO",
         lue=False,
     )
     if action == "approve":
