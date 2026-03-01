@@ -87,7 +87,7 @@ class Absence(models.Model):
 
     def clean(self):
         """Validation: durée positive"""
-        if self.duree_absence < 0:
+        if self.duree_absence is not None and self.duree_absence < 0:
             raise ValidationError(
                 {"duree_absence": "La durée de l'absence doit être positive."}
             )

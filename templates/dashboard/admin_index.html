@@ -97,20 +97,8 @@
                                         <small>{{ justif.commentaire|truncatechars:20 }}</small>
                                     </td>
                                     <td class="text-center">
-                                        <div class="btn-group">
-                                            <form method="POST" action="{% url 'absences:valider_justification' justif.id_absence.id_absence %}" class="d-inline">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-success btn-sm" title="Valider">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            </form>
-                                            <form method="POST" action="{% url 'absences:refuser_justification' justif.id_absence.id_absence %}" class="d-inline">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Rejeter">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </form>
-                                        </div>
+                                        <span class="badge bg-warning text-dark">En attente</span>
+                                        <br><small class="text-muted">Traitement par le secrétariat</small>
                                     </td>
                                 </tr>
                                 {% endfor %}

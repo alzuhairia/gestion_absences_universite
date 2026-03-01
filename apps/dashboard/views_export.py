@@ -11,6 +11,7 @@ from openpyxl import Workbook
 from apps.enrollments.models import Inscription
 from apps.absences.models import Absence
 from apps.accounts.models import User
+from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 
 @login_required
@@ -133,6 +134,18 @@ def export_student_pdf(request, student_id=None):
 
     p.showPage()
     p.save()
+
+    # Traçabilité : journaliser l'export quand un admin/secrétaire accède aux données d'un étudiant
+    if request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
+        log_action(
+            request.user,
+            f"Export PDF du rapport d'absences de l'étudiant {student.get_full_name()} ({student.email})",
+            request,
+            niveau='INFO',
+            objet_type='EXPORT',
+            objet_id=student.id_utilisateur,
+        )
+
     return response
 
 
