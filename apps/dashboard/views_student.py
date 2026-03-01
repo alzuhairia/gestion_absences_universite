@@ -1,10 +1,7 @@
-import json
-
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
-from django.utils.safestring import mark_safe
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -247,11 +244,11 @@ def student_statistics(request):
         "total_absences": total_absences,
         "total_justified": total_justified,
         "system_threshold": system_threshold,
-        "course_labels_json": mark_safe(json.dumps(course_labels)),
-        "absence_percentages_json": mark_safe(json.dumps(absence_percentages)),
-        "trend_labels_json": mark_safe(json.dumps(trend_labels)),
-        "trend_data_json": mark_safe(json.dumps(trend_data)),
-        "system_threshold_json": mark_safe(json.dumps(system_threshold)),
+        "course_labels_json": course_labels,
+        "absence_percentages_json": absence_percentages,
+        "trend_labels_json": trend_labels,
+        "trend_data_json": trend_data,
+        "system_threshold_json": system_threshold,
         "has_inscriptions": bool(course_labels),
         "has_trend_data": bool(trend_data),
     }
