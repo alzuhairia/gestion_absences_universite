@@ -176,18 +176,11 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // --- Données transmises depuis la vue Django ---
-    {{ course_labels|json_script:"course-labels" }}
-    {{ absence_percentages|json_script:"absence-percentages" }}
-    {{ trend_labels|json_script:"trend-labels" }}
-    {{ trend_data|json_script:"trend-data" }}
-    {{ system_threshold|json_script:"system-threshold" }}
-
-    const courseLabels = JSON.parse(document.getElementById("course-labels").textContent);
-    const absencePercentages = JSON.parse(document.getElementById("absence-percentages").textContent);
-    const trendLabels = JSON.parse(document.getElementById("trend-labels").textContent);
-    const trendData = JSON.parse(document.getElementById("trend-data").textContent);
-    const systemThreshold = JSON.parse(document.getElementById("system-threshold").textContent);
+    const courseLabels = {{ course_labels_json }};
+    const absencePercentages = {{ absence_percentages_json }};
+    const trendLabels = {{ trend_labels_json }};
+    const trendData = {{ trend_data_json }};
+    const systemThreshold = {{ system_threshold_json }};
 
     // --- Graphique en barres : Taux d'absence par cours ---
     const ctxBar = document.getElementById("absenceBarChart");
