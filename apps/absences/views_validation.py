@@ -510,7 +510,7 @@ def justified_absences_list(request):
                 "id_seance__id_cours__id_departement__id_faculte",
                 "encodee_par",
             )
-            .prefetch_related("justification")
+            .select_related("justification")
             .order_by("-id_seance__date_seance", "-id_absence")
         )
 
@@ -541,13 +541,9 @@ def justified_absences_list(request):
             if key not in grouped_absences:
                 # Récupérer la justification pour avoir la date de validation si elle existe
                 date_encodage = None
-                try:
-                    justification = absence.justification
-                    if justification and justification.date_validation:
-                        date_encodage = justification.date_validation
-                except Justification.DoesNotExist:
-                    # Pas de justification associée, on laisse date_encodage à None
-                    pass
+                justification = getattr(absence, "justification", None)
+                if justification and justification.date_validation:
+                    date_encodage = justification.date_validation
 
                 grouped_absences[key] = {
                     "etudiant": absence.id_inscription.id_etudiant,
