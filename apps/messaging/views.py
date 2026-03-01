@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.cache import cache
 from .models import Message
 from .forms import MessageForm
 from django.db.models import Q
@@ -79,6 +80,7 @@ def message_detail(request, message_id):
     if msg.destinataire == request.user and not msg.lu:
         msg.lu = True
         msg.save()
+        cache.delete(f"messages:unread_count:{request.user.pk}")
     
     template = get_messaging_template(request.user, 'detail')
     return render(request, template, {
