@@ -331,11 +331,5 @@ class AnneeAcademiqueForm(forms.ModelForm):
         }
     
     def clean_active(self):
-        active = self.cleaned_data.get('active')
-        if active:
-            # Désactiver toutes les autres années
-            AnneeAcademique.objects.exclude(
-                pk=self.instance.pk if self.instance.pk else None
-            ).update(active=False)
-        return active
+        return self.cleaned_data.get('active')
 
