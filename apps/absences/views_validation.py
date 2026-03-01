@@ -114,10 +114,14 @@ def process_justification(request, pk):
         Redirection vers la liste des justificatifs
     """
     justification = get_object_or_404(Justification, pk=pk)
+
+    # Empêcher le re-traitement d'un justificatif déjà traité
+    if justification.state != "EN_ATTENTE":
+        messages.warning(request, "Ce justificatif a déjà été traité.")
+        return redirect("absences:validation_list")
+
     action = request.POST.get("action")
     comment = request.POST.get("comment", "")
-
-    previous_state = justification.state
 
     if action == "approve":
         with transaction.atomic():
@@ -172,26 +176,24 @@ def process_justification(request, pk):
         messages.error(request, "Action invalide.")
         return redirect("absences:validation_list")
 
-    # Send Notification (if state changed)
-    if previous_state != justification.state:
-        Notification.objects.create(
-            id_utilisateur=justification.id_absence.id_inscription.id_etudiant,
-            message=msg_text,
-            date_envoi=timezone.now(),
-            lue=False,
+    # Envoyer la notification à l'étudiant
+    Notification.objects.create(
+        id_utilisateur=justification.id_absence.id_inscription.id_etudiant,
+        message=msg_text,
+        lue=False,
+    )
+    if action == "approve":
+        messages.success(
+            request,
+            f"Le justificatif a été accepté avec succès. L'absence de {absence.id_inscription.id_etudiant.get_full_name()} "
+            f"pour le cours {absence.id_seance.id_cours.code_cours} est maintenant justifiée. L'étudiant a été notifié.",
         )
-        if action == "approve":
-            messages.success(
-                request,
-                f"Le justificatif a été accepté avec succès. L'absence de {absence.id_inscription.id_etudiant.get_full_name()} "
-                f"pour le cours {absence.id_seance.id_cours.code_cours} est maintenant justifiée. L'étudiant a été notifié.",
-            )
-        else:
-            messages.warning(
-                request,
-                f"Le justificatif a été refusé. L'absence de {absence.id_inscription.id_etudiant.get_full_name()} "
-                f"reste non justifiée. L'étudiant a été notifié avec le motif indiqué.",
-            )
+    else:
+        messages.warning(
+            request,
+            f"Le justificatif a été refusé. L'absence de {absence.id_inscription.id_etudiant.get_full_name()} "
+            f"reste non justifiée. L'étudiant a été notifié avec le motif indiqué.",
+        )
 
     return redirect("absences:validation_list")
 
