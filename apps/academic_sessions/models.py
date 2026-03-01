@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from datetime import datetime, timedelta
 
@@ -52,11 +52,11 @@ class AnneeAcademique(models.Model):
 
     def save(self, *args, **kwargs):
         """S'assurer qu'une seule année est active"""
-        if self.active:
-            # Désactiver toutes les autres années
-            AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
         self.full_clean()
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            if self.active:
+                AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return self.libelle

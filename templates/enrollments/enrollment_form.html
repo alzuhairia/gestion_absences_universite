@@ -213,6 +213,7 @@
 </div>
 
 <script>
+const API_COURSES_BY_YEAR_URL = "{% url 'enrollments:get_courses_by_year' %}";
 function toggleStudentForm() {
     const createNew = document.getElementById('create_new_student').checked;
     const newStudentForm = document.getElementById('newStudentForm');
@@ -322,7 +323,7 @@ async function loadCoursesByYear() {
     courseSelect.disabled = true;
 
     try {
-        const data = await fetchJson(`/enrollments/api/courses-by-year/?year_id=${yearId}`);
+        const data = await fetchJson(`${API_COURSES_BY_YEAR_URL}?year_id=${yearId}`);
         if (!Array.isArray(data)) {
             throw new Error('Reponse API invalide.');
         }
