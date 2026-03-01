@@ -518,10 +518,11 @@ def mark_absence(request, course_id):
             # Récupération de l'année active (mock ou réelle)
             annee = AnneeAcademique.objects.filter(active=True).first()
             if not annee:
-                # Fallback si pas d'année active définie
-                annee, _ = AnneeAcademique.objects.get_or_create(
-                    libelle="2024-2025", defaults={"active": True}
+                messages.error(
+                    request,
+                    "Aucune année académique active. Veuillez contacter le secrétariat.",
                 )
+                return redirect("absences:mark_absence", course_id=course_id)
 
             # Création ou Récupération de la séance (données déjà validées en amont)
             seance, created = Seance.objects.get_or_create(

@@ -110,15 +110,22 @@ def download_report_pdf(request):
         messages.error(request, "Accès réservé aux étudiants.")
         return redirect('dashboard:index')
 
+    from apps.academic_sessions.models import AnneeAcademique
+
     system_threshold = get_system_threshold()
+
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    if not active_year:
+        active_year = AnneeAcademique.objects.order_by("-id_annee").first()
+
     inscriptions = Inscription.objects.filter(
         id_etudiant=user
     ).select_related('id_cours', 'id_annee')
+    if active_year:
+        inscriptions = inscriptions.filter(id_annee=active_year)
 
     cours_data = []
-    academic_year = "2024-2025"
-    if inscriptions.exists():
-        academic_year = inscriptions.first().id_annee.libelle
+    academic_year = active_year.libelle if active_year else "N/A"
 
     for ins in inscriptions:
         total_abs = Absence.objects.filter(
