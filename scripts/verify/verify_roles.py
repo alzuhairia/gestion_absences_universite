@@ -18,12 +18,13 @@ from apps.absences.models import Absence, Justification
 from apps.academics.models import Cours
 from apps.academic_sessions.models import Seance
 from apps.enrollments.models import Inscription
-from apps.absences.views import valider_justificatif, review_justification
+from apps.absences.views_validation import process_justification
+from apps.absences.views import review_justification
 from django.urls import reverse
 
 def verify_roles():
     print("--- Verifying Role Separation for Justifications ---")
-    
+
     # 1. Setup Data
     prof = User.objects.filter(role='PROFESSEUR').first()
     if not prof:
@@ -31,56 +32,56 @@ def verify_roles():
         return
 
     secretary, _ = User.objects.get_or_create(
-        email="secretary@test.com", 
+        email="secretary@test.com",
         defaults={'role': 'SECRETAIRE', 'nom': 'Sec', 'prenom': 'Retary'}
     )
-    
+
     student = User.objects.filter(role='ETUDIANT').first()
     course = Cours.objects.filter(professeur=prof).first()
-    
+
     # Create Absence & Justification
     seance, _ = Seance.objects.get_or_create(
-        id_cours=course, 
-        date_seance=timezone.now().date(), 
+        id_cours=course,
+        date_seance=timezone.now().date(),
         defaults={'heure_debut': '08:00', 'heure_fin': '10:00', 'id_annee_id': 1}
     )
-    
+
     inscription = Inscription.objects.filter(id_etudiant=student, id_cours=course).first()
     if not inscription:
          inscription = Inscription.objects.create(id_etudiant=student, id_cours=course, id_annee_id=1)
 
     absence, _ = Absence.objects.get_or_create(
-        id_inscription=inscription, 
+        id_inscription=inscription,
         id_seance=seance,
         defaults={'type_absence': 'SEANCE', 'duree_absence': 2, 'statut': 'EN_ATTENTE', 'encodee_par': prof}
     )
-    
+
     justification, _ = Justification.objects.get_or_create(
         id_absence=absence,
-        defaults={'commentaire': 'Sick leave', 'validee': False}
+        defaults={'commentaire': 'Sick leave', 'state': 'EN_ATTENTE'}
     )
-    
+
     factory = RequestFactory()
-    
+
     # --- TEST 1: PROFESSOR CANNOT VALIDATE ---
-    print("\n[Test 1] Professor accessing 'valider_justification'...")
+    print("\n[Test 1] Professor accessing 'process_justification'...")
     try:
-        url_validate = reverse('absences:valider_justification', args=[absence.id_absence])
-        print(f"DEBUG: url_validate = {url_validate}")
+        url_process = reverse('absences:process_justification', args=[justification.pk])
+        print(f"DEBUG: url_process = {url_process}")
     except Exception as e:
-        print(f"ERROR reversing valider_justification: {e}")
+        print(f"ERROR reversing process_justification: {e}")
         return
 
-    request = factory.get(url_validate)
+    request = factory.post(url_process, {'action': 'accepter'})
     request.user = prof
-    
+
     # Setup middleware for messages
     SessionMiddleware(lambda x: None).process_request(request)
     request.session.save()
     MessageMiddleware(lambda x: None).process_request(request)
-    
-    response = valider_justificatif(request, absence.id_absence)
-    
+
+    response = process_justification(request, justification.pk)
+
     if response.status_code == 302 and response.url == reverse('dashboard:index'):
         print("SUCCESS: Professor was redirected (Access Denied).")
     else:
@@ -94,7 +95,7 @@ def verify_roles():
     except Exception as e:
          print(f"ERROR reversing review_justification: {e}")
          return
-    
+
     # 2a. Post Comment
     data = {'commentaire_gestion': 'Internal Note by Prof'}
     request = factory.post(url_review, data)
@@ -102,9 +103,9 @@ def verify_roles():
     SessionMiddleware(lambda x: None).process_request(request)
     request.session.save()
     MessageMiddleware(lambda x: None).process_request(request)
-    
+
     review_justification(request, absence.id_absence)
-    
+
     justification.refresh_from_db()
     if justification.commentaire_gestion == 'Internal Note by Prof':
         print("SUCCESS: Professor added internal comment.")
@@ -113,21 +114,27 @@ def verify_roles():
 
     # --- TEST 3: SECRETARY CAN VALIDATE ---
     print("\n[Test 3] Secretary validating justification...")
-    request = factory.get(url_validate)
+    # Reset state for this test
+    justification.state = 'EN_ATTENTE'
+    justification.save()
+    absence.statut = 'EN_ATTENTE'
+    absence.save()
+
+    request = factory.post(url_process, {'action': 'accepter'})
     request.user = secretary
     SessionMiddleware(lambda x: None).process_request(request)
     request.session.save()
     MessageMiddleware(lambda x: None).process_request(request)
-    
-    valider_justificatif(request, absence.id_absence)
-    
+
+    process_justification(request, justification.pk)
+
     justification.refresh_from_db()
     absence.refresh_from_db()
-    
-    if justification.validee and absence.statut == 'JUSTIFIEE' and justification.validee_par == secretary:
+
+    if justification.state == 'ACCEPTEE' and absence.statut == 'JUSTIFIEE' and justification.validee_par == secretary:
         print("SUCCESS: Secretary successfully validated the justification.")
     else:
-        print(f"FAILURE: Validation failed. Justif Validated: {justification.validee}, Absence Statut: {absence.statut}")
+        print(f"FAILURE: Validation failed. Justif state: {justification.state}, Absence Statut: {absence.statut}")
 
 if __name__ == '__main__':
     try:
