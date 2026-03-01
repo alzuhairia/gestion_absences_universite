@@ -68,12 +68,6 @@ def student_dashboard(request):
         .annotate(total=Sum("duree_absence"))
         .values_list("id_inscription", "total")
     )
-    absence_counts = dict(
-        Absence.objects.filter(id_inscription__in=inscription_ids)
-        .values("id_inscription")
-        .annotate(total=Count("id_absence"))
-        .values_list("id_inscription", "total")
-    )
 
     for ins in inscriptions:
         cours = ins.id_cours
@@ -110,84 +104,6 @@ def student_dashboard(request):
     if not is_blocked and is_at_risk:
         academic_status = "À RISQUE"
         status_color = "warning"
-
-    # --- Prepare Course Data for "My Courses" Section
-    cours_data = []
-
-    sessions_count_map = {}
-    if academic_year:
-        sessions_count_map = dict(
-            Seance.objects.filter(
-                id_cours__in=inscriptions.values_list("id_cours", flat=True),
-                id_annee=academic_year,
-            )
-            .values("id_cours")
-            .annotate(total=Count("id_seance"))
-            .values_list("id_cours", "total")
-        )
-    else:
-        sessions_count_map = dict(
-            Seance.objects.filter(
-                id_cours__in=inscriptions.values_list("id_cours", flat=True)
-            )
-            .values("id_cours")
-            .annotate(total=Count("id_seance"))
-            .values_list("id_cours", "total")
-        )
-
-    for ins in inscriptions:
-        cours = ins.id_cours
-
-        # Calculate NON_JUSTIFIED absences only
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
-
-        # Calculate absence rate
-        absence_rate = (
-            (total_abs / cours.nombre_total_periodes) * 100
-            if cours.nombre_total_periodes > 0
-            else 0
-        )
-
-        # Determine course status
-        course_status = "OK"
-        course_status_color = "success"
-        # CORRECTION BUG CRITIQUE #4c — seuil configuré par cours
-        seuil_cours = cours.get_seuil_absence()
-        if absence_rate >= seuil_cours and not ins.exemption_40:
-            course_status = "BLOQUÉ"
-            course_status_color = "danger"
-        elif absence_rate >= (seuil_cours * 0.75):
-            course_status = "À RISQUE"
-            course_status_color = "warning"
-
-        # Count sessions for this course
-        sessions_count = sessions_count_map.get(cours.id_cours, 0)
-
-        # Count absences for this course
-        absences_count = absence_counts.get(ins.id_inscription, 0)
-
-        # Get professor name
-        prof_name = "Non assigné"
-        if cours.professeur:
-            prof_name = cours.professeur.get_full_name()
-
-        cours_data.append(
-            {
-                "inscription": ins,
-                "course": cours,
-                "code": cours.code_cours,
-                "nom": cours.nom_cours,
-                "professeur": prof_name,
-                "sessions_count": sessions_count,
-                "absences_count": absences_count,
-                "total_abs": total_abs,
-                "total_periods": cours.nombre_total_periodes,
-                "absence_rate": round(absence_rate, 1),
-                "status": course_status,
-                "status_color": course_status_color,
-                "is_exempted": ins.exemption_40,
-            }
-        )
 
     # Get notifications
     notifications = Notification.objects.filter(id_utilisateur=request.user).order_by(
