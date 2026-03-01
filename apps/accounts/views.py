@@ -100,30 +100,42 @@ def settings_view(request):
 def download_report_pdf(request):
     """
     Génère et télécharge le rapport PDF des absences.
+    Réservé aux étudiants — chaque étudiant ne peut télécharger que son propre relevé.
     """
+    from apps.accounts.models import User
+    from apps.absences.services import get_system_threshold
+
     user = request.user
-    inscriptions = Inscription.objects.filter(id_etudiant=user)
-    
+    if user.role != User.Role.ETUDIANT:
+        messages.error(request, "Accès réservé aux étudiants.")
+        return redirect('dashboard:index')
+
+    system_threshold = get_system_threshold()
+    inscriptions = Inscription.objects.filter(
+        id_etudiant=user
+    ).select_related('id_cours', 'id_annee')
+
     cours_data = []
     academic_year = "2024-2025"
     if inscriptions.exists():
         academic_year = inscriptions.first().id_annee.libelle
 
     for ins in inscriptions:
-        # Calculate Unjustified Absences
         total_abs = Absence.objects.filter(
-            id_inscription=ins, 
-            statut='NON_JUSTIFIEE'
+            id_inscription=ins,
+            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
         ).aggregate(total=Sum('duree_absence'))['total'] or 0
-        
+
         cours = ins.id_cours
-        seuil_h = (cours.nombre_total_periodes * cours.seuil_absence) / 100
-        absence_rate = (total_abs / cours.nombre_total_periodes) * 100 if cours.nombre_total_periodes > 0 else 0
+        total_periodes = cours.nombre_total_periodes or 0
+        seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+        seuil_h = (total_periodes * seuil) / 100 if total_periodes > 0 else 0
+        absence_rate = (total_abs / total_periodes) * 100 if total_periodes > 0 else 0
         is_eligible = total_abs < seuil_h
-        
+
         cours_data.append({
             'nom': cours.nom_cours,
-            'total_periods': cours.nombre_total_periodes,
+            'total_periods': total_periodes,
             'duree_absence': total_abs,
             'absence_rate': absence_rate,
             'status': is_eligible
