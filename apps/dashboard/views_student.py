@@ -429,7 +429,8 @@ def student_courses(request):
         )
     else:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user
+            id_etudiant=request.user,
+            status="EN_COURS",
         ).select_related(
             "id_cours",
             "id_cours__professeur",

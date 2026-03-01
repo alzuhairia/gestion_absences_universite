@@ -53,6 +53,10 @@ def compose(request):
         if form.is_valid():
             message = form.save(commit=False)
             message.expediteur = request.user
+            if message.destinataire_id == request.user.pk:
+                messages.error(request, "Vous ne pouvez pas vous envoyer un message à vous-même.")
+                template = get_messaging_template(request.user, 'compose')
+                return render(request, template, {'form': form})
             message.save()
             messages.success(request, "Message envoyé avec succès !")
             return redirect('messaging:sent')

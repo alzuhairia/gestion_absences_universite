@@ -29,11 +29,18 @@ def log_action(user, action, request=None, niveau='INFO', objet_type=None, objet
     ip = '0.0.0.0'
     if request:
         ip = get_client_ip(request)
-    
+
+    # Sanitize action string: strip control characters, limit length
+    if not isinstance(action, str):
+        action = str(action)
+    action = action.replace('\n', ' ').replace('\r', ' ').replace('\x00', '')[:500]
+    if not action.strip():
+        return
+
     # Déterminer automatiquement le niveau si 'CRITIQUE' est dans l'action
     if 'CRITIQUE' in action.upper() and niveau == 'INFO':
         niveau = 'CRITIQUE'
-    
+
     LogAudit.objects.create(
         id_utilisateur=user,
         action=action,
