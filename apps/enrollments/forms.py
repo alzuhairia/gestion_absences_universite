@@ -29,9 +29,9 @@ class StudentCreationForm(forms.Form):
     niveau = forms.ChoiceField(
         choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')],
         label="Niveau académique",
-        required=False,
+        required=True,
         widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text="Niveau académique de l'étudiant (peut être défini lors de l'inscription)"
+        help_text="Niveau académique de l'étudiant (obligatoire)"
     )
     password = forms.CharField(
         label="Mot de passe temporaire",

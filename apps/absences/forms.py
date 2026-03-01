@@ -108,11 +108,19 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
             )
 
         # Si heure_debut ou heure_fin est renseignée, les deux doivent l'être
-        if (heure_debut and not heure_fin) or (heure_fin and not heure_debut):
+        if heure_debut and not heure_fin:
             raise forms.ValidationError(
-                {
-                    "heure_fin": "Si vous renseignez une heure, veuillez renseigner l'heure de début ET l'heure de fin.",
-                }
+                {"heure_fin": "L'heure de fin est requise si vous spécifiez une heure de début."}
+            )
+        if heure_fin and not heure_debut:
+            raise forms.ValidationError(
+                {"heure_debut": "L'heure de début est requise si vous spécifiez une heure de fin."}
+            )
+
+        # Vérifier que heure_fin > heure_debut
+        if heure_debut and heure_fin and heure_fin <= heure_debut:
+            raise forms.ValidationError(
+                {"heure_fin": "L'heure de fin doit être après l'heure de début."}
             )
 
         return cleaned_data
