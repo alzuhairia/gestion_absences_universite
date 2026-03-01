@@ -60,6 +60,12 @@ def get_departments(request):
         return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
     try:
         faculty_id = request.GET.get('faculty_id')
+        if not faculty_id:
+            return api_error('faculty_id requis', status=400, code='bad_request')
+        try:
+            faculty_id = int(faculty_id)
+        except (TypeError, ValueError):
+            return api_error('faculty_id doit être un entier', status=400, code='bad_request')
         departments = Departement.objects.filter(id_faculte_id=faculty_id).values('id_departement', 'nom_departement')
         data = [{'id': d['id_departement'], 'name': d['nom_departement']} for d in departments]
         return api_ok(data)
@@ -95,6 +101,13 @@ def get_courses(request):
         return api_error('Trop de requetes. Reessayez plus tard.', status=429, code='rate_limited')
     try:
         dept_id = request.GET.get('dept_id')
+        if not dept_id:
+            return api_error('dept_id requis', status=400, code='bad_request')
+        try:
+            dept_id = int(dept_id)
+        except (TypeError, ValueError):
+            return api_error('dept_id doit être un entier', status=400, code='bad_request')
+
         year_id = request.GET.get('year_id')
 
         courses = Cours.objects.filter(id_departement_id=dept_id, actif=True).select_related(

@@ -73,10 +73,14 @@ def instructor_dashboard(request):
     else:
         upcoming_sessions = 0
 
-    # --- KPI 4: Total Recorded Absences (all absences in professor's courses)
-    total_absences = Absence.objects.filter(
-        id_seance__id_cours__professeur=request.user
-    ).count()
+    # --- KPI 4: Total Recorded Absences (current year, in professor's courses)
+    if academic_year:
+        total_absences = Absence.objects.filter(
+            id_seance__id_cours__professeur=request.user,
+            id_seance__id_annee=academic_year,
+        ).count()
+    else:
+        total_absences = 0
 
     # --- KPI 5: Students At Risk - READ ONLY, INDICATIVE ONLY
     all_inscriptions = Inscription.objects.filter(
