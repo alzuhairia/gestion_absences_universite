@@ -212,6 +212,16 @@ class UserForm(forms.ModelForm):
         self.fields['actif'].label = 'Compte Actif'
         self.fields['password'].label = 'Mot de Passe'
     
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            qs = User.objects.filter(email=email)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("Un utilisateur avec cette adresse email existe déjà.")
+        return email
+
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
