@@ -71,13 +71,15 @@ def message_detail(request, message_id):
     """
     msg = get_object_or_404(Message, id_message=message_id)
     
-    # Check permission
-    if msg.destinataire != request.user and msg.expediteur != request.user:
+    # Check permission (handle NULL expediteur/destinataire from SET_NULL)
+    is_recipient = msg.destinataire_id is not None and msg.destinataire_id == request.user.pk
+    is_sender = msg.expediteur_id is not None and msg.expediteur_id == request.user.pk
+    if not is_recipient and not is_sender:
         messages.error(request, "Vous n'avez pas accès à ce message.")
         return redirect('messaging:inbox')
-    
+
     # Mark as read if user is recipient
-    if msg.destinataire == request.user and not msg.lu:
+    if is_recipient and not msg.lu:
         msg.lu = True
         msg.save()
         cache.delete(f"messages:unread_count:{request.user.pk}")
