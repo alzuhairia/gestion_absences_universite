@@ -11,7 +11,7 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
     """
 
     etudiant = forms.ModelChoiceField(
-        queryset=User.objects.filter(role=User.Role.ETUDIANT),
+        queryset=User.objects.filter(role=User.Role.ETUDIANT, actif=True),
         label="Étudiant",
         required=True,
         widget=forms.Select(attrs={"class": "form-select"}),

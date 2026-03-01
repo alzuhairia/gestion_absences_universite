@@ -284,31 +284,27 @@ def check_prerequisites(student, course):
     return (len(missing_prereqs) == 0, missing_prereqs)
 
 
-def check_previous_level_validation(student, target_niveau):
+def check_previous_level_validation(student, target_niveau, academic_year=None):
     """
     Vérifie si l'étudiant a validé TOUS les cours du niveau précédent.
-    
+
     IMPORTANT POUR LA SOUTENANCE :
     Cette fonction implémente la règle métier de progression académique :
     - Un étudiant ne peut s'inscrire en niveau N que s'il a validé TOUS les cours du niveau N-1
     - Exception : Les nouveaux étudiants peuvent être inscrits directement en niveau 2 ou 3
       (étudiants transférés, admissions directes)
-    
+
     Logique :
     1. Si niveau 1 : pas de vérification (retourne True)
-    2. Sinon : récupérer tous les cours du niveau précédent
+    2. Sinon : récupérer tous les cours du niveau précédent (filtrés par année si fournie)
     3. Vérifier que l'étudiant a validé TOUS ces cours (status='VALIDE')
     4. Retourner True si tous validés, False avec la liste des cours manquants
-    
-    Utilisation :
-    - Appelée lors de l'inscription à un niveau complet
-    - Bloque l'inscription si le niveau précédent n'est pas validé
-    - Permet d'afficher un message explicite à l'utilisateur
-    
+
     Args:
         student: Instance de User (étudiant) à vérifier
         target_niveau: Niveau cible (1, 2 ou 3) pour lequel vérifier le niveau précédent
-        
+        academic_year: Année académique pour filtrer les cours (optionnel)
+
     Returns:
         Tuple (is_valid, missing_courses_list) :
         - is_valid: True si tous les cours du niveau précédent sont validés
@@ -317,14 +313,16 @@ def check_previous_level_validation(student, target_niveau):
     if target_niveau == 1:
         # Pas de prérequis pour l'Année 1 (premier niveau)
         return (True, [])
-    
+
     previous_niveau = target_niveau - 1
-    
-    # Récupérer tous les cours du niveau précédent
+
+    # Récupérer les cours du niveau précédent, filtrés par année si fournie
     previous_level_courses = Cours.objects.filter(
         niveau=previous_niveau,
         actif=True
     )
+    if academic_year:
+        previous_level_courses = previous_level_courses.filter(id_annee=academic_year)
     
     if not previous_level_courses.exists():
         return (True, [])  # Pas de cours dans le niveau précédent
@@ -471,7 +469,7 @@ def enroll_student(request):
             # inscrits directement en niveau 2 ou 3 (étudiants transférés, admissions directes)
             
             is_new_student = create_new
-            is_valid, missing_courses = check_previous_level_validation(student, niveau)
+            is_valid, missing_courses = check_previous_level_validation(student, niveau, academic_year=year)
             
             if not is_valid and not is_new_student:
                 # Pour un étudiant existant, on vérifie strictement les prérequis

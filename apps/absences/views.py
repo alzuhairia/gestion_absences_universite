@@ -10,7 +10,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence, Justification
 from apps.absences.services import calculer_absence_stats, get_absences_queryset
@@ -254,65 +254,6 @@ def upload_justification(request, absence_id):
 
 @login_required
 @secretary_required
-@require_POST
-def valider_justificatif(request, absence_id):
-    """Valide une justification et met a jour l'etat de l'absence."""
-    # FIX ORANGE #11a — Check de rôle supprimé car redondant :
-    # Le décorateur @secretary_required gère déjà l'exclusion des non-secrétaires
-    # (y compris le message d'avertissement spécifique pour les admins).
-
-    absence = get_object_or_404(Absence, id_absence=absence_id)
-    justification = Justification.objects.filter(id_absence=absence).first()
-    if not justification:
-        messages.error(request, "Aucun justificatif trouve pour cette absence.")
-        return redirect("dashboard:index")
-
-    with transaction.atomic():
-        absence.statut = "JUSTIFIEE"
-        absence.save()
-
-        justification.state = "ACCEPTEE"
-        justification.validee_par = request.user
-        justification.date_validation = timezone.now()
-        justification.save()
-
-    messages.success(
-        request,
-        f"L'absence de {absence.id_inscription.id_etudiant.email} a ete validee.",
-    )
-    return redirect("dashboard:index")
-
-
-@login_required
-@secretary_required
-@require_POST
-def refuser_justificatif(request, absence_id):
-    """Refuse un justificatif et remet l'absence en NON_JUSTIFIEE."""
-    # FIX ORANGE #11b — Check de rôle supprimé car redondant :
-    # Le décorateur @secretary_required gère déjà l'exclusion des non-secrétaires
-    # (y compris le message d'avertissement spécifique pour les admins).
-
-    absence = get_object_or_404(Absence, id_absence=absence_id)
-    justification = Justification.objects.filter(id_absence=absence).first()
-    if not justification:
-        messages.error(request, "Aucun justificatif trouve pour cette absence.")
-        return redirect("dashboard:index")
-
-    with transaction.atomic():
-        absence.statut = "NON_JUSTIFIEE"
-        absence.save()
-
-        justification.state = "REFUSEE"
-        justification.validee_par = request.user
-        justification.date_validation = timezone.now()
-        justification.save()
-
-    messages.warning(request, "Le justificatif a ete refuse.")
-    return redirect("dashboard:index")
-
-
-@login_required
-@secretary_required
 def review_justification(request, absence_id):
     """
     Review justification - STRICT: Only for secretaries, NOT for professors or admins.
@@ -513,17 +454,17 @@ def mark_absence(request, course_id):
         # Durée calculée une seule fois, avant le bloc transactionnel
         duree_seance = (t_fin - t_debut).seconds / 3600.0
 
+        # Vérification de l'année active AVANT la transaction
+        annee = AnneeAcademique.objects.filter(active=True).first()
+        if not annee:
+            messages.error(
+                request,
+                "Aucune année académique active. Veuillez contacter le secrétariat.",
+            )
+            return redirect("absences:mark_absence", course_id=course_id)
+
         with transaction.atomic():
             # --- OPÉRATIONS DB (données validées, aucun risque de séance fantôme) ---
-            # Récupération de l'année active (mock ou réelle)
-            annee = AnneeAcademique.objects.filter(active=True).first()
-            if not annee:
-                messages.error(
-                    request,
-                    "Aucune année académique active. Veuillez contacter le secrétariat.",
-                )
-                return redirect("absences:mark_absence", course_id=course_id)
-
             # Création ou Récupération de la séance (données déjà validées en amont)
             seance, created = Seance.objects.get_or_create(
                 date_seance=date_seance,
