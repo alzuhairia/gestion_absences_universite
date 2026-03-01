@@ -1,6 +1,6 @@
 # apps/accounts/middleware.py
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.contrib import messages
 
 
@@ -48,7 +48,11 @@ class RoleMiddleware:
                 return redirect('accounts:password_change')
 
             # Règles d'accès par rôle
-            if path.startswith(reverse('admin:index')) and not request.user.is_superuser:
+            try:
+                admin_prefix = reverse('admin:index')
+            except NoReverseMatch:
+                admin_prefix = '/admin/'
+            if path.startswith(admin_prefix) and not request.user.is_superuser:
                 messages.error(request, "Accès non autorisé à l'administration.")
                 return redirect('dashboard:index')
 
