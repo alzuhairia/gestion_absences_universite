@@ -153,10 +153,14 @@ def export_at_risk_excel(request):
     columns = ['Nom', 'Prénom', 'Email', 'Cours', 'Heures Manquées', 'Taux Absence (%)', 'Statut']
     ws.append(columns)
     
-    # Data
-    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
-    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    # Data — filtré par année active
     from apps.absences.services import get_system_threshold
+    from apps.academic_sessions.models import AnneeAcademique
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant')
+    if active_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=active_year)
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
     system_threshold = get_system_threshold()
     absence_sums = dict(
         Absence.objects.filter(

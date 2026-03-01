@@ -102,11 +102,13 @@ def admin_dashboard_main(request):
     else:
         active_courses_with_activity = 0
 
-    # KPI 5: Nombre d'alertes système (étudiants à risque > 40%)
+    # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
     at_risk_count = 0
     all_inscriptions = Inscription.objects.select_related(
         "id_cours", "id_etudiant"
-    ).all()
+    )
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
         Absence.objects.filter(

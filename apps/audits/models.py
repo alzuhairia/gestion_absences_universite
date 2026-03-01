@@ -21,6 +21,8 @@ class LogAudit(models.Model):
         ('INSCRIPTION', 'Inscription'),
         ('ABSENCE', 'Absence'),
         ('JUSTIFICATION', 'Justification'),
+        ('SEANCE', 'Séance'),
+        ('EXPORT', 'Export'),
         ('SYSTEM', 'Système'),
         ('AUTRE', 'Autre'),
     ]

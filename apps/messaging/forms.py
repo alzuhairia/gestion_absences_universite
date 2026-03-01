@@ -26,6 +26,6 @@ class MessageForm(forms.ModelForm):
         super(MessageForm, self).__init__(*args, **kwargs)
         if user:
             # Exclude self from recipient list
-            self.fields['destinataire'].queryset = User.objects.exclude(pk=user.pk)
+            self.fields['destinataire'].queryset = User.objects.filter(actif=True).exclude(pk=user.pk)
             # Label improvement
             self.fields['destinataire'].label_from_instance = lambda obj: f"{obj.prenom} {obj.nom} ({obj.role})"
