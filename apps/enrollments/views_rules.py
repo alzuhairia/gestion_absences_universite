@@ -5,6 +5,7 @@ from django.contrib import messages
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
 from apps.absences.models import Absence
+from apps.absences.services import get_system_threshold
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 
@@ -12,10 +13,17 @@ from apps.dashboard.decorators import secretary_required
 @secretary_required
 def rules_management(request):
     """
-    List students violating the 40% rule.
+    List students violating the absence threshold rule (per-course or system default).
     """
-    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
-    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    from apps.academic_sessions.models import AnneeAcademique
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    system_threshold = get_system_threshold()
+
+    inscriptions_qs = Inscription.objects.select_related('id_cours', 'id_etudiant')
+    if active_year:
+        inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
+
+    inscription_ids = list(inscriptions_qs.values_list('id_inscription', flat=True))
     # EN_ATTENTE counts as non-justified (loophole closed — consistent with
     # all other views: services.py, views_professor.py, views_student.py).
     absence_sums = dict(
@@ -25,16 +33,16 @@ def rules_management(request):
         ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
     )
     at_risk_list = []
-    
-    for ins in all_inscriptions:
+
+    for ins in inscriptions_qs:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             total_abs = absence_sums.get(ins.id_inscription, 0) or 0
-            
+
             rate = (total_abs / cours.nombre_total_periodes) * 100
-            
-            # Show if rate > 40 OR if they are exempted (so we can revoke if needed)
-            if rate >= 40:
+            seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+
+            if rate >= seuil:
                 at_risk_list.append({
                     'inscription': ins,
                     'etudiant': ins.id_etudiant,

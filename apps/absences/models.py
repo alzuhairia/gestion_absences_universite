@@ -47,7 +47,7 @@ class Absence(models.Model):
     )
     duree_absence = models.FloatField(
         verbose_name="Durée (h)",
-        validators=[MinValueValidator(0.0)],
+        validators=[MinValueValidator(0.01)],
         help_text="Durée de l'absence en heures",
     )
     statut = models.CharField(
@@ -87,7 +87,7 @@ class Absence(models.Model):
 
     def clean(self):
         """Validation: durée positive"""
-        if self.duree_absence < 0:
+        if self.duree_absence is not None and self.duree_absence < 0:
             raise ValidationError(
                 {"duree_absence": "La durée de l'absence doit être positive."}
             )
@@ -185,9 +185,6 @@ class Justification(models.Model):
             models.Index(fields=["state", "date_validation"]),
             models.Index(fields=["validee_par", "state"]),
         ]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Justification pour l'absence n°{self.id_absence.id_absence}"

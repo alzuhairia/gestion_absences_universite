@@ -11,6 +11,7 @@ from openpyxl import Workbook
 from apps.enrollments.models import Inscription
 from apps.absences.models import Absence
 from apps.accounts.models import User
+from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 
 @login_required
@@ -133,6 +134,18 @@ def export_student_pdf(request, student_id=None):
 
     p.showPage()
     p.save()
+
+    # Traçabilité : journaliser l'export quand un admin/secrétaire accède aux données d'un étudiant
+    if request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
+        log_action(
+            request.user,
+            f"Export PDF du rapport d'absences de l'étudiant {student.get_full_name()} ({student.email})",
+            request,
+            niveau='INFO',
+            objet_type='EXPORT',
+            objet_id=student.id_utilisateur,
+        )
+
     return response
 
 
@@ -153,10 +166,14 @@ def export_at_risk_excel(request):
     columns = ['Nom', 'Prénom', 'Email', 'Cours', 'Heures Manquées', 'Taux Absence (%)', 'Statut']
     ws.append(columns)
     
-    # Data
-    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant').all()
-    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    # Data — filtré par année active
     from apps.absences.services import get_system_threshold
+    from apps.academic_sessions.models import AnneeAcademique
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant')
+    if active_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=active_year)
+    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
     system_threshold = get_system_threshold()
     absence_sums = dict(
         Absence.objects.filter(
