@@ -9,22 +9,32 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('academic_sessions', '0001_initial'),
-        ('academics', '0001_initial'),
+        ("academic_sessions", "0001_initial"),
+        ("academics", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='seance',
-            name='id_cours',
-            field=models.ForeignKey(db_column='id_cours', on_delete=django.db.models.deletion.PROTECT, related_name='seances', to='academics.cours', verbose_name='Cours'),
+            model_name="seance",
+            name="id_cours",
+            field=models.ForeignKey(
+                db_column="id_cours",
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="seances",
+                to="academics.cours",
+                verbose_name="Cours",
+            ),
         ),
         migrations.AddIndex(
-            model_name='seance',
-            index=models.Index(fields=['id_cours', 'date_seance'], name='seance_id_cour_9b1f9e_idx'),
+            model_name="seance",
+            index=models.Index(
+                fields=["id_cours", "date_seance"], name="seance_id_cour_9b1f9e_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='seance',
-            index=models.Index(fields=['id_annee', 'date_seance'], name='seance_id_anne_0f93f7_idx'),
+            model_name="seance",
+            index=models.Index(
+                fields=["id_annee", "date_seance"], name="seance_id_anne_0f93f7_idx"
+            ),
         ),
     ]

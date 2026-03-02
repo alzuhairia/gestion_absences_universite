@@ -1,61 +1,61 @@
-from datetime import date, time
 import shutil
 import tempfile
+from datetime import date, time
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 
-from apps.accounts.models import User
-from apps.academics.models import Faculte, Departement, Cours
-from apps.academic_sessions.models import AnneeAcademique, Seance
-from apps.enrollments.models import Inscription
 from apps.absences.models import Absence, Justification
 from apps.absences.services import get_absences_queryset
+from apps.academic_sessions.models import AnneeAcademique, Seance
+from apps.academics.models import Cours, Departement, Faculte
+from apps.accounts.models import User
+from apps.enrollments.models import Inscription
 
 
 class BaseAbsenceTestCase(TestCase):
     def setUp(self):
-        self.faculte = Faculte.objects.create(nom_faculte='Faculte Test')
+        self.faculte = Faculte.objects.create(nom_faculte="Faculte Test")
         self.departement = Departement.objects.create(
-            nom_departement='Departement Test',
+            nom_departement="Departement Test",
             id_faculte=self.faculte,
         )
-        self.annee = AnneeAcademique.objects.create(libelle='2024-2025', active=True)
+        self.annee = AnneeAcademique.objects.create(libelle="2024-2025", active=True)
 
         self.prof = User.objects.create_user(
-            email='prof@example.com',
-            nom='Prof',
-            prenom='Test',
-            password='pass1234',
+            email="prof@example.com",
+            nom="Prof",
+            prenom="Test",
+            password="pass1234",
             role=User.Role.PROFESSEUR,
         )
         self.secretary = User.objects.create_user(
-            email='sec@example.com',
-            nom='Sec',
-            prenom='Test',
-            password='pass1234',
+            email="sec@example.com",
+            nom="Sec",
+            prenom="Test",
+            password="pass1234",
             role=User.Role.SECRETAIRE,
         )
         self.student1 = User.objects.create_user(
-            email='stu1@example.com',
-            nom='Student',
-            prenom='One',
-            password='pass1234',
+            email="stu1@example.com",
+            nom="Student",
+            prenom="One",
+            password="pass1234",
             role=User.Role.ETUDIANT,
         )
         self.student2 = User.objects.create_user(
-            email='stu2@example.com',
-            nom='Student',
-            prenom='Two',
-            password='pass1234',
+            email="stu2@example.com",
+            nom="Student",
+            prenom="Two",
+            password="pass1234",
             role=User.Role.ETUDIANT,
         )
 
         self.course1 = Cours.objects.create(
-            code_cours='C1',
-            nom_cours='Course 1',
+            code_cours="C1",
+            nom_cours="Course 1",
             nombre_total_periodes=20,
             id_departement=self.departement,
             professeur=self.prof,
@@ -63,8 +63,8 @@ class BaseAbsenceTestCase(TestCase):
             niveau=1,
         )
         self.course2 = Cours.objects.create(
-            code_cours='C2',
-            nom_cours='Course 2',
+            code_cours="C2",
+            nom_cours="Course 2",
             nombre_total_periodes=20,
             id_departement=self.departement,
             professeur=self.prof,
@@ -88,13 +88,13 @@ class AbsenceSecurityTests(BaseAbsenceTestCase):
     def test_mark_absence_rejects_invalid_inscription_id(self):
         self.client.force_login(self.prof)
 
-        url = reverse('absences:mark_absence', args=[self.course1.id_cours])
+        url = reverse("absences:mark_absence", args=[self.course1.id_cours])
         data = {
-            'date_seance': '2026-01-01',
-            'heure_debut': '08:00',
-            'heure_fin': '10:00',
-            f'status_{self.inscription1.id_inscription}': 'ABSENT',
-            f'status_{self.inscription2.id_inscription}': 'ABSENT',
+            "date_seance": "2026-01-01",
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+            f"status_{self.inscription1.id_inscription}": "ABSENT",
+            f"status_{self.inscription2.id_inscription}": "ABSENT",
         }
         response = self.client.post(url, data, secure=True)
 
@@ -114,14 +114,14 @@ class JustificationStateTests(BaseAbsenceTestCase):
         absence = Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence='SEANCE',
+            type_absence="SEANCE",
             duree_absence=2.0,
-            statut='EN_ATTENTE',
+            statut="EN_ATTENTE",
             encodee_par=self.secretary,
         )
         justification = Justification.objects.create(
             id_absence=absence,
-            state='EN_ATTENTE',
+            state="EN_ATTENTE",
         )
         return absence, justification
 
@@ -129,30 +129,30 @@ class JustificationStateTests(BaseAbsenceTestCase):
         absence, justification = self._create_absence_with_justification()
 
         self.client.force_login(self.secretary)
-        url = reverse('absences:process_justification', args=[justification.pk])
-        response = self.client.post(url, {'action': 'approve'}, secure=True)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        response = self.client.post(url, {"action": "approve"}, secure=True)
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
         justification.refresh_from_db()
 
-        self.assertEqual(absence.statut, 'JUSTIFIEE')
-        self.assertEqual(justification.state, 'ACCEPTEE')
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+        self.assertEqual(justification.state, "ACCEPTEE")
         self.assertEqual(justification.validee_par, self.secretary)
 
     def test_refuser_justificatif_sets_state(self):
         absence, justification = self._create_absence_with_justification()
 
         self.client.force_login(self.secretary)
-        url = reverse('absences:process_justification', args=[justification.pk])
-        response = self.client.post(url, {'action': 'reject'}, secure=True)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        response = self.client.post(url, {"action": "reject"}, secure=True)
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
         justification.refresh_from_db()
 
-        self.assertEqual(absence.statut, 'NON_JUSTIFIEE')
-        self.assertEqual(justification.state, 'REFUSEE')
+        self.assertEqual(absence.statut, "NON_JUSTIFIEE")
+        self.assertEqual(justification.state, "REFUSEE")
         self.assertEqual(justification.validee_par, self.secretary)
 
 
@@ -179,44 +179,48 @@ class JustificationDownloadTests(BaseAbsenceTestCase):
         return Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence='SEANCE',
+            type_absence="SEANCE",
             duree_absence=2.0,
-            statut='EN_ATTENTE',
+            statut="EN_ATTENTE",
             encodee_par=self.secretary,
         )
 
     def test_secretary_can_download_uploaded_justification(self):
         absence = self._create_absence()
         pdf_file = SimpleUploadedFile(
-            'justificatif_test.pdf',
-            b'%PDF-1.4 sample',
-            content_type='application/pdf',
+            "justificatif_test.pdf",
+            b"%PDF-1.4 sample",
+            content_type="application/pdf",
         )
         justification = Justification.objects.create(
             id_absence=absence,
-            state='EN_ATTENTE',
+            state="EN_ATTENTE",
             document=pdf_file,
         )
 
         self.client.force_login(self.secretary)
-        url = reverse('absences:download_justification', args=[justification.id_justification])
+        url = reverse(
+            "absences:download_justification", args=[justification.id_justification]
+        )
         response = self.client.get(url, secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('attachment;', response['Content-Disposition'])
-        self.assertIn(b'%PDF-1.4', b''.join(response.streaming_content))
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn(b"%PDF-1.4", b"".join(response.streaming_content))
 
     def test_download_returns_404_when_file_is_missing(self):
         absence = self._create_absence()
         justification = Justification.objects.create(
             id_absence=absence,
-            state='EN_ATTENTE',
+            state="EN_ATTENTE",
         )
-        justification.document.name = 'justifications/introuvable.pdf'
-        justification.save(update_fields=['document'])
+        justification.document.name = "justifications/introuvable.pdf"
+        justification.save(update_fields=["document"])
 
         self.client.force_login(self.secretary)
-        url = reverse('absences:download_justification', args=[justification.id_justification])
+        url = reverse(
+            "absences:download_justification", args=[justification.id_justification]
+        )
         response = self.client.get(url, secure=True)
 
         self.assertEqual(response.status_code, 404)
@@ -236,14 +240,14 @@ class AbsenceQueryTests(BaseAbsenceTestCase):
             absence = Absence.objects.create(
                 id_inscription=self.inscription1,
                 id_seance=seance,
-                type_absence='SEANCE',
+                type_absence="SEANCE",
                 duree_absence=2.0,
-                statut='EN_ATTENTE',
+                statut="EN_ATTENTE",
                 encodee_par=self.secretary,
             )
             Justification.objects.create(
                 id_absence=absence,
-                state='EN_ATTENTE',
+                state="EN_ATTENTE",
             )
 
         qs = get_absences_queryset(self.inscription1)
@@ -279,23 +283,23 @@ class UploadValidationTests(BaseAbsenceTestCase):
         return Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence='SEANCE',
+            type_absence="SEANCE",
             duree_absence=2.0,
-            statut='NON_JUSTIFIEE',
+            statut="NON_JUSTIFIEE",
             encodee_par=self.secretary,
         )
 
     def test_upload_rejects_mime_spoofed_file(self):
         absence = self._create_absence()
         fake_pdf = SimpleUploadedFile(
-            'proof.pdf',
-            b'\x89PNG\r\n\x1a\nspoofed-content',
-            content_type='application/pdf',
+            "proof.pdf",
+            b"\x89PNG\r\n\x1a\nspoofed-content",
+            content_type="application/pdf",
         )
 
         response = self.client.post(
-            reverse('absences:upload', args=[absence.id_absence]),
-            data={'comment': 'test', 'document': fake_pdf},
+            reverse("absences:upload", args=[absence.id_absence]),
+            data={"comment": "test", "document": fake_pdf},
             secure=True,
         )
 
@@ -305,14 +309,14 @@ class UploadValidationTests(BaseAbsenceTestCase):
     def test_upload_rejects_invalid_extension(self):
         absence = self._create_absence()
         bad_ext = SimpleUploadedFile(
-            'proof.txt',
-            b'%PDF-1.4 real-content',
-            content_type='application/pdf',
+            "proof.txt",
+            b"%PDF-1.4 real-content",
+            content_type="application/pdf",
         )
 
         response = self.client.post(
-            reverse('absences:upload', args=[absence.id_absence]),
-            data={'comment': 'test', 'document': bad_ext},
+            reverse("absences:upload", args=[absence.id_absence]),
+            data={"comment": "test", "document": bad_ext},
             secure=True,
         )
 
@@ -322,14 +326,14 @@ class UploadValidationTests(BaseAbsenceTestCase):
     def test_upload_rejects_forged_binary_file(self):
         absence = self._create_absence()
         forged_jpeg = SimpleUploadedFile(
-            'proof.jpg',
-            b'%PDF-1.4 forged-jpeg',
-            content_type='image/jpeg',
+            "proof.jpg",
+            b"%PDF-1.4 forged-jpeg",
+            content_type="image/jpeg",
         )
 
         response = self.client.post(
-            reverse('absences:upload', args=[absence.id_absence]),
-            data={'comment': 'test', 'document': forged_jpeg},
+            reverse("absences:upload", args=[absence.id_absence]),
+            data={"comment": "test", "document": forged_jpeg},
             secure=True,
         )
 
@@ -339,14 +343,14 @@ class UploadValidationTests(BaseAbsenceTestCase):
     def test_upload_rejects_file_over_size_limit(self):
         absence = self._create_absence()
         oversized = SimpleUploadedFile(
-            'proof.pdf',
-            b'%PDF-1.4\n' + (b'a' * (5 * 1024 * 1024)),
-            content_type='application/pdf',
+            "proof.pdf",
+            b"%PDF-1.4\n" + (b"a" * (5 * 1024 * 1024)),
+            content_type="application/pdf",
         )
 
         response = self.client.post(
-            reverse('absences:upload', args=[absence.id_absence]),
-            data={'comment': 'test', 'document': oversized},
+            reverse("absences:upload", args=[absence.id_absence]),
+            data={"comment": "test", "document": oversized},
             secure=True,
         )
 

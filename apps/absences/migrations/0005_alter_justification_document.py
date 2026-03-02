@@ -6,13 +6,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0004_justification_document_filefield_cleanup'),
+        ("absences", "0004_justification_document_filefield_cleanup"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='justification',
-            name='document',
-            field=models.FileField(blank=True, help_text='Document justificatif (PDF, image, etc.)', null=True, upload_to='justifications/', verbose_name='Fichier'),
+            model_name="justification",
+            name="document",
+            field=models.FileField(
+                blank=True,
+                help_text="Document justificatif (PDF, image, etc.)",
+                null=True,
+                upload_to="justifications/",
+                verbose_name="Fichier",
+            ),
         ),
     ]

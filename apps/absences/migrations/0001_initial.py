@@ -8,43 +8,130 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Absence',
+            name="Absence",
             fields=[
-                ('id_absence', models.AutoField(primary_key=True, serialize=False)),
-                ('type_absence', models.CharField(choices=[('HEURE', 'Heure'), ('SEANCE', 'Séance'), ('JOURNEE', 'Journée')], db_index=True, default='SEANCE', max_length=20, verbose_name="Type d'absence")),
-                ('duree_absence', models.FloatField(help_text="Durée de l'absence en heures", validators=[django.core.validators.MinValueValidator(0.0)], verbose_name='Durée (h)')),
-                ('statut', models.CharField(choices=[('EN_ATTENTE', 'En attente'), ('JUSTIFIEE', 'Justifiée'), ('NON_JUSTIFIEE', 'Non justifiée')], db_index=True, default='EN_ATTENTE', max_length=20, verbose_name='Statut')),
+                ("id_absence", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "type_absence",
+                    models.CharField(
+                        choices=[
+                            ("HEURE", "Heure"),
+                            ("SEANCE", "Séance"),
+                            ("JOURNEE", "Journée"),
+                        ],
+                        db_index=True,
+                        default="SEANCE",
+                        max_length=20,
+                        verbose_name="Type d'absence",
+                    ),
+                ),
+                (
+                    "duree_absence",
+                    models.FloatField(
+                        help_text="Durée de l'absence en heures",
+                        validators=[django.core.validators.MinValueValidator(0.0)],
+                        verbose_name="Durée (h)",
+                    ),
+                ),
+                (
+                    "statut",
+                    models.CharField(
+                        choices=[
+                            ("EN_ATTENTE", "En attente"),
+                            ("JUSTIFIEE", "Justifiée"),
+                            ("NON_JUSTIFIEE", "Non justifiée"),
+                        ],
+                        db_index=True,
+                        default="EN_ATTENTE",
+                        max_length=20,
+                        verbose_name="Statut",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Absence',
-                'verbose_name_plural': 'Absences',
-                'db_table': 'absence',
-                'ordering': ['-id_seance__date_seance', '-id_seance__heure_debut'],
-                'managed': True,
+                "verbose_name": "Absence",
+                "verbose_name_plural": "Absences",
+                "db_table": "absence",
+                "ordering": ["-id_seance__date_seance", "-id_seance__heure_debut"],
+                "managed": True,
             },
         ),
         migrations.CreateModel(
-            name='Justification',
+            name="Justification",
             fields=[
-                ('id_justification', models.AutoField(primary_key=True, serialize=False)),
-                ('document', models.BinaryField(blank=True, help_text='Document justificatif (PDF, image, etc.)', null=True, verbose_name='Fichier (BLOB)')),
-                ('commentaire', models.TextField(blank=True, help_text="Commentaire de l'étudiant expliquant l'absence", null=True, verbose_name='Commentaire Étudiant')),
-                ('commentaire_gestion', models.TextField(blank=True, help_text='Commentaire interne du secrétariat', null=True, verbose_name='Commentaire Gestion')),
-                ('validee', models.BooleanField(default=False, editable=False, help_text="DEPRECATED: Utiliser 'state' à la place. Conservé pour compatibilité.")),
-                ('state', models.CharField(choices=[('EN_ATTENTE', 'En attente'), ('ACCEPTEE', 'Acceptée'), ('REFUSEE', 'Refusée')], db_index=True, default='EN_ATTENTE', max_length=20, verbose_name='État de la demande')),
-                ('date_validation', models.DateTimeField(blank=True, help_text='Date et heure de validation/refus de la justification', null=True, verbose_name='Date de validation')),
+                (
+                    "id_justification",
+                    models.AutoField(primary_key=True, serialize=False),
+                ),
+                (
+                    "document",
+                    models.BinaryField(
+                        blank=True,
+                        help_text="Document justificatif (PDF, image, etc.)",
+                        null=True,
+                        verbose_name="Fichier (BLOB)",
+                    ),
+                ),
+                (
+                    "commentaire",
+                    models.TextField(
+                        blank=True,
+                        help_text="Commentaire de l'étudiant expliquant l'absence",
+                        null=True,
+                        verbose_name="Commentaire Étudiant",
+                    ),
+                ),
+                (
+                    "commentaire_gestion",
+                    models.TextField(
+                        blank=True,
+                        help_text="Commentaire interne du secrétariat",
+                        null=True,
+                        verbose_name="Commentaire Gestion",
+                    ),
+                ),
+                (
+                    "validee",
+                    models.BooleanField(
+                        default=False,
+                        editable=False,
+                        help_text="DEPRECATED: Utiliser 'state' à la place. Conservé pour compatibilité.",
+                    ),
+                ),
+                (
+                    "state",
+                    models.CharField(
+                        choices=[
+                            ("EN_ATTENTE", "En attente"),
+                            ("ACCEPTEE", "Acceptée"),
+                            ("REFUSEE", "Refusée"),
+                        ],
+                        db_index=True,
+                        default="EN_ATTENTE",
+                        max_length=20,
+                        verbose_name="État de la demande",
+                    ),
+                ),
+                (
+                    "date_validation",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text="Date et heure de validation/refus de la justification",
+                        null=True,
+                        verbose_name="Date de validation",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Justification',
-                'verbose_name_plural': 'Justifications',
-                'db_table': 'justification',
-                'ordering': ['-date_validation', '-id_justification'],
-                'managed': True,
+                "verbose_name": "Justification",
+                "verbose_name_plural": "Justifications",
+                "db_table": "justification",
+                "ordering": ["-date_validation", "-id_justification"],
+                "managed": True,
             },
         ),
     ]

@@ -1,8 +1,9 @@
 from django.apps import AppConfig
 
+
 class AbsencesConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.absences'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.absences"
 
     def ready(self):
         import apps.absences.signals

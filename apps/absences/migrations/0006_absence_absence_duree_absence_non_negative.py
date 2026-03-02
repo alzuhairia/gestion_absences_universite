@@ -7,15 +7,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0005_alter_justification_document'),
-        ('academic_sessions', '0003_seance_unique'),
-        ('enrollments', '0001_initial'),
+        ("absences", "0005_alter_justification_document"),
+        ("academic_sessions", "0003_seance_unique"),
+        ("enrollments", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='absence',
-            constraint=models.CheckConstraint(condition=models.Q(('duree_absence__gte', 0)), name='absence_duree_absence_non_negative'),
+            model_name="absence",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("duree_absence__gte", 0)),
+                name="absence_duree_absence_non_negative",
+            ),
         ),
     ]
