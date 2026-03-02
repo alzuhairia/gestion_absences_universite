@@ -130,7 +130,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
 
         self.client.force_login(self.secretary)
         url = reverse('absences:process_justification', args=[justification.pk])
-        response = self.client.post(url, {'action': 'accepter'}, secure=True)
+        response = self.client.post(url, {'action': 'approve'}, secure=True)
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
@@ -145,7 +145,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
 
         self.client.force_login(self.secretary)
         url = reverse('absences:process_justification', args=[justification.pk])
-        response = self.client.post(url, {'action': 'refuser'}, secure=True)
+        response = self.client.post(url, {'action': 'reject'}, secure=True)
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()

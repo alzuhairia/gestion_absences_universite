@@ -111,7 +111,7 @@ jobs:
           fail-on-severity: high
 
   django-tests:
-    name: Django Tests + Deploy Checks
+    name: Tests (pytest) + Deploy Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -203,8 +203,8 @@ jobs:
       - name: Django deploy hardening checks
         run: python manage.py check --deploy
 
-      - name: Run Django tests
-        run: python manage.py test --verbosity 2
+      - name: Run tests (pytest)
+        run: python -m pytest --tb=short -q
 
   security-python:
     name: Security (Bandit + pip-audit)
