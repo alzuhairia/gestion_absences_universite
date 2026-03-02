@@ -1,5 +1,2 @@
-def ready(self):
-    try:
-        import apps.accounts.signals  # L'erreur vient d'ici
-    except ImportError:
-        pass
+# apps/accounts/signals.py
+# No signal handlers currently defined for the accounts app.

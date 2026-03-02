@@ -33,3 +33,7 @@ python-magic==0.4.27
 
 openpyxl==3.1.2
 redis==5.0.8
+
+# Test
+pytest>=9.0,<10
+pytest-django>=4.12,<5

@@ -175,12 +175,17 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{{ course_labels_json|json_script:"course-labels-data" }}
+{{ absence_percentages_json|json_script:"absence-percentages-data" }}
+{{ trend_labels_json|json_script:"trend-labels-data" }}
+{{ trend_data_json|json_script:"trend-data-data" }}
+{{ system_threshold_json|json_script:"system-threshold-data" }}
 <script>
-    const courseLabels = {{ course_labels_json }};
-    const absencePercentages = {{ absence_percentages_json }};
-    const trendLabels = {{ trend_labels_json }};
-    const trendData = {{ trend_data_json }};
-    const systemThreshold = {{ system_threshold_json }};
+    const courseLabels = JSON.parse(document.getElementById('course-labels-data').textContent);
+    const absencePercentages = JSON.parse(document.getElementById('absence-percentages-data').textContent);
+    const trendLabels = JSON.parse(document.getElementById('trend-labels-data').textContent);
+    const trendData = JSON.parse(document.getElementById('trend-data-data').textContent);
+    const systemThreshold = JSON.parse(document.getElementById('system-threshold-data').textContent);
 
     // --- Graphique en barres : Taux d'absence par cours ---
     const ctxBar = document.getElementById("absenceBarChart");

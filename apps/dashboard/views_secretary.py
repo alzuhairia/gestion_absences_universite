@@ -4,6 +4,7 @@ Le secrétaire a accès complet à la structure académique (facultés, départe
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # ========== GESTION DES FACULTÉS ==========
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_faculties(request):
@@ -57,6 +59,7 @@ def secretary_faculties(request):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_faculty_edit(request, faculte_id):
@@ -89,6 +92,7 @@ def secretary_faculty_edit(request, faculte_id):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_faculty_delete(request, faculte_id):
@@ -201,6 +205,7 @@ def secretary_faculty_delete(request, faculte_id):
 
 # ========== GESTION DES DÉPARTEMENTS ==========
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_departments(request):
@@ -233,6 +238,7 @@ def secretary_departments(request):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_department_edit(request, dept_id):
@@ -265,6 +271,7 @@ def secretary_department_edit(request, dept_id):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_department_delete(request, dept_id):
@@ -356,6 +363,7 @@ def secretary_department_delete(request, dept_id):
 
 # ========== GESTION DES COURS ==========
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_courses(request):
@@ -391,6 +399,7 @@ def secretary_courses(request):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_course_edit(request, course_id):
@@ -426,6 +435,7 @@ def secretary_course_edit(request, course_id):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_course_delete(request, course_id):
@@ -512,6 +522,7 @@ def secretary_course_delete(request, course_id):
 
 # ========== GESTION DES ANNÉES ACADÉMIQUES ==========
 
+@login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_academic_years(request):
@@ -542,6 +553,7 @@ def secretary_academic_years(request):
     })
 
 
+@login_required
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_academic_year_set_active(request, year_id):
@@ -569,6 +581,7 @@ def secretary_academic_year_set_active(request, year_id):
     return redirect('dashboard:secretary_academic_years')
 
 
+@login_required
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_academic_year_delete(request, year_id):
@@ -576,33 +589,34 @@ def secretary_academic_year_delete(request, year_id):
 
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
     year_libelle = year.libelle
-    is_active = year.active
 
     try:
-        # Vérifier si l'année est active
-        if is_active:
-            messages.error(
-                request,
-                f"Impossible de supprimer l'année académique '{year_libelle}' car elle est actuellement active. "
-                f"Veuillez d'abord définir une autre année comme active."
-            )
-            return redirect('dashboard:secretary_academic_years')
-
         from apps.academic_sessions.models import Seance
 
-        inscriptions = Inscription.objects.filter(id_annee=year)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_annee=year)
-        seances_count = seances.count()
-
         with transaction.atomic():
+            # Lock the row to prevent TOCTOU race condition
+            year = AnneeAcademique.objects.select_for_update().get(id_annee=year_id)
+
+            if year.active:
+                messages.error(
+                    request,
+                    f"Impossible de supprimer l'année académique '{year_libelle}' car elle est actuellement active. "
+                    f"Veuillez d'abord définir une autre année comme active."
+                )
+                return redirect('dashboard:secretary_academic_years')
+
+            inscriptions = Inscription.objects.filter(id_annee=year)
+            inscriptions_count = inscriptions.count()
+
+            absences = Absence.objects.filter(id_inscription__in=inscriptions)
+            absences_count = absences.count()
+
+            justifications = Justification.objects.filter(id_absence__in=absences)
+            justifications_count = justifications.count()
+
+            seances = Seance.objects.filter(id_annee=year)
+            seances_count = seances.count()
+
             justifications.delete()
             absences.delete()
             inscriptions.delete()
@@ -664,6 +678,7 @@ def secretary_academic_year_delete(request, year_id):
 
 # ========== JOURNAUX D'AUDIT ==========
 
+@login_required
 @secretary_required
 def secretary_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres (pour secrétaire)"""

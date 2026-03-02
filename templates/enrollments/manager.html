@@ -334,6 +334,8 @@
 </div>
 
 <script>
+    const API_DEPARTMENTS_URL = "{% url 'enrollments:get_departments' %}";
+    const API_COURSES_URL = "{% url 'enrollments:get_courses' %}";
     let currentStep = 0;
 
     function getApiErrorMessage(payload) {
@@ -430,7 +432,7 @@
         }
 
         try {
-            const data = await fetchJson(`/enrollments/api/departments/?faculty_id=${facultyId}`);
+            const data = await fetchJson(`${API_DEPARTMENTS_URL}?faculty_id=${facultyId}`);
             if (!Array.isArray(data)) {
                 throw new Error('Reponse API invalide.');
             }
@@ -469,7 +471,7 @@
         }
 
         try {
-            const data = await fetchJson(`/enrollments/api/courses/?dept_id=${deptId}`);
+            const data = await fetchJson(`${API_COURSES_URL}?dept_id=${deptId}`);
             if (!Array.isArray(data)) {
                 throw new Error('Reponse API invalide.');
             }

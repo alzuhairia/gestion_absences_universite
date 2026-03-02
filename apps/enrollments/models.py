@@ -112,30 +112,12 @@ class Inscription(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        """Recalculer eligible_examen avant sauvegarde"""
-        self.full_clean()
-        # Recalculer l'éligibilité (sera mis à jour par le signal si nécessaire)
+        """Valider avant sauvegarde"""
+        if self.pk is None:
+            self.full_clean()
+        else:
+            self.clean()
         super().save(*args, **kwargs)
-
-    def calculer_eligible_examen(self):
-        """
-        Calcule si l'étudiant est éligible à l'examen basé sur les absences non justifiées.
-        Retourne True si éligible, False sinon.
-        """
-        if self.exemption_40:
-            return True
-
-        from apps.absences.services import calculer_absence_stats
-
-        stats = calculer_absence_stats(self)
-        if stats["total_periodes"] == 0:
-            return True
-
-        # Utiliser le seuil du cours ou le seuil par defaut
-        seuil = self.id_cours.get_seuil_absence()
-        taux = stats["taux"]
-
-        return taux < seuil
 
     # FIX VERT #20 — Propriété de commodité : l'inscription est-elle en cours ?
     # Remplace les checks if inscription.status == 'EN_COURS' dispersés dans les vues.

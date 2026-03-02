@@ -74,10 +74,12 @@ def secretary_dashboard(request):
     # 1. Pending Justifications Count
     global_pending_count = Justification.objects.filter(state="EN_ATTENTE").count()
 
-    # 2. Global "At Risk" Calculation (> 40%)
+    # 2. Global "At Risk" Calculation — filtré par année active
     all_inscriptions = Inscription.objects.select_related(
         "id_cours", "id_etudiant"
-    ).all()
+    )
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
         Absence.objects.filter(
@@ -234,10 +236,15 @@ def secretary_rules_40(request):
     """
     Page "Règle des 40%" - Gestion des exemptions et étudiants à risque.
     """
-    # Get all inscriptions
+    # Get current academic year
+    academic_year = AnneeAcademique.objects.filter(active=True).first()
+
+    # Get inscriptions filtered by active year
     all_inscriptions = Inscription.objects.select_related(
         "id_cours", "id_etudiant", "id_cours__id_departement"
-    ).all()
+    )
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
         Absence.objects.filter(
@@ -278,9 +285,6 @@ def secretary_rules_40(request):
     # Calculate statistics
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
     exempted_count = len(at_risk_list) - blocked_count
-
-    # Get current academic year
-    academic_year = AnneeAcademique.objects.filter(active=True).first()
 
     return render(
         request,

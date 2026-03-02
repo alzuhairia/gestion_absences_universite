@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -51,6 +52,7 @@ def is_admin(user):
     return user.is_authenticated and user.role == User.Role.ADMIN
 
 
+@login_required
 @admin_required
 def admin_dashboard_main(request):
     """
@@ -102,11 +104,13 @@ def admin_dashboard_main(request):
     else:
         active_courses_with_activity = 0
 
-    # KPI 5: Nombre d'alertes système (étudiants à risque > 40%)
+    # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
     at_risk_count = 0
     all_inscriptions = Inscription.objects.select_related(
         "id_cours", "id_etudiant"
-    ).all()
+    )
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
         Absence.objects.filter(
@@ -176,6 +180,7 @@ def admin_dashboard_main(request):
 # ========== GESTION DE LA STRUCTURE ACADÉMIQUE ==========
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_faculties(request):
@@ -214,6 +219,7 @@ def admin_faculties(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_faculty_edit(request, faculte_id):
@@ -252,6 +258,7 @@ def admin_faculty_edit(request, faculte_id):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_faculty_delete(request, faculte_id):
@@ -374,6 +381,7 @@ def admin_faculty_delete(request, faculte_id):
     return redirect("dashboard:admin_faculties")
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_departments(request):
@@ -416,6 +424,7 @@ def admin_departments(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_department_edit(request, dept_id):
@@ -454,6 +463,7 @@ def admin_department_edit(request, dept_id):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_department_delete(request, dept_id):
@@ -570,6 +580,7 @@ def admin_department_delete(request, dept_id):
     return redirect("dashboard:admin_departments")
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_courses(request):
@@ -617,6 +628,7 @@ def admin_courses(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_course_edit(request, course_id):
@@ -655,6 +667,7 @@ def admin_course_edit(request, course_id):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_course_delete(request, course_id):
@@ -768,6 +781,7 @@ def admin_course_delete(request, course_id):
 # ========== GESTION DES UTILISATEURS ==========
 
 
+@login_required
 @admin_required
 def admin_users(request):
     """Liste et gestion des utilisateurs"""
@@ -811,6 +825,7 @@ def admin_users(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_user_create(request):
@@ -846,6 +861,7 @@ def admin_user_create(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_user_edit(request, user_id):
@@ -900,6 +916,7 @@ def admin_user_edit(request, user_id):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["POST"])
 def admin_user_reset_password(request, user_id):
@@ -939,6 +956,7 @@ def admin_user_reset_password(request, user_id):
     return redirect("dashboard:admin_user_edit", user_id=user_id)
 
 
+@login_required
 @admin_required
 def admin_user_audit(request, user_id):
     """Consultation des journaux d'audit pour un utilisateur spécifique"""
@@ -961,6 +979,7 @@ def admin_user_audit(request, user_id):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["POST"])
 def admin_users_delete_multiple(request):
@@ -1144,6 +1163,7 @@ def admin_users_delete_multiple(request):
         return redirect("dashboard:admin_users")
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_user_delete(request, user_id):
@@ -1258,6 +1278,7 @@ def admin_user_delete(request, user_id):
 # ========== PARAMÈTRES SYSTÈME ==========
 
 
+@login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_settings(request):
@@ -1310,6 +1331,7 @@ def admin_settings(request):
 # ========== GESTION DES ANNÉES ACADÉMIQUES ==========
 
 
+@login_required
 @admin_required
 def admin_academic_years(request):
     """Liste et gestion des années académiques"""
@@ -1345,6 +1367,7 @@ def admin_academic_years(request):
     )
 
 
+@login_required
 @admin_required
 @require_http_methods(["POST"])
 def admin_academic_year_set_active(request, year_id):
@@ -1352,12 +1375,10 @@ def admin_academic_year_set_active(request, year_id):
 
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
 
-    # Désactiver toutes les années
-    AnneeAcademique.objects.update(active=False)
-
-    # Activer l'année sélectionnée
-    year.active = True
-    year.save()
+    with transaction.atomic():
+        AnneeAcademique.objects.update(active=False)
+        year.active = True
+        year.save()
 
     log_action(
         request.user,
@@ -1374,6 +1395,7 @@ def admin_academic_year_set_active(request, year_id):
     return redirect("dashboard:admin_academic_years")
 
 
+@login_required
 @admin_required
 @require_http_methods(["POST"])
 def admin_academic_year_delete(request, year_id):
@@ -1381,38 +1403,34 @@ def admin_academic_year_delete(request, year_id):
 
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
     year_libelle = year.libelle
-    is_active = year.active
 
     try:
-        # Compteurs pour les elements supprimes en cascade
-        inscriptions_count = 0
-        seances_count = 0
-        absences_count = 0
-        justifications_count = 0
-
-        if is_active:
-            messages.error(
-                request,
-                f"Impossible de supprimer l'annee academique '{year_libelle}' car elle est actuellement active. "
-                f"Veuillez d'abord definir une autre annee comme active.",
-            )
-            return redirect("dashboard:admin_academic_years")
-
         from apps.academic_sessions.models import Seance
 
-        inscriptions = Inscription.objects.filter(id_annee=year)
-        inscriptions_count = inscriptions.count()
-
-        absences = Absence.objects.filter(id_inscription__in=inscriptions)
-        absences_count = absences.count()
-
-        justifications = Justification.objects.filter(id_absence__in=absences)
-        justifications_count = justifications.count()
-
-        seances = Seance.objects.filter(id_annee=year)
-        seances_count = seances.count()
-
         with transaction.atomic():
+            # Lock the row to prevent TOCTOU race condition
+            year = AnneeAcademique.objects.select_for_update().get(id_annee=year_id)
+
+            if year.active:
+                messages.error(
+                    request,
+                    f"Impossible de supprimer l'annee academique '{year_libelle}' car elle est actuellement active. "
+                    f"Veuillez d'abord definir une autre annee comme active.",
+                )
+                return redirect("dashboard:admin_academic_years")
+
+            inscriptions = Inscription.objects.filter(id_annee=year)
+            inscriptions_count = inscriptions.count()
+
+            absences = Absence.objects.filter(id_inscription__in=inscriptions)
+            absences_count = absences.count()
+
+            justifications = Justification.objects.filter(id_absence__in=absences)
+            justifications_count = justifications.count()
+
+            seances = Seance.objects.filter(id_annee=year)
+            seances_count = seances.count()
+
             justifications.delete()
             absences.delete()
             inscriptions.delete()
@@ -1482,6 +1500,7 @@ def admin_academic_year_delete(request, year_id):
 # ========== JOURNAUX D'AUDIT ==========
 
 
+@login_required
 @admin_required
 def admin_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres"""
@@ -1538,6 +1557,7 @@ def admin_audit_logs(request):
 # ========== EXPORTS ==========
 
 
+@login_required
 @admin_required
 def admin_export_audit_csv(request):
     """Export des journaux d'audit en CSV"""

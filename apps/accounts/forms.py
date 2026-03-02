@@ -49,12 +49,7 @@ class CustomPasswordChangeForm(PasswordChangeForm):
         })
     
     def clean_new_password2(self):
-        """Personnaliser les messages d'erreur en français"""
-        password1 = self.cleaned_data.get('new_password1')
-        password2 = self.cleaned_data.get('new_password2')
-        
-        if password1 and password2:
-            if password1 != password2:
-                raise forms.ValidationError("Les deux mots de passe ne correspondent pas.")
-        
+        """Valider la confirmation et appliquer les règles de mot de passe (AUTH_PASSWORD_VALIDATORS)"""
+        # Appeler super() pour exécuter les validateurs Django (longueur, complexité, etc.)
+        password2 = super().clean_new_password2()
         return password2

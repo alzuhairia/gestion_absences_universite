@@ -51,6 +51,13 @@ def edit_absence(request, pk):
             )
             return render(request, 'absences/edit_absence.html', {'absence': absence})
 
+        if new_duree <= 0:
+            messages.error(
+                request,
+                "La durée doit être supérieure à zéro."
+            )
+            return render(request, 'absences/edit_absence.html', {'absence': absence})
+
         # --- Detect changes BEFORE saving ---
         change_desc = f"Absence {pk} UPDATED. "
         changed = False
