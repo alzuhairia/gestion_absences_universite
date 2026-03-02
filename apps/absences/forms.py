@@ -62,7 +62,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         label="Durée (heures)",
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.5", "min": "0"}),
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "step": "0.5", "min": "0"}
+        ),
         help_text="Durée en heures (requis si type = Retard/Partiel)",
     )
 
@@ -76,7 +78,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
     document = forms.FileField(
         label="Document justificatif",
         required=True,
-        widget=forms.FileInput(attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}),
+        widget=forms.FileInput(
+            attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}
+        ),
         help_text="Document obligatoire (PDF, JPG, PNG) — max 5 Mo",
     )
 
@@ -110,11 +114,15 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         # Si heure_debut ou heure_fin est renseignée, les deux doivent l'être
         if heure_debut and not heure_fin:
             raise forms.ValidationError(
-                {"heure_fin": "L'heure de fin est requise si vous spécifiez une heure de début."}
+                {
+                    "heure_fin": "L'heure de fin est requise si vous spécifiez une heure de début."
+                }
             )
         if heure_fin and not heure_debut:
             raise forms.ValidationError(
-                {"heure_debut": "L'heure de début est requise si vous spécifiez une heure de fin."}
+                {
+                    "heure_debut": "L'heure de début est requise si vous spécifiez une heure de fin."
+                }
             )
 
         # Vérifier que heure_fin > heure_debut
