@@ -121,7 +121,7 @@ def recalculer_eligibilite(inscription):
                 action=f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} (Taux: {taux:.1f}%, Seuil: {seuil}%)",
                 # CORRECTION BUG CRITIQUE #5 — IP système (action automatique, pas d'utilisateur connecté)
                 # "0.0.0.0" est la convention pour les actions système automatiques dans ce projet.
-                adresse_ip="0.0.0.0",
+                adresse_ip="0.0.0.0",  # nosec B104
                 niveau="CRITIQUE",
                 objet_type="INSCRIPTION",
                 objet_id=inscription.id_inscription,
