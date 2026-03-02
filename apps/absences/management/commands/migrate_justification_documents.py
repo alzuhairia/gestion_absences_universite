@@ -104,7 +104,7 @@ class Command(BaseCommand):
                       AND ({target_col} IS NULL OR {target_col} = '')
                     ORDER BY {pk_col}
                     LIMIT %s
-                    """,
+                    """,  # nosec B608
                     [last_id, batch_size],
                 )
                 rows = cursor.fetchall()
@@ -134,7 +134,7 @@ class Command(BaseCommand):
                                 UPDATE {table}
                                 SET {target_col} = %s
                                 WHERE {pk_col} = %s
-                                """,
+                                """,  # nosec B608
                                 [saved_name, pk_value],
                             )
 

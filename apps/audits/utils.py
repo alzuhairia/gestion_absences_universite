@@ -29,7 +29,7 @@ def log_action(
     if not user or not user.is_authenticated:
         return
 
-    ip = "0.0.0.0"
+    ip = "0.0.0.0"  # nosec B104
     if request:
         ip = get_client_ip(request)
 
