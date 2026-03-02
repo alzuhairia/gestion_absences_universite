@@ -22,12 +22,6 @@ urlpatterns = [
     # Edit/Override Absence
     path('edit/<int:pk>/', views_manager.edit_absence, name='edit_absence'),
 
-    # Valider un justificatif (Passe l'absence en JUSTIFIEE)
-    path('valider/<int:absence_id>/', views.valider_justificatif, name='valider_justification'),
-    
-    # Refuser un justificatif (Remet l'absence en NON_JUSTIFIEE)
-    path('refuser/<int:absence_id>/', views.refuser_justificatif, name='refuser_justification'),
-
     # Telecharger un justificatif (acces controle)
     path('justification/<int:justification_id>/download/', views.download_justification, name='download_justification'),
 

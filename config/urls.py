@@ -23,7 +23,7 @@ urlpatterns = [
     # N'oublie pas l'application qu'on a renommée pour éviter le conflit !
     path('sessions/', include('apps.academic_sessions.urls')),
     path('audits/', include('apps.audits.urls')),
-    path('', lambda request: redirect('dashboard/', permanent=False)),
+    path('', lambda request: redirect('dashboard:index', permanent=False)),
 ]
 
 if settings.DEBUG:

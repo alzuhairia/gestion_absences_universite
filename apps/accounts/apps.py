@@ -8,8 +8,4 @@ class AccountsConfig(AppConfig):
     verbose_name = 'Gestion des utilisateurs'
     
     def ready(self):
-        """Import des signaux quand l'app est prête"""
-        try:
-            import apps.accounts.signals
-        except ImportError:
-            pass
+        pass

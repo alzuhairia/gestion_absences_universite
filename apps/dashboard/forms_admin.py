@@ -147,7 +147,7 @@ class CoursForm(forms.ModelForm):
     
     def save(self, commit=True):
         instance = super().save(commit=False)
-        
+
         # Si c'est une création (pas d'ID), assigner automatiquement l'année académique active
         if not instance.pk:
             active_year = AnneeAcademique.objects.filter(active=True).first()
@@ -156,7 +156,11 @@ class CoursForm(forms.ModelForm):
                 active_year = AnneeAcademique.objects.order_by('-libelle').first()
             if active_year:
                 instance.id_annee = active_year
-        
+            else:
+                raise forms.ValidationError(
+                    "Impossible de créer un cours : aucune année académique n'est définie dans le système."
+                )
+
         if commit:
             instance.save()
             instance.prerequisites.set(self.cleaned_data['prerequisites'])
@@ -330,6 +334,4 @@ class AnneeAcademiqueForm(forms.ModelForm):
             'active': "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
         }
     
-    def clean_active(self):
-        return self.cleaned_data.get('active')
 
