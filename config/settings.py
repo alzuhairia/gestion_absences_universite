@@ -80,7 +80,7 @@ if not DEBUG and not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = [
         f"https://{host}"
         for host in ALLOWED_HOSTS
-        if host not in {"localhost", "127.0.0.1", "0.0.0.0"}
+        if host not in {"localhost", "127.0.0.1", "0.0.0.0"}  # nosec B104
     ]
 
 USE_X_FORWARDED_PROTO = env_bool("USE_X_FORWARDED_PROTO", True)
