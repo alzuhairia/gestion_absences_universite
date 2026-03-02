@@ -5,9 +5,11 @@ IMPORTANT POUR LA SOUTENANCE :
 Les signals permettent d'automatiser certaines actions lors de la création/modification
 d'objets. Ici, le signal garantit que l'éligibilité à l'examen est toujours à jour.
 """
+
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
 from .models import Absence
 from .services import recalculer_eligibilite
 
@@ -25,6 +27,7 @@ def absence_post_save(sender, instance, **kwargs):
 
     def _recalcul():
         from apps.enrollments.models import Inscription
+
         try:
             inscription = Inscription.objects.get(pk=inscription_pk)
         except Inscription.DoesNotExist:

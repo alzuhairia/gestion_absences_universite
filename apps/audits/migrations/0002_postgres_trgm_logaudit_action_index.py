@@ -1,4 +1,4 @@
-from django.db import migrations, DatabaseError
+from django.db import DatabaseError, migrations
 
 
 def _pg_trgm_available(schema_editor):
@@ -8,14 +8,16 @@ def _pg_trgm_available(schema_editor):
 
 
 def create_postgres_trgm_index(apps, schema_editor):
-    if schema_editor.connection.vendor != 'postgresql':
+    if schema_editor.connection.vendor != "postgresql":
         return
 
     if not _pg_trgm_available(schema_editor):
         try:
             schema_editor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
         except DatabaseError as exc:
-            print(f"[audits] pg_trgm extension unavailable, skipping trigram index: {exc}")
+            print(
+                f"[audits] pg_trgm extension unavailable, skipping trigram index: {exc}"
+            )
             return
     if not _pg_trgm_available(schema_editor):
         print("[audits] pg_trgm extension unavailable, skipping trigram index.")
@@ -28,17 +30,19 @@ def create_postgres_trgm_index(apps, schema_editor):
 
 
 def drop_postgres_trgm_index(apps, schema_editor):
-    if schema_editor.connection.vendor != 'postgresql':
+    if schema_editor.connection.vendor != "postgresql":
         return
 
-    schema_editor.execute("DROP INDEX CONCURRENTLY IF EXISTS log_audit_action_trgm_gin_idx;")
+    schema_editor.execute(
+        "DROP INDEX CONCURRENTLY IF EXISTS log_audit_action_trgm_gin_idx;"
+    )
 
 
 class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ('audits', '0001_initial'),
+        ("audits", "0001_initial"),
     ]
 
     operations = [

@@ -8,41 +8,75 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='AnneeAcademique',
+            name="AnneeAcademique",
             fields=[
-                ('id_annee', models.AutoField(primary_key=True, serialize=False)),
-                ('libelle', models.CharField(db_index=True, help_text='Format recommandé: AAAA-AAAA', max_length=20, unique=True, verbose_name='Libellé (ex: 2023-2024)')),
-                ('active', models.BooleanField(db_index=True, default=False, help_text='Une seule année peut être active à la fois', verbose_name='Année en cours ?')),
+                ("id_annee", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "libelle",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Format recommandé: AAAA-AAAA",
+                        max_length=20,
+                        unique=True,
+                        verbose_name="Libellé (ex: 2023-2024)",
+                    ),
+                ),
+                (
+                    "active",
+                    models.BooleanField(
+                        db_index=True,
+                        default=False,
+                        help_text="Une seule année peut être active à la fois",
+                        verbose_name="Année en cours ?",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Année Académique',
-                'verbose_name_plural': 'Années Académiques',
-                'db_table': 'annee_academique',
-                'ordering': ['-libelle'],
-                'managed': True,
-                'constraints': [models.UniqueConstraint(condition=models.Q(('active', True)), fields=('active',), name='unique_active_annee_academique')],
+                "verbose_name": "Année Académique",
+                "verbose_name_plural": "Années Académiques",
+                "db_table": "annee_academique",
+                "ordering": ["-libelle"],
+                "managed": True,
+                "constraints": [
+                    models.UniqueConstraint(
+                        condition=models.Q(("active", True)),
+                        fields=("active",),
+                        name="unique_active_annee_academique",
+                    )
+                ],
             },
         ),
         migrations.CreateModel(
-            name='Seance',
+            name="Seance",
             fields=[
-                ('id_seance', models.AutoField(primary_key=True, serialize=False)),
-                ('date_seance', models.DateField(db_index=True, verbose_name='Date de la séance')),
-                ('heure_debut', models.TimeField(verbose_name='Heure début')),
-                ('heure_fin', models.TimeField(verbose_name='Heure fin')),
-                ('id_annee', models.ForeignKey(db_column='id_annee', on_delete=django.db.models.deletion.PROTECT, related_name='seances', to='academic_sessions.anneeacademique', verbose_name='Année académique')),
+                ("id_seance", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "date_seance",
+                    models.DateField(db_index=True, verbose_name="Date de la séance"),
+                ),
+                ("heure_debut", models.TimeField(verbose_name="Heure début")),
+                ("heure_fin", models.TimeField(verbose_name="Heure fin")),
+                (
+                    "id_annee",
+                    models.ForeignKey(
+                        db_column="id_annee",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="seances",
+                        to="academic_sessions.anneeacademique",
+                        verbose_name="Année académique",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Séance',
-                'verbose_name_plural': 'Séances',
-                'db_table': 'seance',
-                'ordering': ['-date_seance', '-heure_debut'],
-                'managed': True,
+                "verbose_name": "Séance",
+                "verbose_name_plural": "Séances",
+                "db_table": "seance",
+                "ordering": ["-date_seance", "-heure_debut"],
+                "managed": True,
             },
         ),
     ]

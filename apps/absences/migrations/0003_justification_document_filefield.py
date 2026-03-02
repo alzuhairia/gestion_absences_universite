@@ -5,13 +5,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0002_initial'),
+        ("absences", "0002_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='justification',
-            name='document_file',
-            field=models.FileField(blank=True, null=True, upload_to='justifications/', verbose_name='Fichier'),
+            model_name="justification",
+            name="document_file",
+            field=models.FileField(
+                blank=True,
+                null=True,
+                upload_to="justifications/",
+                verbose_name="Fichier",
+            ),
         ),
     ]

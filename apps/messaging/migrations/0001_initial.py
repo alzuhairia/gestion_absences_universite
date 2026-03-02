@@ -15,23 +15,75 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Message',
+            name="Message",
             fields=[
-                ('id_message', models.AutoField(primary_key=True, serialize=False)),
-                ('objet', models.CharField(db_index=True, default='Nouveau message', max_length=200, verbose_name='Objet')),
-                ('contenu', models.TextField(verbose_name='Message')),
-                ('date_envoi', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Date d'envoi")),
-                ('lu', models.BooleanField(db_index=True, default=False, help_text='Indique si le message a été lu', verbose_name='Lu')),
-                ('destinataire', models.ForeignKey(blank=True, db_column='destinataire', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='messages_recus', to=settings.AUTH_USER_MODEL, verbose_name='Destinataire')),
-                ('expediteur', models.ForeignKey(blank=True, db_column='expediteur', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='messages_envoyes', to=settings.AUTH_USER_MODEL, verbose_name='Expéditeur')),
+                ("id_message", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "objet",
+                    models.CharField(
+                        db_index=True,
+                        default="Nouveau message",
+                        max_length=200,
+                        verbose_name="Objet",
+                    ),
+                ),
+                ("contenu", models.TextField(verbose_name="Message")),
+                (
+                    "date_envoi",
+                    models.DateTimeField(
+                        auto_now_add=True, db_index=True, verbose_name="Date d'envoi"
+                    ),
+                ),
+                (
+                    "lu",
+                    models.BooleanField(
+                        db_index=True,
+                        default=False,
+                        help_text="Indique si le message a été lu",
+                        verbose_name="Lu",
+                    ),
+                ),
+                (
+                    "destinataire",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="destinataire",
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="messages_recus",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Destinataire",
+                    ),
+                ),
+                (
+                    "expediteur",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="expediteur",
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="messages_envoyes",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Expéditeur",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Message',
-                'verbose_name_plural': 'Messages',
-                'db_table': 'message',
-                'ordering': ['-date_envoi'],
-                'managed': True,
-                'indexes': [models.Index(fields=['destinataire', 'lu', 'date_envoi'], name='message_destina_104ae0_idx'), models.Index(fields=['expediteur', 'date_envoi'], name='message_expedit_affcce_idx')],
+                "verbose_name": "Message",
+                "verbose_name_plural": "Messages",
+                "db_table": "message",
+                "ordering": ["-date_envoi"],
+                "managed": True,
+                "indexes": [
+                    models.Index(
+                        fields=["destinataire", "lu", "date_envoi"],
+                        name="message_destina_104ae0_idx",
+                    ),
+                    models.Index(
+                        fields=["expediteur", "date_envoi"],
+                        name="message_expedit_affcce_idx",
+                    ),
+                ],
             },
         ),
     ]

@@ -106,9 +106,7 @@ def admin_dashboard_main(request):
 
     # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
     at_risk_count = 0
-    all_inscriptions = Inscription.objects.select_related(
-        "id_cours", "id_etudiant"
-    )
+    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
@@ -122,13 +120,18 @@ def admin_dashboard_main(request):
         .values_list("id_inscription", "total")
     )
     from apps.absences.services import get_system_threshold
+
     system_threshold = get_system_threshold()
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             total_abs = absence_sums.get(ins.id_inscription, 0) or 0
             rate = (total_abs / cours.nombre_total_periodes) * 100
-            seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+            seuil = (
+                cours.seuil_absence
+                if cours.seuil_absence is not None
+                else system_threshold
+            )
             if rate >= seuil and not ins.exemption_40:
                 at_risk_count += 1
 
@@ -287,21 +290,27 @@ def admin_faculty_delete(request, faculte_id):
     # GET — page de confirmation avec impact cascade
     if request.method == "GET":
         cascade_items = [
-            item for item in [
+            item
+            for item in [
                 {"count": departements_count, "label": "département(s)"},
                 {"count": cours_count, "label": "cours"},
                 {"count": seances_count, "label": "séance(s)"},
                 {"count": inscriptions_count, "label": "inscription(s)"},
                 {"count": absences_count, "label": "absence(s)"},
                 {"count": justifications_count, "label": "justification(s)"},
-            ] if item["count"] > 0
+            ]
+            if item["count"] > 0
         ]
-        return render(request, "dashboard/admin_confirm_delete.html", {
-            "object_label": f"Faculté « {faculte_nom} »",
-            "cascade_items": cascade_items,
-            "cancel_url": "/dashboard/admin/faculties/",
-            "cancel_label": "Facultés",
-        })
+        return render(
+            request,
+            "dashboard/admin_confirm_delete.html",
+            {
+                "object_label": f"Faculté « {faculte_nom} »",
+                "cascade_items": cascade_items,
+                "cancel_url": "/dashboard/admin/faculties/",
+                "cancel_label": "Facultés",
+            },
+        )
 
     # POST — exécution de la suppression
     try:
@@ -490,20 +499,26 @@ def admin_department_delete(request, dept_id):
     # GET — page de confirmation avec impact cascade
     if request.method == "GET":
         cascade_items = [
-            item for item in [
+            item
+            for item in [
                 {"count": cours_count, "label": "cours"},
                 {"count": seances_count, "label": "séance(s)"},
                 {"count": inscriptions_count, "label": "inscription(s)"},
                 {"count": absences_count, "label": "absence(s)"},
                 {"count": justifications_count, "label": "justification(s)"},
-            ] if item["count"] > 0
+            ]
+            if item["count"] > 0
         ]
-        return render(request, "dashboard/admin_confirm_delete.html", {
-            "object_label": f"Département « {dept_nom} » (Faculté : {faculte_nom})",
-            "cascade_items": cascade_items,
-            "cancel_url": "/dashboard/admin/departments/",
-            "cancel_label": "Départements",
-        })
+        return render(
+            request,
+            "dashboard/admin_confirm_delete.html",
+            {
+                "object_label": f"Département « {dept_nom} » (Faculté : {faculte_nom})",
+                "cascade_items": cascade_items,
+                "cancel_url": "/dashboard/admin/departments/",
+                "cancel_label": "Départements",
+            },
+        )
 
     # POST — exécution de la suppression
     try:
@@ -598,9 +613,7 @@ def admin_courses(request):
                 objet_type="COURS",
                 objet_id=cours.id_cours,
             )
-            messages.success(
-                request, f"Cours '{cours.code_cours}' créé avec succès."
-            )
+            messages.success(request, f"Cours '{cours.code_cours}' créé avec succès.")
             return redirect("dashboard:admin_courses")
     else:
         form = CoursForm()
@@ -693,19 +706,25 @@ def admin_course_delete(request, course_id):
     # GET — page de confirmation avec impact cascade
     if request.method == "GET":
         cascade_items = [
-            item for item in [
+            item
+            for item in [
                 {"count": seances_count, "label": "séance(s)"},
                 {"count": inscriptions_count, "label": "inscription(s)"},
                 {"count": absences_count, "label": "absence(s)"},
                 {"count": justifications_count, "label": "justification(s)"},
-            ] if item["count"] > 0
+            ]
+            if item["count"] > 0
         ]
-        return render(request, "dashboard/admin_confirm_delete.html", {
-            "object_label": f"Cours « {cours_code} — {cours_nom} » (Département : {dept_nom})",
-            "cascade_items": cascade_items,
-            "cancel_url": "/dashboard/admin/courses/",
-            "cancel_label": "Cours",
-        })
+        return render(
+            request,
+            "dashboard/admin_confirm_delete.html",
+            {
+                "object_label": f"Cours « {cours_code} — {cours_nom} » (Département : {dept_nom})",
+                "cascade_items": cascade_items,
+                "cancel_url": "/dashboard/admin/courses/",
+                "cancel_label": "Cours",
+            },
+        )
 
     # POST — exécution de la suppression
     try:
@@ -843,9 +862,7 @@ def admin_user_create(request):
                 objet_type="USER",
                 objet_id=user.id_utilisateur,
             )
-            messages.success(
-                request, f"Utilisateur '{user.email}' créé avec succès."
-            )
+            messages.success(request, f"Utilisateur '{user.email}' créé avec succès.")
             return redirect("dashboard:admin_users")
     else:
         form = UserForm()
@@ -1184,34 +1201,56 @@ def admin_user_delete(request, user_id):
 
         # FIX VERT #19 — Page de confirmation avant suppression définitive
         if request.method == "GET":
-            if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
+            if (
+                inscriptions_count > 0
+                or absences_encoded_count > 0
+                or audit_logs_count > 0
+            ):
                 # Pas de page de confirmation : on sait déjà que ce sera une désactivation
                 cascade_items = [
-                    item for item in [
+                    item
+                    for item in [
                         {"count": inscriptions_count, "label": "inscription(s)"},
-                        {"count": absences_encoded_count, "label": "absence(s) encodée(s)"},
+                        {
+                            "count": absences_encoded_count,
+                            "label": "absence(s) encodée(s)",
+                        },
                         {"count": audit_logs_count, "label": "entrée(s) d'audit"},
-                    ] if item["count"] > 0
+                    ]
+                    if item["count"] > 0
                 ]
-                return render(request, "dashboard/admin_confirm_delete.html", {
-                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
-                    "cascade_items": cascade_items,
-                    "extra_warning": "Des dépendances ont été détectées. Le compte sera DÉSACTIVÉ (pas supprimé).",
-                    "cancel_url": "/dashboard/admin/users/",
-                    "cancel_label": "Utilisateurs",
-                })
+                return render(
+                    request,
+                    "dashboard/admin_confirm_delete.html",
+                    {
+                        "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                        "cascade_items": cascade_items,
+                        "extra_warning": "Des dépendances ont été détectées. Le compte sera DÉSACTIVÉ (pas supprimé).",
+                        "cancel_url": "/dashboard/admin/users/",
+                        "cancel_label": "Utilisateurs",
+                    },
+                )
             else:
                 cascade_items = [
-                    item for item in [
-                        {"count": cours_count, "label": "cours (sera détaché du professeur)"},
-                    ] if item["count"] > 0
+                    item
+                    for item in [
+                        {
+                            "count": cours_count,
+                            "label": "cours (sera détaché du professeur)",
+                        },
+                    ]
+                    if item["count"] > 0
                 ]
-                return render(request, "dashboard/admin_confirm_delete.html", {
-                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
-                    "cascade_items": cascade_items,
-                    "cancel_url": "/dashboard/admin/users/",
-                    "cancel_label": "Utilisateurs",
-                })
+                return render(
+                    request,
+                    "dashboard/admin_confirm_delete.html",
+                    {
+                        "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                        "cascade_items": cascade_items,
+                        "cancel_url": "/dashboard/admin/users/",
+                        "cancel_label": "Utilisateurs",
+                    },
+                )
 
         if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
             user.actif = False

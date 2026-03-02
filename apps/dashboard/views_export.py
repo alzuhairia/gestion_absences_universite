@@ -1,18 +1,20 @@
 import datetime
-from django.http import HttpResponse, HttpResponseBadRequest
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404
 from django.db.models import Sum
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.shortcuts import get_object_or_404
 from openpyxl import Workbook
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
-from apps.enrollments.models import Inscription
 from apps.absences.models import Absence
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
+from apps.enrollments.models import Inscription
+
 
 @login_required
 def export_student_pdf(request, student_id=None):
@@ -38,8 +40,10 @@ def export_student_pdf(request, student_id=None):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="rapport_absences_{student.email}.pdf"'
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="rapport_absences_{student.email}.pdf"'
+    )
 
     p = canvas.Canvas(response, pagesize=A4)
     width, height = A4
@@ -70,15 +74,18 @@ def export_student_pdf(request, student_id=None):
     insc_filter = {"id_etudiant": student, "status": "EN_COURS"}
     if academic_year:
         insc_filter["id_annee"] = academic_year
-    inscriptions = Inscription.objects.filter(**insc_filter).select_related('id_cours')
-    inscription_ids = list(inscriptions.values_list('id_inscription', flat=True))
+    inscriptions = Inscription.objects.filter(**insc_filter).select_related("id_cours")
+    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
 
     # Cohérence avec la page rapports : EN_ATTENTE + NON_JUSTIFIEE
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
-        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
     )
 
     p.setFont("Helvetica-Bold", 14)
@@ -87,7 +94,9 @@ def export_student_pdf(request, student_id=None):
 
     if not inscriptions.exists():
         p.setFont("Helvetica", 10)
-        p.drawString(60, y_position, "Aucune inscription trouvee pour cette annee academique.")
+        p.drawString(
+            60, y_position, "Aucune inscription trouvee pour cette annee academique."
+        )
         y_position -= 15
     else:
         p.setFont("Helvetica", 10)
@@ -95,7 +104,9 @@ def export_student_pdf(request, student_id=None):
             cours = ins.id_cours
             total_abs = absence_sums.get(ins.id_inscription, 0) or 0
 
-            text = f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiees"
+            text = (
+                f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiees"
+            )
             p.drawString(60, y_position, text)
             y_position -= 15
             y_position = check_page_break(y_position)
@@ -110,10 +121,10 @@ def export_student_pdf(request, student_id=None):
     absences = (
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
+            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
         )
-        .select_related('id_seance', 'id_seance__id_cours')
-        .order_by('id_seance__date_seance')
+        .select_related("id_seance", "id_seance__id_cours")
+        .order_by("id_seance__date_seance")
     )
 
     if not absences.exists():
@@ -141,8 +152,8 @@ def export_student_pdf(request, student_id=None):
             request.user,
             f"Export PDF du rapport d'absences de l'étudiant {student.get_full_name()} ({student.email})",
             request,
-            niveau='INFO',
-            objet_type='EXPORT',
+            niveau="INFO",
+            objet_type="EXPORT",
             objet_id=student.id_utilisateur,
         )
 
@@ -155,31 +166,45 @@ def export_at_risk_excel(request):
     """
     Export list of students overlapping the 40% threshold to Excel.
     """
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="etudiants_a_risque.xlsx"'
-    
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="etudiants_a_risque.xlsx"'
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Étudiants à Risque"
-    
+
     # Headers
-    columns = ['Nom', 'Prénom', 'Email', 'Cours', 'Heures Manquées', 'Taux Absence (%)', 'Statut']
+    columns = [
+        "Nom",
+        "Prénom",
+        "Email",
+        "Cours",
+        "Heures Manquées",
+        "Taux Absence (%)",
+        "Statut",
+    ]
     ws.append(columns)
-    
+
     # Data — filtré par année active
     from apps.absences.services import get_system_threshold
     from apps.academic_sessions.models import AnneeAcademique
+
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    all_inscriptions = Inscription.objects.select_related('id_cours', 'id_etudiant')
+    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
     if active_year:
         all_inscriptions = all_inscriptions.filter(id_annee=active_year)
-    inscription_ids = list(all_inscriptions.values_list('id_inscription', flat=True))
+    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     system_threshold = get_system_threshold()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=['NON_JUSTIFIEE', 'EN_ATTENTE'],
-        ).values('id_inscription').annotate(total=Sum('duree_absence')).values_list('id_inscription', 'total')
+            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
     )
 
     for ins in all_inscriptions:
@@ -188,30 +213,37 @@ def export_at_risk_excel(request):
             total_abs = absence_sums.get(ins.id_inscription, 0) or 0
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
-            seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+            seuil = (
+                cours.seuil_absence
+                if cours.seuil_absence is not None
+                else system_threshold
+            )
 
             if rate >= seuil:
                 statut = "EXEMPTÉ" if ins.exemption_40 else "BLOQUÉ"
-                
-                ws.append([
-                    ins.id_etudiant.nom,
-                    ins.id_etudiant.prenom,
-                    ins.id_etudiant.email,
-                    f"{cours.nom_cours} ({cours.code_cours})",
-                    total_abs,
-                    round(rate, 2),
-                    statut
-                ])
-    
+
+                ws.append(
+                    [
+                        ins.id_etudiant.nom,
+                        ins.id_etudiant.prenom,
+                        ins.id_etudiant.email,
+                        f"{cours.nom_cours} ({cours.code_cours})",
+                        total_abs,
+                        round(rate, 2),
+                        statut,
+                    ]
+                )
+
     from apps.audits.utils import log_action
+
     log_action(
         request.user,
         f"Secrétaire a exporté la liste des étudiants à risque au format Excel",
         request,
-        niveau='INFO',
-        objet_type='EXPORT',
-        objet_id=None
+        niveau="INFO",
+        objet_type="EXPORT",
+        objet_id=None,
     )
-    
+
     wb.save(response)
     return response

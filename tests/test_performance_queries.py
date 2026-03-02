@@ -5,42 +5,42 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from apps.accounts.models import User
-from apps.academics.models import Cours, Departement, Faculte
-from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.absences.models import Absence
+from apps.academic_sessions.models import AnneeAcademique, Seance
+from apps.academics.models import Cours, Departement, Faculte
+from apps.accounts.models import User
 from apps.enrollments.models import Inscription
 
 
 class QueryBudgetTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.faculte = Faculte.objects.create(nom_faculte='Faculte Perf')
+        cls.faculte = Faculte.objects.create(nom_faculte="Faculte Perf")
         cls.departement = Departement.objects.create(
-            nom_departement='Departement Perf',
+            nom_departement="Departement Perf",
             id_faculte=cls.faculte,
         )
-        cls.annee = AnneeAcademique.objects.create(libelle='2025-2026', active=True)
+        cls.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
 
         cls.admin = User.objects.create_user(
-            email='admin-perf@example.com',
-            nom='Admin',
-            prenom='Perf',
-            password='pass1234',
+            email="admin-perf@example.com",
+            nom="Admin",
+            prenom="Perf",
+            password="pass1234",
             role=User.Role.ADMIN,
         )
         cls.secretary = User.objects.create_user(
-            email='secretary-perf@example.com',
-            nom='Secretary',
-            prenom='Perf',
-            password='pass1234',
+            email="secretary-perf@example.com",
+            nom="Secretary",
+            prenom="Perf",
+            password="pass1234",
             role=User.Role.SECRETAIRE,
         )
         cls.professor = User.objects.create_user(
-            email='prof-perf@example.com',
-            nom='Professor',
-            prenom='Perf',
-            password='pass1234',
+            email="prof-perf@example.com",
+            nom="Professor",
+            prenom="Perf",
+            password="pass1234",
             role=User.Role.PROFESSEUR,
         )
 
@@ -48,10 +48,10 @@ class QueryBudgetTests(TestCase):
         for idx in range(1, 11):
             cls.students.append(
                 User.objects.create_user(
-                    email=f'student-perf-{idx}@example.com',
-                    nom='Student',
-                    prenom=f'Perf{idx}',
-                    password='pass1234',
+                    email=f"student-perf-{idx}@example.com",
+                    nom="Student",
+                    prenom=f"Perf{idx}",
+                    password="pass1234",
                     role=User.Role.ETUDIANT,
                 )
             )
@@ -61,8 +61,8 @@ class QueryBudgetTests(TestCase):
 
         for idx in range(1, 6):
             course = Cours.objects.create(
-                code_cours=f'PERF{idx}',
-                nom_cours=f'Course Perf {idx}',
+                code_cours=f"PERF{idx}",
+                nom_cours=f"Course Perf {idx}",
                 nombre_total_periodes=30,
                 id_departement=cls.departement,
                 professeur=cls.professor,
@@ -90,7 +90,7 @@ class QueryBudgetTests(TestCase):
                         id_etudiant=student,
                         id_cours=course,
                         id_annee=cls.annee,
-                        status='EN_COURS',
+                        status="EN_COURS",
                     )
                 )
             cls.inscriptions_by_course[course.id_cours] = inscriptions
@@ -99,9 +99,9 @@ class QueryBudgetTests(TestCase):
                 Absence.objects.create(
                     id_inscription=ins,
                     id_seance=seances[0],
-                    type_absence='SEANCE',
+                    type_absence="SEANCE",
                     duree_absence=2.0,
-                    statut='NON_JUSTIFIEE',
+                    statut="NON_JUSTIFIEE",
                     encodee_par=cls.secretary,
                 )
 
@@ -111,7 +111,7 @@ class QueryBudgetTests(TestCase):
 
         with CaptureQueriesContext(connection) as captured:
             response = func(*args, **kwargs)
-            if hasattr(response, 'render') and callable(response.render):
+            if hasattr(response, "render") and callable(response.render):
                 response.render()
 
         self.assertLessEqual(
@@ -119,7 +119,7 @@ class QueryBudgetTests(TestCase):
             max_queries,
             (
                 f"Trop de requetes SQL: {len(captured)} (max: {max_queries}).\n"
-                + "\n".join(q['sql'] for q in captured.captured_queries[:12])
+                + "\n".join(q["sql"] for q in captured.captured_queries[:12])
             ),
         )
         return response
@@ -129,7 +129,7 @@ class QueryBudgetTests(TestCase):
         response = self.assert_max_queries(
             12,
             self.client.get,
-            reverse('dashboard:active_courses'),
+            reverse("dashboard:active_courses"),
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
@@ -139,7 +139,7 @@ class QueryBudgetTests(TestCase):
         response = self.assert_max_queries(
             10,
             self.client.get,
-            reverse('dashboard:student_courses'),
+            reverse("dashboard:student_courses"),
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
@@ -149,7 +149,9 @@ class QueryBudgetTests(TestCase):
         response = self.assert_max_queries(
             14,
             self.client.get,
-            reverse('dashboard:instructor_course_detail', args=[self.courses[0].id_cours]),
+            reverse(
+                "dashboard:instructor_course_detail", args=[self.courses[0].id_cours]
+            ),
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
@@ -159,7 +161,7 @@ class QueryBudgetTests(TestCase):
         response = self.assert_max_queries(
             8,
             self.client.get,
-            reverse('enrollments:rules_management'),
+            reverse("enrollments:rules_management"),
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
@@ -169,8 +171,11 @@ class QueryBudgetTests(TestCase):
         response = self.assert_max_queries(
             5,
             self.client.get,
-            reverse('enrollments:get_courses'),
-            {'dept_id': self.departement.id_departement, 'year_id': self.annee.id_annee},
+            reverse("enrollments:get_courses"),
+            {
+                "dept_id": self.departement.id_departement,
+                "year_id": self.annee.id_annee,
+            },
             secure=True,
         )
         self.assertEqual(response.status_code, 200)

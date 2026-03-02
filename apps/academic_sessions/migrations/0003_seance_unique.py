@@ -6,15 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('academic_sessions', '0002_initial'),
+        ("academic_sessions", "0002_initial"),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='seance',
+            model_name="seance",
             constraint=models.UniqueConstraint(
-                fields=('id_cours', 'date_seance', 'heure_debut', 'heure_fin'),
-                name='unique_seance_per_course_time',
+                fields=("id_cours", "date_seance", "heure_debut", "heure_fin"),
+                name="unique_seance_per_course_time",
             ),
         ),
     ]
