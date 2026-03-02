@@ -5,17 +5,17 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0003_justification_document_filefield'),
+        ("absences", "0003_justification_document_filefield"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='justification',
-            name='document',
+            model_name="justification",
+            name="document",
         ),
         migrations.RenameField(
-            model_name='justification',
-            old_name='document_file',
-            new_name='document',
+            model_name="justification",
+            old_name="document_file",
+            new_name="document",
         ),
     ]

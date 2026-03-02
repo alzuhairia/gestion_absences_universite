@@ -10,32 +10,118 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('academic_sessions', '0002_initial'),
-        ('academics', '0001_initial'),
+        ("academic_sessions", "0002_initial"),
+        ("academics", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Inscription',
+            name="Inscription",
             fields=[
-                ('id_inscription', models.AutoField(primary_key=True, serialize=False)),
-                ('type_inscription', models.CharField(choices=[('NORMALE', 'Normale'), ('A_PART', 'À part')], db_index=True, default='NORMALE', max_length=20, verbose_name="Type d'inscription")),
-                ('eligible_examen', models.BooleanField(db_index=True, default=True, help_text="Calculé automatiquement selon le taux d'absences. Ne pas modifier manuellement.", verbose_name='Éligible examen ?')),
-                ('status', models.CharField(choices=[('EN_COURS', 'En cours'), ('VALIDE', 'Validé'), ('NON_VALIDE', 'Non validé')], db_index=True, default='EN_COURS', max_length=20, verbose_name='Statut')),
-                ('exemption_40', models.BooleanField(default=False, help_text="Si activé, l'étudiant est exempté du seuil de 40% d'absences", verbose_name='Exemption 40%')),
-                ('motif_exemption', models.TextField(blank=True, help_text="Raison de l'exemption (obligatoire si exemption activée)", null=True, verbose_name="Motif de l'exemption")),
-                ('id_annee', models.ForeignKey(db_column='id_annee', on_delete=django.db.models.deletion.PROTECT, related_name='inscriptions', to='academic_sessions.anneeacademique', verbose_name='Année Académique')),
-                ('id_cours', models.ForeignKey(db_column='id_cours', on_delete=django.db.models.deletion.PROTECT, related_name='inscriptions', to='academics.cours', verbose_name='Cours')),
-                ('id_etudiant', models.ForeignKey(db_column='id_etudiant', limit_choices_to={'role': 'ETUDIANT'}, on_delete=django.db.models.deletion.PROTECT, related_name='inscriptions', to=settings.AUTH_USER_MODEL, verbose_name='Étudiant')),
+                ("id_inscription", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "type_inscription",
+                    models.CharField(
+                        choices=[("NORMALE", "Normale"), ("A_PART", "À part")],
+                        db_index=True,
+                        default="NORMALE",
+                        max_length=20,
+                        verbose_name="Type d'inscription",
+                    ),
+                ),
+                (
+                    "eligible_examen",
+                    models.BooleanField(
+                        db_index=True,
+                        default=True,
+                        help_text="Calculé automatiquement selon le taux d'absences. Ne pas modifier manuellement.",
+                        verbose_name="Éligible examen ?",
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("EN_COURS", "En cours"),
+                            ("VALIDE", "Validé"),
+                            ("NON_VALIDE", "Non validé"),
+                        ],
+                        db_index=True,
+                        default="EN_COURS",
+                        max_length=20,
+                        verbose_name="Statut",
+                    ),
+                ),
+                (
+                    "exemption_40",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Si activé, l'étudiant est exempté du seuil de 40% d'absences",
+                        verbose_name="Exemption 40%",
+                    ),
+                ),
+                (
+                    "motif_exemption",
+                    models.TextField(
+                        blank=True,
+                        help_text="Raison de l'exemption (obligatoire si exemption activée)",
+                        null=True,
+                        verbose_name="Motif de l'exemption",
+                    ),
+                ),
+                (
+                    "id_annee",
+                    models.ForeignKey(
+                        db_column="id_annee",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="inscriptions",
+                        to="academic_sessions.anneeacademique",
+                        verbose_name="Année Académique",
+                    ),
+                ),
+                (
+                    "id_cours",
+                    models.ForeignKey(
+                        db_column="id_cours",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="inscriptions",
+                        to="academics.cours",
+                        verbose_name="Cours",
+                    ),
+                ),
+                (
+                    "id_etudiant",
+                    models.ForeignKey(
+                        db_column="id_etudiant",
+                        limit_choices_to={"role": "ETUDIANT"},
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="inscriptions",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Étudiant",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Inscription',
-                'verbose_name_plural': 'Inscriptions',
-                'db_table': 'inscription',
-                'managed': True,
-                'indexes': [models.Index(fields=['id_etudiant', 'id_annee', 'status'], name='inscription_id_etud_4e81d3_idx'), models.Index(fields=['id_cours', 'id_annee', 'status'], name='inscription_id_cour_13bc0a_idx'), models.Index(fields=['eligible_examen', 'status'], name='inscription_eligibl_219728_idx')],
-                'unique_together': {('id_etudiant', 'id_cours', 'id_annee')},
+                "verbose_name": "Inscription",
+                "verbose_name_plural": "Inscriptions",
+                "db_table": "inscription",
+                "managed": True,
+                "indexes": [
+                    models.Index(
+                        fields=["id_etudiant", "id_annee", "status"],
+                        name="inscription_id_etud_4e81d3_idx",
+                    ),
+                    models.Index(
+                        fields=["id_cours", "id_annee", "status"],
+                        name="inscription_id_cour_13bc0a_idx",
+                    ),
+                    models.Index(
+                        fields=["eligible_examen", "status"],
+                        name="inscription_eligibl_219728_idx",
+                    ),
+                ],
+                "unique_together": {("id_etudiant", "id_cours", "id_annee")},
             },
         ),
     ]

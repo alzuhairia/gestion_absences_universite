@@ -2,61 +2,75 @@
 Vues pour la gestion de la structure académique par le secrétaire.
 Le secrétaire a accès complet à la structure académique (facultés, départements, cours, années académiques).
 """
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
-from django.core.paginator import Paginator
-from django.db.models import Q
-from django.db import transaction
-from django.db.models.deletion import ProtectedError
+
 import logging
 
-from apps.academics.models import Faculte, Departement, Cours
-from apps.academic_sessions.models import AnneeAcademique
-from apps.enrollments.models import Inscription
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Q
+from django.db.models.deletion import ProtectedError
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods
+
 from apps.absences.models import Absence, Justification
-from apps.dashboard.forms_admin import FaculteForm, DepartementForm, CoursForm, AnneeAcademiqueForm
-from apps.dashboard.decorators import secretary_required
-from apps.audits.utils import log_action
+from apps.academic_sessions.models import AnneeAcademique
+from apps.academics.models import Cours, Departement, Faculte
 from apps.audits.models import LogAudit
+from apps.audits.utils import log_action
+from apps.dashboard.decorators import secretary_required
+from apps.dashboard.forms_admin import (
+    AnneeAcademiqueForm,
+    CoursForm,
+    DepartementForm,
+    FaculteForm,
+)
+from apps.enrollments.models import Inscription
 
 logger = logging.getLogger(__name__)
 
 
 # ========== GESTION DES FACULTÉS ==========
 
+
 @login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_faculties(request):
     """Liste et création de facultés"""
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = FaculteForm(request.POST)
         if form.is_valid():
             faculte = form.save()
             log_action(
-                request.user, 
-                f"CRITIQUE: Création de la faculté '{faculte.nom_faculte}' (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Création de la faculté '{faculte.nom_faculte}' (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='FACULTE',
-                objet_id=faculte.id_faculte
+                niveau="CRITIQUE",
+                objet_type="FACULTE",
+                objet_id=faculte.id_faculte,
             )
-            messages.success(request, f"Faculté '{faculte.nom_faculte}' créée avec succès.")
-            return redirect('dashboard:secretary_faculties')
+            messages.success(
+                request, f"Faculté '{faculte.nom_faculte}' créée avec succès."
+            )
+            return redirect("dashboard:secretary_faculties")
     else:
         form = FaculteForm()
-    
-    faculties = Faculte.objects.all().order_by('nom_faculte')
-    paginator = Paginator(faculties, 20)
-    faculties_page = paginator.get_page(request.GET.get('page'))
 
-    return render(request, 'dashboard/secretary_faculties.html', {
-        'faculties': faculties_page,
-        'form': form,
-    })
+    faculties = Faculte.objects.all().order_by("nom_faculte")
+    paginator = Paginator(faculties, 20)
+    faculties_page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "dashboard/secretary_faculties.html",
+        {
+            "faculties": faculties_page,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -64,32 +78,38 @@ def secretary_faculties(request):
 @require_http_methods(["GET", "POST"])
 def secretary_faculty_edit(request, faculte_id):
     """Modification ou désactivation d'une faculté"""
-    
+
     faculte = get_object_or_404(Faculte, id_faculte=faculte_id)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = FaculteForm(request.POST, instance=faculte)
         if form.is_valid():
             old_name = faculte.nom_faculte
             faculte = form.save()
             action = "modifiée" if faculte.actif else "désactivée"
             log_action(
-                request.user, 
-                f"CRITIQUE: Faculté '{old_name}' {action} (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Faculté '{old_name}' {action} (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='FACULTE',
-                objet_id=faculte.id_faculte
+                niveau="CRITIQUE",
+                objet_type="FACULTE",
+                objet_id=faculte.id_faculte,
             )
-            messages.success(request, f"Faculté '{faculte.nom_faculte}' {action} avec succès.")
-            return redirect('dashboard:secretary_faculties')
+            messages.success(
+                request, f"Faculté '{faculte.nom_faculte}' {action} avec succès."
+            )
+            return redirect("dashboard:secretary_faculties")
     else:
         form = FaculteForm(instance=faculte)
-    
-    return render(request, 'dashboard/secretary_faculty_edit.html', {
-        'faculte': faculte,
-        'form': form,
-    })
+
+    return render(
+        request,
+        "dashboard/secretary_faculty_edit.html",
+        {
+            "faculte": faculte,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -120,21 +140,27 @@ def secretary_faculty_delete(request, faculte_id):
     # GET — page de confirmation avec impact cascade
     if request.method == "GET":
         cascade_items = [
-            item for item in [
+            item
+            for item in [
                 {"count": departements_count, "label": "département(s)"},
                 {"count": cours_count, "label": "cours"},
                 {"count": seances_count, "label": "séance(s)"},
                 {"count": inscriptions_count, "label": "inscription(s)"},
                 {"count": absences_count, "label": "absence(s)"},
                 {"count": justifications_count, "label": "justification(s)"},
-            ] if item["count"] > 0
+            ]
+            if item["count"] > 0
         ]
-        return render(request, "dashboard/secretary_confirm_delete.html", {
-            "object_label": f"Faculté « {faculte_nom} »",
-            "cascade_items": cascade_items,
-            "cancel_url": "/dashboard/secretary/faculties/",
-            "cancel_label": "Facultés",
-        })
+        return render(
+            request,
+            "dashboard/secretary_confirm_delete.html",
+            {
+                "object_label": f"Faculté « {faculte_nom} »",
+                "cascade_items": cascade_items,
+                "cancel_url": "/dashboard/secretary/faculties/",
+                "cancel_label": "Facultés",
+            },
+        )
 
     # POST — exécution de la suppression
     try:
@@ -162,21 +188,27 @@ def secretary_faculty_delete(request, faculte_id):
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
 
-        cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
+        cascade_msg = (
+            f" (suppression en cascade: {', '.join(cascade_info)})"
+            if cascade_info
+            else ""
+        )
 
         # Journaliser la suppression
         log_action(
             request.user,
             f"CRITIQUE: Suppression de la faculté '{faculte_nom}' (ID: {faculte_id}){cascade_msg} - Gestion structure académique - Secrétaire",
             request,
-            niveau='CRITIQUE',
-            objet_type='FACULTE',
-            objet_id=faculte_id
+            niveau="CRITIQUE",
+            objet_type="FACULTE",
+            objet_id=faculte_id,
         )
 
         success_msg = f"Faculté '{faculte_nom}' supprimée avec succès."
         if cascade_info:
-            success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            success_msg += (
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
@@ -185,57 +217,73 @@ def secretary_faculty_delete(request, faculte_id):
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
-        logger.error(f"ProtectedError lors de la suppression de la faculté {faculte_nom}: {e}")
+        logger.error(
+            f"ProtectedError lors de la suppression de la faculté {faculte_nom}: {e}"
+        )
         messages.error(
             request,
             f"Impossible de supprimer la faculté '{faculte_nom}'. "
             f"Dépendances trouvées : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces éléments."
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
-        logger.error(f"Erreur lors de la suppression de la faculté {faculte_nom}: {e}", exc_info=True)
+        logger.error(
+            f"Erreur lors de la suppression de la faculté {faculte_nom}: {e}",
+            exc_info=True,
+        )
         messages.error(
             request,
             f"Erreur lors de la suppression de la faculté '{faculte_nom}'. "
-            f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
-    return redirect('dashboard:secretary_faculties')
+    return redirect("dashboard:secretary_faculties")
 
 
 # ========== GESTION DES DÉPARTEMENTS ==========
+
 
 @login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_departments(request):
     """Liste et création de départements"""
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = DepartementForm(request.POST)
         if form.is_valid():
             dept = form.save()
             log_action(
-                request.user, 
-                f"CRITIQUE: Création du département '{dept.nom_departement}' dans la faculté '{dept.id_faculte.nom_faculte}' (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Création du département '{dept.nom_departement}' dans la faculté '{dept.id_faculte.nom_faculte}' (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='DEPARTEMENT',
-                objet_id=dept.id_departement
+                niveau="CRITIQUE",
+                objet_type="DEPARTEMENT",
+                objet_id=dept.id_departement,
             )
-            messages.success(request, f"Département '{dept.nom_departement}' créé avec succès.")
-            return redirect('dashboard:secretary_departments')
+            messages.success(
+                request, f"Département '{dept.nom_departement}' créé avec succès."
+            )
+            return redirect("dashboard:secretary_departments")
     else:
         form = DepartementForm()
-    
-    departments = Departement.objects.select_related('id_faculte').all().order_by('id_faculte__nom_faculte', 'nom_departement')
-    paginator = Paginator(departments, 20)
-    departments_page = paginator.get_page(request.GET.get('page'))
 
-    return render(request, 'dashboard/secretary_departments.html', {
-        'departments': departments_page,
-        'form': form,
-    })
+    departments = (
+        Departement.objects.select_related("id_faculte")
+        .all()
+        .order_by("id_faculte__nom_faculte", "nom_departement")
+    )
+    paginator = Paginator(departments, 20)
+    departments_page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "dashboard/secretary_departments.html",
+        {
+            "departments": departments_page,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -243,32 +291,38 @@ def secretary_departments(request):
 @require_http_methods(["GET", "POST"])
 def secretary_department_edit(request, dept_id):
     """Modification ou désactivation d'un département"""
-    
+
     dept = get_object_or_404(Departement, id_departement=dept_id)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = DepartementForm(request.POST, instance=dept)
         if form.is_valid():
             old_name = dept.nom_departement
             dept = form.save()
             action = "modifié" if dept.actif else "désactivé"
             log_action(
-                request.user, 
-                f"CRITIQUE: Département '{old_name}' {action} (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Département '{old_name}' {action} (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='DEPARTEMENT',
-                objet_id=dept.id_departement
+                niveau="CRITIQUE",
+                objet_type="DEPARTEMENT",
+                objet_id=dept.id_departement,
             )
-            messages.success(request, f"Département '{dept.nom_departement}' {action} avec succès.")
-            return redirect('dashboard:secretary_departments')
+            messages.success(
+                request, f"Département '{dept.nom_departement}' {action} avec succès."
+            )
+            return redirect("dashboard:secretary_departments")
     else:
         form = DepartementForm(instance=dept)
-    
-    return render(request, 'dashboard/secretary_department_edit.html', {
-        'department': dept,
-        'form': form,
-    })
+
+    return render(
+        request,
+        "dashboard/secretary_department_edit.html",
+        {
+            "department": dept,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -320,21 +374,27 @@ def secretary_department_delete(request, dept_id):
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
 
-        cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
+        cascade_msg = (
+            f" (suppression en cascade: {', '.join(cascade_info)})"
+            if cascade_info
+            else ""
+        )
 
         # Journaliser la suppression
         log_action(
             request.user,
             f"CRITIQUE: Suppression du département '{dept_nom}' (Faculté: {faculte_nom}, ID: {dept_id}){cascade_msg} - Gestion structure académique - Secrétaire",
             request,
-            niveau='CRITIQUE',
-            objet_type='DEPARTEMENT',
-            objet_id=dept_id
+            niveau="CRITIQUE",
+            objet_type="DEPARTEMENT",
+            objet_id=dept_id,
         )
 
         success_msg = f"Département '{dept_nom}' supprimé avec succès."
         if cascade_info:
-            success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            success_msg += (
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
@@ -343,60 +403,76 @@ def secretary_department_delete(request, dept_id):
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
-        logger.error(f"ProtectedError lors de la suppression du département {dept_nom}: {e}")
+        logger.error(
+            f"ProtectedError lors de la suppression du département {dept_nom}: {e}"
+        )
         messages.error(
             request,
             f"Impossible de supprimer le département '{dept_nom}'. "
             f"Dépendances trouvées : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces éléments."
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
-        logger.error(f"Erreur lors de la suppression du département {dept_nom}: {e}", exc_info=True)
+        logger.error(
+            f"Erreur lors de la suppression du département {dept_nom}: {e}",
+            exc_info=True,
+        )
         messages.error(
             request,
             f"Erreur lors de la suppression du département '{dept_nom}'. "
-            f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
-    return redirect('dashboard:secretary_departments')
+    return redirect("dashboard:secretary_departments")
 
 
 # ========== GESTION DES COURS ==========
+
 
 @login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_courses(request):
     """Liste et création de cours"""
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = CoursForm(request.POST)
         if form.is_valid():
             cours = form.save()
             log_action(
-                request.user, 
-                f"CRITIQUE: Création du cours '{cours.code_cours} - {cours.nom_cours}' (Département: {cours.id_departement.nom_departement}, Seuil: {cours.get_seuil_absence()}%) - Gestion structure académique - Secrétaire", 
+                request.user,
+                f"CRITIQUE: Création du cours '{cours.code_cours} - {cours.nom_cours}' (Département: {cours.id_departement.nom_departement}, Seuil: {cours.get_seuil_absence()}%) - Gestion structure académique - Secrétaire",
                 request,
-                niveau='CRITIQUE',
-                objet_type='COURS',
-                objet_id=cours.id_cours
+                niveau="CRITIQUE",
+                objet_type="COURS",
+                objet_id=cours.id_cours,
             )
             messages.success(request, f"Cours '{cours.code_cours}' créé avec succès.")
-            return redirect('dashboard:secretary_courses')
+            return redirect("dashboard:secretary_courses")
     else:
         form = CoursForm()
-    
-    courses = Cours.objects.select_related('id_departement', 'id_departement__id_faculte', 'professeur').all().order_by('code_cours')
-    
+
+    courses = (
+        Cours.objects.select_related(
+            "id_departement", "id_departement__id_faculte", "professeur"
+        )
+        .all()
+        .order_by("code_cours")
+    )
+
     # Pagination
     paginator = Paginator(courses, 20)
-    page = request.GET.get('page')
+    page = request.GET.get("page")
     courses_page = paginator.get_page(page)
-    
-    return render(request, 'dashboard/secretary_courses.html', {
-        'courses': courses_page,
-        'form': form,
-    })
+
+    return render(
+        request,
+        "dashboard/secretary_courses.html",
+        {
+            "courses": courses_page,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -404,35 +480,41 @@ def secretary_courses(request):
 @require_http_methods(["GET", "POST"])
 def secretary_course_edit(request, course_id):
     """Modification ou désactivation d'un cours"""
-    
+
     cours = get_object_or_404(Cours, id_cours=course_id)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = CoursForm(request.POST, instance=cours)
         if form.is_valid():
             old_code = cours.code_cours
             cours = form.save()
             action = "modifié" if cours.actif else "désactivé"
             log_action(
-                request.user, 
-                f"CRITIQUE: Cours '{old_code}' {action} (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Cours '{old_code}' {action} (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='COURS',
-                objet_id=cours.id_cours
+                niveau="CRITIQUE",
+                objet_type="COURS",
+                objet_id=cours.id_cours,
             )
-            messages.success(request, f"Cours '{cours.code_cours}' {action} avec succès.")
-            return redirect('dashboard:secretary_courses')
+            messages.success(
+                request, f"Cours '{cours.code_cours}' {action} avec succès."
+            )
+            return redirect("dashboard:secretary_courses")
     else:
         form = CoursForm(instance=cours)
 
-    has_prerequisites_options = form.fields['prerequisites'].queryset.exists()
-    
-    return render(request, 'dashboard/secretary_course_edit.html', {
-        'course': cours,
-        'form': form,
-        'has_prerequisites_options': has_prerequisites_options,
-    })
+    has_prerequisites_options = form.fields["prerequisites"].queryset.exists()
+
+    return render(
+        request,
+        "dashboard/secretary_course_edit.html",
+        {
+            "course": cours,
+            "form": form,
+            "has_prerequisites_options": has_prerequisites_options,
+        },
+    )
 
 
 @login_required
@@ -479,21 +561,27 @@ def secretary_course_delete(request, course_id):
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
 
-        cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
+        cascade_msg = (
+            f" (suppression en cascade: {', '.join(cascade_info)})"
+            if cascade_info
+            else ""
+        )
 
         # Journaliser la suppression
         log_action(
             request.user,
             f"CRITIQUE: Suppression du cours '{cours_code} - {cours_nom}' (Département: {dept_nom}, ID: {course_id}){cascade_msg} - Gestion structure académique - Secrétaire",
             request,
-            niveau='CRITIQUE',
-            objet_type='COURS',
-            objet_id=course_id
+            niveau="CRITIQUE",
+            objet_type="COURS",
+            objet_id=course_id,
         )
 
         success_msg = f"Cours '{cours_code}' supprimé avec succès."
         if cascade_info:
-            success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            success_msg += (
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
@@ -502,55 +590,66 @@ def secretary_course_delete(request, course_id):
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
-        logger.error(f"ProtectedError lors de la suppression du cours {cours_code}: {e}")
+        logger.error(
+            f"ProtectedError lors de la suppression du cours {cours_code}: {e}"
+        )
         messages.error(
             request,
             f"Impossible de supprimer le cours '{cours_code}'. "
             f"Dépendances trouvées : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces éléments."
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
-        logger.error(f"Erreur lors de la suppression du cours {cours_code}: {e}", exc_info=True)
+        logger.error(
+            f"Erreur lors de la suppression du cours {cours_code}: {e}", exc_info=True
+        )
         messages.error(
             request,
             f"Erreur lors de la suppression du cours '{cours_code}'. "
-            f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
-    return redirect('dashboard:secretary_courses')
+    return redirect("dashboard:secretary_courses")
 
 
 # ========== GESTION DES ANNÉES ACADÉMIQUES ==========
+
 
 @login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_academic_years(request):
     """Liste et gestion des années académiques"""
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = AnneeAcademiqueForm(request.POST)
         if form.is_valid():
             year = form.save()
             log_action(
-                request.user, 
-                f"CRITIQUE: Création de l'année académique '{year.libelle}' (Gestion structure académique - Secrétaire)", 
+                request.user,
+                f"CRITIQUE: Création de l'année académique '{year.libelle}' (Gestion structure académique - Secrétaire)",
                 request,
-                niveau='CRITIQUE',
-                objet_type='AUTRE',
-                objet_id=year.id_annee
+                niveau="CRITIQUE",
+                objet_type="AUTRE",
+                objet_id=year.id_annee,
             )
-            messages.success(request, f"Année académique '{year.libelle}' créée avec succès.")
-            return redirect('dashboard:secretary_academic_years')
+            messages.success(
+                request, f"Année académique '{year.libelle}' créée avec succès."
+            )
+            return redirect("dashboard:secretary_academic_years")
     else:
         form = AnneeAcademiqueForm()
-    
-    years = AnneeAcademique.objects.all().order_by('-libelle')
-    
-    return render(request, 'dashboard/secretary_academic_years.html', {
-        'years': years,
-        'form': form,
-    })
+
+    years = AnneeAcademique.objects.all().order_by("-libelle")
+
+    return render(
+        request,
+        "dashboard/secretary_academic_years.html",
+        {
+            "years": years,
+            "form": form,
+        },
+    )
 
 
 @login_required
@@ -558,7 +657,7 @@ def secretary_academic_years(request):
 @require_http_methods(["POST"])
 def secretary_academic_year_set_active(request, year_id):
     """Définir une année académique comme active"""
-    
+
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
 
     # Atomic: désactiver tout + activer la sélection — pas de fenêtre
@@ -567,18 +666,20 @@ def secretary_academic_year_set_active(request, year_id):
         AnneeAcademique.objects.update(active=False)
         year.active = True
         year.save()
-    
+
     log_action(
-        request.user, 
-        f"CRITIQUE: Année académique '{year.libelle}' définie comme active (Gestion structure académique - Secrétaire)", 
+        request.user,
+        f"CRITIQUE: Année académique '{year.libelle}' définie comme active (Gestion structure académique - Secrétaire)",
         request,
-        niveau='CRITIQUE',
-        objet_type='AUTRE',
-        objet_id=year.id_annee
+        niveau="CRITIQUE",
+        objet_type="AUTRE",
+        objet_id=year.id_annee,
     )
-    messages.success(request, f"Année académique '{year.libelle}' définie comme active.")
-    
-    return redirect('dashboard:secretary_academic_years')
+    messages.success(
+        request, f"Année académique '{year.libelle}' définie comme active."
+    )
+
+    return redirect("dashboard:secretary_academic_years")
 
 
 @login_required
@@ -601,9 +702,9 @@ def secretary_academic_year_delete(request, year_id):
                 messages.error(
                     request,
                     f"Impossible de supprimer l'année académique '{year_libelle}' car elle est actuellement active. "
-                    f"Veuillez d'abord définir une autre année comme active."
+                    f"Veuillez d'abord définir une autre année comme active.",
                 )
-                return redirect('dashboard:secretary_academic_years')
+                return redirect("dashboard:secretary_academic_years")
 
             inscriptions = Inscription.objects.filter(id_annee=year)
             inscriptions_count = inscriptions.count()
@@ -634,21 +735,27 @@ def secretary_academic_year_delete(request, year_id):
         if justifications_count > 0:
             cascade_info.append(f"{justifications_count} justification(s)")
 
-        cascade_msg = f" (suppression en cascade: {', '.join(cascade_info)})" if cascade_info else ""
+        cascade_msg = (
+            f" (suppression en cascade: {', '.join(cascade_info)})"
+            if cascade_info
+            else ""
+        )
 
         # Journaliser la suppression
         log_action(
             request.user,
             f"CRITIQUE: Suppression de l'année académique '{year_libelle}' (ID: {year_id}){cascade_msg} - Gestion structure académique - Secrétaire",
             request,
-            niveau='CRITIQUE',
-            objet_type='AUTRE',
-            objet_id=year_id
+            niveau="CRITIQUE",
+            objet_type="AUTRE",
+            objet_id=year_id,
         )
 
         success_msg = f"Année académique '{year_libelle}' supprimée avec succès."
         if cascade_info:
-            success_msg += f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            success_msg += (
+                f" Suppression en cascade effectuée : {', '.join(cascade_info)}."
+            )
         messages.success(request, success_msg)
 
     except ProtectedError as e:
@@ -657,42 +764,47 @@ def secretary_academic_year_delete(request, year_id):
         for obj in e.protected_objects:
             protected_objects.append(str(obj))
 
-        logger.error(f"ProtectedError lors de la suppression de l'année académique {year_libelle}: {e}")
+        logger.error(
+            f"ProtectedError lors de la suppression de l'année académique {year_libelle}: {e}"
+        )
         messages.error(
             request,
             f"Impossible de supprimer l'année académique '{year_libelle}'. "
             f"Dépendances trouvées : {', '.join(protected_objects)}. "
-            f"Veuillez d'abord supprimer ou modifier ces éléments."
+            f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception as e:
-        logger.error(f"Erreur lors de la suppression de l'année académique {year_libelle}: {e}", exc_info=True)
+        logger.error(
+            f"Erreur lors de la suppression de l'année académique {year_libelle}: {e}",
+            exc_info=True,
+        )
         messages.error(
             request,
             f"Erreur lors de la suppression de l'année académique '{year_libelle}'. "
-            f"Veuillez vérifier les dépendances ou contacter l'administrateur système."
+            f"Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
 
-    return redirect('dashboard:secretary_academic_years')
-
+    return redirect("dashboard:secretary_academic_years")
 
 
 # ========== JOURNAUX D'AUDIT ==========
+
 
 @login_required
 @secretary_required
 def secretary_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres (pour secrétaire)"""
-    
+
     # Filtres
-    role_filter = request.GET.get('role', '')
-    action_filter = request.GET.get('action', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    user_filter = request.GET.get('user', '')
-    search_query = request.GET.get('q', '')
-    
-    logs = LogAudit.objects.select_related('id_utilisateur').all()
-    
+    role_filter = request.GET.get("role", "")
+    action_filter = request.GET.get("action", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+    user_filter = request.GET.get("user", "")
+    search_query = request.GET.get("q", "")
+
+    logs = LogAudit.objects.select_related("id_utilisateur").all()
+
     if role_filter:
         logs = logs.filter(id_utilisateur__role=role_filter)
     if action_filter:
@@ -703,32 +815,32 @@ def secretary_audit_logs(request):
         logs = logs.filter(date_action__lte=date_to)
     if user_filter:
         logs = logs.filter(
-            Q(id_utilisateur__nom__icontains=user_filter) |
-            Q(id_utilisateur__prenom__icontains=user_filter) |
-            Q(id_utilisateur__email__icontains=user_filter)
+            Q(id_utilisateur__nom__icontains=user_filter)
+            | Q(id_utilisateur__prenom__icontains=user_filter)
+            | Q(id_utilisateur__email__icontains=user_filter)
         )
     if search_query:
         logs = logs.filter(action__icontains=search_query)
-    
-    logs = logs.order_by('-date_action')
-    
+
+    logs = logs.order_by("-date_action")
+
     # Pagination
     from django.core.paginator import Paginator
+
     paginator = Paginator(logs, 50)
-    page = request.GET.get('page')
+    page = request.GET.get("page")
     logs_page = paginator.get_page(page)
-    
-    return render(request, 'dashboard/secretary_audit_logs.html', {
-        'logs': logs_page,
-        'role_filter': role_filter,
-        'action_filter': action_filter,
-        'date_from': date_from,
-        'date_to': date_to,
-        'user_filter': user_filter,
-        'search_query': search_query,
-    })
 
-
-
-
-
+    return render(
+        request,
+        "dashboard/secretary_audit_logs.html",
+        {
+            "logs": logs_page,
+            "role_filter": role_filter,
+            "action_filter": action_filter,
+            "date_from": date_from,
+            "date_to": date_to,
+            "user_filter": user_filter,
+            "search_query": search_query,
+        },
+    )

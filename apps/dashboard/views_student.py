@@ -154,9 +154,7 @@ def student_statistics(request):
     inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
 
     # --- Compteurs globaux (tous statuts) ---
-    total_absences = Absence.objects.filter(
-        id_inscription__in=inscription_ids
-    ).count()
+    total_absences = Absence.objects.filter(id_inscription__in=inscription_ids).count()
     total_justified = Absence.objects.filter(
         id_inscription__in=inscription_ids, statut="JUSTIFIEE"
     ).count()
