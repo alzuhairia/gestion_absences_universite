@@ -7,14 +7,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('academic_sessions', '0005_seance_seance_id_cour_e986d8_idx'),
-        ('academics', '0003_alter_cours_id_annee_alter_cours_niveau_and_more'),
+        ("academic_sessions", "0005_seance_seance_id_cour_e986d8_idx"),
+        ("academics", "0003_alter_cours_id_annee_alter_cours_niveau_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='cours',
-            index=models.Index(fields=['actif', 'code_cours'], name='cours_actif_299288_idx'),
+            model_name="cours",
+            index=models.Index(
+                fields=["actif", "code_cours"], name="cours_actif_299288_idx"
+            ),
         ),
     ]

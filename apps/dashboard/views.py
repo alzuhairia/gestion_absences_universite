@@ -75,9 +75,7 @@ def secretary_dashboard(request):
     global_pending_count = Justification.objects.filter(state="EN_ATTENTE").count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
-    all_inscriptions = Inscription.objects.select_related(
-        "id_cours", "id_etudiant"
-    )
+    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))

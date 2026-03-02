@@ -1,9 +1,10 @@
 import re
+
 from django.apps import apps as django_apps
 from django.core.exceptions import FieldDoesNotExist
-from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 
 

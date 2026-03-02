@@ -96,7 +96,9 @@ def _validate_filename(file_name: str) -> tuple[str, list[str]]:
     return clean_name, suffixes
 
 
-def validate_uploaded_file(uploaded_file, max_size_bytes: int = MAX_UPLOAD_SIZE_BYTES) -> dict:
+def validate_uploaded_file(
+    uploaded_file, max_size_bytes: int = MAX_UPLOAD_SIZE_BYTES
+) -> dict:
     """
     Valide strictement un fichier uploadé (extension + MIME + signature binaire).
 
@@ -131,12 +133,16 @@ def validate_uploaded_file(uploaded_file, max_size_bytes: int = MAX_UPLOAD_SIZE_
 
     expected_signatures = MAGIC_SIGNATURES[extension]
     if not any(head.startswith(signature) for signature in expected_signatures):
-        raise UploadValidationError("Signature binaire invalide pour ce type de fichier.")
+        raise UploadValidationError(
+            "Signature binaire invalide pour ce type de fichier."
+        )
 
     detected_mime = _normalize_mime(magic.from_buffer(head, mime=True))
     allowed_mimes = ALLOWED_MIME_BY_EXTENSION[extension]
     if detected_mime not in allowed_mimes:
-        raise UploadValidationError("Type MIME reel incoherent avec l'extension du fichier.")
+        raise UploadValidationError(
+            "Type MIME reel incoherent avec l'extension du fichier."
+        )
 
     provided_mime = _normalize_mime(getattr(uploaded_file, "content_type", ""))
     if provided_mime and provided_mime not in allowed_mimes:
@@ -162,4 +168,3 @@ def generate_safe_upload_filename(extension: str) -> str:
     if normalized not in ALLOWED_EXTENSIONS:
         raise UploadValidationError("Extension de fichier invalide.")
     return f"{uuid.uuid4()}{normalized}"
-
