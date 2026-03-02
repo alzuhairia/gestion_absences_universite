@@ -3,9 +3,9 @@ Vues pour l'endpoint de health check.
 Permet de verifier que l'application Django et la base de donnees sont operationnelles.
 """
 
-import logging
-import ipaddress
 import hmac
+import ipaddress
+import logging
 
 from django.conf import settings
 from django.db import connection
@@ -28,7 +28,9 @@ def _health_allowlist_networks():
         try:
             networks.append(ipaddress.ip_network(cidr, strict=False))
         except ValueError:
-            logger.warning("Ignoring invalid HEALTHCHECK_ALLOWLIST_CIDRS entry: %s", cidr)
+            logger.warning(
+                "Ignoring invalid HEALTHCHECK_ALLOWLIST_CIDRS entry: %s", cidr
+            )
     return networks
 
 
@@ -41,7 +43,7 @@ def _is_health_client_allowed(client_ip: str) -> bool:
 
 
 @require_http_methods(["GET"])
-@ratelimit(key=ratelimit_client_ip, rate=_health_rate_limit, method='GET', block=False)
+@ratelimit(key=ratelimit_client_ip, rate=_health_rate_limit, method="GET", block=False)
 def health_check(request):
     """
     API — Endpoint de santé pour le monitoring.
@@ -58,10 +60,12 @@ def health_check(request):
     """
     # Never log query strings for this endpoint. This avoids accidental token leakage
     # from malformed requests sent with query parameters.
-    request.META['QUERY_STRING'] = ''
+    request.META["QUERY_STRING"] = ""
 
-    if getattr(request, 'limited', False):
-        response = JsonResponse({"status": "error", "error": "Too Many Requests"}, status=429)
+    if getattr(request, "limited", False):
+        response = JsonResponse(
+            {"status": "error", "error": "Too Many Requests"}, status=429
+        )
         response["Retry-After"] = "60"
         return response
 
@@ -69,16 +73,22 @@ def health_check(request):
     if not _is_health_client_allowed(client_ip):
         return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
 
-    valid_tokens = [token for token in getattr(settings, 'HEALTHCHECK_VALID_TOKENS', []) if token]
+    valid_tokens = [
+        token for token in getattr(settings, "HEALTHCHECK_VALID_TOKENS", []) if token
+    ]
     if not valid_tokens:
-        logger.error("HEALTHCHECK_TOKEN is not configured; refusing health endpoint access.")
+        logger.error(
+            "HEALTHCHECK_TOKEN is not configured; refusing health endpoint access."
+        )
         return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
 
     provided = request.headers.get("X-Healthcheck-Token", "")
     if not provided:
         return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
 
-    if not any(hmac.compare_digest(str(provided), str(expected)) for expected in valid_tokens):
+    if not any(
+        hmac.compare_digest(str(provided), str(expected)) for expected in valid_tokens
+    ):
         return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
 
     try:
@@ -95,4 +105,3 @@ def health_check(request):
             },
             status=503,
         )
-

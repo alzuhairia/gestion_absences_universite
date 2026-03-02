@@ -6,13 +6,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('academic_sessions', '0003_seance_unique'),
-        ('academics', '0002_initial'),
+        ("academic_sessions", "0003_seance_unique"),
+        ("academics", "0002_initial"),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='seance',
-            constraint=models.CheckConstraint(condition=models.Q(('heure_fin__gt', models.F('heure_debut'))), name='seance_heure_fin_after_debut'),
+            model_name="seance",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("heure_fin__gt", models.F("heure_debut"))),
+                name="seance_heure_fin_after_debut",
+            ),
         ),
     ]

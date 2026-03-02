@@ -10,59 +10,161 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('academic_sessions', '0001_initial'),
+        ("academic_sessions", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Departement',
+            name="Departement",
             fields=[
-                ('id_departement', models.AutoField(primary_key=True, serialize=False)),
-                ('nom_departement', models.CharField(db_index=True, max_length=200, verbose_name='Nom du département')),
-                ('actif', models.BooleanField(db_index=True, default=True, help_text='Désactiver un département le masque sans le supprimer', verbose_name='Actif')),
+                ("id_departement", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "nom_departement",
+                    models.CharField(
+                        db_index=True, max_length=200, verbose_name="Nom du département"
+                    ),
+                ),
+                (
+                    "actif",
+                    models.BooleanField(
+                        db_index=True,
+                        default=True,
+                        help_text="Désactiver un département le masque sans le supprimer",
+                        verbose_name="Actif",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Département',
-                'verbose_name_plural': 'Départements',
-                'db_table': 'departement',
-                'ordering': ['id_faculte__nom_faculte', 'nom_departement'],
-                'managed': True,
+                "verbose_name": "Département",
+                "verbose_name_plural": "Départements",
+                "db_table": "departement",
+                "ordering": ["id_faculte__nom_faculte", "nom_departement"],
+                "managed": True,
             },
         ),
         migrations.CreateModel(
-            name='Faculte',
+            name="Faculte",
             fields=[
-                ('id_faculte', models.AutoField(primary_key=True, serialize=False)),
-                ('nom_faculte', models.CharField(db_index=True, max_length=200, unique=True, verbose_name='Nom de la faculté')),
-                ('actif', models.BooleanField(db_index=True, default=True, help_text='Désactiver une faculté la masque sans la supprimer', verbose_name='Actif')),
+                ("id_faculte", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "nom_faculte",
+                    models.CharField(
+                        db_index=True,
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Nom de la faculté",
+                    ),
+                ),
+                (
+                    "actif",
+                    models.BooleanField(
+                        db_index=True,
+                        default=True,
+                        help_text="Désactiver une faculté la masque sans la supprimer",
+                        verbose_name="Actif",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Faculté',
-                'verbose_name_plural': 'Facultés',
-                'db_table': 'faculte',
-                'ordering': ['nom_faculte'],
-                'managed': True,
+                "verbose_name": "Faculté",
+                "verbose_name_plural": "Facultés",
+                "db_table": "faculte",
+                "ordering": ["nom_faculte"],
+                "managed": True,
             },
         ),
         migrations.CreateModel(
-            name='Cours',
+            name="Cours",
             fields=[
-                ('id_cours', models.AutoField(primary_key=True, serialize=False)),
-                ('code_cours', models.CharField(db_index=True, max_length=50, unique=True, verbose_name='Code du cours')),
-                ('nom_cours', models.CharField(max_length=200, verbose_name='Intitulé du cours')),
-                ('nombre_total_periodes', models.IntegerField(help_text="Nombre total d'heures de cours", validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(1000)], verbose_name='Total périodes (h)')),
-                ('seuil_absence', models.IntegerField(blank=True, default=None, help_text='Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système.', null=True, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)], verbose_name="Seuil d'absence (%)")),
-                ('niveau', models.IntegerField(blank=True, choices=[(1, 'Année 1'), (2, 'Année 2'), (3, 'Année 3')], db_index=True, help_text='Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés.', null=True, verbose_name="Niveau d'étude")),
-                ('actif', models.BooleanField(db_index=True, default=True, help_text='Désactiver un cours le masque sans le supprimer', verbose_name='Actif')),
-                ('id_annee', models.ForeignKey(blank=True, db_column='id_annee', help_text='Année académique à laquelle ce cours appartient (assignée automatiquement)', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='cours', to='academic_sessions.anneeacademique', verbose_name='Année Académique')),
-                ('prerequisites', models.ManyToManyField(blank=True, help_text="Cours qui doivent être validés avant de s'inscrire à ce cours", related_name='required_by', to='academics.cours', verbose_name='Prérequis')),
+                ("id_cours", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "code_cours",
+                    models.CharField(
+                        db_index=True,
+                        max_length=50,
+                        unique=True,
+                        verbose_name="Code du cours",
+                    ),
+                ),
+                (
+                    "nom_cours",
+                    models.CharField(max_length=200, verbose_name="Intitulé du cours"),
+                ),
+                (
+                    "nombre_total_periodes",
+                    models.IntegerField(
+                        help_text="Nombre total d'heures de cours",
+                        validators=[
+                            django.core.validators.MinValueValidator(1),
+                            django.core.validators.MaxValueValidator(1000),
+                        ],
+                        verbose_name="Total périodes (h)",
+                    ),
+                ),
+                (
+                    "seuil_absence",
+                    models.IntegerField(
+                        blank=True,
+                        default=None,
+                        help_text="Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système.",
+                        null=True,
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(100),
+                        ],
+                        verbose_name="Seuil d'absence (%)",
+                    ),
+                ),
+                (
+                    "niveau",
+                    models.IntegerField(
+                        blank=True,
+                        choices=[(1, "Année 1"), (2, "Année 2"), (3, "Année 3")],
+                        db_index=True,
+                        help_text="Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés.",
+                        null=True,
+                        verbose_name="Niveau d'étude",
+                    ),
+                ),
+                (
+                    "actif",
+                    models.BooleanField(
+                        db_index=True,
+                        default=True,
+                        help_text="Désactiver un cours le masque sans le supprimer",
+                        verbose_name="Actif",
+                    ),
+                ),
+                (
+                    "id_annee",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="id_annee",
+                        help_text="Année académique à laquelle ce cours appartient (assignée automatiquement)",
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="cours",
+                        to="academic_sessions.anneeacademique",
+                        verbose_name="Année Académique",
+                    ),
+                ),
+                (
+                    "prerequisites",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Cours qui doivent être validés avant de s'inscrire à ce cours",
+                        related_name="required_by",
+                        to="academics.cours",
+                        verbose_name="Prérequis",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Cours',
-                'verbose_name_plural': 'Cours',
-                'db_table': 'cours',
-                'ordering': ['code_cours'],
-                'managed': True,
+                "verbose_name": "Cours",
+                "verbose_name_plural": "Cours",
+                "db_table": "cours",
+                "ordering": ["code_cours"],
+                "managed": True,
             },
         ),
     ]

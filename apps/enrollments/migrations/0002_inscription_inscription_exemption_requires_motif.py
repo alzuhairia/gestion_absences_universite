@@ -7,15 +7,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('academic_sessions', '0004_seance_seance_heure_fin_after_debut'),
-        ('academics', '0003_alter_cours_id_annee_alter_cours_niveau_and_more'),
-        ('enrollments', '0001_initial'),
+        ("academic_sessions", "0004_seance_seance_heure_fin_after_debut"),
+        ("academics", "0003_alter_cours_id_annee_alter_cours_niveau_and_more"),
+        ("enrollments", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='inscription',
-            constraint=models.CheckConstraint(condition=models.Q(('exemption_40', False), models.Q(('motif_exemption__isnull', False), models.Q(('motif_exemption', ''), _negated=True)), _connector='OR'), name='inscription_exemption_requires_motif'),
+            model_name="inscription",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("exemption_40", False),
+                    models.Q(
+                        ("motif_exemption__isnull", False),
+                        models.Q(("motif_exemption", ""), _negated=True),
+                    ),
+                    _connector="OR",
+                ),
+                name="inscription_exemption_requires_motif",
+            ),
         ),
     ]

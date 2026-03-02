@@ -14,7 +14,7 @@ def _parse_ip(value: str):
 
 def _proxy_networks():
     networks = []
-    for cidr in getattr(settings, 'TRUSTED_PROXY_CIDRS', []):
+    for cidr in getattr(settings, "TRUSTED_PROXY_CIDRS", []):
         try:
             networks.append(ipaddress.ip_network(cidr, strict=False))
         except ValueError:
@@ -38,8 +38,8 @@ def extract_client_ip(request) -> str:
     Trust X-Real-IP only when the direct peer is in TRUSTED_PROXY_CIDRS.
     Otherwise use REMOTE_ADDR.
     """
-    remote_ip = _parse_ip(request.META.get('REMOTE_ADDR', ''))
-    real_ip = _parse_ip(request.META.get('HTTP_X_REAL_IP', ''))
+    remote_ip = _parse_ip(request.META.get("REMOTE_ADDR", ""))
+    real_ip = _parse_ip(request.META.get("HTTP_X_REAL_IP", ""))
 
     if real_ip is not None and _is_trusted_proxy(remote_ip):
         return str(real_ip)
@@ -47,7 +47,7 @@ def extract_client_ip(request) -> str:
     if remote_ip is not None:
         return str(remote_ip)
 
-    return '0.0.0.0'
+    return "0.0.0.0"
 
 
 def ratelimit_client_ip(group, request) -> str:
@@ -61,12 +61,8 @@ def ratelimit_login_ip_username(group, request) -> str:
 
     This reduces brute force via credential stuffing while remaining proxy-safe.
     """
-    identity = ''
-    if request.method == 'POST':
-        identity = (
-            request.POST.get('username')
-            or request.POST.get('email')
-            or ''
-        )
-    normalized_identity = identity.strip().lower() or 'anonymous'
+    identity = ""
+    if request.method == "POST":
+        identity = request.POST.get("username") or request.POST.get("email") or ""
+    normalized_identity = identity.strip().lower() or "anonymous"
     return f"{extract_client_ip(request)}:{normalized_identity}"

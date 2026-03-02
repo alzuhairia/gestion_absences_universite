@@ -1,6 +1,7 @@
-from .models import LogAudit
 from apps.accounts.models import User
+
 from .ip_utils import extract_client_ip
+from .models import LogAudit
 
 
 def get_client_ip(request):
@@ -11,10 +12,12 @@ def get_client_ip(request):
     return extract_client_ip(request)
 
 
-def log_action(user, action, request=None, niveau='INFO', objet_type=None, objet_id=None):
+def log_action(
+    user, action, request=None, niveau="INFO", objet_type=None, objet_id=None
+):
     """
     Crée une entrée dans le journal d'audit.
-    
+
     Args:
         user: L'utilisateur effectuant l'action
         action: Description détaillée de l'action
@@ -26,20 +29,20 @@ def log_action(user, action, request=None, niveau='INFO', objet_type=None, objet
     if not user or not user.is_authenticated:
         return
 
-    ip = '0.0.0.0'
+    ip = "0.0.0.0"
     if request:
         ip = get_client_ip(request)
 
     # Sanitize action string: strip control characters, limit length
     if not isinstance(action, str):
         action = str(action)
-    action = action.replace('\n', ' ').replace('\r', ' ').replace('\x00', '')[:500]
+    action = action.replace("\n", " ").replace("\r", " ").replace("\x00", "")[:500]
     if not action.strip():
         return
 
     # Déterminer automatiquement le niveau si 'CRITIQUE' est dans l'action
-    if 'CRITIQUE' in action.upper() and niveau == 'INFO':
-        niveau = 'CRITIQUE'
+    if "CRITIQUE" in action.upper() and niveau == "INFO":
+        niveau = "CRITIQUE"
 
     LogAudit.objects.create(
         id_utilisateur=user,
@@ -47,5 +50,5 @@ def log_action(user, action, request=None, niveau='INFO', objet_type=None, objet
         adresse_ip=ip,
         niveau=niveau,
         objet_type=objet_type,
-        objet_id=objet_id
+        objet_id=objet_id,
     )

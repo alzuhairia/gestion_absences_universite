@@ -1,45 +1,46 @@
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from apps.academics.models import Faculte, Departement, Cours
+
+from apps.academic_sessions.models import AnneeAcademique
+from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.dashboard.models import SystemSettings
-from apps.academic_sessions.models import AnneeAcademique
 
 
 class FaculteForm(forms.ModelForm):
     class Meta:
         model = Faculte
-        fields = ['nom_faculte', 'actif']
+        fields = ["nom_faculte", "actif"]
         widgets = {
-            'nom_faculte': forms.TextInput(attrs={'class': 'form-control'}),
-            'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            "nom_faculte": forms.TextInput(attrs={"class": "form-control"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
-            'nom_faculte': 'Nom de la Faculté',
-            'actif': 'Actif',
+            "nom_faculte": "Nom de la Faculté",
+            "actif": "Actif",
         }
         help_texts = {
-            'actif': 'Désactiver une faculté la masque sans la supprimer',
+            "actif": "Désactiver une faculté la masque sans la supprimer",
         }
 
 
 class DepartementForm(forms.ModelForm):
     class Meta:
         model = Departement
-        fields = ['nom_departement', 'id_faculte', 'actif']
+        fields = ["nom_departement", "id_faculte", "actif"]
         widgets = {
-            'nom_departement': forms.TextInput(attrs={'class': 'form-control'}),
-            'id_faculte': forms.Select(attrs={'class': 'form-select'}),
-            'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            "nom_departement": forms.TextInput(attrs={"class": "form-control"}),
+            "id_faculte": forms.Select(attrs={"class": "form-select"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
-            'nom_departement': 'Nom du Département',
-            'id_faculte': 'Faculté de rattachement',
-            'actif': 'Actif',
+            "nom_departement": "Nom du Département",
+            "id_faculte": "Faculté de rattachement",
+            "actif": "Actif",
         }
         help_texts = {
-            'actif': 'Désactiver un département le masque sans le supprimer',
+            "actif": "Désactiver un département le masque sans le supprimer",
         }
 
 
@@ -47,47 +48,54 @@ class CoursForm(forms.ModelForm):
     prerequisites = forms.ModelMultipleChoiceField(
         queryset=Cours.objects.none(),
         required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        help_text="Cochez les cours qui sont des prérequis pour ce cours. Laissez vide si aucun prérequis n'est requis."
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        help_text="Cochez les cours qui sont des prérequis pour ce cours. Laissez vide si aucun prérequis n'est requis.",
     )
-    
+
     class Meta:
         model = Cours
         fields = [
-            'code_cours', 'nom_cours', 'nombre_total_periodes',
-            'seuil_absence', 'id_departement', 'niveau', 'professeur',
-            'prerequisites', 'actif'
+            "code_cours",
+            "nom_cours",
+            "nombre_total_periodes",
+            "seuil_absence",
+            "id_departement",
+            "niveau",
+            "professeur",
+            "prerequisites",
+            "actif",
         ]
         widgets = {
-            'code_cours': forms.TextInput(attrs={'class': 'form-control'}),
-            'nom_cours': forms.TextInput(attrs={'class': 'form-control'}),
-            'nombre_total_periodes': forms.NumberInput(attrs={'class': 'form-control'}),
-            'seuil_absence': forms.NumberInput(attrs={'class': 'form-control'}),
-            'id_departement': forms.Select(attrs={'class': 'form-select'}),
-            'niveau': forms.Select(attrs={'class': 'form-select'}),
-            'professeur': forms.Select(attrs={'class': 'form-select'}),
-            'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            "code_cours": forms.TextInput(attrs={"class": "form-control"}),
+            "nom_cours": forms.TextInput(attrs={"class": "form-control"}),
+            "nombre_total_periodes": forms.NumberInput(attrs={"class": "form-control"}),
+            "seuil_absence": forms.NumberInput(attrs={"class": "form-control"}),
+            "id_departement": forms.Select(attrs={"class": "form-select"}),
+            "niveau": forms.Select(attrs={"class": "form-select"}),
+            "professeur": forms.Select(attrs={"class": "form-select"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Filtrer les départements actifs
-        self.fields['id_departement'].queryset = Departement.objects.filter(actif=True)
+        self.fields["id_departement"].queryset = Departement.objects.filter(actif=True)
         # Filtrer les professeurs actifs
-        self.fields['professeur'].queryset = User.objects.filter(
-            role=User.Role.PROFESSEUR,
-            actif=True
+        self.fields["professeur"].queryset = User.objects.filter(
+            role=User.Role.PROFESSEUR, actif=True
         )
-        
+
         # Le champ id_annee n'est plus dans le formulaire (assigné automatiquement)
         # Mais on le garde pour l'édition si nécessaire
-        if 'id_annee' in self.fields:
-            self.fields['id_annee'].queryset = AnneeAcademique.objects.all().order_by('-libelle')
-            self.fields['id_annee'].widget = forms.HiddenInput()  # Masquer le champ
-        
+        if "id_annee" in self.fields:
+            self.fields["id_annee"].queryset = AnneeAcademique.objects.all().order_by(
+                "-libelle"
+            )
+            self.fields["id_annee"].widget = forms.HiddenInput()  # Masquer le champ
+
         # Le champ niveau est obligatoire
-        self.fields['niveau'].required = True
-        
+        self.fields["niveau"].required = True
+
         # Pour les prérequis, filtrer selon le niveau du cours
         # Règles :
         # - Année 1 : pas de prérequis
@@ -96,55 +104,69 @@ class CoursForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             # Si on édite un cours existant
             current_niveau = self.instance.niveau
-            
+
             if current_niveau == 1:
                 # Année 1 : pas de prérequis
                 prerequisite_queryset = Cours.objects.none()
             elif current_niveau == 2:
                 # Année 2 : prérequis uniquement d'Année 1
-                prerequisite_queryset = Cours.objects.filter(
-                    actif=True,
-                    niveau=1
-                ).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
+                prerequisite_queryset = (
+                    Cours.objects.filter(actif=True, niveau=1)
+                    .exclude(id_cours=self.instance.id_cours)
+                    .order_by("code_cours")
+                )
             elif current_niveau == 3:
                 # Année 3 : prérequis uniquement d'Année 1 ou 2
-                prerequisite_queryset = Cours.objects.filter(
-                    actif=True,
-                    niveau__in=[1, 2]
-                ).exclude(id_cours=self.instance.id_cours).order_by('niveau', 'code_cours')
+                prerequisite_queryset = (
+                    Cours.objects.filter(actif=True, niveau__in=[1, 2])
+                    .exclude(id_cours=self.instance.id_cours)
+                    .order_by("niveau", "code_cours")
+                )
             else:
                 # Niveau non défini ou invalide
-                prerequisite_queryset = Cours.objects.filter(actif=True).exclude(id_cours=self.instance.id_cours).order_by('code_cours')
-            
-            self.fields['prerequisites'].queryset = prerequisite_queryset
+                prerequisite_queryset = (
+                    Cours.objects.filter(actif=True)
+                    .exclude(id_cours=self.instance.id_cours)
+                    .order_by("code_cours")
+                )
+
+            self.fields["prerequisites"].queryset = prerequisite_queryset
             # Définir les prérequis initiaux uniquement lors de l'édition
-            self.fields['prerequisites'].initial = self.instance.prerequisites.all()
+            self.fields["prerequisites"].initial = self.instance.prerequisites.all()
         else:
             # Lors de la création, aucun prérequis n'est sélectionné par défaut
             # Le queryset sera mis à jour dynamiquement via JavaScript selon le niveau sélectionné
-            self.fields['prerequisites'].queryset = Cours.objects.none()  # Vide par défaut
-            self.fields['prerequisites'].initial = []  # Aucun prérequis par défaut
-        
+            self.fields["prerequisites"].queryset = (
+                Cours.objects.none()
+            )  # Vide par défaut
+            self.fields["prerequisites"].initial = []  # Aucun prérequis par défaut
+
         # Labels en français
-        self.fields['code_cours'].label = 'Code du Cours'
-        self.fields['nom_cours'].label = 'Intitulé du Cours'
-        self.fields['nombre_total_periodes'].label = 'Total Périodes (h)'
-        self.fields['seuil_absence'].label = "Seuil d'Absence (%)"
-        self.fields['id_departement'].label = 'Département'
-        self.fields['niveau'].label = "Niveau d'étude"
-        if 'id_annee' in self.fields:
-            self.fields['id_annee'].label = 'Année Académique'
-        self.fields['professeur'].label = 'Professeur Responsable'
-        self.fields['prerequisites'].label = 'Prérequis'
-        self.fields['actif'].label = 'Actif'
-        
+        self.fields["code_cours"].label = "Code du Cours"
+        self.fields["nom_cours"].label = "Intitulé du Cours"
+        self.fields["nombre_total_periodes"].label = "Total Périodes (h)"
+        self.fields["seuil_absence"].label = "Seuil d'Absence (%)"
+        self.fields["id_departement"].label = "Département"
+        self.fields["niveau"].label = "Niveau d'étude"
+        if "id_annee" in self.fields:
+            self.fields["id_annee"].label = "Année Académique"
+        self.fields["professeur"].label = "Professeur Responsable"
+        self.fields["prerequisites"].label = "Prérequis"
+        self.fields["actif"].label = "Actif"
+
         # Help texts
-        self.fields['niveau'].help_text = "Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés."
-        
+        self.fields["niveau"].help_text = (
+            "Niveau du cours (1, 2 ou 3). Détermine les prérequis autorisés."
+        )
+
         # Help texts en français
-        self.fields['seuil_absence'].help_text = "Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système."
-        self.fields['actif'].help_text = 'Désactiver un cours le masque sans le supprimer'
-    
+        self.fields["seuil_absence"].help_text = (
+            "Seuil personnalisé pour ce cours. Si vide, utilise le seuil par défaut du système."
+        )
+        self.fields["actif"].help_text = (
+            "Désactiver un cours le masque sans le supprimer"
+        )
+
     def save(self, commit=True):
         instance = super().save(commit=False)
 
@@ -153,7 +175,7 @@ class CoursForm(forms.ModelForm):
             active_year = AnneeAcademique.objects.filter(active=True).first()
             if not active_year:
                 # Si aucune année active, prendre la plus récente
-                active_year = AnneeAcademique.objects.order_by('-libelle').first()
+                active_year = AnneeAcademique.objects.order_by("-libelle").first()
             if active_year:
                 instance.id_annee = active_year
             else:
@@ -163,116 +185,132 @@ class CoursForm(forms.ModelForm):
 
         if commit:
             instance.save()
-            instance.prerequisites.set(self.cleaned_data['prerequisites'])
+            instance.prerequisites.set(self.cleaned_data["prerequisites"])
         return instance
 
 
 class UserForm(forms.ModelForm):
     password = forms.CharField(
         required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        help_text="Laissez vide pour ne pas modifier le mot de passe"
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        help_text="Laissez vide pour ne pas modifier le mot de passe",
     )
     password_confirm = forms.CharField(
         required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        label='Confirmer le mot de passe',
-        help_text=""
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        label="Confirmer le mot de passe",
+        help_text="",
     )
-    
+
     class Meta:
         model = User
-        fields = ['nom', 'prenom', 'email', 'role', 'actif']
+        fields = ["nom", "prenom", "email", "role", "actif"]
         widgets = {
-            'nom': forms.TextInput(attrs={'class': 'form-control'}),
-            'prenom': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'role': forms.Select(attrs={'class': 'form-select'}),
-            'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            "nom": forms.TextInput(attrs={"class": "form-control"}),
+            "prenom": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "role": forms.Select(attrs={"class": "form-select"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         is_creation = not (self.instance and self.instance.pk)
-        
+
         if is_creation:
             # Lors de la création, le mot de passe est obligatoire
-            self.fields['password'].required = True
-            self.fields['password'].help_text = "Définissez un mot de passe temporaire pour l'utilisateur"
-            self.fields['password_confirm'].required = True
-            self.fields['password_confirm'].help_text = "Confirmez le mot de passe"
+            self.fields["password"].required = True
+            self.fields["password"].help_text = (
+                "Définissez un mot de passe temporaire pour l'utilisateur"
+            )
+            self.fields["password_confirm"].required = True
+            self.fields["password_confirm"].help_text = "Confirmez le mot de passe"
         else:
             # Lors de la modification, le mot de passe est optionnel
-            self.fields['password'].required = False
-            self.fields['password'].help_text = "Laissez vide pour ne pas modifier le mot de passe"
-            self.fields['password_confirm'].required = False
-            self.fields['password_confirm'].help_text = "Confirmez le nouveau mot de passe (si vous modifiez le mot de passe)"
-        
+            self.fields["password"].required = False
+            self.fields["password"].help_text = (
+                "Laissez vide pour ne pas modifier le mot de passe"
+            )
+            self.fields["password_confirm"].required = False
+            self.fields["password_confirm"].help_text = (
+                "Confirmez le nouveau mot de passe (si vous modifiez le mot de passe)"
+            )
+
         # Labels en français
-        self.fields['nom'].label = 'Nom'
-        self.fields['prenom'].label = 'Prénom'
-        self.fields['email'].label = 'Adresse Email'
-        self.fields['role'].label = 'Rôle'
-        self.fields['actif'].label = 'Compte Actif'
-        self.fields['password'].label = 'Mot de Passe'
-    
+        self.fields["nom"].label = "Nom"
+        self.fields["prenom"].label = "Prénom"
+        self.fields["email"].label = "Adresse Email"
+        self.fields["role"].label = "Rôle"
+        self.fields["actif"].label = "Compte Actif"
+        self.fields["password"].label = "Mot de Passe"
+
     def clean_email(self):
-        email = self.cleaned_data.get('email')
+        email = self.cleaned_data.get("email")
         if email:
             qs = User.objects.filter(email=email)
             if self.instance and self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise forms.ValidationError("Un utilisateur avec cette adresse email existe déjà.")
+                raise forms.ValidationError(
+                    "Un utilisateur avec cette adresse email existe déjà."
+                )
         return email
 
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        password_confirm = cleaned_data.get('password_confirm')
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
         is_creation = not (self.instance and self.instance.pk)
-        
+
         # Lors de la création, le mot de passe est obligatoire
         if is_creation:
             if not password:
-                raise forms.ValidationError({
-                    'password': 'Le mot de passe est obligatoire lors de la création d\'un utilisateur.'
-                })
+                raise forms.ValidationError(
+                    {
+                        "password": "Le mot de passe est obligatoire lors de la création d'un utilisateur."
+                    }
+                )
             if not password_confirm:
-                raise forms.ValidationError({
-                    'password_confirm': 'La confirmation du mot de passe est obligatoire.'
-                })
-        
+                raise forms.ValidationError(
+                    {
+                        "password_confirm": "La confirmation du mot de passe est obligatoire."
+                    }
+                )
+
         # Si un mot de passe est fourni, vérifier qu'il correspond à la confirmation
         if password:
             if password != password_confirm:
-                raise forms.ValidationError({
-                    'password_confirm': 'Les mots de passe ne correspondent pas.'
-                })
-            validation_user = self.instance if self.instance and self.instance.pk else User(
-                email=cleaned_data.get('email', ''),
-                nom=cleaned_data.get('nom', ''),
-                prenom=cleaned_data.get('prenom', ''),
-                role=cleaned_data.get('role') or User.Role.ETUDIANT,
+                raise forms.ValidationError(
+                    {"password_confirm": "Les mots de passe ne correspondent pas."}
+                )
+            validation_user = (
+                self.instance
+                if self.instance and self.instance.pk
+                else User(
+                    email=cleaned_data.get("email", ""),
+                    nom=cleaned_data.get("nom", ""),
+                    prenom=cleaned_data.get("prenom", ""),
+                    role=cleaned_data.get("role") or User.Role.ETUDIANT,
+                )
             )
             try:
                 validate_password(password, user=validation_user)
             except DjangoValidationError as exc:
-                raise forms.ValidationError({'password': exc.messages})
-        
+                raise forms.ValidationError({"password": exc.messages})
+
         return cleaned_data
-    
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        password = self.cleaned_data.get('password')
+        password = self.cleaned_data.get("password")
         is_creation = not (self.instance and self.instance.pk)
-        
+
         if password:
             user.set_password(password)
             # Lors de la création, forcer le changement de mot de passe à la première connexion
             if is_creation:
                 user.must_change_password = True
-        
+
         if commit:
             user.save()
         return user
@@ -282,56 +320,70 @@ class SystemSettingsForm(forms.ModelForm):
     class Meta:
         model = SystemSettings
         fields = [
-            'default_absence_threshold', 'block_type',
-            'password_min_length', 'password_require_uppercase',
-            'password_require_lowercase', 'password_require_numbers',
-            'password_require_special', 'mfa_enabled_globally',
-            'data_retention_days'
+            "default_absence_threshold",
+            "block_type",
+            "password_min_length",
+            "password_require_uppercase",
+            "password_require_lowercase",
+            "password_require_numbers",
+            "password_require_special",
+            "mfa_enabled_globally",
+            "data_retention_days",
         ]
         widgets = {
-            'default_absence_threshold': forms.NumberInput(attrs={'class': 'form-control'}),
-            'block_type': forms.Select(attrs={'class': 'form-select'}),
-            'password_min_length': forms.NumberInput(attrs={'class': 'form-control'}),
-            'password_require_uppercase': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'password_require_lowercase': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'password_require_numbers': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'password_require_special': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'mfa_enabled_globally': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'data_retention_days': forms.NumberInput(attrs={'class': 'form-control'}),
+            "default_absence_threshold": forms.NumberInput(
+                attrs={"class": "form-control"}
+            ),
+            "block_type": forms.Select(attrs={"class": "form-select"}),
+            "password_min_length": forms.NumberInput(attrs={"class": "form-control"}),
+            "password_require_uppercase": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "password_require_lowercase": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "password_require_numbers": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "password_require_special": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "mfa_enabled_globally": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "data_retention_days": forms.NumberInput(attrs={"class": "form-control"}),
         }
         labels = {
-            'default_absence_threshold': "Seuil d'Absence par Défaut (%)",
-            'block_type': 'Type de Blocage',
-            'password_min_length': 'Longueur Minimale du Mot de Passe',
-            'password_require_uppercase': 'Exiger Majuscules',
-            'password_require_lowercase': 'Exiger Minuscules',
-            'password_require_numbers': 'Exiger Chiffres',
-            'password_require_special': 'Exiger Caractères Spéciaux',
-            'mfa_enabled_globally': 'Authentification à Deux Facteurs (Globale)',
-            'data_retention_days': 'Rétention des Données (jours)',
+            "default_absence_threshold": "Seuil d'Absence par Défaut (%)",
+            "block_type": "Type de Blocage",
+            "password_min_length": "Longueur Minimale du Mot de Passe",
+            "password_require_uppercase": "Exiger Majuscules",
+            "password_require_lowercase": "Exiger Minuscules",
+            "password_require_numbers": "Exiger Chiffres",
+            "password_require_special": "Exiger Caractères Spéciaux",
+            "mfa_enabled_globally": "Authentification à Deux Facteurs (Globale)",
+            "data_retention_days": "Rétention des Données (jours)",
         }
         help_texts = {
-            'default_absence_threshold': 'Seuil par défaut appliqué aux nouveaux cours',
-            'block_type': "Comportement lorsque le seuil est dépassé",
-            'data_retention_days': 'Durée de conservation des données personnelles',
+            "default_absence_threshold": "Seuil par défaut appliqué aux nouveaux cours",
+            "block_type": "Comportement lorsque le seuil est dépassé",
+            "data_retention_days": "Durée de conservation des données personnelles",
         }
 
 
 class AnneeAcademiqueForm(forms.ModelForm):
     class Meta:
         model = AnneeAcademique
-        fields = ['libelle', 'active']
+        fields = ["libelle", "active"]
         widgets = {
-            'libelle': forms.TextInput(attrs={'class': 'form-control'}),
-            'active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            "libelle": forms.TextInput(attrs={"class": "form-control"}),
+            "active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
-            'libelle': 'Libellé',
-            'active': 'Définir comme Année Active',
+            "libelle": "Libellé",
+            "active": "Définir comme Année Active",
         }
         help_texts = {
-            'libelle': 'Format recommandé: AAAA-AAAA (ex: 2023-2024)',
-            'active': "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
+            "libelle": "Format recommandé: AAAA-AAAA (ex: 2023-2024)",
+            "active": "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
         }
-    
-
