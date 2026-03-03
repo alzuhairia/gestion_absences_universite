@@ -388,9 +388,13 @@ def mark_absence(request, course_id):
         messages.error(request, "Accès non autorisé à ce cours.")
         return redirect("dashboard:instructor_dashboard")
 
-    inscriptions_qs = Inscription.objects.filter(id_cours=course).select_related(
-        "id_etudiant"
-    )
+    # Filter by active year and EN_COURS status to exclude past/inactive students
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    inscriptions_qs = Inscription.objects.filter(
+        id_cours=course, status="EN_COURS"
+    ).select_related("id_etudiant")
+    if active_year:
+        inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
     inscriptions_by_id = {str(ins.id_inscription): ins for ins in inscriptions_qs}
 
     if request.method == "POST":
