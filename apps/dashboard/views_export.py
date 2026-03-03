@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_GET
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -17,6 +18,7 @@ from apps.enrollments.models import Inscription
 
 
 @login_required
+@require_GET
 def export_student_pdf(request, student_id=None):
     """
     Generate a PDF report of absences for a specific student.
@@ -164,6 +166,7 @@ def export_student_pdf(request, student_id=None):
 
 @login_required
 @secretary_required
+@require_GET
 def export_at_risk_excel(request):
     """
     Export list of students overlapping the 40% threshold to Excel.
