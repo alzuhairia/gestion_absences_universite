@@ -521,10 +521,15 @@ def justified_absences_list(request):
     Permet de consulter toutes les absences justifiées avec leurs détails.
     """
     try:
+        # Filter by active academic year for consistency with all other views
+        active_year = AnneeAcademique.objects.filter(active=True).first()
+
         # Filtrer les absences justifiées
+        absences = Absence.objects.filter(statut="JUSTIFIEE")
+        if active_year:
+            absences = absences.filter(id_inscription__id_annee=active_year)
         absences = (
-            Absence.objects.filter(statut="JUSTIFIEE")
-            .select_related(
+            absences.select_related(
                 "id_inscription__id_etudiant",
                 "id_seance__id_cours",
                 "id_seance__id_cours__id_departement",
