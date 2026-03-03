@@ -4,6 +4,8 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.accounts.models import User
+
 from .forms import MessageForm
 from .models import Message
 
@@ -76,6 +78,16 @@ def compose(request):
                 )
                 template = get_messaging_template(request.user, "compose")
                 return render(request, template, {"form": form})
+            # Server-side role check: students can only message professors/secretaries
+            if request.user.role == User.Role.ETUDIANT:
+                dest = message.destinataire
+                if dest.role not in (User.Role.PROFESSEUR, User.Role.SECRETAIRE):
+                    messages.error(
+                        request,
+                        "Vous ne pouvez envoyer des messages qu'aux professeurs et secrétaires.",
+                    )
+                    template = get_messaging_template(request.user, "compose")
+                    return render(request, template, {"form": form})
             message.save()
             messages.success(request, "Message envoyé avec succès !")
             return redirect("messaging:sent")
