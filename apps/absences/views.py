@@ -632,8 +632,10 @@ def mark_absence(request, course_id):
 
     if existing_seance:
         is_edit_mode = True
-        default_start = existing_seance.heure_debut.strftime("%H:%M")
-        default_end = existing_seance.heure_fin.strftime("%H:%M")
+        if existing_seance.heure_debut:
+            default_start = existing_seance.heure_debut.strftime("%H:%M")
+        if existing_seance.heure_fin:
+            default_end = existing_seance.heure_fin.strftime("%H:%M")
 
         abs_list = Absence.objects.filter(id_seance=existing_seance)
         for ab in abs_list:

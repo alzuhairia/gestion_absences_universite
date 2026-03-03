@@ -387,3 +387,19 @@ class AnneeAcademiqueForm(forms.ModelForm):
             "libelle": "Format recommandé: AAAA-AAAA (ex: 2023-2024)",
             "active": "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
         }
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if commit:
+            if instance.active:
+                # Désactiver toutes les autres années avant d'activer celle-ci
+                from django.db import transaction
+
+                with transaction.atomic():
+                    AnneeAcademique.objects.exclude(pk=instance.pk).filter(
+                        active=True
+                    ).update(active=False)
+                    instance.save()
+            else:
+                instance.save()
+        return instance
