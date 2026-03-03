@@ -19,11 +19,6 @@ def edit_absence(request, pk):
     absence = get_object_or_404(Absence, pk=pk)
 
     if request.method == "POST":
-        # Capture old state for audit comparison
-        old_statut = absence.statut
-        old_duree = float(absence.duree_absence or 0)
-        old_type = absence.type_absence
-
         # --- Validate all inputs BEFORE any DB write ---
         reason = request.POST.get("reason", "").strip()
         new_type = request.POST.get("type_absence", "")
@@ -57,24 +52,32 @@ def edit_absence(request, pk):
             messages.error(request, "La durée doit être supérieure à zéro.")
             return render(request, "absences/edit_absence.html", {"absence": absence})
 
-        # --- Detect changes BEFORE saving ---
-        change_desc = f"Absence {pk} UPDATED. "
-        changed = False
+        with transaction.atomic():
+            # Re-fetch with row lock to prevent concurrent modification (TOCTOU)
+            absence = Absence.objects.select_for_update().get(pk=pk)
 
-        if old_statut != new_statut:
-            change_desc += f"Statut: {old_statut} -> {new_statut}. "
-            changed = True
-        if old_duree != new_duree:
-            change_desc += f"Durée: {old_duree} -> {new_duree}. "
-            changed = True
-        if old_type != new_type:
-            change_desc += f"Type: {old_type} -> {new_type}. "
-            changed = True
+            # Capture old state for audit comparison inside the lock
+            old_statut = absence.statut
+            old_duree = float(absence.duree_absence or 0)
+            old_type = absence.type_absence
 
-        if changed:
-            change_desc += f"Motif: {reason}"
+            # --- Detect changes ---
+            change_desc = f"Absence {pk} UPDATED. "
+            changed = False
 
-            with transaction.atomic():
+            if old_statut != new_statut:
+                change_desc += f"Statut: {old_statut} -> {new_statut}. "
+                changed = True
+            if old_duree != new_duree:
+                change_desc += f"Durée: {old_duree} -> {new_duree}. "
+                changed = True
+            if old_type != new_type:
+                change_desc += f"Type: {old_type} -> {new_type}. "
+                changed = True
+
+            if changed:
+                change_desc += f"Motif: {reason}"
+
                 absence.duree_absence = new_duree
                 absence.type_absence = new_type
                 absence.statut = new_statut
@@ -90,6 +93,8 @@ def edit_absence(request, pk):
                     objet_type="ABSENCE",
                     objet_id=pk,
                 )
+
+        if changed:
             messages.success(
                 request,
                 "L'absence a été modifiée avec succès. "
