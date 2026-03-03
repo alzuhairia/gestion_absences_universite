@@ -53,7 +53,7 @@ class Absence(models.Model):
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
-        default="EN_ATTENTE",
+        default="NON_JUSTIFIEE",
         verbose_name="Statut",
         db_index=True,
     )
