@@ -579,14 +579,13 @@ def mark_absence(request, course_id):
                         )
                 else:
                     # Si marque PRESENT, on supprime une eventuelle absence existante pour cette seance
-                    # STRICT: Professors CANNOT delete or modify existing absences
                     if existing_absence:
-                        if is_prof:
-                            # Professors cannot delete absences (especially validated ones)
+                        # PROTECTION: JUSTIFIEE and EN_ATTENTE absences cannot be deleted
+                        if existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
                             continue
-                        # Only admins/secretaries can delete
-                        if existing_absence.statut != "JUSTIFIEE":
-                            existing_absence.delete()
+                        # Professors can correct their own NON_JUSTIFIEE absences
+                        # (e.g., marked absent by mistake, now correcting to present)
+                        existing_absence.delete()
 
             # Audit logging for session creation/attendance
             if request.user.role == User.Role.PROFESSEUR:
