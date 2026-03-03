@@ -113,10 +113,14 @@ class Inscription(models.Model):
 
     def save(self, *args, **kwargs):
         """Valider avant sauvegarde"""
-        if self.pk is None:
-            self.full_clean()
-        else:
+        # Always run full_clean() (field validators + clean()) on both
+        # create and update. Calling only clean() on update skipped
+        # field-level validators, potentially allowing invalid data.
+        if kwargs.get("update_fields"):
+            # Partial update (e.g. cloture) — skip full validation
             self.clean()
+        else:
+            self.full_clean()
         super().save(*args, **kwargs)
 
     # FIX VERT #20 — Propriété de commodité : l'inscription est-elle en cours ?
