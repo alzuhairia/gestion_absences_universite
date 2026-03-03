@@ -36,10 +36,13 @@ class MessageForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         super(MessageForm, self).__init__(*args, **kwargs)
         if user:
-            # Exclude self from recipient list
-            self.fields["destinataire"].queryset = User.objects.filter(
-                actif=True
-            ).exclude(pk=user.pk)
+            # Role-based recipient filtering
+            qs = User.objects.filter(actif=True).exclude(pk=user.pk)
+            if user.role == User.Role.ETUDIANT:
+                # Students can only message professors and secretaries
+                qs = qs.filter(role__in=[User.Role.PROFESSEUR, User.Role.SECRETAIRE])
+            # ADMIN, SECRETAIRE, PROFESSEUR can message anyone active
+            self.fields["destinataire"].queryset = qs
             # Label improvement
             self.fields["destinataire"].label_from_instance = (
                 lambda obj: f"{obj.prenom} {obj.nom} ({obj.role})"
