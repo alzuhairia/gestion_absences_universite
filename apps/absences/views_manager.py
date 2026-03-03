@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.models import User
@@ -73,21 +74,22 @@ def edit_absence(request, pk):
         if changed:
             change_desc += f"Motif: {reason}"
 
-            absence.duree_absence = new_duree
-            absence.type_absence = new_type
-            absence.statut = new_statut
-            absence.save()
+            with transaction.atomic():
+                absence.duree_absence = new_duree
+                absence.type_absence = new_type
+                absence.statut = new_statut
+                absence.save()
 
-            log_action(
-                request.user,
-                f"Secrétaire a modifié l'absence {pk} pour "
-                f"{absence.id_inscription.id_etudiant.get_full_name()} - "
-                f"{absence.id_seance.id_cours.code_cours}. {change_desc}",
-                request,
-                niveau="WARNING",
-                objet_type="ABSENCE",
-                objet_id=pk,
-            )
+                log_action(
+                    request.user,
+                    f"Secrétaire a modifié l'absence {pk} pour "
+                    f"{absence.id_inscription.id_etudiant.get_full_name()} - "
+                    f"{absence.id_seance.id_cours.code_cours}. {change_desc}",
+                    request,
+                    niveau="WARNING",
+                    objet_type="ABSENCE",
+                    objet_id=pk,
+                )
             messages.success(
                 request,
                 "L'absence a été modifiée avec succès. "

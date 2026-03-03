@@ -225,7 +225,12 @@ def instructor_course_detail(request, course_id):
     # Tab 3: Statistics
     total_students = len(students_data)
     at_risk_students = sum(1 for s in students_data if s["is_at_risk"])
-    total_absences_all = Absence.objects.filter(id_seance__id_cours=course).count()
+    total_absences_all = Absence.objects.filter(id_seance__id_cours=course)
+    if academic_year:
+        total_absences_all = total_absences_all.filter(
+            id_seance__id_annee=academic_year
+        )
+    total_absences_all = total_absences_all.count()
 
     # Overall absence rate (average)
     if total_students > 0:
@@ -319,6 +324,10 @@ def instructor_courses(request):
         )
 
     all_course_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+    if academic_year:
+        all_course_inscriptions = all_course_inscriptions.filter(
+            id_annee=academic_year
+        )
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=all_course_inscriptions.values_list(
