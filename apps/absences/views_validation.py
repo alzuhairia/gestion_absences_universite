@@ -446,12 +446,18 @@ def student_absence_history_api(request):
         return api_error("student_id requis", status=400, code="bad_request")
 
     try:
+        # Filter by active academic year for consistency with all other views
+        active_year = AnneeAcademique.objects.filter(active=True).first()
         absences_qs = Absence.objects.filter(
             id_inscription__id_etudiant_id=student_id
         ).select_related(
             "id_seance",
             "id_seance__id_cours",
         )
+        if active_year:
+            absences_qs = absences_qs.filter(
+                id_inscription__id_annee=active_year
+            )
 
         stats = absences_qs.aggregate(
             total=Count("id_absence"),
