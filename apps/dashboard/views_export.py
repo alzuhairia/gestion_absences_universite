@@ -29,9 +29,11 @@ def export_student_pdf(request, student_id=None):
     if request.user.role == User.Role.ETUDIANT:
         student = request.user
     elif request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
-        if not student_id:
+        # student_id can come from URL parameter or GET query string
+        effective_student_id = student_id or request.GET.get("student_id")
+        if not effective_student_id:
             return HttpResponseBadRequest("student_id requis")
-        student = get_object_or_404(User, pk=student_id, role=User.Role.ETUDIANT)
+        student = get_object_or_404(User, pk=effective_student_id, role=User.Role.ETUDIANT)
     else:
         raise PermissionDenied("Acces non autorise")
 
