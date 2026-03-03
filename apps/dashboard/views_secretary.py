@@ -792,6 +792,7 @@ def secretary_academic_year_delete(request, year_id):
 
 @login_required
 @secretary_required
+@require_http_methods(["GET"])
 def secretary_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres (pour secrétaire)"""
 
