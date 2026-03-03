@@ -95,7 +95,7 @@ def student_dashboard(request):
                 academic_status = "BLOQUÉ"
                 status_color = "danger"
                 break
-            elif rate >= (seuil * 0.75):  # Alerte à 75% du seuil
+            elif seuil > 0 and rate >= (seuil * 0.75):  # Alerte à 75% du seuil
                 is_at_risk = True
 
     if not is_blocked and is_at_risk:
@@ -496,7 +496,7 @@ def student_courses(request):
         if absence_rate >= seuil_cours and not ins.exemption_40:
             course_status = "BLOQUÉ"
             course_status_color = "danger"
-        elif absence_rate >= (seuil_cours * 0.75):
+        elif seuil_cours > 0 and absence_rate >= (seuil_cours * 0.75):
             course_status = "À RISQUE"
             course_status_color = "warning"
         # Count sessions and absences

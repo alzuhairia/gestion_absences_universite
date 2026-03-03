@@ -132,8 +132,10 @@ def process_justification(request, pk):
             justification.date_validation = timezone.now()
             justification.save()
 
-            # Update Absence Status
-            absence = justification.id_absence
+            # Update Absence Status (lock to prevent concurrent modification)
+            absence = Absence.objects.select_for_update().get(
+                pk=justification.id_absence_id
+            )
             absence.statut = "JUSTIFIEE"
             absence.save()
 
@@ -162,8 +164,10 @@ def process_justification(request, pk):
             justification.date_validation = timezone.now()
             justification.save()
 
-            # Update Absence Status
-            absence = justification.id_absence
+            # Update Absence Status (lock to prevent concurrent modification)
+            absence = Absence.objects.select_for_update().get(
+                pk=justification.id_absence_id
+            )
             absence.statut = "NON_JUSTIFIEE"
             absence.save()
 
@@ -311,17 +315,19 @@ def create_justified_absence(request):
                     )
 
                     # Verifier que l'heure de fin est apres l'heure de debut
-                    # Si ce n'est pas le cas, ajuster automatiquement
+                    # Si ce n'est pas le cas, ajuster automatiquement et avertir
                     if seance_heure_fin <= seance_heure_debut:
                         from datetime import datetime, timedelta
 
                         date_ref = datetime(2000, 1, 1)
                         debut = datetime.combine(date_ref, seance_heure_debut)
-                        fin = datetime.combine(date_ref, seance_heure_fin)
-                        if fin <= debut:
-                            # Ajouter 2 heures a l'heure de debut si l'heure de fin est invalide
-                            fin = debut + timedelta(hours=2)
+                        fin = debut + timedelta(hours=2)
                         seance_heure_fin = fin.time()
+                        messages.warning(
+                            request,
+                            f"L'heure de fin etait invalide pour le cours {cours.code_cours}. "
+                            f"Elle a ete ajustee automatiquement a {seance_heure_fin.strftime('%H:%M')}.",
+                        )
 
                     # Creer ou recuperer la seance
                     seance, _ = Seance.objects.get_or_create(
@@ -523,20 +529,20 @@ def justified_absences_list(request):
             .order_by("-id_seance__date_seance", "-id_absence")
         )
 
-        # Filtrer par étudiant si demandé
-        student_filter = request.GET.get("student")
+        # Filtrer par étudiant si demandé (limiter la longueur pour la performance)
+        student_filter = request.GET.get("student", "")[:255]
         if student_filter:
             absences = absences.filter(
                 id_inscription__id_etudiant__email__icontains=student_filter
             )
 
         # Filtrer par date si demandé
-        date_filter = request.GET.get("date")
+        date_filter = request.GET.get("date", "")[:10]
         if date_filter:
             absences = absences.filter(id_seance__date_seance=date_filter)
 
-        # Filtrer par cours si demandé
-        course_filter = request.GET.get("course")
+        # Filtrer par cours si demandé (limiter la longueur pour la performance)
+        course_filter = request.GET.get("course", "")[:255]
         if course_filter:
             absences = absences.filter(
                 id_seance__id_cours__code_cours__icontains=course_filter
