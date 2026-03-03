@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -82,12 +83,11 @@ def rules_management(request):
 
 @login_required
 @secretary_required
+@require_POST
 def toggle_exemption(request, pk):
     """
     Grant or Revoke 40% Exemption.
     """
-    if request.method != "POST":
-        return redirect("enrollments:rules_management")
 
     inscription = get_object_or_404(Inscription, pk=pk)
     action = request.POST.get("action")  # 'grant' or 'revoke'
