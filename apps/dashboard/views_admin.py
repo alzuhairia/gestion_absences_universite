@@ -802,6 +802,7 @@ def admin_course_delete(request, course_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_users(request):
     """Liste et gestion des utilisateurs"""
 
@@ -1541,6 +1542,7 @@ def admin_academic_year_delete(request, year_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres"""
 
@@ -1598,6 +1600,7 @@ def admin_audit_logs(request):
 
 @login_required
 @admin_required
+@require_GET
 def admin_export_audit_csv(request):
     """Export des journaux d'audit en CSV"""
 
