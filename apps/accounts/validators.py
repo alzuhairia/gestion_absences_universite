@@ -1,13 +1,14 @@
 import re
 
 from django.core.exceptions import ValidationError
+from django.db import OperationalError, ProgrammingError
 from django.utils.translation import gettext as _
 
 
 class SystemSettingsPasswordValidator:
     """
     Enforce password rules from SystemSettings when available.
-    Falls back silently if settings are unavailable (e.g., during migrations).
+    Falls back silently only if settings table doesn't exist yet (migrations).
     """
 
     def validate(self, password, user=None):
@@ -15,7 +16,8 @@ class SystemSettingsPasswordValidator:
             from apps.dashboard.models import SystemSettings
 
             settings = SystemSettings.get_settings()
-        except Exception:
+        except (OperationalError, ProgrammingError, ImportError):
+            # Table doesn't exist yet (migrations) or app not ready
             return
 
         errors = []
