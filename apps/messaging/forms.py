@@ -7,11 +7,12 @@ from .models import Message
 
 class MessageForm(forms.ModelForm):
     destinataire = forms.ModelChoiceField(
-        queryset=User.objects.all(),
+        queryset=User.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
         label="Destinataire",
     )
     objet = forms.CharField(
+        max_length=200,
         widget=forms.TextInput(
             attrs={"class": "form-control", "placeholder": "Sujet du message"}
         ),
