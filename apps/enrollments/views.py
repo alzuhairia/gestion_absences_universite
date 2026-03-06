@@ -774,16 +774,6 @@ def enroll_student(request):
                     },
                 )
 
-            # Vérifier si déjà inscrit
-            if Inscription.objects.filter(
-                id_etudiant=student, id_cours=course, id_annee=year
-            ).exists():
-                messages.warning(
-                    request,
-                    f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour l'année {year.libelle}.",
-                )
-                return redirect("enrollments:enroll_student")
-
             # Vérifier les prérequis
             is_valid, missing_prereqs = check_prerequisites(student, course)
 
@@ -808,15 +798,25 @@ def enroll_student(request):
                     },
                 )
 
-            # Créer l'inscription
-            inscription = Inscription.objects.create(
+            # Créer l'inscription (get_or_create élimine la race condition
+            # entre exists() et create() de l'ancien code)
+            inscription, created = Inscription.objects.get_or_create(
                 id_etudiant=student,
                 id_cours=course,
                 id_annee=year,
-                type_inscription="NORMALE",
-                eligible_examen=True,
-                status="EN_COURS",
+                defaults={
+                    "type_inscription": "NORMALE",
+                    "eligible_examen": True,
+                    "status": "EN_COURS",
+                },
             )
+
+            if not created:
+                messages.warning(
+                    request,
+                    f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour l'année {year.libelle}.",
+                )
+                return redirect("enrollments:enroll_student")
 
             # Journaliser
             log_action(
