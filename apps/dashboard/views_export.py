@@ -197,7 +197,9 @@ def export_at_risk_excel(request):
     from apps.academic_sessions.models import AnneeAcademique
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
+    all_inscriptions = Inscription.objects.filter(status="EN_COURS").select_related(
+        "id_cours", "id_etudiant"
+    )
     if active_year:
         all_inscriptions = all_inscriptions.filter(id_annee=active_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
