@@ -30,6 +30,7 @@ API_RATE_LIMIT = "30/5m"
 
 @login_required
 @secretary_required
+@require_GET
 def enrollment_manager(request):
     facultes = Faculte.objects.all()
     academic_years = AnneeAcademique.objects.all().order_by("-libelle")
