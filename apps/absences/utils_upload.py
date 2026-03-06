@@ -48,7 +48,7 @@ DANGEROUS_INTERMEDIATE_EXTENSIONS = {
     ".dll",
 }
 
-SAFE_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9._ -]{1,255}$")
+SAFE_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9À-ÿ._ ()\-]{1,255}$")
 
 
 class UploadValidationError(ValidationError):
