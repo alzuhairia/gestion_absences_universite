@@ -8,6 +8,7 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_GET, require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from apps.absences.models import Absence
@@ -55,6 +56,7 @@ class RateLimitedLoginView(auth_views.LoginView):
 
 
 @login_required
+@require_GET
 def profile_view(request):
     """
     Vue de profil qui utilise le bon template selon le rôle de l'utilisateur.
@@ -78,6 +80,7 @@ def profile_view(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def settings_view(request):
     """
     Page de paramètres pour l'étudiant.
@@ -109,6 +112,7 @@ def settings_view(request):
 
 
 @login_required
+@require_GET
 def download_report_pdf(request):
     """
     Génère et télécharge le rapport PDF des absences.
