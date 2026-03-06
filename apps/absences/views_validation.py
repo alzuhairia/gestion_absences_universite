@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.accounts.models import User
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 @secretary_required
+@require_GET
 def validation_list(request):
     """
     Liste des justificatifs nécessitant une validation.
@@ -211,6 +212,7 @@ def process_justification(request, pk):
 
 @login_required
 @secretary_required
+@require_http_methods(["GET", "POST"])
 def create_justified_absence(request):
     """
     Vue pour que le secretariat encode directement une absence justifiee.
@@ -514,6 +516,7 @@ def student_absence_history_api(request):
 
 @login_required
 @secretary_required
+@require_GET
 def justified_absences_list(request):
     """
     Liste des absences justifiées encodées par le secrétariat.
