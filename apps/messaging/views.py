@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.accounts.models import User
 
@@ -25,13 +26,14 @@ def get_messaging_template(user, template_name):
 
 
 @login_required
+@require_GET
 def inbox(request):
     """
     Boîte de réception - Affiche les messages reçus par l'utilisateur.
     """
-    messages_list = Message.objects.filter(destinataire=request.user).order_by(
-        "-date_envoi"
-    )
+    messages_list = Message.objects.filter(
+        destinataire=request.user
+    ).select_related("expediteur").order_by("-date_envoi")
     template = get_messaging_template(request.user, "inbox")
     return render(
         request,
@@ -44,13 +46,14 @@ def inbox(request):
 
 
 @login_required
+@require_GET
 def sent_box(request):
     """
     Messages envoyés - Affiche les messages envoyés par l'utilisateur.
     """
-    messages_list = Message.objects.filter(expediteur=request.user).order_by(
-        "-date_envoi"
-    )
+    messages_list = Message.objects.filter(
+        expediteur=request.user
+    ).select_related("destinataire").order_by("-date_envoi")
     template = get_messaging_template(request.user, "sent_box")
     return render(
         request,
@@ -109,7 +112,10 @@ def message_detail(request, message_id):
     """
     Détail d'un message - Affiche le contenu complet d'un message.
     """
-    msg = get_object_or_404(Message, id_message=message_id)
+    msg = get_object_or_404(
+        Message.objects.select_related("expediteur", "destinataire"),
+        id_message=message_id,
+    )
 
     # Check permission (handle NULL expediteur/destinataire from SET_NULL)
     is_recipient = (
@@ -123,7 +129,7 @@ def message_detail(request, message_id):
     # Mark as read if user is recipient
     if is_recipient and not msg.lu:
         msg.lu = True
-        msg.save()
+        msg.save(update_fields=["lu"])
         cache.delete(f"messages:unread_count:{request.user.pk}")
 
     template = get_messaging_template(request.user, "detail")
