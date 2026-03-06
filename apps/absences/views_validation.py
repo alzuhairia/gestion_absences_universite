@@ -335,8 +335,7 @@ def create_justified_absence(request):
                         heure_debut=seance_heure_debut,
                         heure_fin=seance_heure_fin,
                         id_cours=cours,
-                        id_annee=annee_active,
-                        defaults={},
+                        defaults={"id_annee": annee_active},
                     )
 
                     # Calculer la duree si necessaire
