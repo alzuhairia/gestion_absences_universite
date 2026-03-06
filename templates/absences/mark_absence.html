@@ -14,7 +14,13 @@
         <h1 class="h3 mb-0 text-gray-800">Faire l'appel : {{ course.code_cours }}</h1>
     </div>
 
-    {% if is_edit_mode %}
+    {% if is_validated %}
+    <div class="alert alert-info shadow-sm border-left-info">
+        <i class="fas fa-lock me-2"></i>
+        <strong>Séance validée</strong><br>
+        Cette séance a été validée. Les présences sont verrouillées et ne peuvent plus être modifiées.
+    </div>
+    {% elif is_edit_mode %}
     <div class="alert alert-warning shadow-sm border-left-warning">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Modification d'une séance existante</strong><br>
@@ -35,17 +41,17 @@
                     <div class="col-md-4">
                         <label class="form-label" for="date_seance">Date</label>
                         <input type="date" class="form-control" id="date_seance" name="date_seance" value="{{ today }}"
-                            required>
+                            required {% if is_validated %}disabled{% endif %}>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="heure_debut">Heure Début</label>
                         <input type="time" class="form-control" id="heure_debut" name="heure_debut"
-                            value="{{ default_start }}" required>
+                            value="{{ default_start }}" required {% if is_validated %}disabled{% endif %}>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="heure_fin">Heure Fin</label>
                         <input type="time" class="form-control" id="heure_fin" name="heure_fin"
-                            value="{{ default_end }}" required>
+                            value="{{ default_end }}" required {% if is_validated %}disabled{% endif %}>
                     </div>
                 </div>
             </div>
@@ -105,12 +111,12 @@
                                         <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
                                             <i class="fas fa-info-circle me-1"></i>Absence encodée par le Secrétariat
                                         </small>
-                                        {% elif request.user.role == 'PROFESSEUR' and ins.absence_data %}
-                                        <!-- LOCKED VIEW pour autres absences -->
-                                        <input type="radio" class="btn-check" disabled>
+                                        {% elif is_validated or request.user.role == 'PROFESSEUR' and ins.absence_data %}
+                                        <!-- LOCKED VIEW (séance validée ou absence existante) -->
+                                        <input type="radio" class="btn-check" {% if not ins.absence_data %}checked{% endif %} disabled>
                                         <label class="btn btn-outline-secondary btn-sm disabled">Présent</label>
 
-                                        <input type="radio" class="btn-check" checked disabled>
+                                        <input type="radio" class="btn-check" {% if ins.absence_data %}checked{% endif %} disabled>
                                         <label class="btn btn-danger btn-sm disabled">Absent <i
                                                 class="fas fa-lock"></i></label>
                                         {% else %}
@@ -216,13 +222,37 @@
                 </div>
             </div>
             <div class="card-footer bg-white text-end">
-                <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}" class="btn btn-secondary me-2">Annuler</a>
+                <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}" class="btn btn-secondary me-2">Retour</a>
+                {% if is_validated %}
+                <button type="button" class="btn btn-secondary" disabled>
+                    <i class="fas fa-lock me-2"></i>Séance verrouillée
+                </button>
+                {% else %}
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-2"></i>Enregistrer l'appel
                 </button>
+                {% endif %}
             </div>
         </div>
     </form>
+
+    {% if is_edit_mode and not is_validated and existing_seance %}
+    <div class="card shadow mb-4">
+        <div class="card-body text-center">
+            <p class="mb-3 text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Une fois la séance validée, les présences seront verrouillées et ne pourront plus être modifiées.
+            </p>
+            <form method="POST" action="{% url 'absences:validate_session' existing_seance.id_seance %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success"
+                    onclick="return confirm('Êtes-vous sûr de vouloir valider cette séance ? Cette action est irréversible.')">
+                    <i class="fas fa-check-circle me-2"></i>Valider la séance
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
