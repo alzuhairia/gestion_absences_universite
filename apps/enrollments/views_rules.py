@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.absences.models import Absence
-from apps.absences.services import get_system_threshold
+from apps.absences.services import get_system_threshold, recalculer_eligibilite
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
@@ -101,6 +101,7 @@ def toggle_exemption(request, pk):
         inscription.exemption_40 = True
         inscription.motif_exemption = motif
         inscription.save()
+        recalculer_eligibilite(inscription)
         log_action(
             request.user,
             f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif}",
@@ -119,6 +120,7 @@ def toggle_exemption(request, pk):
         inscription.exemption_40 = False
         inscription.motif_exemption = None
         inscription.save()
+        recalculer_eligibilite(inscription)
         log_action(
             request.user,
             f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
