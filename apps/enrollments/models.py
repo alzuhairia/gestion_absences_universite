@@ -104,7 +104,9 @@ class Inscription(models.Model):
 
     def clean(self):
         """Validation: motif requis si exemption activée"""
-        if self.exemption_40 and not self.motif_exemption:
+        if self.exemption_40 and (
+            not self.motif_exemption or not self.motif_exemption.strip()
+        ):
             raise ValidationError(
                 {
                     "motif_exemption": "Un motif est obligatoire lorsque l'exemption est activée."
