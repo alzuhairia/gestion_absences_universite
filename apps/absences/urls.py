@@ -46,4 +46,9 @@ urlpatterns = [
         views.review_justification,
         name="review_justification",
     ),
+    path(
+        "validate-session/<int:seance_id>/",
+        views.validate_session,
+        name="validate_session",
+    ),
 ]
