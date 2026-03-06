@@ -130,9 +130,9 @@ def download_report_pdf(request):
     if not active_year:
         active_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    inscriptions = Inscription.objects.filter(id_etudiant=user).select_related(
-        "id_cours", "id_annee"
-    )
+    inscriptions = Inscription.objects.filter(
+        id_etudiant=user, status="EN_COURS"
+    ).select_related("id_cours", "id_annee")
     if active_year:
         inscriptions = inscriptions.filter(id_annee=active_year)
 
