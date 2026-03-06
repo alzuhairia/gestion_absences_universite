@@ -976,6 +976,7 @@ def admin_user_reset_password(request, user_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_user_audit(request, user_id):
     """Consultation des journaux d'audit pour un utilisateur spécifique"""
 
@@ -1373,6 +1374,7 @@ def admin_settings(request):
 
 @login_required
 @admin_required
+@require_http_methods(["GET", "POST"])
 def admin_academic_years(request):
     """Liste et gestion des années académiques"""
 
