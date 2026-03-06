@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods
 
 from apps.accounts.models import User
 from apps.audits.utils import log_action
@@ -15,6 +16,7 @@ _VALID_STATUTS = {"EN_ATTENTE", "JUSTIFIEE", "NON_JUSTIFIEE"}
 
 @login_required
 @secretary_required
+@require_http_methods(["GET", "POST"])
 def edit_absence(request, pk):
     absence = get_object_or_404(Absence, pk=pk)
 

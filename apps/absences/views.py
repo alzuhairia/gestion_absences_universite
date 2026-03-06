@@ -10,7 +10,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.absences.models import Absence, Justification
 from apps.absences.services import calculer_absence_stats, get_absences_queryset
@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 @student_required
+@require_GET
 def absence_details(request, id_inscription):
     """
     Affiche les détails des absences pour un étudiant - Lecture seule.
@@ -127,6 +128,7 @@ def absence_details(request, id_inscription):
 
 @login_required
 @student_required
+@require_http_methods(["GET", "POST"])
 def upload_justification(request, absence_id):
     """
     Telechargement de justificatif - STRICT: Uniquement pour les etudiants, uniquement pour les absences NON JUSTIFIEES ou EN ATTENTE.
@@ -254,6 +256,7 @@ def upload_justification(request, absence_id):
 
 @login_required
 @secretary_required
+@require_http_methods(["GET", "POST"])
 def review_justification(request, absence_id):
     """
     Review justification - STRICT: Only for secretaries, NOT for professors or admins.
@@ -345,6 +348,7 @@ def download_justification(request, justification_id):
 
 @login_required
 @professor_required
+@require_http_methods(["GET", "POST"])
 def mark_absence(request, course_id):
     """
     Vue pour qu'un professeur puisse noter les absences d'une séance.
