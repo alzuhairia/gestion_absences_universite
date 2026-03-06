@@ -187,7 +187,7 @@ def student_statistics(request):
         total_hours_missed += total_abs
         # CORRECTION BUG CRITIQUE #4g — seuil configuré par cours
         seuil = cours.get_seuil_absence()
-        if rate >= seuil:
+        if rate >= seuil and not ins.exemption_40:
             courses_at_risk += 1
 
     # --- 2. Data for Line Chart (Trend over time) ---
