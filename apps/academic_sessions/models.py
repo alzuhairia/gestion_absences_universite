@@ -56,10 +56,12 @@ class AnneeAcademique(models.Model):
 
     def save(self, *args, **kwargs):
         """S'assurer qu'une seule année est active"""
-        self.full_clean()
         with transaction.atomic():
             if self.active:
+                # Deactivate others BEFORE full_clean so clean() won't reject
+                # the activation. Wrapped in atomic() so rolled back on error.
                 AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+            self.full_clean()
             super().save(*args, **kwargs)
 
     def __str__(self):
