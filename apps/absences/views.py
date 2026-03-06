@@ -10,7 +10,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from apps.absences.models import Absence, Justification
 from apps.absences.services import calculer_absence_stats, get_absences_queryset
@@ -240,8 +240,8 @@ def upload_justification(request, absence_id):
 
         messages.success(
             request,
-            "Votre justificatif a ete envoye avec succes. Il sera examine par le secretariat dans les plus brefs delais. "
-            "Vous serez notifie une fois la decision prise. Vous ne pourrez plus modifier ce justificatif.",
+            "Votre justificatif a été envoyé et est en attente de validation par le secrétariat. "
+            "Vous serez notifié une fois la décision prise.",
         )
         return redirect(
             "absences:details", id_inscription=absence.id_inscription.id_inscription
@@ -402,6 +402,19 @@ def mark_absence(request, course_id):
     inscriptions_by_id = {str(ins.id_inscription): ins for ins in inscriptions_qs}
 
     if request.method == "POST":
+        # Block if this is a validated session
+        check_date = request.POST.get("date_seance", "").strip()
+        if check_date:
+            validated_seance = Seance.objects.filter(
+                id_cours=course, date_seance=check_date, validated=True
+            ).first()
+            if validated_seance:
+                messages.error(
+                    request,
+                    "Cette séance a déjà été validée. Vous ne pouvez plus modifier les présences.",
+                )
+                return redirect("absences:mark_absence", course_id=course_id)
+
         # Verifier que les inscriptions envoyees appartiennent au cours
         invalid_ids = []
         for key in request.POST.keys():
@@ -636,9 +649,11 @@ def mark_absence(request, course_id):
 
     existing_absences = {}
     is_edit_mode = False
+    is_validated = False
 
     if existing_seance:
         is_edit_mode = True
+        is_validated = existing_seance.validated
         if existing_seance.heure_debut:
             default_start = existing_seance.heure_debut.strftime("%H:%M")
         if existing_seance.heure_fin:
@@ -667,5 +682,47 @@ def mark_absence(request, course_id):
             "default_start": default_start,
             "default_end": default_end,
             "is_edit_mode": is_edit_mode,
+            "is_validated": is_validated,
+            "existing_seance": existing_seance,
         },
     )
+
+
+@login_required
+@professor_required
+@require_POST
+def validate_session(request, seance_id):
+    """
+    Valide une séance — verrouille la présence.
+    Après validation, le professeur ne peut plus modifier les absences de cette séance.
+    """
+    seance = get_object_or_404(Seance, pk=seance_id)
+
+    # Vérifier que le cours appartient au professeur
+    if seance.id_cours.professeur != request.user:
+        messages.error(request, "Accès non autorisé à cette séance.")
+        return redirect("dashboard:instructor_dashboard")
+
+    if seance.validated:
+        messages.info(request, "Cette séance est déjà validée.")
+        return redirect("absences:mark_absence", course_id=seance.id_cours_id)
+
+    seance.validated = True
+    seance.validated_by = request.user
+    seance.date_validated = timezone.now()
+    seance.save(update_fields=["validated", "validated_by", "date_validated"])
+
+    log_action(
+        request.user,
+        f"Professeur a validé la séance du {seance.date_seance} pour {seance.id_cours.code_cours}",
+        request,
+        niveau="INFO",
+        objet_type="SEANCE",
+        objet_id=seance.id_seance,
+    )
+
+    messages.success(
+        request,
+        f"La séance du {seance.date_seance} a été validée. Les présences sont maintenant verrouillées.",
+    )
+    return redirect("absences:mark_absence", course_id=seance.id_cours_id)

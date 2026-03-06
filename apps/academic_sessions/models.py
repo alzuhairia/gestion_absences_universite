@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
@@ -90,6 +91,24 @@ class Seance(models.Model):
         db_column="id_annee",
         verbose_name="Année académique",
         related_name="seances",
+    )
+    validated = models.BooleanField(
+        default=False,
+        verbose_name="Séance validée",
+        help_text="Une fois validée, la présence ne peut plus être modifiée par le professeur.",
+    )
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Validée par",
+        related_name="seances_validees",
+    )
+    date_validated = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de validation",
     )
 
     class Meta:
