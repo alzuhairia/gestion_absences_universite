@@ -6,12 +6,16 @@ Les signals permettent d'automatiser certaines actions lors de la création/modi
 d'objets. Ici, le signal garantit que l'éligibilité à l'examen est toujours à jour.
 """
 
+import logging
+
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from .models import Absence
 from .services import recalculer_eligibilite
+
+logger = logging.getLogger("django")
 
 
 def _schedule_eligibility_recalc(inscription_pk):
@@ -24,7 +28,13 @@ def _schedule_eligibility_recalc(inscription_pk):
             inscription = Inscription.objects.get(pk=inscription_pk)
         except Inscription.DoesNotExist:
             return
-        recalculer_eligibilite(inscription)
+        try:
+            recalculer_eligibilite(inscription)
+        except Exception:
+            logger.exception(
+                "Failed to recalculate eligibility for inscription %s",
+                inscription_pk,
+            )
 
     transaction.on_commit(_recalcul)
 
