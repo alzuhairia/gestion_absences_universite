@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence, Justification
 from apps.academic_sessions.models import AnneeAcademique, Seance
@@ -62,6 +63,7 @@ def admin_dashboard(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_dashboard(request):
     """
     Vue tableau de bord secrétaire - KPIs uniquement
@@ -131,6 +133,7 @@ def secretary_dashboard(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_enrollments(request):
     """
     Page "Inscriptions" - Gestion des inscriptions étudiantes.
@@ -230,6 +233,7 @@ def secretary_enrollments(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_rules_40(request):
     """
     Page "Règle des 40%" - Gestion des exemptions et étudiants à risque.
@@ -298,6 +302,7 @@ def secretary_rules_40(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_exports(request):
     """
     Page "Exports" - Téléchargement des rapports Excel/PDF.
@@ -385,6 +390,7 @@ def get_active_courses_queryset(academic_year):
 
 
 @login_required
+@require_GET
 def active_courses(request):
     """
     View to display active courses for the current academic year.
