@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -15,6 +16,7 @@ from apps.enrollments.models import Inscription
 
 @login_required
 @professor_required
+@require_GET
 def instructor_dashboard(request):
     """
     Vue du tableau de bord professeur - Pédagogique uniquement
@@ -144,6 +146,7 @@ def instructor_dashboard(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_course_detail(request, course_id):
     """
     Page de détails du cours pour le professeur - Lecture seule pour les étudiants, gestion des séances pour le professeur.
@@ -257,6 +260,7 @@ def instructor_course_detail(request, course_id):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_courses(request):
     """
     Page "Mes Cours" - Liste de tous les cours assignés au professeur.
@@ -384,6 +388,7 @@ def instructor_courses(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_sessions(request):
     """
     Page "Séances" - Liste de toutes les séances du professeur.
@@ -427,6 +432,7 @@ def instructor_sessions(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_statistics(request):
     """
     Page "Statistiques" - Statistiques globales pour le professeur.

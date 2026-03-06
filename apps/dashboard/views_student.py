@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -13,6 +14,7 @@ from apps.notifications.models import Notification
 
 @login_required
 @student_required
+@require_GET
 def student_dashboard(request):
     """
     Dashboard étudiant - Informatif et pédagogique, AUCUN pouvoir décisionnel.
@@ -126,6 +128,7 @@ def student_dashboard(request):
 
 @login_required
 @student_required
+@require_GET
 def student_statistics(request):
     """
     Page de statistiques détaillées pour l'étudiant.
@@ -256,6 +259,7 @@ def student_statistics(request):
 
 @login_required
 @student_required
+@require_GET
 def student_course_detail(request, inscription_id):
     """
     Page de détails du cours pour l'étudiant - Lecture seule, avec onglets pour Séances et Absences.
@@ -406,6 +410,7 @@ def student_course_detail(request, inscription_id):
 
 @login_required
 @student_required
+@require_GET
 def student_courses(request):
     """
     Page "Mes Cours" - Liste de tous les cours de l'étudiant.
@@ -539,6 +544,7 @@ def student_courses(request):
 
 @login_required
 @student_required
+@require_GET
 def student_absences(request):
     """
     Page "Mes Absences" - Liste de toutes les absences de l'étudiant.
@@ -620,6 +626,7 @@ def student_absences(request):
 
 @login_required
 @student_required
+@require_GET
 def student_reports(request):
     """
     Page "Rapports" - Téléchargement des rapports PDF.
