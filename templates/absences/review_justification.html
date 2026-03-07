@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}Examen Justificatif{% endblock %}
+{% block title %}Dossier Absence #{{ absence.id_absence }}{% endblock %}
 
 {% block breadcrumbs %}
 <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de bord</a></li>
-<li class="breadcrumb-item active" aria-current="page">Justificatif #{{ absence.id_absence }}</li>
+<li class="breadcrumb-item"><a href="{% url 'absences:validation_list' %}">Gestion des Absences</a></li>
+<li class="breadcrumb-item active" aria-current="page">Absence #{{ absence.id_absence }}</li>
 {% endblock %}
 
 {% block content %}
@@ -37,11 +38,11 @@
                         <th>Statut Actuel</th>
                         <td>
                             {% if absence.statut == 'JUSTIFIEE' %}
-                            <span class="badge bg-success">Validé</span>
-                            {% elif absence.statut == 'NON_JUSTIFIEE' %}
-                            <span class="badge bg-danger">Refusé/Non justifié</span>
+                            <span class="badge bg-success">Justifiée</span>
+                            {% elif absence.statut == 'EN_ATTENTE' %}
+                            <span class="badge bg-warning text-dark">En attente de validation</span>
                             {% else %}
-                            <span class="badge bg-warning text-dark">En attente</span>
+                            <span class="badge bg-danger">Non justifiée</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -54,22 +55,29 @@
                 <h6 class="m-0 font-weight-bold">Justification Étudiant</h6>
             </div>
             <div class="card-body">
-                <p><strong>Commentaire :</strong></p>
-                <div class="p-3 bg-light rounded mb-3">
-                    {{ justification.commentaire|default:"Aucun commentaire." }}
-                </div>
+                {% if justification %}
+                    <p><strong>Commentaire :</strong></p>
+                    <div class="p-3 bg-light rounded mb-3">
+                        {{ justification.commentaire|default:"Aucun commentaire." }}
+                    </div>
 
-                {% if document_url %}
-                <p><strong>Document joint :</strong></p>
-                <a download="{{ document_name|default:'justificatif' }}"
-                    href="{{ document_url }}" class="btn btn-primary btn-icon-split">
-                    <span class="icon text-white-50">
-                        <i class="fas fa-download"></i>
-                    </span>
-                    <span class="text">Télécharger le document</span>
-                </a>
+                    {% if document_url %}
+                    <p><strong>Document joint :</strong></p>
+                    <a download="{{ document_name|default:'justificatif' }}"
+                        href="{{ document_url }}" class="btn btn-primary btn-icon-split">
+                        <span class="icon text-white-50">
+                            <i class="fas fa-download"></i>
+                        </span>
+                        <span class="text">Télécharger le document</span>
+                    </a>
+                    {% else %}
+                    <p class="text-muted">Aucun fichier joint.</p>
+                    {% endif %}
                 {% else %}
-                <p class="text-muted">Aucun fichier joint.</p>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-hourglass-start me-2"></i>
+                        L'étudiant n'a pas encore soumis de justificatif pour cette absence.
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -77,34 +85,46 @@
 
     <!-- Right Column: Actions -->
     <div class="col-lg-6">
-        <form method="POST" action="{% url 'absences:review_justification' absence.id_absence %}">
-            {% csrf_token %}
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-secondary text-white">
-                    <h6 class="m-0 font-weight-bold">Gestion & Commentaires</h6>
-                </div>
-                <div class="card-body">
+        {% if justification %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-secondary text-white">
+                <h6 class="m-0 font-weight-bold">Gestion & Commentaires</h6>
+            </div>
+            <div class="card-body">
+                {% if justification.state == 'EN_ATTENTE' %}
+                <form method="POST" action="{% url 'absences:review_justification' absence.id_absence %}">
+                    {% csrf_token %}
                     <div class="mb-3">
-                        <label for="commentaire_gestion" class="form-label">Note Interne (Professeur / Admin)</label>
+                        <label for="commentaire_gestion" class="form-label">Note Interne (Secrétariat)</label>
                         <textarea class="form-control" id="commentaire_gestion" name="commentaire_gestion" rows="4"
                             placeholder="Ajouter une note...">{{ justification.commentaire_gestion|default:'' }}</textarea>
-                        <div class="form-text">Ce commentaire est visible par les professeurs et l'administration, mais
-                            pas par l'étudiant.</div>
+                        <div class="form-text">Ce commentaire est visible uniquement par le secrétariat.</div>
                     </div>
-
                     <button type="submit" class="btn btn-primary mb-3">
                         <i class="fas fa-save me-1"></i> Enregistrer le commentaire
                     </button>
+                </form>
+                {% else %}
+                <div class="mb-3">
+                    <label class="form-label">Note Interne (Secrétariat)</label>
+                    <div class="p-3 bg-light rounded">
+                        {{ justification.commentaire_gestion|default:"Aucune note." }}
+                    </div>
+                    <div class="form-text text-muted">
+                        <i class="fas fa-lock me-1"></i>Le commentaire ne peut plus être modifié après validation ou refus.
+                    </div>
                 </div>
+                {% endif %}
             </div>
-        </form>
+        </div>
+        {% endif %}
 
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-secondary text-white">
                 <h6 class="m-0 font-weight-bold">Décision</h6>
             </div>
             <div class="card-body">
-                {% if is_secretary %}
+                {% if is_secretary and justification and absence.statut == 'EN_ATTENTE' %}
                 <div class="d-grid gap-2">
                     <form method="POST" action="{% url 'absences:process_justification' justification.pk %}">
                         {% csrf_token %}
@@ -121,15 +141,39 @@
                         </button>
                     </form>
                 </div>
+                {% elif is_secretary and not justification %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Aucun justificatif soumis. L'étudiant doit d'abord télécharger un document justificatif
+                    avant que vous puissiez prendre une décision.
+                </div>
+                {% elif is_secretary and absence.statut == 'JUSTIFIEE' %}
+                <div class="alert alert-success mb-0">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Cette absence a déjà été justifiée et approuvée.
+                </div>
+                {% elif is_secretary and absence.statut == 'NON_JUSTIFIEE' and justification %}
+                <div class="alert alert-warning mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Le justificatif précédent a été refusé. L'étudiant peut soumettre un nouveau justificatif.
+                </div>
                 {% else %}
                 <div class="alert alert-info mb-0">
                     <i class="fas fa-info-circle me-2"></i>
                     Seul le secrétariat peut valider ou refuser les justificatifs.
-                    Les administrateurs gèrent la configuration, pas les opérations quotidiennes.
                 </div>
                 {% endif %}
             </div>
         </div>
+
+        <!-- Edit link -->
+        {% if is_secretary %}
+        <div class="d-grid">
+            <a href="{% url 'absences:edit_absence' absence.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-edit me-1"></i>Modifier cette absence
+            </a>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

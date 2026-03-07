@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db import models
 
 
@@ -142,12 +142,14 @@ class Justification(models.Model):
         null=True,
         verbose_name="Commentaire Étudiant",
         help_text="Commentaire de l'étudiant expliquant l'absence",
+        validators=[MaxLengthValidator(2000)],
     )
     commentaire_gestion = models.TextField(
         blank=True,
         null=True,
         verbose_name="Commentaire Gestion",
         help_text="Commentaire interne du secrétariat",
+        validators=[MaxLengthValidator(2000)],
     )
 
     state = models.CharField(

@@ -1,9 +1,35 @@
+import datetime
+
 from django.db.models import Sum
+from django.utils import timezone
 
 from apps.audits.models import LogAudit
 from apps.notifications.models import Notification
 
 from .models import Absence
+
+# Number of days after the absence date during which a student can submit a justification
+JUSTIFICATION_DEADLINE_DAYS = 3
+
+
+def get_justification_deadline(absence):
+    """
+    Returns the deadline (date) by which the student must submit a justification.
+    deadline = absence_date + JUSTIFICATION_DEADLINE_DAYS days (end of that day).
+    """
+    return absence.id_seance.date_seance + datetime.timedelta(
+        days=JUSTIFICATION_DEADLINE_DAYS
+    )
+
+
+def is_justification_expired(absence):
+    """
+    Returns True if the justification deadline has passed for this absence.
+    The student has until the end of the deadline day (inclusive).
+    """
+    deadline = get_justification_deadline(absence)
+    today = timezone.localdate()
+    return today > deadline
 
 
 def calculer_absence_stats(inscription):

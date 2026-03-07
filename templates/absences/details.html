@@ -86,7 +86,7 @@
             </h5>
             <p class="text-muted small mb-0 mt-2">
                 <i class="fas fa-info-circle me-1"></i>
-                Vous pouvez soumettre un justificatif pour les absences non justifiées ou en attente.
+                Vous disposez de <strong>3 jours</strong> après la date d'absence pour soumettre un justificatif.
             </p>
         </div>
         <div class="table-responsive">
@@ -136,6 +136,13 @@
                                 class="btn btn-primary btn-sm">
                                 <i class="fas fa-file-upload me-1"></i>Soumettre justificatif
                             </a>
+                            <div class="text-muted small mt-1">
+                                <i class="fas fa-clock me-1"></i>Avant le {{ item.deadline|date:"d/m/Y" }}
+                            </div>
+                            {% elif item.is_expired %}
+                            <span class="text-danger small">
+                                <i class="fas fa-ban me-1"></i>Délai dépassé ({{ item.deadline|date:"d/m/Y" }})
+                            </span>
                             {% elif item.justification %}
                                 {% if item.justification.state == 'EN_ATTENTE' %}
                                 <span class="text-muted small">
@@ -145,11 +152,6 @@
                                 <span class="text-success small">
                                     <i class="fas fa-check me-1"></i>Acceptée
                                 </span>
-                                {% else %}
-                                <a href="{% url 'absences:upload' item.absence.id_absence %}" 
-                                   class="btn btn-sm btn-warning">
-                                    <i class="fas fa-redo me-1"></i>Résoumettre
-                                </a>
                                 {% endif %}
                             {% else %}
                             <span class="text-muted small">-</span>

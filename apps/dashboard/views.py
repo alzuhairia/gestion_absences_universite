@@ -73,8 +73,12 @@ def secretary_dashboard(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # 1. Pending Justifications Count
-    global_pending_count = Justification.objects.filter(state="EN_ATTENTE").count()
+    # 1. Absence status counts
+    absence_base_qs = Absence.objects.all()
+    if academic_year:
+        absence_base_qs = absence_base_qs.filter(id_inscription__id_annee=academic_year)
+    global_unjustified_count = absence_base_qs.filter(statut="NON_JUSTIFIEE").count()
+    global_pending_count = absence_base_qs.filter(statut="EN_ATTENTE").count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
     all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
@@ -122,6 +126,7 @@ def secretary_dashboard(request):
         request,
         "dashboard/secretary_index.html",
         {
+            "global_unjustified_count": global_unjustified_count,
             "global_pending_count": global_pending_count,
             "global_at_risk_count": global_at_risk_count,
             "academic_year": academic_year,
