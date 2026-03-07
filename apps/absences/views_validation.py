@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -39,37 +39,62 @@ logger = logging.getLogger(__name__)
 @require_GET
 def validation_list(request):
     """
-    Liste des justificatifs nécessitant une validation.
-    """
-    # FIX VERT #18 — Validation du paramètre status_filter contre les choix valides.
-    # Avant : n'importe quelle valeur pouvait être injectée → résultats vides silencieux.
-    # Après : valeur non reconnue → repli sur EN_ATTENTE (comportement sûr et attendu).
-    _VALID_JUSTIFICATION_STATES = {"EN_ATTENTE", "ACCEPTEE", "REFUSEE"}
-    status_filter = request.GET.get("status", "EN_ATTENTE")
-    if status_filter not in _VALID_JUSTIFICATION_STATES:
-        status_filter = "EN_ATTENTE"
+    Liste des absences pour le secrétariat, filtrée par statut d'absence.
 
-    justifications = (
-        Justification.objects.filter(state=status_filter)
-        .select_related(
-            "id_absence",
-            "id_absence__id_inscription",
-            "id_absence__id_inscription__id_etudiant",
-            "id_absence__id_seance__id_cours",
-            "validee_par",
-        )
-        .order_by("-id_justification")
+    Trois catégories :
+    - NON_JUSTIFIEE : absences sans justificatif soumis (ou justificatif refusé)
+    - EN_ATTENTE : justificatif soumis, en attente de validation
+    - JUSTIFIEE : justificatif accepté
+    """
+    _VALID_ABSENCE_STATUSES = {"NON_JUSTIFIEE", "EN_ATTENTE", "JUSTIFIEE"}
+    status_filter = request.GET.get("status", "NON_JUSTIFIEE")
+    if status_filter not in _VALID_ABSENCE_STATUSES:
+        status_filter = "NON_JUSTIFIEE"
+
+    # Filter by active academic year
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+
+    absences = Absence.objects.filter(statut=status_filter).select_related(
+        "id_inscription",
+        "id_inscription__id_etudiant",
+        "id_seance",
+        "id_seance__id_cours",
+        "encodee_par",
     )
+    if active_year:
+        absences = absences.filter(id_inscription__id_annee=active_year)
+
+    # Prefetch justification (OneToOne reverse) to avoid N+1
+    absences = absences.prefetch_related(
+        Prefetch(
+            "justification",
+            queryset=Justification.objects.select_related("validee_par"),
+        )
+    ).order_by("-id_seance__date_seance", "-id_absence")
+
+    # Count per status for badges
+    base_qs = Absence.objects.all()
+    if active_year:
+        base_qs = base_qs.filter(id_inscription__id_annee=active_year)
+    status_counts = {
+        "NON_JUSTIFIEE": base_qs.filter(statut="NON_JUSTIFIEE").count(),
+        "EN_ATTENTE": base_qs.filter(statut="EN_ATTENTE").count(),
+        "JUSTIFIEE": base_qs.filter(statut="JUSTIFIEE").count(),
+    }
 
     # Pagination
-    paginator = Paginator(justifications, 20)
+    paginator = Paginator(absences, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
     return render(
         request,
         "absences/validation_list.html",
-        {"page_obj": page_obj, "current_status": status_filter},
+        {
+            "page_obj": page_obj,
+            "current_status": status_filter,
+            "status_counts": status_counts,
+        },
     )
 
 

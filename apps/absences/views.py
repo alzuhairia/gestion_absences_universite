@@ -13,7 +13,12 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from apps.absences.models import Absence, Justification
-from apps.absences.services import calculer_absence_stats, get_absences_queryset
+from apps.absences.services import (
+    calculer_absence_stats,
+    get_absences_queryset,
+    get_justification_deadline,
+    is_justification_expired,
+)
 from apps.absences.utils_upload import (
     UploadValidationError,
     generate_safe_upload_filename,
@@ -72,19 +77,18 @@ def absence_details(request, id_inscription):
                 status = "NON JUSTIFIÉE"
                 status_color = "danger"
 
-        # CORRECTION BUG CRITIQUE #2a — Logique can_submit corrigée
-        # AVANT : "and not justification" empêchait la resoumission après refus
-        # APRÈS : on distingue explicitement chaque état
-        # - Pas encore soumis (absence NON_JUSTIFIEE sans justificatif) → peut soumettre
-        # - Justificatif refusé (state=REFUSEE) → peut resoumettre
-        # - En attente → ne peut pas soumettre (déjà en cours d'examen)
-        # - Accepté → ne peut pas soumettre (déjà validé)
+        # Determine if the student can submit a justification
         is_refused = justification is not None and justification.state == "REFUSEE"
         is_not_yet_submitted = justification is None and absence.statut not in (
             "JUSTIFIEE",
             "EN_ATTENTE",
         )
-        can_submit = is_not_yet_submitted or is_refused
+        can_submit_status = is_not_yet_submitted or is_refused
+
+        # Deadline check: student can only submit within JUSTIFICATION_DEADLINE_DAYS
+        deadline = get_justification_deadline(absence)
+        expired = is_justification_expired(absence)
+        can_submit = can_submit_status and not expired
 
         absences_data.append(
             {
@@ -93,6 +97,8 @@ def absence_details(request, id_inscription):
                 "status_color": status_color,
                 "justification": justification,
                 "can_submit": can_submit,
+                "deadline": deadline,
+                "is_expired": expired and can_submit_status,
             }
         )
 
@@ -177,6 +183,18 @@ def upload_justification(request, absence_id):
             "absences:details", id_inscription=absence.id_inscription.id_inscription
         )
 
+    # STRICT: Deadline check — student cannot submit after JUSTIFICATION_DEADLINE_DAYS
+    deadline = get_justification_deadline(absence)
+    if is_justification_expired(absence):
+        messages.error(
+            request,
+            f"Le delai de justification est depasse. "
+            f"Vous aviez jusqu'au {deadline.strftime('%d/%m/%Y')} pour soumettre un justificatif.",
+        )
+        return redirect(
+            "absences:details", id_inscription=absence.id_inscription.id_inscription
+        )
+
     if request.method == "POST":
         file = request.FILES.get("document")
         if not file:
@@ -250,7 +268,7 @@ def upload_justification(request, absence_id):
     return render(
         request,
         "absences/justify.html",
-        {"absence": absence, "justification": justification},
+        {"absence": absence, "justification": justification, "deadline": deadline},
     )
 
 
@@ -259,29 +277,35 @@ def upload_justification(request, absence_id):
 @require_http_methods(["GET", "POST"])
 def review_justification(request, absence_id):
     """
-    Review justification - STRICT: Only for secretaries, NOT for professors or admins.
-    Professors should NEVER see or modify justifications.
-    Administrators manage configuration, not daily operations.
+    Review absence details and justification (if any).
+    Handles both absences with and without a submitted justification.
     """
-    # FIX ORANGE #11c — Check de rôle supprimé car redondant avec @secretary_required.
-    # Le décorateur gère : SECRETAIRE autorisé, ADMIN → message avertissement,
-    # autres rôles → message erreur + redirection. Comportement identique, code centralisé.
-    absence = get_object_or_404(Absence, id_absence=absence_id)
-    justification = get_object_or_404(Justification, id_absence=absence)
+    absence = get_object_or_404(
+        Absence.objects.select_related(
+            "id_inscription__id_etudiant",
+            "id_seance__id_cours",
+        ),
+        id_absence=absence_id,
+    )
+    justification = Justification.objects.filter(id_absence=absence).first()
 
-    if request.method == "POST":
-        # Mise a jour du commentaire de gestion
+    if request.method == "POST" and justification:
+        if justification.state != "EN_ATTENTE":
+            messages.warning(
+                request,
+                "Le commentaire ne peut plus etre modifie apres validation ou refus.",
+            )
+            return redirect("absences:review_justification", absence_id=absence_id)
         new_comment = request.POST.get("commentaire_gestion")
         justification.commentaire_gestion = new_comment
         justification.save()
         messages.success(request, "Commentaire mis a jour.")
-        # On redirige vers la meme page pour voir le resultat
         return redirect("absences:review_justification", absence_id=absence_id)
 
-    # Document lie (FileField)
+    # Document link (only if justification with document exists)
     document_url = None
     document_name = None
-    if justification.document:
+    if justification and justification.document:
         document_url = reverse(
             "absences:download_justification", args=[justification.id_justification]
         )
@@ -564,9 +588,9 @@ def mark_absence(request, course_id):
                     elif type_absence == "JOURNEE":
                         duree = 8.0  # Valeur arbitraire pour journee
 
-                    # Creation ou Mise a jour Absence (only if not validated)
-                    if existing_absence and existing_absence.statut == "JUSTIFIEE":
-                        # Skip validated absences - professors cannot modify them
+                    # Creation ou Mise a jour Absence (only if not validated/pending)
+                    if existing_absence and existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
+                        # Skip validated or pending absences - professors cannot modify them
                         continue
 
                     absence, created = Absence.objects.update_or_create(
