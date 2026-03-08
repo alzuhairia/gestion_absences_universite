@@ -134,12 +134,21 @@ class CoursForm(forms.ModelForm):
             # Définir les prérequis initiaux uniquement lors de l'édition
             self.fields["prerequisites"].initial = self.instance.prerequisites.all()
         else:
-            # Lors de la création, aucun prérequis n'est sélectionné par défaut
-            # Le queryset sera mis à jour dynamiquement via JavaScript selon le niveau sélectionné
-            self.fields["prerequisites"].queryset = (
-                Cours.objects.none()
-            )  # Vide par défaut
-            self.fields["prerequisites"].initial = []  # Aucun prérequis par défaut
+            # Lors de la création, construire le queryset à partir du niveau soumis
+            # pour que la validation Django accepte les prérequis sélectionnés via JS
+            submitted_niveau = self.data.get("niveau") if self.is_bound else None
+            if submitted_niveau:
+                try:
+                    submitted_niveau = int(submitted_niveau)
+                except (TypeError, ValueError):
+                    submitted_niveau = None
+
+            if submitted_niveau and submitted_niveau >= 2:
+                self.fields["prerequisites"].queryset = Cours.objects.filter(
+                    actif=True, niveau__lt=submitted_niveau
+                ).order_by("niveau", "code_cours")
+            else:
+                self.fields["prerequisites"].queryset = Cours.objects.none()
 
         # Labels en français
         self.fields["code_cours"].label = "Code du Cours"

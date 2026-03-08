@@ -29,8 +29,7 @@
                                     <h5 class="fw-bold text-dark mb-1">{{ absence.id_inscription.id_cours.nom_cours }}
                                     </h5>
                                     <p class="mb-0 text-muted small">
-                                        <i class="far fa-calendar me-1"></i> {{ absence.id_seance.date_seance|date:"d F
-                                        Y" }}<br>
+                                        <i class="far fa-calendar me-1"></i> {{ absence.id_seance.date_seance|date:"d/m/Y" }}<br>
                                         <i class="far fa-clock me-1"></i> {{ absence.id_seance.heure_debut|time:"H:i" }}
                                     </p>
                                 </div>
