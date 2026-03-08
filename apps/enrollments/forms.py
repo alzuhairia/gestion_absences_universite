@@ -101,7 +101,7 @@ class EnrollmentForm(forms.Form):
 
     ENROLLMENT_TYPE_CHOICES = [
         ("LEVEL", "Inscription à un niveau complet (Année 1, 2 ou 3)"),
-        ("COURSE", "Inscription à un cours spécifique"),
+        ("COURSE", "Inscription à un ou plusieurs cours spécifiques"),
     ]
 
     enrollment_type = forms.ChoiceField(
@@ -144,22 +144,20 @@ class EnrollmentForm(forms.Form):
         empty_label="Sélectionner une année académique",
     )
 
-    # Cours spécifique (si inscription à un cours)
-    course = forms.ModelChoiceField(
-        queryset=Cours.objects.none(),  # Sera rempli dynamiquement selon l'année
+    # Cours (un ou plusieurs) pour inscription spécifique
+    courses = forms.ModelMultipleChoiceField(
+        queryset=Cours.objects.none(),
         label="Cours",
         required=False,
-        widget=forms.Select(attrs={"class": "form-select"}),
-        empty_label="Sélectionner un cours",
+        widget=forms.CheckboxSelectMultiple(),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Filtrer les cours actifs
-        self.fields["course"].queryset = (
+        self.fields["courses"].queryset = (
             Cours.objects.filter(actif=True)
             .select_related("id_annee", "id_departement")
-            .order_by("id_annee__libelle", "code_cours")
+            .order_by("id_departement__nom_departement", "code_cours")
         )
 
     def clean(self):
@@ -179,10 +177,11 @@ class EnrollmentForm(forms.Form):
                     }
                 )
         elif enrollment_type == "COURSE":
-            if not course:
+            courses = cleaned_data.get("courses")
+            if not courses:
                 raise ValidationError(
                     {
-                        "course": "Vous devez sélectionner un cours pour une inscription à un cours spécifique."
+                        "courses": "Vous devez sélectionner au moins un cours."
                     }
                 )
 
