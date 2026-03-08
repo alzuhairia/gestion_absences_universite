@@ -65,9 +65,3 @@ class CustomPasswordChangeForm(PasswordChangeForm):
                 "autocomplete": "new-password",
             }
         )
-
-    def clean_new_password2(self):
-        """Valider la confirmation et appliquer les règles de mot de passe (AUTH_PASSWORD_VALIDATORS)"""
-        # Appeler super() pour exécuter les validateurs Django (longueur, complexité, etc.)
-        password2 = super().clean_new_password2()
-        return password2

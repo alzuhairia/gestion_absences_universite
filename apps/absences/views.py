@@ -650,12 +650,40 @@ def mark_absence(request, course_id):
                     objet_id=seance.id_seance if hasattr(seance, "id_seance") else None,
                 )
 
-            messages.success(
-                request,
-                f"Les absences ont été enregistrées avec succès pour la séance du {date_seance}. "
-                "Vous pouvez consulter les détails dans la page du cours.",
+            # --- Validate or Draft? ---
+            post_action = request.POST.get("form_action", "draft")
+
+            if post_action == "validate":
+                # Save + lock in one step
+                seance.validated = True
+                seance.validated_by = request.user
+                seance.date_validated = timezone.now()
+                seance.save(update_fields=["validated", "validated_by", "date_validated"])
+
+                log_action(
+                    request.user,
+                    f"Professeur a validé la séance du {date_seance} pour {course.code_cours}",
+                    request,
+                    niveau="INFO",
+                    objet_type="SEANCE",
+                    objet_id=seance.id_seance,
+                )
+
+                messages.success(
+                    request,
+                    f"L'appel du {date_seance} a été validé et verrouillé. "
+                    "La séance ne peut plus être modifiée.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Brouillon enregistré pour la séance du {date_seance}. "
+                    "Vous pourrez le modifier et le valider ultérieurement.",
+                )
+
+            return redirect(
+                f"{reverse('absences:mark_absence', args=[course_id])}?date={date_seance}"
             )
-            return redirect("dashboard:instructor_dashboard")
 
     # --- AFFICHAGE DU FORMULAIRE (GET) ---
     students = inscriptions_qs.order_by("id_etudiant__nom")
@@ -696,6 +724,10 @@ def mark_absence(request, course_id):
     for ins in students:
         ins.absence_data = existing_absences.get(ins.id_inscription)
 
+    # Recap counts for post-submission summary
+    recap_absent_count = len(existing_absences)
+    recap_present_count = len(students) - recap_absent_count
+
     return render(
         request,
         "absences/mark_absence.html",
@@ -708,6 +740,8 @@ def mark_absence(request, course_id):
             "is_edit_mode": is_edit_mode,
             "is_validated": is_validated,
             "existing_seance": existing_seance,
+            "recap_present_count": recap_present_count,
+            "recap_absent_count": recap_absent_count,
         },
     )
 

@@ -263,6 +263,7 @@
                             <th>Date</th>
                             <th>Heure</th>
                             <th>Durée</th>
+                            <th>Statut</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -273,9 +274,24 @@
                             <td>{{ session.heure_debut|time:"H:i" }} - {{ session.heure_fin|time:"H:i" }}</td>
                             <td>{{ session.duree_formatee }}</td>
                             <td>
-                                <a href="{% url 'absences:mark_absence' course.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}" 
-                                   class="btn btn-sm btn-info">
-                                    <i class="fas fa-edit me-1"></i>Prendre l'appel
+                                {% if session.validated %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-lock me-1"></i>Validée
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-pencil-alt me-1"></i>Brouillon
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'absences:mark_absence' course.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}"
+                                   class="btn btn-sm {% if session.validated %}btn-outline-secondary{% else %}btn-info{% endif %}">
+                                    {% if session.validated %}
+                                    <i class="fas fa-eye me-1"></i>Consulter
+                                    {% else %}
+                                    <i class="fas fa-edit me-1"></i>Compléter l'appel
+                                    {% endif %}
                                 </a>
                             </td>
                         </tr>
