@@ -197,8 +197,20 @@ def get_courses_by_year(request):
             Cours.objects.filter(id_annee_id=year_id, actif=True)
             .select_related("id_departement", "id_annee")
             .annotate(prereq_count=Count("prerequisites", distinct=True))
-            .order_by("code_cours")
+            .order_by("id_departement__nom_departement", "code_cours")
         )
+
+        # Optionally check which courses the student is already enrolled in
+        enrolled_course_ids = set()
+        student_id = request.GET.get("student_id")
+        if student_id:
+            enrolled_course_ids = set(
+                Inscription.objects.filter(
+                    id_etudiant_id=student_id,
+                    id_annee_id=year_id,
+                    status="EN_COURS",
+                ).values_list("id_cours_id", flat=True)
+            )
 
         data = []
         for c in courses:
@@ -209,6 +221,7 @@ def get_courses_by_year(request):
                     "name": c.nom_cours,
                     "department": c.id_departement.nom_departement,
                     "has_prereq": c.prereq_count > 0,
+                    "already_enrolled": c.id_cours in enrolled_course_ids,
                 }
             )
         return api_ok(data)
@@ -593,16 +606,74 @@ def enroll_student(request):
             return redirect("dashboard:secretary_enrollments")
 
         else:
-            # Inscription à un cours spécifique
-            course = enrollment_form.cleaned_data["course"]
+            # Inscription à un ou plusieurs cours spécifiques
+            selected_courses = enrollment_form.cleaned_data["courses"]
 
-            # Vérifier que le cours appartient à l'année académique sélectionnée
-            if course.id_annee and course.id_annee.id_annee != year.id_annee:
+            enrolled_count = 0
+            skipped_count = 0
+            year_mismatch = []
+
+            try:
+                with transaction.atomic():
+                    for course in selected_courses:
+                        # Vérifier que le cours appartient à l'année académique
+                        if course.id_annee and course.id_annee.id_annee != year.id_annee:
+                            year_mismatch.append(course.code_cours)
+                            continue
+
+                        # Avertissement informatif sur les prérequis (non bloquant)
+                        prereqs = get_prerequisite_info(course)
+                        if prereqs:
+                            prereq_list = ", ".join(
+                                [f"{p['code']} - {p['name']}" for p in prereqs]
+                            )
+                            messages.warning(
+                                request,
+                                f"{course.code_cours} a des prérequis : {prereq_list}. "
+                                f"Veuillez vérifier que l'étudiant les a complétés.",
+                            )
+
+                        inscription, created = Inscription.objects.get_or_create(
+                            id_etudiant=student,
+                            id_cours=course,
+                            id_annee=year,
+                            defaults={
+                                "type_inscription": "NORMALE",
+                                "eligible_examen": True,
+                                "status": "EN_COURS",
+                            },
+                        )
+
+                        if created:
+                            enrolled_count += 1
+                            logger.info(
+                                "Inscription créée: Étudiant=%s, Cours=%s, Année=%s",
+                                student.email,
+                                course.code_cours,
+                                year.libelle,
+                            )
+                        else:
+                            skipped_count += 1
+
+                    if enrolled_count > 0:
+                        course_codes = ", ".join(
+                            c.code_cours
+                            for c in selected_courses
+                            if not (c.id_annee and c.id_annee.id_annee != year.id_annee)
+                        )
+                        log_action(
+                            request.user,
+                            f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) à {enrolled_count} cours ({course_codes}) pour l'année {year.libelle}",
+                            request,
+                            niveau="CRITIQUE",
+                            objet_type="INSCRIPTION",
+                            objet_id=None,
+                        )
+            except Exception:
                 messages.error(
-                    request,
-                    f"Le cours {course.code_cours} n'appartient pas à l'année académique {year.libelle}. "
-                    f"Il appartient à l'année {course.id_annee.libelle}.",
+                    request, "Une erreur interne est survenue lors de l'inscription."
                 )
+                logger.exception("Erreur d'inscription multi-cours")
                 return render(
                     request,
                     "enrollments/enrollment_form.html",
@@ -612,52 +683,30 @@ def enroll_student(request):
                     },
                 )
 
-            # Avertissement informatif sur les prérequis (non bloquant)
-            prereqs = get_prerequisite_info(course)
-            if prereqs:
-                prereq_list = ", ".join(
-                    [f"{p['code']} - {p['name']}" for p in prereqs]
+            # Résultat partiel explicite — un message structuré
+            total_selected = len(selected_courses)
+            result_parts = []
+            if enrolled_count > 0:
+                result_parts.append(
+                    f"{enrolled_count} cours inscrit(s)"
                 )
-                messages.warning(
-                    request,
-                    f"Ce cours requiert normalement les prerequis suivants : {prereq_list}. "
-                    f"Veuillez verifier que l'etudiant les a completes.",
+            if skipped_count > 0:
+                result_parts.append(
+                    f"{skipped_count} cours ignoré(s) (déjà inscrit)"
+                )
+            if year_mismatch:
+                result_parts.append(
+                    f"{len(year_mismatch)} cours rejeté(s) (année incorrecte : {', '.join(year_mismatch)})"
                 )
 
-            # Créer l'inscription (get_or_create élimine la race condition
-            # entre exists() et create() de l'ancien code)
-            inscription, created = Inscription.objects.get_or_create(
-                id_etudiant=student,
-                id_cours=course,
-                id_annee=year,
-                defaults={
-                    "type_inscription": "NORMALE",
-                    "eligible_examen": True,
-                    "status": "EN_COURS",
-                },
-            )
+            summary = f"Résultat pour {student.get_full_name()} — {' | '.join(result_parts)}"
 
-            if not created:
-                messages.warning(
-                    request,
-                    f"L'étudiant {student.get_full_name()} est déjà inscrit à {course.code_cours} pour l'année {year.libelle}.",
-                )
-                return redirect("enrollments:enroll_student")
-
-            # Journaliser
-            log_action(
-                request.user,
-                f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au cours {course.code_cours} pour l'année {year.libelle}",
-                request,
-                niveau="CRITIQUE",
-                objet_type="INSCRIPTION",
-                objet_id=inscription.id_inscription,
-            )
-
-            messages.success(
-                request,
-                f"L'étudiant {student.get_full_name()} a été inscrit avec succès au cours {course.code_cours} pour l'année académique {year.libelle}.",
-            )
+            if enrolled_count > 0 and not year_mismatch:
+                messages.success(request, summary)
+            elif enrolled_count > 0:
+                messages.warning(request, summary)
+            else:
+                messages.warning(request, summary)
 
         return redirect("dashboard:secretary_enrollments")
 
@@ -667,10 +716,10 @@ def enroll_student(request):
     default_year = academic_years.filter(active=True).first() or academic_years.first()
 
     if default_year:
-        enrollment_form.fields["course"].queryset = (
+        enrollment_form.fields["courses"].queryset = (
             Cours.objects.filter(actif=True, id_annee=default_year)
             .select_related("id_annee", "id_departement")
-            .order_by("code_cours")
+            .order_by("id_departement__nom_departement", "code_cours")
         )
         enrollment_form.fields["academic_year"].initial = default_year
 
