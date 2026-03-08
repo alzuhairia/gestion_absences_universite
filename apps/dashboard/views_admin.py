@@ -957,7 +957,7 @@ def admin_user_reset_password(request, user_id):
     user.set_password(new_password)
     # Forcer l'utilisateur à changer son mot de passe à la prochaine connexion
     user.must_change_password = True
-    user.save()
+    user.save(update_fields=["password", "must_change_password"])
     log_action(
         request.user,
         f"CRITIQUE: Réinitialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sécurité)",

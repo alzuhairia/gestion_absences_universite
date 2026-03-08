@@ -33,26 +33,8 @@ def instructor_dashboard(request):
 
     today = timezone.now().date()
 
-    # --- KPI 1: Active Courses (current year, assigned to professor, with enrollments OR sessions)
-    active_courses = Cours.objects.filter(professeur=request.user)
-    if academic_year:
-        # Courses with enrollments or sessions in current year
-        courses_with_enrollments = (
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses_with_sessions = (
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        active_course_ids = set(courses_with_enrollments) | set(courses_with_sessions)
-        active_courses = active_courses.filter(id_cours__in=active_course_ids)
+    # --- KPI 1: Active Courses (assigned to professor, marked as active)
+    active_courses = Cours.objects.filter(professeur=request.user, actif=True)
     active_courses_count = active_courses.count()
 
     # --- KPI 2: Sessions Given (current year, past sessions)
@@ -270,29 +252,12 @@ def instructor_courses(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # Get all courses assigned to professor
+    # Get all active courses assigned to professor
     courses = (
-        Cours.objects.filter(professeur=request.user)
+        Cours.objects.filter(professeur=request.user, actif=True)
         .select_related("id_departement", "id_departement__id_faculte")
         .order_by("code_cours")
     )
-
-    # Filter by academic year if available
-    if academic_year:
-        courses_with_activity = set(
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        ) | set(
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses = courses.filter(id_cours__in=courses_with_activity)
 
     # Prepare course data with statistics
     courses_data = []
@@ -442,23 +407,8 @@ def instructor_statistics(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # Get all courses
-    courses = Cours.objects.filter(professeur=request.user)
-    if academic_year:
-        courses_with_activity = set(
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        ) | set(
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses = courses.filter(id_cours__in=courses_with_activity)
+    # Get all active courses
+    courses = Cours.objects.filter(professeur=request.user, actif=True)
 
     # Statistics by course
     course_stats = []
