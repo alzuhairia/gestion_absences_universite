@@ -59,9 +59,20 @@ class AnneeAcademique(models.Model):
         """S'assurer qu'une seule année est active"""
         with transaction.atomic():
             if self.active:
-                # Deactivate others BEFORE full_clean so clean() won't reject
-                # the activation. Wrapped in atomic() so rolled back on error.
-                AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+                # Only deactivate others when active is newly set to True:
+                # either the object is new (no pk) or active changed from False.
+                activating = not self.pk
+                if not activating and self.pk:
+                    old_active = (
+                        AnneeAcademique.objects.filter(pk=self.pk)
+                        .values_list("active", flat=True)
+                        .first()
+                    )
+                    activating = not old_active
+                if activating:
+                    # Deactivate others BEFORE full_clean so clean() won't reject
+                    # the activation. Wrapped in atomic() so rolled back on error.
+                    AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
             self.full_clean()
             super().save(*args, **kwargs)
 
