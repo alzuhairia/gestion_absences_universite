@@ -1,5 +1,6 @@
 import datetime
 
+from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -131,39 +132,41 @@ def recalculer_eligibilite(inscription):
     if taux >= seuil and not inscription.exemption_40:
         # Étudiant dépasse le seuil et n'a pas d'exemption
         if inscription.eligible_examen:
-            inscription.eligible_examen = False
-            inscription.save(update_fields=["eligible_examen"])
+            with transaction.atomic():
+                inscription.eligible_examen = False
+                inscription.save(update_fields=["eligible_examen"])
 
-            # Notification à l'étudiant
-            Notification.objects.create(
-                id_utilisateur=inscription.id_etudiant,
-                message=f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué.",
-                type="ALERTE",
-            )
+                # Notification à l'étudiant
+                Notification.objects.create(
+                    id_utilisateur=inscription.id_etudiant,
+                    message=f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué.",
+                    type="ALERTE",
+                )
 
-            # Log d'Audit
-            LogAudit.objects.create(
-                id_utilisateur=inscription.id_etudiant,
-                action=f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} (Taux: {taux:.1f}%, Seuil: {seuil}%)",
-                # CORRECTION BUG CRITIQUE #5 — IP système (action automatique, pas d'utilisateur connecté)
-                # "0.0.0.0" est la convention pour les actions système automatiques dans ce projet.
-                adresse_ip="0.0.0.0",  # nosec B104
-                niveau="CRITIQUE",
-                objet_type="INSCRIPTION",
-                objet_id=inscription.id_inscription,
-            )
+                # Log d'Audit
+                LogAudit.objects.create(
+                    id_utilisateur=inscription.id_etudiant,
+                    action=f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} (Taux: {taux:.1f}%, Seuil: {seuil}%)",
+                    # CORRECTION BUG CRITIQUE #5 — IP système (action automatique, pas d'utilisateur connecté)
+                    # "0.0.0.0" est la convention pour les actions système automatiques dans ce projet.
+                    adresse_ip="0.0.0.0",  # nosec B104
+                    niveau="CRITIQUE",
+                    objet_type="INSCRIPTION",
+                    objet_id=inscription.id_inscription,
+                )
     else:
         # Étudiant est sous le seuil ou a une exemption
         if not inscription.eligible_examen:
-            inscription.eligible_examen = True
-            inscription.save(update_fields=["eligible_examen"])
+            with transaction.atomic():
+                inscription.eligible_examen = True
+                inscription.save(update_fields=["eligible_examen"])
 
-            # Notification de déblocage
-            Notification.objects.create(
-                id_utilisateur=inscription.id_etudiant,
-                message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
-                type="INFO",
-            )
+                # Notification de déblocage
+                Notification.objects.create(
+                    id_utilisateur=inscription.id_etudiant,
+                    message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
+                    type="INFO",
+                )
 
 
 def get_system_threshold():

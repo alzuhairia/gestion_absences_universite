@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.accounts.models import User
 
@@ -66,6 +66,7 @@ def sent_box(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def compose(request):
     """
     Rédiger un nouveau message.
@@ -108,6 +109,7 @@ def compose(request):
 
 
 @login_required
+@require_GET
 def message_detail(request, message_id):
     """
     Détail d'un message - Affiche le contenu complet d'un message.

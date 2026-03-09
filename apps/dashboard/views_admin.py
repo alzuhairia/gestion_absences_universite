@@ -54,6 +54,7 @@ def is_admin(user):
 
 @login_required
 @admin_required
+@require_GET
 def admin_dashboard_main(request):
     """
     Tableau de bord principal de l'administrateur avec KPIs et vue d'ensemble.
@@ -1565,7 +1566,7 @@ def admin_audit_logs(request):
     if date_from:
         logs = logs.filter(date_action__gte=date_from)
     if date_to:
-        logs = logs.filter(date_action__lte=date_to)
+        logs = logs.filter(date_action__date__lte=date_to)
     if user_filter:
         logs = logs.filter(
             Q(id_utilisateur__nom__icontains=user_filter)
@@ -1633,15 +1634,24 @@ def admin_export_audit_csv(request):
     if date_from:
         logs = logs.filter(date_action__gte=date_from)
     if date_to:
-        logs = logs.filter(date_action__lte=date_to)
+        logs = logs.filter(date_action__date__lte=date_to)
 
     for log in logs:
+        user = log.id_utilisateur
+        if user:
+            user_name = f"{user.prenom} {user.nom}"
+            user_email = user.email
+            user_role = user.get_role_display()
+        else:
+            user_name = "(utilisateur supprimé)"
+            user_email = ""
+            user_role = ""
         writer.writerow(
             [
                 log.date_action.strftime("%Y-%m-%d %H:%M:%S"),
-                f"{log.id_utilisateur.prenom} {log.id_utilisateur.nom}",
-                log.id_utilisateur.email,
-                log.id_utilisateur.get_role_display(),
+                user_name,
+                user_email,
+                user_role,
                 log.action,
                 log.adresse_ip,
             ]

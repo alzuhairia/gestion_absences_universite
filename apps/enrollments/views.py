@@ -419,12 +419,8 @@ def enroll_student(request):
                     },
                 )
 
-        # Récupérer l'année académique (utiliser l'année active si disponible)
-        selected_year = enrollment_form.cleaned_data["academic_year"]
-        active_year = AnneeAcademique.objects.filter(active=True).first()
-
-        # Utiliser l'année active si elle existe, sinon celle sélectionnée
-        year = active_year if active_year else selected_year
+        # Utiliser l'année sélectionnée par l'utilisateur dans le formulaire
+        year = enrollment_form.cleaned_data["academic_year"]
 
         enrollment_type = enrollment_form.cleaned_data["enrollment_type"]
 

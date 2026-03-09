@@ -155,9 +155,9 @@ def instructor_course_detail(request, course_id):
             id_cours=course, id_annee=academic_year, status="EN_COURS"
         ).select_related("id_etudiant")
     else:
-        inscriptions = Inscription.objects.filter(id_cours=course).select_related(
-            "id_etudiant"
-        )
+        inscriptions = Inscription.objects.filter(
+            id_cours=course, status="EN_COURS"
+        ).select_related("id_etudiant")
 
     inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
@@ -292,7 +292,9 @@ def instructor_courses(request):
             .values_list("id_cours", "total")
         )
 
-    all_course_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+    all_course_inscriptions = Inscription.objects.filter(
+        id_cours__in=course_ids, status="EN_COURS"
+    )
     if academic_year:
         all_course_inscriptions = all_course_inscriptions.filter(
             id_annee=academic_year
@@ -422,7 +424,9 @@ def instructor_statistics(request):
             id_cours__in=course_ids, id_annee=academic_year, status="EN_COURS"
         )
     else:
-        all_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+        all_inscriptions = Inscription.objects.filter(
+            id_cours__in=course_ids, status="EN_COURS"
+        )
 
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
