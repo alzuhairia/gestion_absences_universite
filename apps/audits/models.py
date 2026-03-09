@@ -32,10 +32,12 @@ class LogAudit(models.Model):
 
     id_utilisateur = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        models.PROTECT,  # Empêche la suppression d'un utilisateur avec des logs d'audit
+        models.SET_NULL,  # Préserve le log si l'utilisateur est supprimé (RGPD)
         db_column="id_utilisateur",
         verbose_name="Utilisateur",
         related_name="audit_logs",
+        null=True,
+        blank=True,
     )
     action = models.TextField(
         verbose_name="Action effectuée", help_text="Description détaillée de l'action"

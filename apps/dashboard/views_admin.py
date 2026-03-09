@@ -126,7 +126,7 @@ def admin_dashboard_main(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (
                 cours.seuil_absence

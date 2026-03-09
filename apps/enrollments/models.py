@@ -100,6 +100,14 @@ class Inscription(models.Model):
                 ),
                 name="inscription_exemption_requires_motif",
             ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=["EN_COURS", "VALIDE", "NON_VALIDE"]),
+                name="inscription_status_valid_values",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(type_inscription__in=["NORMALE", "A_PART"]),
+                name="inscription_type_valid_values",
+            ),
         ]
 
     def clean(self):

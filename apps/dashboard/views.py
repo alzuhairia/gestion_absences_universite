@@ -100,7 +100,7 @@ def secretary_dashboard(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
@@ -268,7 +268,7 @@ def secretary_rules_40(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
@@ -346,7 +346,7 @@ def secretary_exports(request):
     for ins in active_inscriptions_list:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (total_abs / cours.nombre_total_periodes) * 100
             # CORRECTION BUG CRITIQUE #4f — seuil configuré par cours
             seuil = ins.id_cours.get_seuil_absence()
