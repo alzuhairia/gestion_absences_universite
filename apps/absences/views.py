@@ -765,19 +765,20 @@ def validate_session(request, seance_id):
         messages.info(request, "Cette séance est déjà validée.")
         return redirect("absences:mark_absence", course_id=seance.id_cours_id)
 
-    seance.validated = True
-    seance.validated_by = request.user
-    seance.date_validated = timezone.now()
-    seance.save(update_fields=["validated", "validated_by", "date_validated"])
+    with transaction.atomic():
+        seance.validated = True
+        seance.validated_by = request.user
+        seance.date_validated = timezone.now()
+        seance.save(update_fields=["validated", "validated_by", "date_validated"])
 
-    log_action(
-        request.user,
-        f"Professeur a validé la séance du {seance.date_seance} pour {seance.id_cours.code_cours}",
-        request,
-        niveau="INFO",
-        objet_type="SEANCE",
-        objet_id=seance.id_seance,
-    )
+        log_action(
+            request.user,
+            f"Professeur a validé la séance du {seance.date_seance} pour {seance.id_cours.code_cours}",
+            request,
+            niveau="INFO",
+            objet_type="SEANCE",
+            objet_id=seance.id_seance,
+        )
 
     messages.success(
         request,

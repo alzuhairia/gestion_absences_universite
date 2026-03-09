@@ -376,7 +376,7 @@ def get_active_courses_queryset(academic_year):
 
     Returns: QuerySet of Cours objects
     """
-    courses = Cours.objects.filter(professeur__isnull=False)
+    courses = Cours.objects.filter(professeur__isnull=False, actif=True)
 
     if not academic_year:
         return courses.none()

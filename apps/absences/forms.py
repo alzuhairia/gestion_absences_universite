@@ -61,9 +61,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
     duree_absence = forms.FloatField(
         label="Durée (heures)",
         required=False,
-        min_value=0,
+        min_value=0.01,
         widget=forms.NumberInput(
-            attrs={"class": "form-control", "step": "0.5", "min": "0"}
+            attrs={"class": "form-control", "step": "0.5", "min": "0.01"}
         ),
         help_text="Durée en heures (requis si type = Retard/Partiel)",
     )
@@ -71,8 +71,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
     commentaire = forms.CharField(
         label="Commentaire",
         required=False,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-        help_text="Commentaire interne (optionnel)",
+        max_length=2000,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3, "maxlength": "2000"}),
+        help_text="Commentaire interne (optionnel, max 2000 caractères)",
     )
 
     document = forms.FileField(

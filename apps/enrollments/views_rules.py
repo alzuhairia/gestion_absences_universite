@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -89,8 +90,9 @@ def toggle_exemption(request, pk):
     """
     Grant or Revoke 40% Exemption.
     """
+    # Verify existence (404 if not found) before proceeding
+    get_object_or_404(Inscription, pk=pk)
 
-    inscription = get_object_or_404(Inscription, pk=pk)
     action = request.POST.get("action")  # 'grant' or 'revoke'
     motif = request.POST.get("motif", "").strip()
 
@@ -99,9 +101,11 @@ def toggle_exemption(request, pk):
             messages.error(request, "Un motif est requis pour accorder une exemption.")
             return redirect("enrollments:rules_management")
 
-        inscription.exemption_40 = True
-        inscription.motif_exemption = motif
-        inscription.save()
+        with transaction.atomic():
+            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            inscription.exemption_40 = True
+            inscription.motif_exemption = motif
+            inscription.save()
         recalculer_eligibilite(inscription)
         log_action(
             request.user,
@@ -118,9 +122,11 @@ def toggle_exemption(request, pk):
         )
 
     elif action == "revoke":
-        inscription.exemption_40 = False
-        inscription.motif_exemption = None
-        inscription.save()
+        with transaction.atomic():
+            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            inscription.exemption_40 = False
+            inscription.motif_exemption = None
+            inscription.save()
         recalculer_eligibilite(inscription)
         log_action(
             request.user,

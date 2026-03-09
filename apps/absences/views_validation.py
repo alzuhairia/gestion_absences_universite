@@ -165,17 +165,22 @@ def process_justification(request, pk):
             absence.statut = "JUSTIFIEE"
             absence.save()
 
-        # Determine Notification Message
-        msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été ACCEPTÉE."
-
-        log_action(
-            request.user,
-            f"Secrétaire a APPROUVÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
-            request,
-            niveau="INFO",
-            objet_type="JUSTIFICATION",
-            objet_id=justification.id_justification,
-        )
+            # Notification + audit inside same transaction for consistency
+            msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été ACCEPTÉE."
+            Notification.objects.create(
+                id_utilisateur=absence.id_inscription.id_etudiant,
+                message=msg_text,
+                type="INFO",
+                lue=False,
+            )
+            log_action(
+                request.user,
+                f"Secrétaire a APPROUVÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
+                request,
+                niveau="INFO",
+                objet_type="JUSTIFICATION",
+                objet_id=justification.id_justification,
+            )
 
     elif action == "reject":
         with transaction.atomic():
@@ -197,28 +202,26 @@ def process_justification(request, pk):
             absence.statut = "NON_JUSTIFIEE"
             absence.save()
 
-        msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été REFUSÉE. Motif : {comment}"
-
-        log_action(
-            request.user,
-            f"Secrétaire a REFUSÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
-            request,
-            niveau="WARNING",
-            objet_type="JUSTIFICATION",
-            objet_id=justification.id_justification,
-        )
+            # Notification + audit inside same transaction for consistency
+            msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été REFUSÉE. Motif : {comment}"
+            Notification.objects.create(
+                id_utilisateur=absence.id_inscription.id_etudiant,
+                message=msg_text,
+                type="INFO",
+                lue=False,
+            )
+            log_action(
+                request.user,
+                f"Secrétaire a REFUSÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
+                request,
+                niveau="WARNING",
+                objet_type="JUSTIFICATION",
+                objet_id=justification.id_justification,
+            )
 
     else:
         messages.error(request, "Action invalide.")
         return redirect("absences:validation_list")
-
-    # Envoyer la notification à l'étudiant
-    Notification.objects.create(
-        id_utilisateur=justification.id_absence.id_inscription.id_etudiant,
-        message=msg_text,
-        type="INFO",
-        lue=False,
-    )
     if action == "approve":
         messages.success(
             request,
