@@ -19,11 +19,13 @@ class MessageForm(forms.ModelForm):
         label="Objet",
     )
     contenu = forms.CharField(
+        max_length=10000,
         widget=forms.Textarea(
             attrs={
                 "class": "form-control",
                 "rows": 5,
                 "placeholder": "Votre message...",
+                "maxlength": "10000",
             }
         ),
         label="Message",

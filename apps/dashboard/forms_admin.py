@@ -176,21 +176,26 @@ class CoursForm(forms.ModelForm):
             "Désactiver un cours le masque sans le supprimer"
         )
 
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-
-        # Si c'est une création (pas d'ID), assigner automatiquement l'année académique active
-        if not instance.pk:
+    def clean(self):
+        cleaned_data = super().clean()
+        # Validate academic year availability for new courses during clean(), not save()
+        if not self.instance.pk:
             active_year = AnneeAcademique.objects.filter(active=True).first()
             if not active_year:
-                # Si aucune année active, prendre la plus récente
                 active_year = AnneeAcademique.objects.order_by("-libelle").first()
-            if active_year:
-                instance.id_annee = active_year
-            else:
+            if not active_year:
                 raise forms.ValidationError(
                     "Impossible de créer un cours : aucune année académique n'est définie dans le système."
                 )
+            self._resolved_year = active_year
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Si c'est une création (pas d'ID), assigner l'année académique résolue dans clean()
+        if not instance.pk:
+            instance.id_annee = self._resolved_year
 
         if commit:
             instance.save()

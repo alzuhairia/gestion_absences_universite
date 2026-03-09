@@ -45,8 +45,10 @@ def export_student_pdf(request, student_id=None):
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
     response = HttpResponse(content_type="application/pdf")
+    # Sanitize email for filename (remove special chars that could break header)
+    safe_email = "".join(c if c.isalnum() or c in "._-@" else "_" for c in student.email)
     response["Content-Disposition"] = (
-        f'attachment; filename="rapport_absences_{student.email}.pdf"'
+        f'attachment; filename="rapport_absences_{safe_email}.pdf"'
     )
 
     p = canvas.Canvas(response, pagesize=A4)

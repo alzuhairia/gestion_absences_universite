@@ -165,7 +165,6 @@ class EnrollmentForm(forms.Form):
         enrollment_type = cleaned_data.get("enrollment_type")
         student_email = cleaned_data.get("student_email")
         create_new_student = cleaned_data.get("create_new_student")
-        course = cleaned_data.get("course")
         niveau = cleaned_data.get("niveau")
 
         # Validation selon le type d'inscription
