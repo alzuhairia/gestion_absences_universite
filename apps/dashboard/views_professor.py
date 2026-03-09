@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET
@@ -92,7 +93,7 @@ def instructor_dashboard(request):
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             # Calculate NON_JUSTIFIED absences only
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
@@ -177,11 +178,11 @@ def instructor_course_detail(request, course_id):
     )
 
     for ins in inscriptions:
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
         rate = (
             (total_abs / course.nombre_total_periodes) * 100
             if course.nombre_total_periodes > 0
-            else 0
+            else 0.0
         )
         # CORRECTION BUG CRITIQUE #4i — seuil configuré par cours
         is_at_risk = rate >= course_threshold
@@ -323,11 +324,11 @@ def instructor_courses(request):
         inscriptions = inscriptions_by_course.get(course.id_cours, [])
         at_risk = 0
         for ins in inscriptions:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (
                 (total_abs / course.nombre_total_periodes) * 100
                 if course.nombre_total_periodes > 0
-                else 0
+                else 0.0
             )
             # CORRECTION BUG CRITIQUE #4j — seuil configuré par cours
             seuil = course.get_seuil_absence()
@@ -381,9 +382,13 @@ def instructor_sessions(request):
             .order_by("-date_seance", "-heure_debut")
         )
 
-    # Group sessions by course
+    # Pagination
+    paginator = Paginator(sessions, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Group paginated sessions by course
     sessions_by_course = defaultdict(list)
-    for session in sessions:
+    for session in page_obj:
         sessions_by_course[session.id_cours].append(session)
 
     return render(
@@ -391,7 +396,8 @@ def instructor_sessions(request):
         "dashboard/instructor_sessions.html",
         {
             "academic_year": academic_year,
-            "sessions": sessions,
+            "sessions": page_obj,
+            "page_obj": page_obj,
             "sessions_by_course": dict(sessions_by_course),
         },
     )
@@ -457,11 +463,11 @@ def instructor_statistics(request):
 
         rates = []
         for ins in inscriptions:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (
                 (total_abs / course.nombre_total_periodes) * 100
                 if course.nombre_total_periodes > 0
-                else 0
+                else 0.0
             )
             rates.append(rate)
             course_absences += absence_counts.get(ins.id_inscription, 0) or 0

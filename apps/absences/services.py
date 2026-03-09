@@ -48,7 +48,7 @@ def calculer_absence_stats(inscription):
     # Un étudiant soumettant un justificatif non validé ne doit pas voir son taux
     # d'absence baisser. L'absence est décomptée UNIQUEMENT après acceptation
     # (state=ACCEPTEE → statut=JUSTIFIEE). Jusqu'alors, EN_ATTENTE = non justifiée.
-    total_absence = (
+    total_absence = float(
         Absence.objects.filter(
             id_inscription=inscription, statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"]
         ).aggregate(total=Sum("duree_absence"))["total"]
