@@ -610,7 +610,7 @@ def justified_absences_list(request):
                     "total_duree": 0.0,
                 }
             grouped_absences[key]["absences"].append(absence)
-            grouped_absences[key]["total_duree"] += absence.duree_absence
+            grouped_absences[key]["total_duree"] += float(absence.duree_absence)
 
         # Convertir en liste triée
         absences_list = sorted(

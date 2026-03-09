@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
@@ -46,7 +47,7 @@ def rules_management(request):
     for ins in inscriptions_qs:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (
@@ -72,11 +73,16 @@ def rules_management(request):
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
     exempted_count = len(at_risk_list) - blocked_count
 
+    # Pagination
+    paginator = Paginator(at_risk_list, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     return render(
         request,
         "enrollments/rules_list.html",
         {
-            "at_risk_list": at_risk_list,
+            "at_risk_list": page_obj,
+            "page_obj": page_obj,
             "blocked_count": blocked_count,
             "exempted_count": exempted_count,
         },

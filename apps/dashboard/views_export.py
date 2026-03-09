@@ -108,7 +108,7 @@ def export_student_pdf(request, student_id=None):
         p.setFont("Helvetica", 10)
         for ins in inscriptions:
             cours = ins.id_cours
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             text = (
                 f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiees"
@@ -219,7 +219,7 @@ def export_at_risk_excel(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (

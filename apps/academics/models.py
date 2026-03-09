@@ -63,6 +63,12 @@ class Departement(models.Model):
         indexes = [
             models.Index(fields=["id_faculte", "actif"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["nom_departement", "id_faculte"],
+                name="departement_unique_nom_per_faculte",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nom_departement} ({self.id_faculte.nom_faculte})"

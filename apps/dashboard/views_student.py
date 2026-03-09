@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
@@ -71,7 +72,7 @@ def student_dashboard(request):
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+        abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
         total_abs_hours += abs_hours
 
     if total_periods > 0:
@@ -87,7 +88,7 @@ def student_dashboard(request):
     for ins in inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+            abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (abs_hours / cours.nombre_total_periodes) * 100
 
             # CORRECTION BUG CRITIQUE #4b — seuil configuré par cours
@@ -180,7 +181,7 @@ def student_statistics(request):
         total_periods = cours.nombre_total_periodes
 
         # Calculate Unjustified Absences
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
         rate = (total_abs / total_periods * 100) if total_periods > 0 else 0
 
@@ -373,7 +374,7 @@ def student_course_detail(request, inscription_id):
         )
 
     # Calculate course statistics
-    total_abs_hours = (
+    total_abs_hours = float(
         Absence.objects.filter(
             id_inscription=inscription,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE
@@ -482,7 +483,7 @@ def student_courses(request):
         cours = ins.id_cours
 
         # Calculate NON_JUSTIFIED absences only
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
         # Calculate absence rate
         absence_rate = (
@@ -614,12 +615,17 @@ def student_absences(request):
             }
         )
 
+    # Pagination
+    paginator = Paginator(absences_data, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     return render(
         request,
         "dashboard/student_absences.html",
         {
             "academic_year": academic_year,
-            "absences_data": absences_data,
+            "absences_data": page_obj,
+            "page_obj": page_obj,
         },
     )
 
@@ -665,7 +671,7 @@ def student_reports(request):
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+        abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
         total_abs_hours += abs_hours
 
     overall_rate = (total_abs_hours / total_periods * 100) if total_periods > 0 else 0
