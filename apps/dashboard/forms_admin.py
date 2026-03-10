@@ -78,6 +78,7 @@ class CoursForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._resolved_year = None
         # Filtrer les départements actifs
         self.fields["id_departement"].queryset = Departement.objects.filter(actif=True)
         # Filtrer les professeurs actifs

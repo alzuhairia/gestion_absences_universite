@@ -241,68 +241,10 @@ def secretary_enrollments(request):
 @require_GET
 def secretary_rules_40(request):
     """
-    Page "Règle des 40%" - Gestion des exemptions et étudiants à risque.
+    Redirect to the canonical rules management page to avoid duplication.
+    The enrollments:rules_management view has pagination and custom modals.
     """
-    # Get current academic year
-    academic_year = AnneeAcademique.objects.filter(active=True).first()
-
-    # Get inscriptions filtered by active year
-    all_inscriptions = Inscription.objects.select_related(
-        "id_cours", "id_etudiant", "id_cours__id_departement"
-    )
-    if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
-    absence_sums = dict(
-        Absence.objects.filter(
-            id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
-        )
-        .values("id_inscription")
-        .annotate(total=Sum("duree_absence"))
-        .values_list("id_inscription", "total")
-    )
-    at_risk_list = []
-
-    for ins in all_inscriptions:
-        cours = ins.id_cours
-        if cours.nombre_total_periodes > 0:
-            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
-
-            rate = (total_abs / cours.nombre_total_periodes) * 100
-
-            # CORRECTION BUG CRITIQUE #4e — seuil configuré par cours
-            seuil = cours.get_seuil_absence()
-            # Afficher si taux >= seuil OU si exempté (pour pouvoir révoquer si besoin)
-            if rate >= seuil:
-                at_risk_list.append(
-                    {
-                        "inscription": ins,
-                        "etudiant": ins.id_etudiant,
-                        "cours": cours,
-                        "total_abs": total_abs,
-                        "rate": round(rate, 1),
-                        "is_blocked": not ins.exemption_40,
-                        "exemption": ins.exemption_40,
-                        "motif_exemption": ins.motif_exemption,
-                    }
-                )
-
-    # Calculate statistics
-    blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
-    exempted_count = len(at_risk_list) - blocked_count
-
-    return render(
-        request,
-        "dashboard/secretary_rules_40.html",
-        {
-            "academic_year": academic_year,
-            "at_risk_list": at_risk_list,
-            "blocked_count": blocked_count,
-            "exempted_count": exempted_count,
-        },
-    )
+    return redirect("enrollments:rules_management")
 
 
 @login_required
