@@ -394,9 +394,14 @@
 </div>
 
 <script>
+    const TOGGLE_URL_TEMPLATE = "{% url 'enrollments:toggle_exemption' 0 %}";
+    function getToggleUrl(id) {
+        return TOGGLE_URL_TEMPLATE.replace('/0/', '/' + id + '/');
+    }
+
     function openExemptionModal(id, studentName) {
         document.getElementById('modalStudentName').textContent = studentName;
-        document.getElementById('exemptionForm').action = "/enrollments/rules/toggle/" + id + "/";
+        document.getElementById('exemptionForm').action = getToggleUrl(id);
         var modal = new bootstrap.Modal(document.getElementById('exemptionModal'));
         modal.show();
     }
@@ -404,7 +409,7 @@
     function openRevokeModal(id, studentName, courseName) {
         document.getElementById('revokeStudentName').textContent = studentName;
         document.getElementById('revokeCourseName').textContent = courseName;
-        document.getElementById('revokeForm').action = "/enrollments/rules/toggle/" + id + "/";
+        document.getElementById('revokeForm').action = getToggleUrl(id);
         var modal = new bootstrap.Modal(document.getElementById('revokeModal'));
         modal.show();
     }
