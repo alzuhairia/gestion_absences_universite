@@ -106,21 +106,24 @@ def toggle_exemption(request, pk):
         if not motif:
             messages.error(request, "Un motif est requis pour accorder une exemption.")
             return redirect("enrollments:rules_management")
+        if len(motif) > 2000:
+            messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
+            return redirect("enrollments:rules_management")
 
         with transaction.atomic():
             inscription = Inscription.objects.select_for_update().get(pk=pk)
             inscription.exemption_40 = True
             inscription.motif_exemption = motif
             inscription.save()
-        recalculer_eligibilite(inscription)
-        log_action(
-            request.user,
-            f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif}",
-            request,
-            niveau="WARNING",
-            objet_type="INSCRIPTION",
-            objet_id=inscription.id_inscription,
-        )
+            recalculer_eligibilite(inscription)
+            log_action(
+                request.user,
+                f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif[:200]}",
+                request,
+                niveau="WARNING",
+                objet_type="INSCRIPTION",
+                objet_id=inscription.id_inscription,
+            )
         messages.success(
             request,
             f"L'exemption 40% a été accordée avec succès à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. "
@@ -133,15 +136,15 @@ def toggle_exemption(request, pk):
             inscription.exemption_40 = False
             inscription.motif_exemption = None
             inscription.save()
-        recalculer_eligibilite(inscription)
-        log_action(
-            request.user,
-            f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
-            request,
-            niveau="WARNING",
-            objet_type="INSCRIPTION",
-            objet_id=inscription.id_inscription,
-        )
+            recalculer_eligibilite(inscription)
+            log_action(
+                request.user,
+                f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
+                request,
+                niveau="WARNING",
+                objet_type="INSCRIPTION",
+                objet_id=inscription.id_inscription,
+            )
         messages.warning(
             request,
             f"L'exemption 40% a été révoquée pour {inscription.id_etudiant.get_full_name()} dans le cours {inscription.id_cours.code_cours}. "

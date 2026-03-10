@@ -14,9 +14,18 @@ try:
     magic.from_buffer(b"test", mime=True)
 except Exception:  # ImportError, MagicException, OSError, etc.
     magic = None
-    logging.getLogger(__name__).warning(
+    _logger = logging.getLogger(__name__)
+    _logger.warning(
         "python-magic unavailable — MIME validation disabled, binary signature check still active."
     )
+    # In production, MIME validation should be active for defense-in-depth
+    from django.conf import settings
+    if not settings.DEBUG:
+        _logger.error(
+            "PRODUCTION WARNING: python-magic is not installed. "
+            "File upload MIME validation is disabled. "
+            "Install python-magic-bin (Windows) or python-magic (Linux) for full security."
+        )
 
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
