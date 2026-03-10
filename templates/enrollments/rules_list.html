@@ -246,14 +246,10 @@
                             <i class="fas fa-unlock me-1"></i>Accorder Exemption
                         </button>
                         {% else %}
-                        <form method="POST" action="{% url 'enrollments:toggle_exemption' item.inscription.pk %}" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="revoke">
-                            <button type="submit" class="btn btn-danger btn-exemption" 
-                                    onclick="return confirm('Êtes-vous sûr de vouloir révoquer cette exemption ?');">
-                                <i class="fas fa-lock me-1"></i>Révoquer
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-danger btn-exemption"
+                                onclick="openRevokeModal('{{ item.inscription.pk }}', '{{ item.etudiant.get_full_name|escapejs }}', '{{ item.cours.nom_cours|escapejs }}')">
+                            <i class="fas fa-lock me-1"></i>Révoquer
+                        </button>
                         {% endif %}
                     </div>
                 </div>
@@ -352,11 +348,64 @@
     </div>
 </div>
 
+<!-- Revoke Confirmation Modal -->
+<div class="modal fade" id="revokeModal" tabindex="-1" aria-labelledby="revokeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="revokeModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmer la révocation
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger mb-3">
+                    <i class="fas fa-lock me-2"></i>
+                    Êtes-vous sûr de vouloir révoquer cette exemption ?
+                </div>
+                <p class="mb-1">
+                    <i class="fas fa-user-graduate me-2 text-primary"></i>
+                    <strong>Étudiant :</strong> <span id="revokeStudentName"></span>
+                </p>
+                <p class="mb-0">
+                    <i class="fas fa-book me-2 text-info"></i>
+                    <strong>Cours :</strong> <span id="revokeCourseName"></span>
+                </p>
+                <hr>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    L'étudiant sera de nouveau bloqué et ne pourra pas passer les examens pour ce cours.
+                </p>
+            </div>
+            <form id="revokeForm" method="POST" action="">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="revoke">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-lock me-1"></i>Confirmer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     function openExemptionModal(id, studentName) {
         document.getElementById('modalStudentName').textContent = studentName;
         document.getElementById('exemptionForm').action = "/enrollments/rules/toggle/" + id + "/";
         var modal = new bootstrap.Modal(document.getElementById('exemptionModal'));
+        modal.show();
+    }
+
+    function openRevokeModal(id, studentName, courseName) {
+        document.getElementById('revokeStudentName').textContent = studentName;
+        document.getElementById('revokeCourseName').textContent = courseName;
+        document.getElementById('revokeForm').action = "/enrollments/rules/toggle/" + id + "/";
+        var modal = new bootstrap.Modal(document.getElementById('revokeModal'));
         modal.show();
     }
 </script>
