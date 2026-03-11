@@ -1,38 +1,31 @@
 # ============================================
-# Dépendances Python pour UniAbsences
+# Dependencies — UniAbsences
 # ============================================
-# IMPORTANT : Ce fichier est utilisé par Docker pour installer les dépendances
-# Mise à jour pour compatibilité Python 3.13
 
-# Framework Django
-# Patche les CVE 2026 connues sur la branche 6.0.x
+# Framework
 Django==6.0.2
-django-crispy-forms==2.3
+django-crispy-forms==2.6
 crispy-bootstrap5>=1.1.0
 django-ratelimit==4.1.0
-django-redis==5.4.0
+django-redis==6.0.0
 
-# Base de données PostgreSQL 
-# Mise à jour vers 2.9.10 indispensable pour le support de Python 3.13
-psycopg2-binary==2.9.10
+# Database
+psycopg2-binary==2.9.11
 
-# Gestion des variables d'environnement
-python-dotenv==1.0.1
+# Environment
+python-dotenv==1.2.2
 
-# Serveur WSGI pour la production (Gunicorn)
-# >=22.0.0 pour corriger les CVE de request smuggling
-gunicorn==22.0.0
+# WSGI server
+gunicorn==25.1.0
 
-# Génération de PDF
-reportlab==4.0.7
+# PDF / Excel
+reportlab==4.4.10
+openpyxl==3.1.5
 
-# Utilitaires (Gestion des images)
-# 12.1.1+ corrige la vulnérabilité PSD out-of-bounds write
+# Utilities
 Pillow>=12.1.1,<13
 python-magic==0.4.27
-
-openpyxl==3.1.2
-redis==5.0.8
+redis==7.3.0
 
 # Test
 pytest>=9.0,<10
