@@ -47,7 +47,6 @@ RUN mkdir -p /app/staticfiles /app/media /app/logs && \
     chown -R django:django /app
 
 COPY --chown=django:django . /app/
-COPY --chown=django:django entrypoint.sh /app/
 RUN sed -i 's/\r$//g' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 USER django
