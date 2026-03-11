@@ -21,7 +21,7 @@ python-dotenv==1.0.1
 
 # Serveur WSGI pour la production (Gunicorn)
 # >=22.0.0 pour corriger les CVE de request smuggling
-gunicorn==22.0.0
+gunicorn==25.1.0
 
 # Génération de PDF
 reportlab==4.0.7
