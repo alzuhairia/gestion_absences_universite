@@ -21,8 +21,9 @@ def _resolve_excluded_paths():
             paths.append(reverse(name))
         except Exception:
             pass
-    # Health endpoint has no named URL in accounts, keep as literal
+    # Health endpoint and initial setup have no named URL in accounts
     paths.append("/api/health/")
+    paths.append("/setup/")
     return tuple(paths)
 
 
