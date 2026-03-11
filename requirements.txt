@@ -37,3 +37,4 @@ redis==5.0.8
 # Test
 pytest>=9.0,<10
 pytest-django>=4.12,<5
+pytest-cov>=6.0,<7

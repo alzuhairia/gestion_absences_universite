@@ -33,6 +33,24 @@ UniAbsences automatise le suivi des presences et absences dans un contexte unive
 - Messagerie interne et notifications
 - Export PDF / Excel
 
+## Captures d'ecran
+
+<details>
+<summary>Cliquer pour voir les captures d'ecran</summary>
+
+| Vue | Apercu |
+|-----|--------|
+| Page de connexion | ![Login](docs/screenshots/login.png) |
+| Dashboard Admin | ![Admin](docs/screenshots/dashboard-admin.png) |
+| Dashboard Professeur | ![Professor](docs/screenshots/dashboard-professor.png) |
+| Dashboard Etudiant | ![Student](docs/screenshots/dashboard-student.png) |
+| Saisie des absences | ![Attendance](docs/screenshots/mark-absence.png) |
+| Gestion des justificatifs | ![Justifications](docs/screenshots/justifications.png) |
+
+</details>
+
+> Pour ajouter des captures : placer les images PNG dans `docs/screenshots/` avec les noms ci-dessus.
+
 ## Architecture
 
 ```
