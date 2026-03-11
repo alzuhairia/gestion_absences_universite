@@ -32,7 +32,7 @@ Pillow>=12.1.1,<13
 python-magic==0.4.27
 
 openpyxl==3.1.2
-redis==5.0.8
+redis==7.3.0
 
 # Test
 pytest>=9.0,<10
