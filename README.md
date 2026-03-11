@@ -1,1009 +1,175 @@
-# UniAbsences - Système de Gestion des Absences Universitaires
+<p align="center">
+  <h1 align="center">UniAbsences</h1>
+  <p align="center">
+    Plateforme de gestion des absences universitaires
+    <br />
+    <em>Django &middot; PostgreSQL &middot; Docker &middot; Nginx</em>
+  </p>
+</p>
 
-## 📋 Table des matières
-
-1. [Présentation du projet](#présentation-du-projet)
-2. [Fonctionnalités principales](#fonctionnalités-principales)
-3. [Architecture technique](#architecture-technique)
-4. [Installation](#installation)
-5. [Déploiement Docker](#déploiement-docker)
-6. [Monitoring](#monitoring)
-7. [Configuration](#configuration)
-8. [Comptes et rôles](#comptes-et-rôles)
-9. [Logique métier](#logique-métier)
-10. [Sécurité et bonnes pratiques](#sécurité-et-bonnes-pratiques)
-11. [État du projet](#état-du-projet)
-12. [Instructions pour la démonstration](#instructions-pour-la-démonstration)
-
----
-
-## 🎯 Présentation du projet
-
-### Nom du projet
-**UniAbsences** - Système de Gestion des Absences Universitaires
-
-### Objectif principal
-UniAbsences est une application web complète destinée à la gestion automatisée des absences étudiantes dans un contexte universitaire. Le système permet une traçabilité complète des présences/absences, une gestion des justificatifs, et un suivi administratif rigoureux tout en respectant une hiérarchie claire des rôles et des responsabilités.
-
-### Problématique résolue
-- **Gestion centralisée** : Centralisation de toutes les données d'absences dans une seule plateforme
-- **Traçabilité complète** : Enregistrement de toutes les actions avec journal d'audit détaillé
-- **Séparation des responsabilités** : Hiérarchie claire entre Admin (configuration), Secrétariat (opérations), Professeurs (saisie), Étudiants (consultation)
-- **Automatisation** : Calcul automatique des taux d'absence, validation des prérequis, gestion des inscriptions
-- **Sécurité renforcée** : Authentification robuste, mots de passe temporaires, changement obligatoire au premier login
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.13-blue?logo=python&logoColor=white" alt="Python 3.13" />
+  <img src="https://img.shields.io/badge/django-6.0-green?logo=django&logoColor=white" alt="Django 6.0" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready" />
+  <a href="https://github.com/alzuhairia/gestion_absences_universite/actions/workflows/ci.yml">
+    <img src="https://github.com/alzuhairia/gestion_absences_universite/actions/workflows/ci.yml/badge.svg?branch=Dev" alt="CI" />
+  </a>
+</p>
 
 ---
 
-## ✨ Fonctionnalités principales
+## Apercu
 
-### 1. Gestion des rôles
+UniAbsences automatise le suivi des presences et absences dans un contexte universitaire : saisie par les professeurs, justificatifs par les etudiants, validation par le secretariat, configuration par l'administrateur.
 
-#### 👨‍💼 **Administrateur (ADMIN)**
-- Configuration de la structure académique (Facultés, Départements, Cours)
-- Gestion des utilisateurs (création, modification, désactivation)
-- Configuration des années académiques
-- Consultation des journaux d'audit
-- Paramètres système globaux
-- **Restriction** : Ne peut pas effectuer d'opérations opérationnelles (inscriptions, validation de justificatifs)
+**Fonctionnalites cles :**
 
-#### 📝 **Secrétariat (SECRETAIRE)**
-- Inscription des étudiants (par niveau complet ou par cours spécifique)
-- Création des comptes étudiants avec mot de passe temporaire
-- Validation/refus des justificatifs d'absence
-- Encodage direct d'absences justifiées (avec document)
-- Consultation et modification des absences
-- Gestion des exemptions au seuil de 40%
-- Consultation des journaux d'audit
-- Consultation des absences justifiées encodées
+- 4 roles distincts (Admin, Secretariat, Professeur, Etudiant) avec separation stricte des responsabilites
+- Saisie des presences/absences par seance avec calcul automatique des taux
+- Workflow complet de justificatifs (soumission, validation, refus)
+- Blocage automatique a 40 % d'absences non justifiees (avec exemptions)
+- Journal d'audit complet de toutes les actions sensibles
+- Messagerie interne et notifications
+- Export PDF / Excel
 
-#### 👨‍🏫 **Professeur (PROFESSEUR)**
-- Consultation de ses cours assignés
-- Saisie des présences/absences pour chaque séance
-- Consultation des absences justifiées (lecture seule)
-- Historique des séances et appels
-- **Restriction** : Ne peut pas modifier les absences justifiées par le Secrétariat
-
-#### 🎓 **Étudiant (ETUDIANT)**
-- Consultation de ses cours et inscriptions
-- Visualisation de ses absences (justifiées/non justifiées)
-- Soumission de justificatifs d'absence (document + commentaire)
-- Suivi du taux d'absence par cours
-- Consultation du statut de ses justificatifs (en attente/accepté/refusé)
-- **Restriction** : Accès en lecture seule, pas de modification possible
-
-### 2. Gestion de la structure académique
-
-- **Facultés** : Création et gestion des facultés
-- **Départements** : Rattachement aux facultés
-- **Cours** : 
-  - Attribution à un département et une année académique
-  - Définition du niveau (Année 1, 2 ou 3)
-  - Gestion des prérequis (filtrage automatique par niveau)
-  - Attribution d'un professeur
-  - Définition du nombre total de périodes
-- **Années académiques** : Gestion avec année active unique
-
-### 3. Inscriptions
-
-#### Inscription à un niveau complet
-- Sélection du niveau académique (1, 2 ou 3)
-- Inscription automatique à tous les cours du niveau sélectionné
-- Vérification automatique de la validation du niveau précédent
-- Mise à jour automatique du niveau de l'étudiant
-
-#### Inscription à un cours spécifique
-- Sélection de l'année académique et du cours
-- Vérification automatique des prérequis
-- Blocage si prérequis non validés
-
-### 4. Gestion des absences
-
-- **Types d'absence** :
-  - Séance complète
-  - Retard / Partiel (avec durée en heures)
-  - Journée complète
-- **Statuts** :
-  - `EN_ATTENTE` : Absence enregistrée, en attente de justification
-  - `JUSTIFIEE` : Absence justifiée et validée
-  - `NON_JUSTIFIEE` : Absence non justifiée
-- **Calcul automatique** :
-  - Taux d'absence par cours
-  - Alerte à 30% d'absence
-  - Blocage automatique à 40% (sauf exemption)
-
-### 5. Journaux d'audit et traçabilité
-
-- Enregistrement de toutes les actions sensibles :
-  - Création/modification/suppression d'entités
-  - Inscriptions d'étudiants
-  - Modifications d'absences
-  - Validation/refus de justificatifs
-  - Changements de statut
-- Informations enregistrées :
-  - Utilisateur responsable
-  - Date et heure
-  - Type d'action
-  - Objet concerné
-  - Motif/raison (si applicable)
-  - Niveau de log (INFO, WARNING, ERROR)
-
-### 6. Sécurité
-
-- **Authentification** :
-  - Système d'authentification personnalisé basé sur email
-  - Mots de passe hashés avec Django
-- **Mots de passe temporaires** :
-  - Génération automatique lors de la création d'un compte étudiant
-  - Changement obligatoire au premier login
-  - Règles de sécurité strictes (majuscule, minuscule, chiffre, caractère spécial)
-- **Permissions par rôle** :
-  - Décorateurs de sécurité (`@admin_required`, `@secretary_required`, `@professor_required`, `@student_required`)
-  - Vérifications serveur systématiques
-  - Protection contre l'accès non autorisé par URL directe
-
----
-
-## 🏗️ Architecture technique
-
-### Stack technique
-
-#### Backend
-- **Django 6.0** : Framework web Python
-- **Python 3.13+** : Langage de programmation
-- **Gunicorn 21.2.0** : Serveur WSGI pour la production
-
-#### Base de données
-- **PostgreSQL 16** : Base de données relationnelle (production)
-- **SQLite** : Base de données de développement (optionnel)
-
-#### Infrastructure de production
-- **Docker & Docker Compose** : Conteneurisation et orchestration
-- **Nginx** : Reverse proxy et serveur de fichiers statiques
-- **Gunicorn** : Serveur d'application WSGI (3 workers)
-
-### Architecture de déploiement
-
-L'application est conçue pour fonctionner en production avec une architecture Docker composée de 3 services :
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                    Nginx                        │
-│         (Reverse Proxy - Port 80/443)           │
-│  - Fichiers statiques (CSS, JS, images)         │
-│  - Fichiers média (documents uploadés)          │
-│  - Compression Gzip                             │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   │ HTTP
-                   ▼
-┌─────────────────────────────────────────────────┐
-│              Django + Gunicorn                  │
-│         (Application - Port 8000)                │
-│  - Logique métier                               │
-│  - API REST                                     │
-│  - Authentification                              │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   │ SQL
-                   ▼
-┌─────────────────────────────────────────────────┐
-│              PostgreSQL 16                      │
-│         (Base de données)                        │
-│  - Données persistantes                         │
-│  - Volumes Docker                               │
-└─────────────────────────────────────────────────┘
+                    Client (navigateur)
+                          |
+                     [ Nginx ]          port 80 / 443
+                     SSL, static,       reverse proxy
+                     media, gzip
+                          |
+                  [ Gunicorn + Django ] port 8000
+                     logique metier,
+                     auth, API
+                     /           \
+            [ PostgreSQL 16 ]   [ Redis 7 ]
+              donnees             cache, rate-limit
 ```
 
-**Services Docker :**
-- `web` : Application Django (Gunicorn)
-- `db` : Base de données PostgreSQL
-- `nginx` : Reverse proxy et serveur web
+| Service   | Image                 | Role                                |
+|-----------|-----------------------|-------------------------------------|
+| `web`     | `python:3.13-slim`    | Application Django (Gunicorn)       |
+| `db`      | `postgres:16-alpine`  | Base de donnees                     |
+| `nginx`   | `nginx:alpine`        | Reverse proxy, fichiers statiques   |
+| `redis`   | `redis:7-alpine`      | Cache distribue, rate limiting      |
+| `monitor` | `louislam/uptime-kuma`| Monitoring de disponibilite         |
 
-### Organisation des apps
+## Structure du projet
 
 ```
 apps/
-├── accounts/          # Gestion des utilisateurs et authentification
-├── academics/         # Structure académique (Facultés, Départements, Cours)
-├── academic_sessions/ # Années académiques et séances
-├── enrollments/       # Inscriptions étudiants
-├── absences/         # Gestion des absences et justificatifs
-├── dashboard/         # Tableaux de bord par rôle
-├── audits/           # Journaux d'audit et traçabilité
-├── messaging/        # Système de messagerie interne
-├── notifications/    # Notifications utilisateurs
-└── health/           # Endpoint de health check pour le monitoring
+  accounts/           Utilisateurs et authentification
+  academics/          Facultes, Departements, Cours
+  academic_sessions/  Annees academiques, Seances
+  enrollments/        Inscriptions etudiants
+  absences/           Absences et justificatifs
+  dashboard/          Tableaux de bord par role
+  audits/             Journal d'audit
+  messaging/          Messagerie interne
+  notifications/      Notifications
+  health/             Endpoint de health check
 ```
 
-### Gestion des permissions par rôle
+## Demarrage rapide
 
-#### Décorateurs de sécurité
-```python
-@admin_required      # Accès réservé aux administrateurs
-@secretary_required   # Accès réservé aux secrétaires (ADMIN exclu)
-@professor_required   # Accès réservé aux professeurs
-@student_required     # Accès réservé aux étudiants
-```
+### Prerequis
 
-#### Vérifications serveur
-- Vérification de propriété (professeur → ses cours, étudiant → ses inscriptions)
-- Double vérification (décorateur + logique métier)
-- Messages d'erreur explicites en cas d'accès non autorisé
+- [Docker](https://docs.docker.com/get-docker/) >= 20.10
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.0
 
-### Technologies frontend
-- **Bootstrap 5.3** : Framework CSS
-- **FontAwesome 6.0** : Icônes
-- **JavaScript** : Interactions dynamiques (filtres, formulaires)
-
-### Optimisations et qualité
-
-#### Base de données
-- **Intégrité référentielle** : 18 relations FK corrigées (PROTECT/SET_NULL)
-- **Performance** : 20+ index ajoutés (simples et composites)
-- **Contraintes** : Validation au niveau base de données et modèles
-- **Normalisation** : Structure optimisée et cohérente
-
-#### Scripts de maintenance
-- **`scripts/verify/verify_database_health.py`** : Vérification de l'intégrité de la base de données
-- **`scripts/maintenance/fix_migrations.py`** : Correction des migrations
-- **`scripts/maintenance/check_schema.py`** : Vérification du schéma
-- **`scripts/verify/verify_*`** : Scripts de vérification pour différents aspects (rôles, règles, audits, etc.)
-
----
-
-## 🚀 Installation
-
-### Prérequis
-
-- **Python 3.13+**
-- **PostgreSQL 12+** (ou SQLite pour le développement)
-- **pip** (gestionnaire de paquets Python)
-- **Git** (optionnel, pour cloner le dépôt)
-
-### Création de l'environnement virtuel
+### 1. Cloner le projet
 
 ```bash
-# Windows
-python -m venv env
-env\Scripts\activate
-
-# Linux/Mac
-python3 -m venv env
-source env/bin/activate
-```
-
-### Installation des dépendances
-
-```bash
-pip install -r requirements.txt
-```
-
-**Dépendances principales** :
-- Django 6.0
-- psycopg2-binary==2.9.10 (pour PostgreSQL, compatible Python 3.13)
-- python-dotenv (gestion des variables d'environnement)
-- django-crispy-forms
-- crispy-bootstrap5
-- gunicorn==21.2.0 (serveur WSGI pour production)
-- Pillow (gestion des images)
-- reportlab (génération de PDF)
-- openpyxl (export Excel)
-
-### Configuration du fichier .env
-
-Créer un fichier `.env` à la racine du projet :
-
-```env
-# Sécurité
-SECRET_KEY=votre_clé_secrète_django_générée_aléatoirement
-DEBUG=True
-
-# Base de données PostgreSQL
-DB_NAME=unabsences_db
-DB_USER=postgres
-DB_PASSWORD=votre_mot_de_passe
-DB_HOST=localhost
-DB_PORT=5432
-
-# Base de données SQLite (alternative pour développement)
-# Laisser vide pour utiliser SQLite
-```
-
-**Génération de SECRET_KEY** :
-```python
-from django.core.management.utils import get_random_secret_key
-print(get_random_secret_key())
-```
-
-### Migrations
-
-```bash
-# Créer les migrations
-python manage.py makemigrations
-
-# Appliquer les migrations
-python manage.py migrate
-```
-
-### Création d'un superutilisateur
-
-```bash
-python manage.py createsuperuser
-```
-
-### Lancement du serveur
-
-```bash
-python manage.py runserver
-```
-
-L'application sera accessible à l'adresse : `http://127.0.0.1:8000`
-
----
-
-## 🐳 Déploiement Docker
-
-### 📌 Vue d'ensemble
-
-L'application est prête pour le déploiement en production avec Docker. L'architecture comprend :
-- **3 services Docker** : Application Django (Gunicorn), PostgreSQL, Nginx
-- **Volumes persistants** : Base de données, fichiers statiques, fichiers média, logs
-- **Réseau Docker isolé** : Communication sécurisée entre services
-
-### Prérequis pour Docker
-
-- **Docker** : Version 20.10+
-- **Docker Compose** : Version 2.0+
-- **Git** : Pour cloner le projet
-
-### Installation rapide avec Docker
-
-#### 1. Cloner le projet
-
-```bash
-git clone <url-du-repo>
+git clone https://github.com/alzuhairia/gestion_absences_universite.git
 cd gestion_absences_universite
 ```
 
-#### 2. Créer le fichier .env
+### 2. Configurer l'environnement
 
 ```bash
-# Copier le fichier d'exemple (si disponible)
 cp .env.example .env
-
-# OU créer manuellement le fichier .env
+# Editer .env : renseigner SECRET_KEY, DB_PASSWORD, ALLOWED_HOSTS, etc.
 ```
 
-**Configuration minimale du fichier `.env` :**
+> Generer une `SECRET_KEY` :
+> ```bash
+> python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+> ```
 
-```env
-# Sécurité
-SECRET_KEY=votre-cle-secrete-generee-avec-django
-DEBUG=False
-
-# Domaine/IP (remplacer par votre domaine ou IP)
-ALLOWED_HOSTS=votre-domaine.com,www.votre-domaine.com,123.456.789.0
-
-# Base de données PostgreSQL
-DB_NAME=unabsences_db
-DB_USER=postgres
-DB_PASSWORD=votre-mot-de-passe-fort-et-securise
-DB_HOST=db
-DB_PORT=5432
-```
-
-**📌 Générer la SECRET_KEY :**
-```bash
-python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-
-#### 3. Construire et démarrer les conteneurs
+### 3. Lancer les services
 
 ```bash
-# Construire les images et démarrer tous les services
 docker compose up -d --build
 ```
 
-Cette commande va :
-- Construire les images Docker (Django, Nginx)
-- Démarrer PostgreSQL
-- Démarrer l'application Django avec Gunicorn
-- Démarrer Nginx comme reverse proxy
-
-#### 4. Vérifier le statut
-
-```bash
-# Voir les conteneurs en cours d'exécution
-docker compose ps
-
-# Voir les logs
-docker compose logs -f
-```
-
-Vous devriez voir 3 conteneurs :
-- `unabsences_web` : Application Django
-- `unabsences_db` : Base de données PostgreSQL
-- `unabsences_nginx` : Serveur web Nginx
-
-#### 5. Créer un superutilisateur
+### 4. Creer un administrateur
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-#### 6. Accéder à l'application
+L'application est accessible sur `http://localhost` (ou votre domaine configure).
 
-- **HTTP** : `http://votre-domaine.com` ou `http://votre-ip`
-- **Interface Admin** : `http://votre-domaine.com/admin/`
-
-### Commandes de gestion Docker
-
-#### Voir les logs
+## Developpement local (sans Docker)
 
 ```bash
-# Logs de tous les services
-docker compose logs -f
-
-# Logs d'un service spécifique
-docker compose logs -f web
-docker compose logs -f nginx
-docker compose logs -f db
+python -m venv env && source env/bin/activate   # Windows: env\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env                             # Configurer pour SQLite/PostgreSQL local
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-#### Redémarrer l'application
+## Tests et qualite
 
 ```bash
-# Redémarrer tous les services
-docker compose restart
+# Tests unitaires
+python -m pytest --tb=short -q
 
-# Redémarrer un service spécifique
-docker compose restart web
+# Linting
+black --check .
+isort --profile black --check-only .
+ruff check --select E9,F63,F7,F82 .
 ```
 
-#### Arrêter l'application
+La CI GitHub Actions execute automatiquement :
+- Linting (Black, isort, Ruff)
+- Tests avec PostgreSQL + Redis
+- Audit de securite (Bandit, pip-audit, Gitleaks)
+- Analyse CodeQL
+- Build Docker + scan Trivy
 
-```bash
-# Arrêter les conteneurs (sans supprimer les données)
-docker compose stop
+## Documentation
 
-# Arrêter et supprimer les conteneurs (⚠️ données conservées dans les volumes)
-docker compose down
+| Document | Description |
+|----------|-------------|
+| [`docs/deployment.md`](docs/deployment.md) | Guide complet de deploiement VPS |
+| [`docs/docker-setup.md`](docs/docker-setup.md) | Configuration Docker detaillee |
+| [`docs/monitoring.md`](docs/monitoring.md) | Monitoring avec Uptime Kuma |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Guide de contribution et conventions Git |
+| [`.env.example`](.env.example) | Variables d'environnement documentees |
 
-# Arrêter et supprimer TOUT (⚠️ SUPPRIME LES DONNÉES)
-docker compose down -v
-```
+## Stack technique
 
-#### Exécuter des commandes Django
+| Categorie      | Technologies                                         |
+|----------------|------------------------------------------------------|
+| Backend        | Python 3.13, Django 6.0, Gunicorn                    |
+| Base de donnees| PostgreSQL 16, Redis 7                               |
+| Frontend       | Bootstrap 5.3, FontAwesome 6, JavaScript             |
+| Infrastructure | Docker, Nginx, Let's Encrypt                         |
+| CI/CD          | GitHub Actions (lint, test, security, Docker, CodeQL) |
+| Monitoring     | Uptime Kuma, health check endpoint                   |
+| Securite       | Bandit, pip-audit, Trivy, Gitleaks, SRI, CSP, HSTS   |
 
-```bash
-# Migrations
-docker compose exec web python manage.py migrate
+## Licence
 
-# Collecter les fichiers statiques
-docker compose exec web python manage.py collectstatic --noinput
-
-# Shell Django
-docker compose exec web python manage.py shell
-
-# Créer un superutilisateur
-docker compose exec web python manage.py createsuperuser
-```
-
-### Structure des fichiers Docker
-
-```
-gestion_absences_universite/
-├── Dockerfile                 # Image Docker pour Django
-├── docker-compose.yml         # Orchestration des services
-├── docker-compose.monitoring.yml  # Configuration monitoring (Uptime Kuma)
-├── entrypoint.sh              # Script d'initialisation
-├── requirements.txt           # Dépendances Python
-├── .env                       # Variables d'environnement (à créer)
-├── nginx/
-│   ├── Dockerfile             # Image Docker pour Nginx
-│   └── nginx.conf             # Configuration Nginx
-├── README_DEPLOYMENT.md        # Guide détaillé de déploiement
-├── DOCKER_SETUP.md            # Documentation de la configuration Docker
-├── MONITORING.md              # Guide du système de monitoring
-└── START_MONITORING.md        # Guide de démarrage rapide monitoring
-```
-
-### Volumes Docker
-
-Les données sont persistées dans des volumes Docker :
-
-- **postgres_data** : Base de données PostgreSQL
-- **static_volume** : Fichiers statiques (CSS, JS, images)
-- **media_volume** : Fichiers uploadés (documents justificatifs)
-- **logs_volume** : Logs de l'application
-
-**Important** : Les volumes conservent les données même si les conteneurs sont supprimés.
-
-### Configuration Nginx
-
-Nginx agit comme reverse proxy et sert :
-- **Fichiers statiques** : CSS, JavaScript, images (depuis `/static/`)
-- **Fichiers média** : Documents uploadés (depuis `/media/`)
-- **Requêtes HTTP** : Transmises à Gunicorn (Django)
-
-**Configuration HTTPS** : Prête à activer (voir `nginx/nginx.conf`)
-
-### Mise à jour de l'application
-
-```bash
-# 1. Sauvegarder les données (recommandé)
-# Voir section "Sauvegarde" dans README_DEPLOYMENT.md
-
-# 2. Mettre à jour le code
-git pull origin main
-
-# 3. Reconstruire et redémarrer
-docker compose up -d --build
-
-# 4. Exécuter les migrations si nécessaire
-docker compose exec web python manage.py migrate
-```
-
-### Dépannage
-
-#### Les conteneurs ne démarrent pas
-
-```bash
-# Vérifier les logs
-docker compose logs
-
-# Vérifier la configuration
-docker compose config
-```
-
-#### Erreur de connexion à la base de données
-
-```bash
-# Vérifier que PostgreSQL est prêt
-docker compose exec db pg_isready -U postgres
-
-# Vérifier les variables d'environnement
-docker compose exec web env | grep DB_
-```
-
-#### Les fichiers statiques ne s'affichent pas
-
-```bash
-# Recollecter les fichiers statiques
-docker compose exec web python manage.py collectstatic --noinput
-
-# Redémarrer Nginx
-docker compose restart nginx
-```
-
-#### Erreur 502 Bad Gateway
-
-```bash
-# Vérifier que Gunicorn fonctionne
-docker compose exec web ps aux | grep gunicorn
-
-# Vérifier les logs
-docker compose logs web
-docker compose logs nginx
-```
-
-### Documentation complète
-
-Pour plus de détails sur le déploiement, consultez :
-- **README_DEPLOYMENT.md** : Guide complet de déploiement sur VPS
-- **DOCKER_SETUP.md** : Documentation de la configuration Docker
-- **nginx/nginx.conf** : Configuration détaillée de Nginx avec commentaires
+Ce projet est distribue sous licence [MIT](LICENSE).
 
 ---
 
-## 📊 Monitoring
-
-### Vue d'ensemble
-
-L'application intègre un système de monitoring professionnel avec **Uptime Kuma** pour surveiller la disponibilité des services en temps réel.
-
-### Démarrage rapide
-
-```bash
-# Démarrer le monitoring (après avoir démarré l'application principale)
-docker compose -f docker-compose.monitoring.yml up -d
-
-# Accéder à l'interface
-# URL : http://localhost:3001
-```
-
-### Services surveillés
-
-**⚠️ Important** : Utilisez les noms de services Docker si Uptime Kuma est dans le même réseau Docker.
-
-- **Site web principal (via Nginx)** : 
-  - Depuis le réseau Docker : `http://nginx/accounts/login/`
-  - Depuis l'extérieur : `http://localhost/accounts/login/`
-- **API Django (directement)** :
-  - Depuis le réseau Docker : `http://web:8000/api/health/` (endpoint de santé)
-  - Depuis l'extérieur : `http://localhost/api/health/`
-- **Base de données PostgreSQL** :
-  - Host : `db` (nom du service Docker)
-  - Port : `5432`
-
-### Documentation complète
-
-Consultez **MONITORING.md** pour :
-- Explication détaillée du système de monitoring
-- Configuration des surveillances
-- Guide de présentation pour la soutenance
-- Architecture technique
-
-Consultez **START_MONITORING.md** pour un guide de démarrage rapide en 3 étapes.
-
-### Endpoint de santé
-
-L'application expose un endpoint de health check via l'app Django `health` :
-- **URL** : `/api/health/`
-- **Réponse** : `{"status": "ok"}` avec HTTP 200 si tout est OK
-- **Vérification** : Teste la connexion à la base de données PostgreSQL
-- **Accessible sans authentification** : Utilisé par les outils de monitoring
-
----
-
-## ⚙️ Configuration
-
-### Configuration de la base de données
-
-Dans `config/settings.py`, la base de données est configurée pour PostgreSQL par défaut. Pour utiliser SQLite en développement, commentez la section PostgreSQL et utilisez la configuration SQLite par défaut de Django.
-
-### Configuration des années académiques
-
-1. Se connecter en tant qu'**Administrateur**
-2. Aller dans **Configuration** → **Années académiques**
-3. Créer une nouvelle année académique
-4. **Activer** l'année académique (une seule peut être active à la fois)
-
-### Configuration de la structure académique
-
-1. **Facultés** : Créer les facultés de l'université
-2. **Départements** : Créer les départements et les rattacher aux facultés
-3. **Cours** : Créer les cours avec :
-   - Code et nom du cours
-   - Département de rattachement
-   - Niveau (1, 2 ou 3)
-   - Année académique (assignée automatiquement à l'année active)
-   - Prérequis (optionnel, filtrés par niveau)
-   - Professeur assigné
-   - Nombre total de périodes
-
----
-
-## 👥 Comptes et rôles
-
-### Description des rôles
-
-| Rôle | Permissions | Restrictions |
-|------|------------|--------------|
-| **ADMIN** | Configuration système, gestion utilisateurs, consultation audit | Ne peut pas effectuer d'opérations opérationnelles |
-| **SECRETAIRE** | Inscriptions, validation justificatifs, encodage absences justifiées | Accès limité aux données opérationnelles |
-| **PROFESSEUR** | Saisie présences/absences, consultation ses cours | Ne peut pas modifier absences justifiées par Secrétariat |
-| **ETUDIANT** | Consultation ses absences, soumission justificatifs | Accès en lecture seule, pas de modification |
-
-### Flux de création des comptes étudiants
-
-1. **Le Secrétariat** accède à **Inscriptions** → **Inscrire un étudiant**
-2. Remplit le formulaire :
-   - Nom, Prénom
-   - Email (unique)
-   - Mot de passe temporaire
-   - Niveau académique (si inscription à un niveau complet)
-3. Choisit le type d'inscription :
-   - **Inscription à un niveau complet** : Sélectionne le niveau (1, 2 ou 3)
-   - **Inscription à un cours spécifique** : Sélectionne le cours
-4. Le système :
-   - Crée le compte utilisateur avec le rôle `ETUDIANT`
-   - Marque le mot de passe comme temporaire (`must_change_password=True`)
-   - Crée les inscriptions correspondantes
-   - Met à jour le niveau de l'étudiant (si inscription à un niveau complet)
-
-### Première connexion de l'étudiant
-
-1. L'étudiant se connecte avec son email et le mot de passe temporaire
-2. Le système détecte que le mot de passe est temporaire
-3. **Redirection automatique** vers la page de changement de mot de passe
-4. L'étudiant doit créer un nouveau mot de passe respectant :
-   - Au moins 8 caractères
-   - Au moins une majuscule
-   - Au moins une minuscule
-   - Au moins un chiffre
-   - Au moins un caractère spécial
-   - Différent de l'ancien mot de passe
-5. Après validation, accès à l'espace étudiant
-
----
-
-## 📚 Logique métier
-
-### Organisation des cours par niveau
-
-- Chaque cours appartient à un **niveau académique** (1, 2 ou 3)
-- Les cours sont automatiquement rattachés à l'**année académique active**
-- Un étudiant ne peut être inscrit qu'à un seul niveau à la fois
-- Les prérequis sont automatiquement filtrés par niveau (un cours de niveau 2 ne peut avoir que des prérequis de niveau 1)
-
-### Gestion des prérequis
-
-- **Règle** : Un cours de niveau N ne peut avoir que des prérequis de niveau < N
-- **Validation** : Avant l'inscription à un cours, le système vérifie que l'étudiant a validé tous les prérequis
-- **Blocage** : Si un prérequis n'est pas validé, l'inscription est refusée avec un message explicite
-
-### Inscription à un niveau complet
-
-- **Logique** : L'inscription à un niveau complet correspond à l'inscription à un niveau académique précis (1, 2 ou 3)
-- **Processus** :
-  1. Sélection du niveau (1, 2 ou 3)
-  2. Vérification que l'étudiant a validé le niveau précédent (si N > 1)
-  3. Inscription automatique à tous les cours du niveau sélectionné
-  4. Mise à jour du niveau de l'étudiant
-- **Exception** : Pour les nouveaux étudiants, l'inscription directe en niveau 2 ou 3 est autorisée (étudiants transférés ou admissions directes)
-
-### Gestion des absences justifiées par le Secrétariat
-
-- **Encodage direct** : Le Secrétariat peut encoder directement une absence justifiée
-- **Informations requises** :
-  - Étudiant concerné
-  - Date de l'absence
-  - Cours concerné(s) (peut être multiple pour une même date)
-  - Type d'absence
-  - Document justificatif (optionnel)
-  - Commentaire (optionnel)
-- **Priorité** : Les absences encodées par le Secrétariat sont **officielles et prioritaires**
-- **Consultation Professeur** : Le Professeur peut voir ces absences mais **ne peut pas les modifier**
-- **Traçabilité** : Toutes les absences encodées sont enregistrées dans le journal d'audit avec l'utilisateur responsable
-
-### Calcul du taux d'absence
-
-- **Formule** : `(Total heures absences non justifiées / Nombre total de périodes du cours) × 100`
-- **Seuils** :
-  - **30%** : Alerte visuelle (message d'avertissement)
-  - **40%** : Blocage automatique (sauf exemption accordée par le Secrétariat)
-- **Exemption** : Le Secrétariat peut accorder une exemption au seuil de 40% pour un étudiant spécifique
-
----
-
-## 🔒 Sécurité et bonnes pratiques
-
-### Règles de mot de passe
-
-- **Longueur minimale** : 8 caractères
-- **Complexité requise** :
-  - Au moins une majuscule
-  - Au moins une minuscule
-  - Au moins un chiffre
-  - Au moins un caractère spécial
-- **Changement obligatoire** : Pour les mots de passe temporaires
-- **Différence** : Le nouveau mot de passe doit être différent de l'ancien
-
-### Traçabilité des actions
-
-- **Journal d'audit** : Toutes les actions sensibles sont enregistrées
-- **Informations enregistrées** :
-  - Utilisateur responsable
-  - Date et heure précise
-  - Type d'action
-  - Objet concerné (ID, nom)
-  - Motif/raison (si applicable)
-  - Niveau de log (INFO, WARNING, ERROR)
-- **Consultation** : Accessible par Admin et Secrétariat
-
-### Restrictions par rôle
-
-- **Séparation stricte** : Chaque rôle a des permissions bien définies
-- **Décorateurs de sécurité** : Protection au niveau des vues
-- **Vérifications serveur** : Double vérification (décorateur + logique métier)
-- **Messages explicites** : En cas d'accès non autorisé, message clair pour l'utilisateur
-
-### Bonnes pratiques implémentées
-
-- ✅ Hashage des mots de passe (Django)
-- ✅ Protection CSRF (Django)
-- ✅ Validation des données côté serveur
-- ✅ Transactions atomiques pour les opérations critiques
-- ✅ Gestion des erreurs avec messages utilisateur
-- ✅ Logging des actions importantes
-- ✅ Protection contre les injections SQL (ORM Django)
-- ✅ Intégrité référentielle renforcée (18 relations FK corrigées)
-- ✅ Optimisation des performances (20+ index ajoutés)
-- ✅ Contraintes et validations au niveau base de données
-- ✅ Traçabilité complète avec journaux d'audit structurés
-
----
-
-## 📊 État du projet
-
-### Fonctionnalités terminées ✅
-
-- [x] Authentification et gestion des utilisateurs
-- [x] Gestion de la structure académique (Facultés, Départements, Cours)
-- [x] Gestion des années académiques
-- [x] Inscriptions (par niveau ou par cours)
-- [x] Gestion des prérequis
-- [x] Saisie des présences/absences par les professeurs
-- [x] Soumission de justificatifs par les étudiants
-- [x] Validation/refus de justificatifs par le Secrétariat
-- [x] Encodage direct d'absences justifiées par le Secrétariat
-- [x] Calcul automatique des taux d'absence
-- [x] Gestion des exemptions au seuil de 40%
-- [x] Journaux d'audit complets
-- [x] Système de notifications
-- [x] Système de messagerie interne
-- [x] Tableaux de bord par rôle
-- [x] Interface responsive (Bootstrap)
-- [x] **Configuration Docker complète** (Dockerfile, docker-compose.yml)
-- [x] **Déploiement en production** (Nginx + Gunicorn + PostgreSQL)
-- [x] **Scripts d'initialisation** (entrypoint.sh)
-- [x] **Documentation de déploiement** (README_DEPLOYMENT.md, DOCKER_SETUP.md)
-- [x] **Système de monitoring** (Uptime Kuma avec docker-compose.monitoring.yml)
-- [x] **Endpoint de santé API** (`/api/health/` pour vérification de la base de données)
-
-### Fonctionnalités en cours 🔄
-
-- [ ] Export des données (Excel, PDF)
-- [ ] Statistiques avancées
-- [ ] Notifications par email
-- [ ] API REST pour intégrations externes
-
-### Améliorations futures 💡
-
-- [ ] Application mobile (React Native)
-- [ ] Intégration avec systèmes universitaires existants
-- [ ] Tableau de bord analytique avec graphiques
-- [ ] Système de rappels automatiques
-- [ ] Génération automatique de rapports périodiques
-- [ ] Multi-langues (FR, EN, etc.)
-
----
-
-## 🎬 Instructions pour la démonstration
-
-### Parcours Admin
-
-1. **Connexion** : Se connecter avec un compte Admin
-2. **Configuration de la structure académique** :
-   - Créer une faculté (ex: "Faculté des Sciences et Technologies")
-   - Créer un département (ex: "Informatique")
-   - Créer des cours avec niveaux et prérequis
-3. **Gestion des utilisateurs** :
-   - Créer un compte Professeur
-   - Créer un compte Secrétariat
-4. **Configuration des années académiques** :
-   - Créer une année académique (ex: "2024-2025")
-   - Activer l'année académique
-5. **Consultation des journaux d'audit** :
-   - Accéder aux journaux d'audit
-   - Filtrer par type d'action, utilisateur, date
-
-### Parcours Secrétariat
-
-1. **Connexion** : Se connecter avec un compte Secrétariat
-2. **Inscription d'un étudiant** :
-   - Aller dans "Inscriptions" → "Inscrire un étudiant"
-   - Créer un compte étudiant avec mot de passe temporaire
-   - Choisir "Inscription à un niveau complet" (Niveau 1)
-   - Valider l'inscription
-3. **Inscription à un cours spécifique** :
-   - Inscrire un étudiant existant à un cours spécifique
-   - Vérifier la validation des prérequis
-4. **Validation de justificatifs** :
-   - Aller dans "Justificatifs" → "En attente"
-   - Consulter un justificatif soumis par un étudiant
-   - Accepter ou refuser avec un commentaire
-5. **Encodage d'absence justifiée** :
-   - Aller dans "Encoder Absence Justifiée"
-   - Sélectionner un étudiant, une date, un ou plusieurs cours
-   - Joindre un document justificatif (optionnel)
-   - Valider l'encodage
-6. **Consultation des absences justifiées** :
-   - Aller dans "Absences Justifiées"
-   - Consulter la liste des absences encodées
-   - Filtrer par étudiant, date, cours
-7. **Modification d'absence** :
-   - Aller dans "Justificatifs" → "Acceptées"
-   - Cliquer sur "Modifier l'absence"
-   - Modifier le statut, la durée, le type
-   - Indiquer un motif obligatoire
-   - Valider la modification
-
-### Parcours Professeur
-
-1. **Connexion** : Se connecter avec un compte Professeur
-2. **Consultation de ses cours** :
-   - Aller dans "Mes cours"
-   - Voir la liste des cours assignés
-3. **Consultation des détails d'un cours** :
-   - Cliquer sur "Voir les détails" d'un cours
-   - Voir l'historique des séances
-   - Voir la liste des étudiants inscrits
-4. **Saisie des présences/absences** :
-   - Cliquer sur "Gérer les séances" ou "Faire l'appel"
-   - Sélectionner ou créer une séance
-   - Marquer les étudiants comme Présent, Absent, ou Absent Justifié
-   - Observer les absences justifiées par le Secrétariat (lecture seule)
-   - Valider l'appel
-5. **Consultation de l'historique** :
-   - Voir l'historique des séances avec les durées formatées
-   - Voir les statistiques d'absence par cours
-
-### Parcours Étudiant
-
-1. **Première connexion** :
-   - Se connecter avec l'email et le mot de passe temporaire fourni par le Secrétariat
-   - Être redirigé automatiquement vers le changement de mot de passe
-   - Créer un nouveau mot de passe respectant les règles de sécurité
-   - Accéder à l'espace étudiant
-2. **Consultation de ses cours** :
-   - Aller dans "Mes cours"
-   - Voir la liste des cours auxquels l'étudiant est inscrit
-3. **Consultation des détails d'un cours** :
-   - Cliquer sur "Voir les détails" d'un cours
-   - Voir l'historique des séances avec statut (Présent/Absent/Justifié)
-   - Voir le taux d'absence actuel
-4. **Consultation de ses absences** :
-   - Cliquer sur "Voir les absences" d'un cours
-   - Voir la liste détaillée de toutes les absences
-   - Voir le statut de chaque absence (Justifiée/Non justifiée/En attente)
-5. **Soumission d'un justificatif** :
-   - Cliquer sur "Soumettre justificatif" pour une absence non justifiée
-   - Télécharger un document justificatif (PDF, image)
-   - Ajouter un commentaire (optionnel)
-   - Soumettre le justificatif
-   - Voir le statut "En attente"
-6. **Suivi des justificatifs** :
-   - Revenir sur la page des absences
-   - Voir le statut mis à jour (Accepté/Refusé)
-   - Si refusé, voir le motif et pouvoir résoumettre
-
----
-
-## 📚 Documentation supplémentaire
-
-### Documentation technique
-
-Le projet contient une documentation détaillée dans le dossier `docs/` :
-
-- **`docs/audits/`** : Audits détaillés des modules et de la base de données
-- **`docs/corrections/`** : Corrections appliquées et améliorations
-- **`docs/validations/`** : Validations des modules par rôle
-- **`docs/summaries/`** : Résumés et finalisations
-
-### Guides de déploiement
-
-- **`README_DEPLOYMENT.md`** : Guide complet de déploiement sur VPS
-- **`DOCKER_SETUP.md`** : Documentation de la configuration Docker
-- **`MONITORING.md`** : Guide du système de monitoring avec Uptime Kuma
-- **`START_MONITORING.md`** : Guide de démarrage rapide du monitoring
-- **`nginx/nginx.conf`** : Configuration Nginx avec commentaires détaillés
-
-### Scripts utilitaires
-
-Le dossier `scripts/` contient des outils pour :
-- **Maintenance** : Correction de migrations, vérification du schéma
-- **Vérification** : Santé de la base de données, vérification des rôles, audits
-- **Setup** : Configuration de données de test, setup d'utilisateurs
-
----
-
-## 📞 Support et contact
-
-Pour toute question ou problème, veuillez consulter la documentation technique dans le dossier `docs/` ou contacter l'équipe de développement.
-
----
-
-## 📄 Licence
-
-Ce projet est destiné à un usage académique et professionnel. Tous droits réservés.
-
----
-
-**Version** : 1.0.0  
-**Dernière mise à jour** : Janvier 2025  
-**Framework** : Django 6.0  
-**Python** : 3.13+  
-**Docker** : Prêt pour production avec Docker Compose  
-**Infrastructure** : Nginx + Gunicorn + PostgreSQL
+<sub>Derniere mise a jour : Mars 2026</sub>
