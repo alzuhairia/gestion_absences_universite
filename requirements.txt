@@ -24,7 +24,7 @@ python-dotenv==1.0.1
 gunicorn==22.0.0
 
 # Génération de PDF
-reportlab==4.0.7
+reportlab==4.4.10
 
 # Utilitaires (Gestion des images)
 # 12.1.1+ corrige la vulnérabilité PSD out-of-bounds write
