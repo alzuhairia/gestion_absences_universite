@@ -49,7 +49,9 @@ RUN mkdir -p /app/staticfiles /app/media /app/logs && \
 COPY --chown=django:django . /app/
 RUN sed -i 's/\r$//g' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-USER django
+# USER django is NOT set here intentionally.
+# The entrypoint runs as root to chown mounted volumes,
+# then drops to the django user via runuser/exec.
 
 EXPOSE 8000
 
