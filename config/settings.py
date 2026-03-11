@@ -80,7 +80,7 @@ if not DEBUG and not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = [
         f"https://{host}"
         for host in ALLOWED_HOSTS
-        if host not in {"localhost", "127.0.0.1", "0.0.0.0"}
+        if host not in {"localhost", "127.0.0.1", "0.0.0.0"}  # nosec B104
     ]
 
 USE_X_FORWARDED_PROTO = env_bool("USE_X_FORWARDED_PROTO", True)
@@ -179,6 +179,7 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "db"),
         "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": env_int("CONN_MAX_AGE", 0 if DEBUG else 600),
     }
 }
 
@@ -254,10 +255,22 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 AUTH_USER_MODEL = "accounts.User"
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+# Map Django message levels to Bootstrap alert CSS classes
+from django.contrib.messages import constants as message_constants
+
+MESSAGE_TAGS = {
+    message_constants.DEBUG: "secondary",
+    message_constants.INFO: "info",
+    message_constants.SUCCESS: "success",
+    message_constants.WARNING: "warning",
+    message_constants.ERROR: "danger",
+}
 
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
@@ -313,6 +326,9 @@ if DEBUG:
     SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
     SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
     CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_HTTPONLY = True
     SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 0)
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
     SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
@@ -320,13 +336,14 @@ else:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_HTTPONLY = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
-SECURE_REFERRER_POLICY = (
-    "strict-origin-when-cross-origin" if not DEBUG else "same-origin"
-)
+SECURE_REFERRER_POLICY = "same-origin"
 RATELIMIT_USE_CACHE = "default"

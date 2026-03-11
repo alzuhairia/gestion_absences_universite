@@ -1,7 +1,9 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -13,6 +15,7 @@ from apps.notifications.models import Notification
 
 @login_required
 @student_required
+@require_GET
 def student_dashboard(request):
     """
     Dashboard étudiant - Informatif et pédagogique, AUCUN pouvoir décisionnel.
@@ -69,7 +72,7 @@ def student_dashboard(request):
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+        abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
         total_abs_hours += abs_hours
 
     if total_periods > 0:
@@ -85,7 +88,7 @@ def student_dashboard(request):
     for ins in inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+            abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (abs_hours / cours.nombre_total_periodes) * 100
 
             # CORRECTION BUG CRITIQUE #4b — seuil configuré par cours
@@ -95,7 +98,7 @@ def student_dashboard(request):
                 academic_status = "BLOQUÉ"
                 status_color = "danger"
                 break
-            elif rate >= (seuil * 0.75):  # Alerte à 75% du seuil
+            elif seuil > 0 and rate >= (seuil * 0.75):  # Alerte à 75% du seuil
                 is_at_risk = True
 
     if not is_blocked and is_at_risk:
@@ -126,6 +129,7 @@ def student_dashboard(request):
 
 @login_required
 @student_required
+@require_GET
 def student_statistics(request):
     """
     Page de statistiques détaillées pour l'étudiant.
@@ -177,7 +181,7 @@ def student_statistics(request):
         total_periods = cours.nombre_total_periodes
 
         # Calculate Unjustified Absences
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
         rate = (total_abs / total_periods * 100) if total_periods > 0 else 0
 
@@ -187,7 +191,7 @@ def student_statistics(request):
         total_hours_missed += total_abs
         # CORRECTION BUG CRITIQUE #4g — seuil configuré par cours
         seuil = cours.get_seuil_absence()
-        if rate >= seuil:
+        if rate >= seuil and not ins.exemption_40:
             courses_at_risk += 1
 
     # --- 2. Data for Line Chart (Trend over time) ---
@@ -256,6 +260,7 @@ def student_statistics(request):
 
 @login_required
 @student_required
+@require_GET
 def student_course_detail(request, inscription_id):
     """
     Page de détails du cours pour l'étudiant - Lecture seule, avec onglets pour Séances et Absences.
@@ -369,7 +374,7 @@ def student_course_detail(request, inscription_id):
         )
 
     # Calculate course statistics
-    total_abs_hours = (
+    total_abs_hours = float(
         Absence.objects.filter(
             id_inscription=inscription,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE
@@ -406,6 +411,7 @@ def student_course_detail(request, inscription_id):
 
 @login_required
 @student_required
+@require_GET
 def student_courses(request):
     """
     Page "Mes Cours" - Liste de tous les cours de l'étudiant.
@@ -477,7 +483,7 @@ def student_courses(request):
         cours = ins.id_cours
 
         # Calculate NON_JUSTIFIED absences only
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
         # Calculate absence rate
         absence_rate = (
@@ -496,7 +502,7 @@ def student_courses(request):
         if absence_rate >= seuil_cours and not ins.exemption_40:
             course_status = "BLOQUÉ"
             course_status_color = "danger"
-        elif absence_rate >= (seuil_cours * 0.75):
+        elif seuil_cours > 0 and absence_rate >= (seuil_cours * 0.75):
             course_status = "À RISQUE"
             course_status_color = "warning"
         # Count sessions and absences
@@ -539,6 +545,7 @@ def student_courses(request):
 
 @login_required
 @student_required
+@require_GET
 def student_absences(request):
     """
     Page "Mes Absences" - Liste de toutes les absences de l'étudiant.
@@ -608,18 +615,24 @@ def student_absences(request):
             }
         )
 
+    # Pagination
+    paginator = Paginator(absences_data, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     return render(
         request,
         "dashboard/student_absences.html",
         {
             "academic_year": academic_year,
-            "absences_data": absences_data,
+            "absences_data": page_obj,
+            "page_obj": page_obj,
         },
     )
 
 
 @login_required
 @student_required
+@require_GET
 def student_reports(request):
     """
     Page "Rapports" - Téléchargement des rapports PDF.
@@ -658,7 +671,7 @@ def student_reports(request):
     for ins in inscriptions:
         cours = ins.id_cours
         total_periods += cours.nombre_total_periodes
-        abs_hours = absence_sums.get(ins.id_inscription, 0) or 0
+        abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
         total_abs_hours += abs_hours
 
     overall_rate = (total_abs_hours / total_periods * 100) if total_periods > 0 else 0

@@ -54,6 +54,7 @@ def is_admin(user):
 
 @login_required
 @admin_required
+@require_GET
 def admin_dashboard_main(request):
     """
     Tableau de bord principal de l'administrateur avec KPIs et vue d'ensemble.
@@ -125,7 +126,7 @@ def admin_dashboard_main(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (
                 cours.seuil_absence
@@ -802,6 +803,7 @@ def admin_course_delete(request, course_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_users(request):
     """Liste et gestion des utilisateurs"""
 
@@ -956,7 +958,7 @@ def admin_user_reset_password(request, user_id):
     user.set_password(new_password)
     # Forcer l'utilisateur à changer son mot de passe à la prochaine connexion
     user.must_change_password = True
-    user.save()
+    user.save(update_fields=["password", "must_change_password"])
     log_action(
         request.user,
         f"CRITIQUE: Réinitialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sécurité)",
@@ -975,6 +977,7 @@ def admin_user_reset_password(request, user_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_user_audit(request, user_id):
     """Consultation des journaux d'audit pour un utilisateur spécifique"""
 
@@ -1372,6 +1375,7 @@ def admin_settings(request):
 
 @login_required
 @admin_required
+@require_http_methods(["GET", "POST"])
 def admin_academic_years(request):
     """Liste et gestion des années académiques"""
 
@@ -1541,6 +1545,7 @@ def admin_academic_year_delete(request, year_id):
 
 @login_required
 @admin_required
+@require_GET
 def admin_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres"""
 
@@ -1561,7 +1566,7 @@ def admin_audit_logs(request):
     if date_from:
         logs = logs.filter(date_action__gte=date_from)
     if date_to:
-        logs = logs.filter(date_action__lte=date_to)
+        logs = logs.filter(date_action__date__lte=date_to)
     if user_filter:
         logs = logs.filter(
             Q(id_utilisateur__nom__icontains=user_filter)
@@ -1598,6 +1603,7 @@ def admin_audit_logs(request):
 
 @login_required
 @admin_required
+@require_GET
 def admin_export_audit_csv(request):
     """Export des journaux d'audit en CSV"""
 
@@ -1628,15 +1634,24 @@ def admin_export_audit_csv(request):
     if date_from:
         logs = logs.filter(date_action__gte=date_from)
     if date_to:
-        logs = logs.filter(date_action__lte=date_to)
+        logs = logs.filter(date_action__date__lte=date_to)
 
     for log in logs:
+        user = log.id_utilisateur
+        if user:
+            user_name = f"{user.prenom} {user.nom}"
+            user_email = user.email
+            user_role = user.get_role_display()
+        else:
+            user_name = "(utilisateur supprimé)"
+            user_email = ""
+            user_role = ""
         writer.writerow(
             [
                 log.date_action.strftime("%Y-%m-%d %H:%M:%S"),
-                f"{log.id_utilisateur.prenom} {log.id_utilisateur.nom}",
-                log.id_utilisateur.email,
-                log.id_utilisateur.get_role_display(),
+                user_name,
+                user_email,
+                user_role,
                 log.action,
                 log.adresse_ip,
             ]

@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db import models
 
 
@@ -45,7 +45,9 @@ class Absence(models.Model):
         verbose_name="Type d'absence",
         db_index=True,
     )
-    duree_absence = models.FloatField(
+    duree_absence = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
         verbose_name="Durée (h)",
         validators=[MinValueValidator(0.01)],
         help_text="Durée de l'absence en heures",
@@ -53,7 +55,7 @@ class Absence(models.Model):
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
-        default="EN_ATTENTE",
+        default="NON_JUSTIFIEE",
         verbose_name="Statut",
         db_index=True,
     )
@@ -79,17 +81,17 @@ class Absence(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(duree_absence__gte=0),
-                name="absence_duree_absence_non_negative",
+                condition=models.Q(duree_absence__gte=0.01),
+                name="absence_duree_absence_positive",
             ),
         ]
         unique_together = (("id_inscription", "id_seance"),)
 
     def clean(self):
-        """Validation: durée positive"""
-        if self.duree_absence is not None and self.duree_absence < 0:
+        """Validation: durée strictement positive"""
+        if self.duree_absence is not None and self.duree_absence <= 0:
             raise ValidationError(
-                {"duree_absence": "La durée de l'absence doit être positive."}
+                {"duree_absence": "La durée de l'absence doit être strictement positive."}
             )
 
     def save(self, *args, **kwargs):
@@ -142,12 +144,14 @@ class Justification(models.Model):
         null=True,
         verbose_name="Commentaire Étudiant",
         help_text="Commentaire de l'étudiant expliquant l'absence",
+        validators=[MaxLengthValidator(2000)],
     )
     commentaire_gestion = models.TextField(
         blank=True,
         null=True,
         verbose_name="Commentaire Gestion",
         help_text="Commentaire interne du secrétariat",
+        validators=[MaxLengthValidator(2000)],
     )
 
     state = models.CharField(

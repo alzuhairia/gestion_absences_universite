@@ -29,8 +29,7 @@ class Notification(models.Model):
     type = models.CharField(
         max_length=20,
         choices=TYPE_CHOICES,
-        blank=True,
-        null=True,
+        default="INFO",
         db_column="type",
         verbose_name="Type",
         db_index=True,

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
@@ -56,10 +57,23 @@ class AnneeAcademique(models.Model):
 
     def save(self, *args, **kwargs):
         """S'assurer qu'une seule année est active"""
-        self.full_clean()
         with transaction.atomic():
             if self.active:
-                AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+                # Only deactivate others when active is newly set to True:
+                # either the object is new (no pk) or active changed from False.
+                activating = not self.pk
+                if not activating and self.pk:
+                    old_active = (
+                        AnneeAcademique.objects.filter(pk=self.pk)
+                        .values_list("active", flat=True)
+                        .first()
+                    )
+                    activating = not old_active
+                if activating:
+                    # Deactivate others BEFORE full_clean so clean() won't reject
+                    # the activation. Wrapped in atomic() so rolled back on error.
+                    AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+            self.full_clean()
             super().save(*args, **kwargs)
 
     def __str__(self):
@@ -88,6 +102,24 @@ class Seance(models.Model):
         db_column="id_annee",
         verbose_name="Année académique",
         related_name="seances",
+    )
+    validated = models.BooleanField(
+        default=False,
+        verbose_name="Séance validée",
+        help_text="Une fois validée, la présence ne peut plus être modifiée par le professeur.",
+    )
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Validée par",
+        related_name="seances_validees",
+    )
+    date_validated = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de validation",
     )
 
     class Meta:

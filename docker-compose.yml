@@ -101,12 +101,15 @@ services:
       - .env
     environment:
       HEALTHCHECK_ALLOWLIST_CIDRS: ${HEALTHCHECK_ALLOWLIST_CIDRS:-127.0.0.1/32,::1/128}
+      DOMAIN: ${DOMAIN:-localhost}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -119,6 +122,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ============================================
+  # SERVICE: Certbot (Let's Encrypt SSL)
+  # ============================================
+  certbot:
+    image: certbot/certbot
+    container_name: unabsences_certbot
+    profiles:
+      - certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    networks:
+      unabsences_network:
 
   # ============================================
   # SERVICE: Uptime Kuma
@@ -150,6 +167,10 @@ volumes:
   static_volume:
     driver: local
   media_volume:
+    driver: local
+  certbot_conf:
+    driver: local
+  certbot_www:
     driver: local
   uptime_kuma_data:
     driver: local
