@@ -19,8 +19,8 @@ Example: `dashboard`, `absences`, `accounts`, `ci`, etc.
 
 - [ ] Branch is based on `Dev`
 - [ ] Commits follow conventional format: `<type>(<scope>): <message>`
-- [ ] Local tests pass (`python manage.py test`)
-- [ ] Python syntax check done
+- [ ] Local tests pass (`python -m pytest --tb=short -q`)
+- [ ] Linting passes (`black --check . && isort --check-only .`)
 - [ ] CI checks pass
 
 ## Testing Notes
@@ -28,11 +28,7 @@ Example: `dashboard`, `absences`, `accounts`, `ci`, etc.
 Commands executed and key results:
 
 ```bash
-python manage.py test
-```
-
-```powershell
-git ls-files "*.py" | ForEach-Object { python -m py_compile $_ }
+python -m pytest --tb=short -q
 ```
 
 ## Screenshots (if UI changes)

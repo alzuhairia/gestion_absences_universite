@@ -103,13 +103,7 @@ Each PR should include:
 Required:
 
 ```bash
-python manage.py test
-```
-
-PowerShell syntax for Python syntax check:
-
-```powershell
-git ls-files "*.py" | ForEach-Object { python -m py_compile $_ }
+python -m pytest --tb=short -q
 ```
 
 Optional quality checks:
@@ -130,7 +124,7 @@ powershell -ExecutionPolicy Bypass -File scripts/setup/setup_git_workflow.ps1
 
 This configures:
 
-- local commit template (`.gitmessage.txt`)
+- local commit template (`.githooks/gitmessage.txt`)
 - local Git hook path (`.githooks`)
 - commit message validation hook (`.githooks/commit-msg`)
 
