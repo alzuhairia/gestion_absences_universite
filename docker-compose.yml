@@ -102,6 +102,8 @@ services:
     environment:
       HEALTHCHECK_ALLOWLIST_CIDRS: ${HEALTHCHECK_ALLOWLIST_CIDRS:-127.0.0.1/32,::1/128}
       DOMAIN: ${DOMAIN:-localhost}
+      MONITORING_USER: ${MONITORING_USER:-}
+      MONITORING_PASSWORD: ${MONITORING_PASSWORD:-}
     ports:
       - "80:80"
       - "443:443"
