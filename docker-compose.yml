@@ -21,6 +21,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
     networks:
       unabsences_network:
         ipv4_address: 172.30.0.12
@@ -82,7 +84,7 @@ services:
       unabsences_network:
         ipv4_address: 172.30.0.11
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS -H \"X-Forwarded-Proto: https\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" http://localhost:8000/api/health/ >/dev/null || exit 1" ]
+      test: [ "CMD-SHELL", "curl -fsS -H \"Host: ${DOMAIN:-localhost}\" -H \"X-Forwarded-Proto: https\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" http://localhost:8000/api/health/ >/dev/null || exit 1" ]
       interval: 40s
       timeout: 10s
       retries: 3
@@ -97,8 +99,6 @@ services:
       dockerfile: Dockerfile
     container_name: unabsences_nginx
     restart: always
-    env_file:
-      - .env
     environment:
       HEALTHCHECK_ALLOWLIST_CIDRS: ${HEALTHCHECK_ALLOWLIST_CIDRS:-127.0.0.1/32,::1/128}
       DOMAIN: ${DOMAIN:-localhost}
@@ -118,13 +118,14 @@ services:
       unabsences_network:
         ipv4_address: 172.30.0.10
     healthcheck:
-      test: [ "CMD-SHELL", "curl -kfsS -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://localhost/api/health/ >/dev/null || exit 1" ]
+      test: [ "CMD-SHELL", "curl -kfsS -H \"Host: ${DOMAIN:-localhost}\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://localhost/api/health/ >/dev/null || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
   # ============================================
   # SERVICE: Certbot (Let's Encrypt SSL)
+  # One-shot container, run via: scripts/init-ssl.sh or scripts/renew-ssl.sh
   # ============================================
   certbot:
     image: certbot/certbot
@@ -138,23 +139,24 @@ services:
       unabsences_network:
 
   # ============================================
-  # SERVICE: Uptime Kuma
+  # SERVICE: Uptime Kuma (Monitoring)
+  # Accessible only from localhost (127.0.0.1:3001)
   # ============================================
   uptime-kuma:
     image: louislam/uptime-kuma:1
     container_name: unabsences_monitoring
     restart: always
-    env_file:
-      - .env
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       - uptime_kuma_data:/app/data
     healthcheck:
-      test: [ "CMD-SHELL", "curl -kfsS -H \"Host: localhost\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://nginx/api/health/ >/dev/null || exit 1" ]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3001 >/dev/null || exit 1" ]
       interval: 60s
       timeout: 10s
       retries: 3
+    security_opt:
+      - no-new-privileges:true
     networks:
       unabsences_network:
         ipv4_address: 172.30.0.14
