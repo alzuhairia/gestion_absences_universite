@@ -1,38 +1,31 @@
-# Environnement virtuel
+# Virtual environments
 venv/
 .venv/
 env/
 
-# Variables d'environnement (TRÈS IMPORTANT)
+# Environment variables
 .env
 .env.production
 .env.local
 
-# Fichiers Django
-db.sqlite3
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .Python
+*.egg-info/
+dist/
+build/
+
+# Django
+db.sqlite3
 media/
+staticfiles/
 
 # Logs
 *.log
-*.txt
-!requirements.txt
-!.gitmessage.txt
 logs/
-debug_log.txt
-traceback.txt
-error.log
-
-# Fichiers temporaires
-*.bak
-*.tmp
-*.temp
-models_temp.py
-gestion_absences_universite
 
 # IDE
 .vscode/
@@ -46,13 +39,21 @@ gestion_absences_universite
 Thumbs.db
 desktop.ini
 
-# Scripts temporaires (à nettoyer périodiquement)
-update_imports.py
-fix_imports.py
+# Testing / caching
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Claude Code
 .claude/
 
 # Docker
 .dockerignore
 
-# Local backup artifacts
+# Misc
 backups/
+cookies.txt
+*.bak
+*.tmp
+*.temp
