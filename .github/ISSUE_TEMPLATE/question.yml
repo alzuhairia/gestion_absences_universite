@@ -1,0 +1,39 @@
+name: Question / Support
+description: Ask a question about setup, usage, or configuration
+title: "question: <short description>"
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, please check the existing documentation:
+        - [README](../../README.md)
+        - [Deployment guide](../../docs/deployment.md)
+        - [Docker setup](../../docs/docker-setup.md)
+        - [Monitoring](../../docs/monitoring.md)
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Describe what you need help with
+      placeholder: How do I ...?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Installation / Setup
+        - Docker / Deployment
+        - Configuration
+        - Usage / Features
+        - Monitoring
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Environment details, error messages, screenshots, etc.

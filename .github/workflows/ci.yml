@@ -203,8 +203,16 @@ jobs:
       - name: Django deploy hardening checks
         run: python manage.py check --deploy
 
-      - name: Run tests (pytest)
-        run: python -m pytest --tb=short -q
+      - name: Run tests (pytest + coverage)
+        run: python -m pytest --tb=short -q --cov=apps --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Upload coverage report
+        if: always() && hashFiles('coverage.xml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_id }}
+          path: coverage.xml
+          retention-days: 30
 
   security-python:
     name: Security (Bandit + pip-audit)
