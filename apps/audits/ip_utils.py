@@ -47,7 +47,7 @@ def extract_client_ip(request) -> str:
     if remote_ip is not None:
         return str(remote_ip)
 
-    return "0.0.0.0"
+    return "0.0.0.0"  # nosec B104
 
 
 def ratelimit_client_ip(group, request) -> str:

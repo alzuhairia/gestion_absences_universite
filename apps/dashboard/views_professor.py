@@ -2,8 +2,10 @@ from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold
@@ -15,6 +17,7 @@ from apps.enrollments.models import Inscription
 
 @login_required
 @professor_required
+@require_GET
 def instructor_dashboard(request):
     """
     Vue du tableau de bord professeur - Pédagogique uniquement
@@ -31,26 +34,8 @@ def instructor_dashboard(request):
 
     today = timezone.now().date()
 
-    # --- KPI 1: Active Courses (current year, assigned to professor, with enrollments OR sessions)
-    active_courses = Cours.objects.filter(professeur=request.user)
-    if academic_year:
-        # Courses with enrollments or sessions in current year
-        courses_with_enrollments = (
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses_with_sessions = (
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        active_course_ids = set(courses_with_enrollments) | set(courses_with_sessions)
-        active_courses = active_courses.filter(id_cours__in=active_course_ids)
+    # --- KPI 1: Active Courses (assigned to professor, marked as active)
+    active_courses = Cours.objects.filter(professeur=request.user, actif=True)
     active_courses_count = active_courses.count()
 
     # --- KPI 2: Sessions Given (current year, past sessions)
@@ -108,7 +93,7 @@ def instructor_dashboard(request):
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             # Calculate NON_JUSTIFIED absences only
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
@@ -144,6 +129,7 @@ def instructor_dashboard(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_course_detail(request, course_id):
     """
     Page de détails du cours pour le professeur - Lecture seule pour les étudiants, gestion des séances pour le professeur.
@@ -170,9 +156,9 @@ def instructor_course_detail(request, course_id):
             id_cours=course, id_annee=academic_year, status="EN_COURS"
         ).select_related("id_etudiant")
     else:
-        inscriptions = Inscription.objects.filter(id_cours=course).select_related(
-            "id_etudiant"
-        )
+        inscriptions = Inscription.objects.filter(
+            id_cours=course, status="EN_COURS"
+        ).select_related("id_etudiant")
 
     inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
@@ -192,11 +178,11 @@ def instructor_course_detail(request, course_id):
     )
 
     for ins in inscriptions:
-        total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
         rate = (
             (total_abs / course.nombre_total_periodes) * 100
             if course.nombre_total_periodes > 0
-            else 0
+            else 0.0
         )
         # CORRECTION BUG CRITIQUE #4i — seuil configuré par cours
         is_at_risk = rate >= course_threshold
@@ -225,7 +211,12 @@ def instructor_course_detail(request, course_id):
     # Tab 3: Statistics
     total_students = len(students_data)
     at_risk_students = sum(1 for s in students_data if s["is_at_risk"])
-    total_absences_all = Absence.objects.filter(id_seance__id_cours=course).count()
+    total_absences_all = Absence.objects.filter(id_seance__id_cours=course)
+    if academic_year:
+        total_absences_all = total_absences_all.filter(
+            id_seance__id_annee=academic_year
+        )
+    total_absences_all = total_absences_all.count()
 
     # Overall absence rate (average)
     if total_students > 0:
@@ -252,6 +243,7 @@ def instructor_course_detail(request, course_id):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_courses(request):
     """
     Page "Mes Cours" - Liste de tous les cours assignés au professeur.
@@ -261,29 +253,12 @@ def instructor_courses(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # Get all courses assigned to professor
+    # Get all active courses assigned to professor
     courses = (
-        Cours.objects.filter(professeur=request.user)
+        Cours.objects.filter(professeur=request.user, actif=True)
         .select_related("id_departement", "id_departement__id_faculte")
         .order_by("code_cours")
     )
-
-    # Filter by academic year if available
-    if academic_year:
-        courses_with_activity = set(
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        ) | set(
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses = courses.filter(id_cours__in=courses_with_activity)
 
     # Prepare course data with statistics
     courses_data = []
@@ -318,7 +293,13 @@ def instructor_courses(request):
             .values_list("id_cours", "total")
         )
 
-    all_course_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+    all_course_inscriptions = Inscription.objects.filter(
+        id_cours__in=course_ids, status="EN_COURS"
+    )
+    if academic_year:
+        all_course_inscriptions = all_course_inscriptions.filter(
+            id_annee=academic_year
+        )
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=all_course_inscriptions.values_list(
@@ -343,11 +324,11 @@ def instructor_courses(request):
         inscriptions = inscriptions_by_course.get(course.id_cours, [])
         at_risk = 0
         for ins in inscriptions:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (
                 (total_abs / course.nombre_total_periodes) * 100
                 if course.nombre_total_periodes > 0
-                else 0
+                else 0.0
             )
             # CORRECTION BUG CRITIQUE #4j — seuil configuré par cours
             seuil = course.get_seuil_absence()
@@ -375,6 +356,7 @@ def instructor_courses(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_sessions(request):
     """
     Page "Séances" - Liste de toutes les séances du professeur.
@@ -400,9 +382,13 @@ def instructor_sessions(request):
             .order_by("-date_seance", "-heure_debut")
         )
 
-    # Group sessions by course
+    # Pagination
+    paginator = Paginator(sessions, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Group paginated sessions by course
     sessions_by_course = defaultdict(list)
-    for session in sessions:
+    for session in page_obj:
         sessions_by_course[session.id_cours].append(session)
 
     return render(
@@ -410,7 +396,8 @@ def instructor_sessions(request):
         "dashboard/instructor_sessions.html",
         {
             "academic_year": academic_year,
-            "sessions": sessions,
+            "sessions": page_obj,
+            "page_obj": page_obj,
             "sessions_by_course": dict(sessions_by_course),
         },
     )
@@ -418,6 +405,7 @@ def instructor_sessions(request):
 
 @login_required
 @professor_required
+@require_GET
 def instructor_statistics(request):
     """
     Page "Statistiques" - Statistiques globales pour le professeur.
@@ -427,23 +415,8 @@ def instructor_statistics(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # Get all courses
-    courses = Cours.objects.filter(professeur=request.user)
-    if academic_year:
-        courses_with_activity = set(
-            Inscription.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        ) | set(
-            Seance.objects.filter(
-                id_cours__professeur=request.user, id_annee=academic_year
-            )
-            .values_list("id_cours", flat=True)
-            .distinct()
-        )
-        courses = courses.filter(id_cours__in=courses_with_activity)
+    # Get all active courses
+    courses = Cours.objects.filter(professeur=request.user, actif=True)
 
     # Statistics by course
     course_stats = []
@@ -457,7 +430,9 @@ def instructor_statistics(request):
             id_cours__in=course_ids, id_annee=academic_year, status="EN_COURS"
         )
     else:
-        all_inscriptions = Inscription.objects.filter(id_cours__in=course_ids)
+        all_inscriptions = Inscription.objects.filter(
+            id_cours__in=course_ids, status="EN_COURS"
+        )
 
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
@@ -488,11 +463,11 @@ def instructor_statistics(request):
 
         rates = []
         for ins in inscriptions:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (
                 (total_abs / course.nombre_total_periodes) * 100
                 if course.nombre_total_periodes > 0
-                else 0
+                else 0.0
             )
             rates.append(rate)
             course_absences += absence_counts.get(ins.id_inscription, 0) or 0

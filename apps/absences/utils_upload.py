@@ -5,10 +5,27 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError
 
+import logging
+
 try:
     import magic
-except ImportError:  # pragma: no cover
+
+    # Verify the library actually works (DLL may be missing on Windows)
+    magic.from_buffer(b"test", mime=True)
+except Exception:  # ImportError, MagicException, OSError, etc.
     magic = None
+    _logger = logging.getLogger(__name__)
+    _logger.warning(
+        "python-magic unavailable — MIME validation disabled, binary signature check still active."
+    )
+    # In production, MIME validation should be active for defense-in-depth
+    from django.conf import settings
+    if not settings.DEBUG:
+        _logger.error(
+            "PRODUCTION WARNING: python-magic is not installed. "
+            "File upload MIME validation is disabled. "
+            "Install python-magic-bin (Windows) or python-magic (Linux) for full security."
+        )
 
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
@@ -48,7 +65,7 @@ DANGEROUS_INTERMEDIATE_EXTENSIONS = {
     ".dll",
 }
 
-SAFE_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9._ -]{1,255}$")
+SAFE_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9À-ÿ._ ()\-]{1,255}$")
 
 
 class UploadValidationError(ValidationError):
@@ -119,11 +136,6 @@ def validate_uploaded_file(
             "Le fichier est trop volumineux. Taille maximale autorisee: 5 Mo."
         )
 
-    if magic is None:
-        raise UploadValidationError(
-            "Validation de signature indisponible sur le serveur."
-        )
-
     # Lire juste le debut du fichier suffit pour la detection MIME/signature.
     head = uploaded_file.read(8192)
     uploaded_file.seek(0)
@@ -131,19 +143,24 @@ def validate_uploaded_file(
     if not head:
         raise UploadValidationError("Fichier vide ou invalide.")
 
+    # Mandatory: binary signature check (works without any external library)
     expected_signatures = MAGIC_SIGNATURES[extension]
     if not any(head.startswith(signature) for signature in expected_signatures):
         raise UploadValidationError(
             "Signature binaire invalide pour ce type de fichier."
         )
 
-    detected_mime = _normalize_mime(magic.from_buffer(head, mime=True))
+    # Optional: MIME detection via python-magic (extra layer if available)
+    detected_mime = ""
     allowed_mimes = ALLOWED_MIME_BY_EXTENSION[extension]
-    if detected_mime not in allowed_mimes:
-        raise UploadValidationError(
-            "Type MIME reel incoherent avec l'extension du fichier."
-        )
+    if magic is not None:
+        detected_mime = _normalize_mime(magic.from_buffer(head, mime=True))
+        if detected_mime not in allowed_mimes:
+            raise UploadValidationError(
+                "Type MIME reel incoherent avec l'extension du fichier."
+            )
 
+    # Check browser-declared MIME type
     provided_mime = _normalize_mime(getattr(uploaded_file, "content_type", ""))
     if provided_mime and provided_mime not in allowed_mimes:
         raise UploadValidationError("Type MIME declare invalide pour ce format.")
@@ -151,7 +168,7 @@ def validate_uploaded_file(
     return {
         "filename": clean_name,
         "extension": extension,
-        "detected_mime": detected_mime,
+        "detected_mime": detected_mime or provided_mime,
         "size": uploaded_file.size,
     }
 

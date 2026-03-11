@@ -30,11 +30,12 @@
                 <div class="card-body">
                     <form method="post" id="enrollmentForm">
                         {% csrf_token %}
-                        
-                        <!-- Section 1: Type d'inscription -->
+
+                        <!-- Étape 1 : Type d'inscription -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-list-check me-2 text-primary"></i>Type d'inscription
+                                <span class="badge bg-primary rounded-circle me-2">1</span>
+                                Type d'inscription
                             </h5>
                             <div class="row">
                                 {% for choice in enrollment_form.enrollment_type %}
@@ -52,8 +53,8 @@
                             <div class="text-danger small">{{ enrollment_form.enrollment_type.errors }}</div>
                             {% endif %}
                         </div>
-                        
-                        <!-- Section 1.5: Niveau (si inscription à un niveau complet) -->
+
+                        <!-- Niveau (si inscription à un niveau complet) -->
                         <div id="levelSection" class="mb-4" style="display: none;">
                             <h5 class="mb-3">
                                 <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'étude
@@ -71,20 +72,18 @@
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
                                 <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du niveau sélectionné pour l'année académique en cours.
-                                <br>
-                                <small>Le système vérifiera automatiquement que l'étudiant a validé le niveau précédent (si applicable) et que tous les prérequis sont satisfaits pour chaque cours.</small>
                             </div>
                         </div>
 
                         <hr class="my-4">
 
-                        <!-- Section 2: Étudiant -->
+                        <!-- Étape 2 : Étudiant -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-user-graduate me-2 text-primary"></i>Étudiant
+                                <span class="badge bg-primary rounded-circle me-2">2</span>
+                                Étudiant
                             </h5>
-                            
-                            <!-- Option: Créer un nouvel étudiant -->
+
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student" onchange="toggleStudentForm()">
@@ -146,7 +145,7 @@
                                 </div>
                             </div>
 
-                            <!-- Option: Utiliser un étudiant existant -->
+                            <!-- Étudiant existant -->
                             <div id="existingStudentForm">
                                 <div class="mb-3">
                                     <label for="{{ enrollment_form.student_email.id_for_label }}" class="form-label">
@@ -163,10 +162,11 @@
 
                         <hr class="my-4">
 
-                        <!-- Section 3: Année académique -->
+                        <!-- Étape 3 : Année académique -->
                         <div class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-calendar-alt me-2 text-primary"></i>Année Académique
+                                <span class="badge bg-primary rounded-circle me-2">3</span>
+                                Année Académique
                             </h5>
                             <div class="mb-3">
                                 <label for="{{ enrollment_form.academic_year.id_for_label }}" class="form-label">Année Académique <span class="text-danger">*</span></label>
@@ -179,21 +179,46 @@
 
                         <hr class="my-4">
 
-                        <!-- Section 4: Cours (si inscription à un cours spécifique) -->
+                        <!-- Étape 4 : Sélection des cours -->
                         <div id="courseSection" class="mb-4">
                             <h5 class="mb-3">
-                                <i class="fas fa-book me-2 text-primary"></i>Cours
+                                <span class="badge bg-primary rounded-circle me-2">4</span>
+                                Sélection des cours
                             </h5>
-                            <div class="mb-3">
-                                <label for="{{ enrollment_form.course.id_for_label }}" class="form-label">Cours <span class="text-danger">*</span></label>
-                                <select name="{{ enrollment_form.course.name }}" id="{{ enrollment_form.course.id_for_label }}" class="form-select" required>
-                                    <option value="">Sélectionner une année académique d'abord</option>
-                                </select>
-                                {% if enrollment_form.course.errors %}
-                                <div class="text-danger small">{{ enrollment_form.course.errors }}</div>
-                                {% endif %}
-                                <small class="form-text text-muted">Sélectionnez un cours spécifique pour l'inscription. Les cours sont filtrés selon l'année académique sélectionnée.</small>
+
+                            {% if enrollment_form.courses.errors %}
+                            <div class="alert alert-danger">{{ enrollment_form.courses.errors }}</div>
+                            {% endif %}
+
+                            <!-- Barre de recherche + actions -->
+                            <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+                                <div class="flex-grow-1">
+                                    <input type="text" id="courseSearch" class="form-control" placeholder="Rechercher un cours par code ou nom...">
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllVisible()">
+                                    <i class="fas fa-check-double me-1"></i>Tout cocher
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselectAll()">
+                                    <i class="fas fa-times me-1"></i>Tout décocher
+                                </button>
                             </div>
+
+                            <!-- Compteur de sélection -->
+                            <div class="mb-3">
+                                <span id="selectionCounter" class="badge bg-primary fs-6">0 cours sélectionné(s)</span>
+                            </div>
+
+                            <!-- Liste des cours groupés par département -->
+                            <div id="courseListContainer" style="max-height: 450px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                                <div id="courseListLoading" class="text-center py-4 text-muted">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Sélectionnez une année académique pour charger les cours...
+                                </div>
+                                <div id="courseList"></div>
+                            </div>
+
+                            <small class="form-text text-muted mt-2 d-block">
+                                Cochez un ou plusieurs cours. Les cours déjà inscrits sont signalés et désactivés.
+                            </small>
                         </div>
 
                         <!-- Boutons -->
@@ -201,8 +226,8 @@
                             <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
                                 <i class="fas fa-times me-1"></i> Annuler
                             </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-check me-1"></i> Valider l'inscription
+                            <button type="button" class="btn btn-primary" id="reviewBtn" onclick="showRecap()">
+                                <i class="fas fa-eye me-1"></i> Vérifier et confirmer
                             </button>
                         </div>
                     </form>
@@ -212,8 +237,63 @@
     </div>
 </div>
 
+<!-- Modal récapitulatif (Étape 5) -->
+<div class="modal fade" id="recapModal" tabindex="-1" aria-labelledby="recapModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="recapModalLabel">
+                    <i class="fas fa-clipboard-check me-2"></i>Récapitulatif de l'inscription
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body" id="recapBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-left me-1"></i> Modifier
+                </button>
+                <button type="button" class="btn btn-success" id="confirmBtn" onclick="confirmSubmit()">
+                    <i class="fas fa-check me-1"></i> Confirmer l'inscription
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#courseListContainer .dept-group { border-bottom: 1px solid #dee2e6; }
+#courseListContainer .dept-group:last-child { border-bottom: none; }
+#courseListContainer .dept-header {
+    background: #f8f9fa;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    color: #495057;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 1px solid #dee2e6;
+}
+#courseListContainer .course-item {
+    padding: 0.5rem 1rem 0.5rem 1.5rem;
+    transition: background-color 0.15s;
+    border-bottom: 1px solid #f0f0f0;
+}
+#courseListContainer .course-item:hover { background-color: #e9ecef; }
+#courseListContainer .course-item:last-child { border-bottom: none; }
+#courseListContainer .course-item.enrolled { background-color: #fff3cd; }
+#courseListContainer .course-item label { cursor: pointer; margin-bottom: 0; }
+.badge-enrolled { font-size: 0.7rem; }
+#recapBody .recap-section { margin-bottom: 1rem; }
+#recapBody .recap-section h6 { color: #495057; border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; }
+#recapBody .recap-course-list { list-style: none; padding-left: 0; }
+#recapBody .recap-course-list li { padding: 0.35rem 0.75rem; border-left: 3px solid #0d6efd; margin-bottom: 0.25rem; background: #f8f9fa; border-radius: 0 0.25rem 0.25rem 0; }
+</style>
+
 <script>
 const API_COURSES_BY_YEAR_URL = "{% url 'enrollments:get_courses_by_year' %}";
+let allCourses = [];
+
 function toggleStudentForm() {
     const createNew = document.getElementById('create_new_student').checked;
     const newStudentForm = document.getElementById('newStudentForm');
@@ -222,18 +302,14 @@ function toggleStudentForm() {
     if (createNew) {
         newStudentForm.style.display = 'block';
         existingStudentForm.style.display = 'none';
-        newStudentForm.querySelectorAll('input').forEach((input) => {
-            if (input.type !== 'checkbox') {
-                input.required = true;
-            }
+        newStudentForm.querySelectorAll('input').forEach(input => {
+            if (input.type !== 'checkbox') input.required = true;
         });
         document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = false;
     } else {
         newStudentForm.style.display = 'none';
         existingStudentForm.style.display = 'block';
-        newStudentForm.querySelectorAll('input').forEach((input) => {
-            input.required = false;
-        });
+        newStudentForm.querySelectorAll('input').forEach(input => { input.required = false; });
         document.getElementById('{{ enrollment_form.student_email.id_for_label }}').required = true;
     }
 }
@@ -242,125 +318,288 @@ function toggleSections() {
     const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked');
     if (!enrollmentType) return;
 
-    const enrollmentTypeValue = enrollmentType.value;
     const courseSection = document.getElementById('courseSection');
     const levelSection = document.getElementById('levelSection');
-    const courseField = document.getElementById('{{ enrollment_form.course.id_for_label }}');
     const niveauField = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
 
-    if (enrollmentTypeValue === 'LEVEL') {
+    if (enrollmentType.value === 'LEVEL') {
         courseSection.style.display = 'none';
         levelSection.style.display = 'block';
-        courseField.required = false;
         if (niveauField) niveauField.required = true;
     } else {
         courseSection.style.display = 'block';
         levelSection.style.display = 'none';
-        courseField.required = true;
         if (niveauField) niveauField.required = false;
         loadCoursesByYear();
     }
 }
 
-function getApiErrorMessage(payload) {
-    if (!payload || typeof payload !== 'object') {
-        return '';
-    }
-    if (payload.error && typeof payload.error === 'object' && payload.error.message) {
-        return String(payload.error.message);
-    }
-    if (typeof payload.error === 'string') {
-        return payload.error;
-    }
-    return '';
-}
-
-function setSingleOption(selectEl, label) {
-    selectEl.replaceChildren();
-    const option = document.createElement('option');
-    option.value = '';
-    option.textContent = label;
-    selectEl.appendChild(option);
-}
-
 async function fetchJson(url) {
     const response = await fetch(url, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) throw new Error('Session expirée ou réponse invalide.');
+    let payload;
+    try { payload = await response.json(); } catch (_) { throw new Error('Réponse JSON invalide.'); }
+    if (!response.ok) {
+        const msg = payload?.error?.message || payload?.error || `HTTP ${response.status}`;
+        throw new Error(String(msg));
+    }
+    return payload;
+}
+
+function renderCourseList(courses) {
+    const container = document.getElementById('courseList');
+    const loading = document.getElementById('courseListLoading');
+    loading.style.display = 'none';
+    container.innerHTML = '';
+    allCourses = courses;
+
+    if (!courses.length) {
+        container.innerHTML = '<div class="text-center py-4 text-muted">Aucun cours disponible pour cette année académique.</div>';
+        return;
+    }
+
+    // Group by department
+    const grouped = {};
+    courses.forEach(c => {
+        if (!grouped[c.department]) grouped[c.department] = [];
+        grouped[c.department].push(c);
     });
 
-    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.includes('application/json')) {
-        throw new Error('Session expiree ou reponse invalide.');
-    }
+    Object.keys(grouped).sort().forEach(dept => {
+        const group = document.createElement('div');
+        group.className = 'dept-group';
+        group.setAttribute('data-dept', dept);
 
-    let payload = null;
-    try {
-        payload = await response.json();
-    } catch (_) {
-        throw new Error('Reponse JSON invalide.');
-    }
+        const header = document.createElement('div');
+        header.className = 'dept-header d-flex justify-content-between align-items-center';
+        header.innerHTML = `<span><i class="fas fa-building me-2"></i>${dept}</span><span class="badge bg-secondary">${grouped[dept].length} cours</span>`;
+        group.appendChild(header);
 
-    if (!response.ok) {
-        throw new Error(getApiErrorMessage(payload) || `HTTP ${response.status}`);
-    }
+        grouped[dept].forEach(course => {
+            const item = document.createElement('div');
+            item.className = 'course-item d-flex align-items-center' + (course.already_enrolled ? ' enrolled' : '');
+            item.setAttribute('data-search', `${course.code} ${course.name}`.toLowerCase());
 
-    return payload;
+            const id = `course_${course.id}`;
+            item.innerHTML = `
+                <div class="form-check flex-grow-1">
+                    <input class="form-check-input course-checkbox" type="checkbox"
+                        name="courses" value="${course.id}" id="${id}"
+                        data-code="${course.code}" data-name="${course.name}" data-dept="${dept}"
+                        ${course.already_enrolled ? 'disabled' : ''}
+                        onchange="updateCounter()">
+                    <label class="form-check-label w-100" for="${id}">
+                        <strong>[${course.code}]</strong> ${course.name}
+                        ${course.has_prereq ? '<span class="badge bg-warning text-dark badge-enrolled ms-2">Prérequis</span>' : ''}
+                        ${course.already_enrolled ? '<span class="badge bg-info badge-enrolled ms-2">Déjà inscrit</span>' : ''}
+                    </label>
+                </div>
+            `;
+            group.appendChild(item);
+        });
+
+        container.appendChild(group);
+    });
+
+    updateCounter();
+}
+
+function updateCounter() {
+    const checked = document.querySelectorAll('.course-checkbox:checked').length;
+    const counter = document.getElementById('selectionCounter');
+    counter.textContent = `${checked} cours sélectionné(s)`;
+    counter.className = checked > 0 ? 'badge bg-success fs-6' : 'badge bg-primary fs-6';
+}
+
+function selectAllVisible() {
+    document.querySelectorAll('.course-item:not([style*="display: none"]) .course-checkbox:not(:disabled)').forEach(cb => { cb.checked = true; });
+    updateCounter();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.course-checkbox').forEach(cb => { cb.checked = false; });
+    updateCounter();
+}
+
+function filterCourses() {
+    const query = document.getElementById('courseSearch').value.toLowerCase().trim();
+    document.querySelectorAll('#courseList .course-item').forEach(item => {
+        item.style.display = (!query || (item.getAttribute('data-search') || '').includes(query)) ? '' : 'none';
+    });
+    document.querySelectorAll('#courseList .dept-group').forEach(group => {
+        group.style.display = group.querySelectorAll('.course-item:not([style*="display: none"])').length > 0 ? '' : 'none';
+    });
 }
 
 async function loadCoursesByYear() {
     const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
-    const courseSelect = document.getElementById('{{ enrollment_form.course.id_for_label }}');
+    const container = document.getElementById('courseList');
+    const loading = document.getElementById('courseListLoading');
 
     if (!yearId) {
-        setSingleOption(courseSelect, 'Selectionner une annee academique d\'abord');
-        courseSelect.disabled = true;
+        container.innerHTML = '';
+        loading.style.display = 'block';
+        loading.innerHTML = '<i class="fas fa-info-circle me-2"></i>Sélectionnez une année académique pour charger les cours...';
+        updateCounter();
         return;
     }
 
-    setSingleOption(courseSelect, 'Chargement...');
-    courseSelect.disabled = true;
+    container.innerHTML = '';
+    loading.style.display = 'block';
+    loading.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Chargement des cours...';
 
     try {
         const data = await fetchJson(`${API_COURSES_BY_YEAR_URL}?year_id=${yearId}`);
-        if (!Array.isArray(data)) {
-            throw new Error('Reponse API invalide.');
-        }
-
-        setSingleOption(courseSelect, 'Selectionner un cours...');
-        data.forEach((course) => {
-            const option = document.createElement('option');
-            option.value = course.id;
-            option.textContent = `[${course.code}] ${course.name} (${course.department})`;
-            courseSelect.appendChild(option);
-        });
-        courseSelect.disabled = false;
+        if (!Array.isArray(data)) throw new Error('Réponse API invalide.');
+        renderCourseList(data);
     } catch (error) {
         console.error('Error:', error);
-        setSingleOption(courseSelect, 'Erreur de chargement');
+        loading.style.display = 'block';
+        loading.innerHTML = '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>Erreur de chargement des cours.';
+        container.innerHTML = '';
     }
 }
+
+/* =====================================================
+   Étape 5 : Récapitulatif avant confirmation
+   ===================================================== */
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+function getRecapData() {
+    const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked')?.value;
+    const createNew = document.getElementById('create_new_student').checked;
+
+    // Étudiant
+    let studentLabel;
+    if (createNew) {
+        const nom = escapeHtml(document.querySelector('[name="student-nom"]')?.value || '');
+        const prenom = escapeHtml(document.querySelector('[name="student-prenom"]')?.value || '');
+        const email = escapeHtml(document.querySelector('[name="student-email"]')?.value || '');
+        studentLabel = `${prenom} ${nom} (${email}) <span class="badge bg-info ms-1">Nouveau compte</span>`;
+    } else {
+        const emailVal = document.getElementById('{{ enrollment_form.student_email.id_for_label }}')?.value || '';
+        studentLabel = emailVal ? escapeHtml(emailVal) : '<em>non renseigné</em>';
+    }
+
+    // Année académique
+    const yearSelect = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}');
+    const yearLabel = yearSelect?.selectedIndex > 0 ? escapeHtml(yearSelect.options[yearSelect.selectedIndex].text) : '<em>non sélectionnée</em>';
+
+    // Cours sélectionnés (mode COURSE)
+    const selectedCourses = [];
+    if (enrollmentType === 'COURSE') {
+        document.querySelectorAll('.course-checkbox:checked').forEach(cb => {
+            selectedCourses.push({
+                code: escapeHtml(cb.dataset.code || ''),
+                name: escapeHtml(cb.dataset.name || ''),
+                dept: escapeHtml(cb.dataset.dept || ''),
+            });
+        });
+    }
+
+    // Niveau (mode LEVEL)
+    let niveauLabel = '';
+    if (enrollmentType === 'LEVEL') {
+        const niveauSelect = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
+        niveauLabel = niveauSelect?.selectedIndex > 0 ? escapeHtml(niveauSelect.options[niveauSelect.selectedIndex].text) : '';
+    }
+
+    return { enrollmentType, studentLabel, yearLabel, selectedCourses, niveauLabel };
+}
+
+function showRecap() {
+    const data = getRecapData();
+
+    // Validation rapide avant d'ouvrir le récap
+    if (data.enrollmentType === 'COURSE' && data.selectedCourses.length === 0) {
+        alert('Veuillez sélectionner au moins un cours.');
+        return;
+    }
+
+    const body = document.getElementById('recapBody');
+    let html = '';
+
+    // Étudiant
+    html += `<div class="recap-section">
+        <h6><i class="fas fa-user-graduate me-2"></i>Étudiant</h6>
+        <p class="mb-0 ms-3">${data.studentLabel}</p>
+    </div>`;
+
+    // Année
+    html += `<div class="recap-section">
+        <h6><i class="fas fa-calendar-alt me-2"></i>Année académique</h6>
+        <p class="mb-0 ms-3">${data.yearLabel}</p>
+    </div>`;
+
+    // Mode inscription
+    if (data.enrollmentType === 'LEVEL') {
+        html += `<div class="recap-section">
+            <h6><i class="fas fa-graduation-cap me-2"></i>Mode</h6>
+            <p class="mb-0 ms-3">Inscription à un niveau complet : <strong>${data.niveauLabel}</strong></p>
+            <p class="ms-3 text-muted small mb-0">Tous les cours actifs de ce niveau seront inclus.</p>
+        </div>`;
+    } else {
+        // Grouper les cours par département
+        const grouped = {};
+        data.selectedCourses.forEach(c => {
+            if (!grouped[c.dept]) grouped[c.dept] = [];
+            grouped[c.dept].push(c);
+        });
+
+        html += `<div class="recap-section">
+            <h6><i class="fas fa-book me-2"></i>Cours sélectionnés <span class="badge bg-success">${data.selectedCourses.length}</span></h6>`;
+
+        Object.keys(grouped).sort().forEach(dept => {
+            html += `<p class="mb-1 ms-3 text-muted small fw-bold">${dept}</p>`;
+            html += `<ul class="recap-course-list ms-3">`;
+            grouped[dept].forEach(c => {
+                html += `<li><strong>[${c.code}]</strong> ${c.name}</li>`;
+            });
+            html += `</ul>`;
+        });
+
+        html += `</div>`;
+    }
+
+    body.innerHTML = html;
+
+    const modal = new bootstrap.Modal(document.getElementById('recapModal'));
+    modal.show();
+}
+
+function confirmSubmit() {
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('confirmBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Inscription en cours...';
+    document.getElementById('enrollmentForm').submit();
+}
+
+/* =====================================================
+   Initialisation
+   ===================================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
     toggleStudentForm();
     toggleSections();
 
-    const yearField = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}');
-    if (yearField) {
-        yearField.addEventListener('change', function() {
-            if (document.querySelector('input[name="enrollment_type"]:checked')?.value === 'COURSE') {
-                loadCoursesByYear();
-            }
-        });
-    }
+    document.getElementById('{{ enrollment_form.academic_year.id_for_label }}')?.addEventListener('change', function() {
+        if (document.querySelector('input[name="enrollment_type"]:checked')?.value === 'COURSE') {
+            loadCoursesByYear();
+        }
+    });
 
-    document.querySelectorAll('input[name="enrollment_type"]').forEach((radio) => {
+    document.querySelectorAll('input[name="enrollment_type"]').forEach(radio => {
         radio.addEventListener('change', toggleSections);
     });
+
+    document.getElementById('courseSearch').addEventListener('input', filterCourses);
 });
 </script>
 {% endblock %}
-
-
-

@@ -1,23 +1,15 @@
 {% extends 'base_secretary.html' %}
+{% load absence_tags %}
 
-{% block title %}Validation des Justificatifs{% endblock %}
+{% block title %}Gestion des Absences{% endblock %}
 
 {% block breadcrumbs %}
 <li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
-<li class="breadcrumb-item active" aria-current="page">Justificatifs</li>
+<li class="breadcrumb-item active" aria-current="page">Gestion des Absences</li>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem 0;
-        margin-bottom: 2rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
     .status-filter {
         background: white;
         padding: 1rem;
@@ -40,7 +32,7 @@
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
 
-    .justification-card {
+    .absence-card {
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
@@ -50,21 +42,21 @@
         transition: all 0.3s;
     }
 
-    .justification-card:hover {
+    .absence-card:hover {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         transform: translateY(-2px);
     }
 
-    .justification-card.pending {
+    .absence-card.unjustified {
+        border-left-color: #dc3545;
+    }
+
+    .absence-card.pending {
         border-left-color: #ffc107;
     }
 
-    .justification-card.accepted {
+    .absence-card.justified {
         border-left-color: #28a745;
-    }
-
-    .justification-card.rejected {
-        border-left-color: #dc3545;
     }
 
     .badge-status {
@@ -87,6 +79,15 @@
     .document-badge {
         background: #e7f3ff;
         color: #0066cc;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .no-document-badge {
+        background: #fff3cd;
+        color: #856404;
         padding: 0.35rem 0.75rem;
         border-radius: 6px;
         font-size: 0.85rem;
@@ -130,6 +131,13 @@
         margin-bottom: 1rem;
         opacity: 0.3;
     }
+
+    .count-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 10px;
+        margin-left: 0.25rem;
+    }
 </style>
 {% endblock %}
 
@@ -139,60 +147,63 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
-                <i class="fas fa-clipboard-check me-2"></i>Validation des Justificatifs
+                <i class="fas fa-clipboard-check me-2"></i>Gestion des Absences
             </h1>
-            <p class="text-muted mb-0">Examiner et valider les justificatifs d'absence soumis par les étudiants</p>
+            <p class="text-muted mb-0">Suivi et validation des absences et justificatifs</p>
         </div>
     </div>
 
     <div class="alert alert-info">
         <i class="fas fa-info-circle me-2"></i>
-        Cette page permet d'examiner et de valider les justificatifs d'absence soumis par les étudiants. 
-        Vous pouvez accepter ou refuser chaque justificatif avec un commentaire.
+        Cette page centralise toutes les absences. Les absences <strong>non justifiées</strong> n'ont pas encore de justificatif soumis.
+        Les absences <strong>en attente</strong> ont un justificatif à examiner. Les absences <strong>justifiées</strong> ont été approuvées.
     </div>
 
     <!-- Status Filter -->
     <div class="status-filter">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="text-muted me-2"><i class="fas fa-filter me-1"></i>Filtrer par statut :</span>
-            <a href="?status=EN_ATTENTE" 
+            <a href="?status=NON_JUSTIFIEE"
+               class="status-btn {% if current_status == 'NON_JUSTIFIEE' %}active bg-danger text-white{% else %}bg-light text-dark{% endif %}">
+                <i class="fas fa-times-circle me-1"></i>Non justifiées
+                <span class="badge bg-white text-danger count-badge">{{ status_counts.NON_JUSTIFIEE }}</span>
+            </a>
+            <a href="?status=EN_ATTENTE"
                class="status-btn {% if current_status == 'EN_ATTENTE' %}active bg-warning text-white{% else %}bg-light text-dark{% endif %}">
                 <i class="fas fa-clock me-1"></i>En attente
+                <span class="badge bg-white text-warning count-badge">{{ status_counts.EN_ATTENTE }}</span>
             </a>
-            <a href="?status=ACCEPTEE" 
-               class="status-btn {% if current_status == 'ACCEPTEE' %}active bg-success text-white{% else %}bg-light text-dark{% endif %}">
-                <i class="fas fa-check-circle me-1"></i>Acceptées
-            </a>
-            <a href="?status=REFUSEE" 
-               class="status-btn {% if current_status == 'REFUSEE' %}active bg-danger text-white{% else %}bg-light text-dark{% endif %}">
-                <i class="fas fa-times-circle me-1"></i>Refusées
+            <a href="?status=JUSTIFIEE"
+               class="status-btn {% if current_status == 'JUSTIFIEE' %}active bg-success text-white{% else %}bg-light text-dark{% endif %}">
+                <i class="fas fa-check-circle me-1"></i>Justifiées
+                <span class="badge bg-white text-success count-badge">{{ status_counts.JUSTIFIEE }}</span>
             </a>
         </div>
     </div>
 
-    <!-- Justifications List -->
+    <!-- Absences List -->
     {% if page_obj.object_list %}
     <div class="row">
-        {% for justification in page_obj %}
+        {% for absence in page_obj %}
         <div class="col-12">
-            <div class="justification-card {% if justification.state == 'EN_ATTENTE' %}pending{% elif justification.state == 'ACCEPTEE' %}accepted{% else %}rejected{% endif %}">
+            <div class="absence-card {% if absence.statut == 'NON_JUSTIFIEE' %}unjustified{% elif absence.statut == 'EN_ATTENTE' %}pending{% else %}justified{% endif %}">
                 <div class="row align-items-center">
                     <div class="col-md-8">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div>
                                 <h4 class="mb-1 fw-bold">
                                     <i class="fas fa-user-graduate me-2 text-primary"></i>
-                                    {{ justification.id_absence.id_inscription.id_etudiant.get_full_name }}
+                                    {{ absence.id_inscription.id_etudiant.get_full_name }}
                                 </h4>
                                 <p class="text-muted mb-0 small">
-                                    <i class="fas fa-envelope me-1"></i>{{ justification.id_absence.id_inscription.id_etudiant.email }}
+                                    <i class="fas fa-envelope me-1"></i>{{ absence.id_inscription.id_etudiant.email }}
                                 </p>
                             </div>
-                            <span class="badge-status 
-                                {% if justification.state == 'EN_ATTENTE' %}bg-warning text-dark
-                                {% elif justification.state == 'ACCEPTEE' %}bg-success text-white
-                                {% else %}bg-danger text-white{% endif %}">
-                                {{ justification.get_state_display }}
+                            <span class="badge-status
+                                {% if absence.statut == 'NON_JUSTIFIEE' %}bg-danger text-white
+                                {% elif absence.statut == 'EN_ATTENTE' %}bg-warning text-dark
+                                {% else %}bg-success text-white{% endif %}">
+                                {{ absence.get_statut_display }}
                             </span>
                         </div>
 
@@ -200,78 +211,109 @@
                             <div class="col-md-6">
                                 <p class="mb-1">
                                     <i class="fas fa-book me-2 text-info"></i>
-                                    <strong>Cours :</strong> {{ justification.id_absence.id_seance.id_cours.nom_cours }}
-                                    <span class="text-muted">({{ justification.id_absence.id_seance.id_cours.code_cours }})</span>
+                                    <strong>Cours :</strong> {{ absence.id_seance.id_cours.nom_cours }}
+                                    <span class="text-muted">({{ absence.id_seance.id_cours.code_cours }})</span>
                                 </p>
                             </div>
                             <div class="col-md-6">
                                 <p class="mb-1">
                                     <i class="fas fa-calendar me-2 text-info"></i>
-                                    <strong>Date absence :</strong> {{ justification.id_absence.id_seance.date_seance|date:"d/m/Y" }}
-                                    <span class="text-muted">({{ justification.id_absence.duree_absence|floatformat:1 }}h)</span>
+                                    <strong>Date :</strong> {{ absence.id_seance.date_seance|date:"d/m/Y" }}
+                                    <span class="text-muted">({{ absence.duree_absence|floatformat:1 }}h)</span>
                                 </p>
                             </div>
                         </div>
 
-                        {% if justification.commentaire %}
-                        <div class="comment-box">
-                            <i class="fas fa-comment me-2"></i>
-                            <strong>Commentaire étudiant :</strong> "{{ justification.commentaire }}"
-                        </div>
-                        {% endif %}
+                        {% with justif=absence.justification %}
+                        {% if justif %}
+                            {% if justif.commentaire %}
+                            <div class="comment-box">
+                                <i class="fas fa-comment me-2"></i>
+                                <strong>Commentaire étudiant :</strong> "{{ justif.commentaire }}"
+                            </div>
+                            {% endif %}
 
-                        {% if justification.commentaire_gestion %}
-                        <div class="comment-box mt-2" style="border-left-color: #28a745;">
-                            <i class="fas fa-user-shield me-2"></i>
-                            <strong>Commentaire gestion :</strong> {{ justification.commentaire_gestion }}
-                        </div>
-                        {% endif %}
+                            {% if justif.commentaire_gestion %}
+                            <div class="comment-box mt-2" style="border-left-color: #28a745;">
+                                <i class="fas fa-user-shield me-2"></i>
+                                <strong>Commentaire gestion :</strong> {{ justif.commentaire_gestion }}
+                            </div>
+                            {% endif %}
 
-                        {% if justification.document %}
-                        <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-                            <span class="document-badge">
-                                <i class="fas fa-paperclip me-1"></i>Document joint
-                            </span>
-                            <a href="{% url 'absences:download_justification' justification.id_justification %}"
-                               class="btn btn-outline-primary btn-sm"
-                               target="_blank"
-                               rel="noopener">
-                                <i class="fas fa-download me-1"></i>Télécharger
-                            </a>
-                        </div>
+                            {% if justif.document %}
+                            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                <span class="document-badge">
+                                    <i class="fas fa-paperclip me-1"></i>Document joint
+                                </span>
+                                <a href="{% url 'absences:download_justification' justif.id_justification %}"
+                                   class="btn btn-outline-primary btn-sm"
+                                   target="_blank"
+                                   rel="noopener">
+                                    <i class="fas fa-download me-1"></i>Télécharger
+                                </a>
+                            </div>
+                            {% else %}
+                            <div class="mt-2">
+                                <span class="no-document-badge">
+                                    <i class="fas fa-file-excel me-1"></i>Aucun document joint
+                                </span>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            {% if absence.statut == 'NON_JUSTIFIEE' %}
+                            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                <span class="no-document-badge">
+                                    <i class="fas fa-hourglass-start me-1"></i>Aucun justificatif soumis
+                                </span>
+                                {% if absence|justification_expired %}
+                                <span class="badge bg-danger text-white">
+                                    <i class="fas fa-ban me-1"></i>Délai dépassé ({{ absence|justification_deadline|date:"d/m/Y" }})
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary text-white">
+                                    <i class="fas fa-clock me-1"></i>Délai : {{ absence|justification_deadline|date:"d/m/Y" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         {% endif %}
+                        {% endwith %}
                     </div>
 
                     <div class="col-md-4 text-end">
                         <div class="d-flex flex-column gap-2">
-                            <a href="{% url 'absences:review_justification' justification.id_absence.id_absence %}" 
+                            <a href="{% url 'absences:review_justification' absence.id_absence %}"
                                class="btn btn-primary btn-action">
                                 <i class="fas fa-eye me-1"></i>Voir dossier
                             </a>
 
-                            {% if justification.state == 'EN_ATTENTE' %}
-                            <button data-process-url="{% url 'absences:process_justification' justification.id_justification %}"
-                                    data-student-name="{{ justification.id_absence.id_inscription.id_etudiant.get_full_name|escapejs }}"
+                            {% with justif=absence.justification %}
+                            {% if justif and absence.statut == 'EN_ATTENTE' %}
+                            <button data-process-url="{% url 'absences:process_justification' justif.id_justification %}"
+                                    data-student-name="{{ absence.id_inscription.id_etudiant.get_full_name|escapejs }}"
                                     onclick="openReviewModal(this)"
                                     class="btn btn-outline-success btn-action">
                                 <i class="fas fa-bolt me-1"></i>Traiter rapide
                             </button>
                             {% endif %}
-                            
-                            <a href="{% url 'absences:edit_absence' justification.id_absence.pk %}" 
+                            {% endwith %}
+
+                            <a href="{% url 'absences:edit_absence' absence.pk %}"
                                class="btn btn-outline-secondary btn-action">
                                 <i class="fas fa-edit me-1"></i>Modifier l'absence
                             </a>
 
-                            {% if justification.validee_par %}
+                            {% with justif=absence.justification %}
+                            {% if justif and justif.validee_par %}
                             <p class="text-muted small mb-0 mt-2">
                                 <i class="fas fa-user-check me-1"></i>
-                                Validé par {{ justification.validee_par.get_full_name }}
+                                Validé par {{ justif.validee_par.get_full_name }}
                                 <br>
                                 <i class="fas fa-clock me-1"></i>
-                                {{ justification.date_validation|date:"d/m/Y à H:i" }}
+                                {{ justif.date_validation|date:"d/m/Y à H:i" }}
                             </p>
                             {% endif %}
+                            {% endwith %}
                         </div>
                     </div>
                 </div>
@@ -292,11 +334,11 @@
                 <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}">Précédent</a>
             </li>
             {% endif %}
-            
+
             <li class="page-item active">
                 <span class="page-link">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
             </li>
-            
+
             {% if page_obj.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}">Suivant</a>
@@ -311,13 +353,13 @@
     {% else %}
     <div class="empty-state bg-white rounded-3 shadow-sm">
         <i class="fas fa-inbox"></i>
-        <h5 class="mt-3">Aucune justification trouvée</h5>
-        <p class="text-muted">Aucune justification ne correspond au statut sélectionné.</p>
+        <h5 class="mt-3">Aucune absence trouvée</h5>
+        <p class="text-muted">Aucune absence ne correspond au statut sélectionné.</p>
     </div>
     {% endif %}
 </div>
 
-<!-- Review Modal -->
+<!-- Review Modal (for EN_ATTENTE quick processing) -->
 <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -340,7 +382,7 @@
                             <i class="fas fa-comment-dots me-1"></i>Commentaire de gestion
                             <span class="text-danger">*</span>
                         </label>
-                        <textarea id="comment" name="comment" rows="4" class="form-control" 
+                        <textarea id="comment" name="comment" rows="4" class="form-control"
                                   placeholder="Raison de la validation ou du refus..."></textarea>
                         <small class="text-muted">Obligatoire pour un refus</small>
                     </div>

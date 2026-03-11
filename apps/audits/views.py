@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import render
+from django.views.decorators.http import require_GET
 
 from apps.accounts.models import User
 from apps.dashboard.decorators import secretary_required
@@ -11,6 +12,7 @@ from .models import LogAudit
 
 @login_required
 @secretary_required
+@require_GET
 def audit_list(request):
     """
     Vue pour lister et rechercher les journaux d'audit.
