@@ -7,6 +7,9 @@
 # ============================================
 set -euo pipefail
 
+# MSYS_NO_PATHCONV prevents Git Bash (Windows) from mangling Unix paths
+export MSYS_NO_PATHCONV=1
+
 if [ -f .env ]; then
     DOMAIN=$(grep -E '^DOMAIN=' .env | cut -d= -f2 | tr -d '[:space:]')
 fi

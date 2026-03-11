@@ -28,8 +28,9 @@ else
 fi
 
 # Request certificate via webroot
+# MSYS_NO_PATHCONV prevents Git Bash (Windows) from mangling Unix paths
 echo "[2/4] Requesting certificate from Let's Encrypt..."
-docker compose --profile certbot run --rm certbot certonly \
+MSYS_NO_PATHCONV=1 docker compose --profile certbot run --rm certbot certonly \
     --webroot \
     -w /var/www/certbot \
     -d "${DOMAIN}" \
@@ -39,7 +40,7 @@ docker compose --profile certbot run --rm certbot certonly \
 
 # Copy real certs to nginx cert dir (replaces self-signed)
 echo "[3/4] Installing certificate in nginx..."
-docker compose exec -T nginx sh -c "
+MSYS_NO_PATHCONV=1 docker compose exec -T nginx sh -c "
     cp -L /etc/letsencrypt/live/${DOMAIN}/fullchain.pem /etc/nginx/certs/fullchain.pem
     cp -L /etc/letsencrypt/live/${DOMAIN}/privkey.pem /etc/nginx/certs/privkey.pem
 "
