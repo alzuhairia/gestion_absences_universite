@@ -1,10 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.absences.models import Absence
-from apps.absences.services import get_system_threshold
+from apps.absences.services import get_system_threshold, recalculer_eligibilite
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
@@ -13,6 +16,7 @@ from apps.enrollments.models import Inscription
 
 @login_required
 @secretary_required
+@require_GET
 def rules_management(request):
     """
     List students violating the absence threshold rule (per-course or system default).
@@ -43,7 +47,7 @@ def rules_management(request):
     for ins in inscriptions_qs:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (
@@ -69,11 +73,16 @@ def rules_management(request):
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
     exempted_count = len(at_risk_list) - blocked_count
 
+    # Pagination
+    paginator = Paginator(at_risk_list, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     return render(
         request,
         "enrollments/rules_list.html",
         {
-            "at_risk_list": at_risk_list,
+            "at_risk_list": page_obj,
+            "page_obj": page_obj,
             "blocked_count": blocked_count,
             "exempted_count": exempted_count,
         },
@@ -82,14 +91,14 @@ def rules_management(request):
 
 @login_required
 @secretary_required
+@require_POST
 def toggle_exemption(request, pk):
     """
     Grant or Revoke 40% Exemption.
     """
-    if request.method != "POST":
-        return redirect("enrollments:rules_management")
+    # Verify existence (404 if not found) before proceeding
+    get_object_or_404(Inscription, pk=pk)
 
-    inscription = get_object_or_404(Inscription, pk=pk)
     action = request.POST.get("action")  # 'grant' or 'revoke'
     motif = request.POST.get("motif", "").strip()
 
@@ -97,18 +106,24 @@ def toggle_exemption(request, pk):
         if not motif:
             messages.error(request, "Un motif est requis pour accorder une exemption.")
             return redirect("enrollments:rules_management")
+        if len(motif) > 2000:
+            messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
+            return redirect("enrollments:rules_management")
 
-        inscription.exemption_40 = True
-        inscription.motif_exemption = motif
-        inscription.save()
-        log_action(
-            request.user,
-            f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif}",
-            request,
-            niveau="WARNING",
-            objet_type="INSCRIPTION",
-            objet_id=inscription.id_inscription,
-        )
+        with transaction.atomic():
+            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            inscription.exemption_40 = True
+            inscription.motif_exemption = motif
+            inscription.save()
+            recalculer_eligibilite(inscription)
+            log_action(
+                request.user,
+                f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif[:200]}",
+                request,
+                niveau="WARNING",
+                objet_type="INSCRIPTION",
+                objet_id=inscription.id_inscription,
+            )
         messages.success(
             request,
             f"L'exemption 40% a été accordée avec succès à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. "
@@ -116,17 +131,20 @@ def toggle_exemption(request, pk):
         )
 
     elif action == "revoke":
-        inscription.exemption_40 = False
-        inscription.motif_exemption = None
-        inscription.save()
-        log_action(
-            request.user,
-            f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
-            request,
-            niveau="WARNING",
-            objet_type="INSCRIPTION",
-            objet_id=inscription.id_inscription,
-        )
+        with transaction.atomic():
+            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            inscription.exemption_40 = False
+            inscription.motif_exemption = None
+            inscription.save()
+            recalculer_eligibilite(inscription)
+            log_action(
+                request.user,
+                f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
+                request,
+                niveau="WARNING",
+                objet_type="INSCRIPTION",
+                objet_id=inscription.id_inscription,
+            )
         messages.warning(
             request,
             f"L'exemption 40% a été révoquée pour {inscription.id_etudiant.get_full_name()} dans le cours {inscription.id_cours.code_cours}. "

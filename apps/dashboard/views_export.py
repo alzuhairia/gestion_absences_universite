@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_GET
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -17,6 +18,7 @@ from apps.enrollments.models import Inscription
 
 
 @login_required
+@require_GET
 def export_student_pdf(request, student_id=None):
     """
     Generate a PDF report of absences for a specific student.
@@ -29,9 +31,11 @@ def export_student_pdf(request, student_id=None):
     if request.user.role == User.Role.ETUDIANT:
         student = request.user
     elif request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
-        if not student_id:
+        # student_id can come from URL parameter or GET query string
+        effective_student_id = student_id or request.GET.get("student_id")
+        if not effective_student_id:
             return HttpResponseBadRequest("student_id requis")
-        student = get_object_or_404(User, pk=student_id, role=User.Role.ETUDIANT)
+        student = get_object_or_404(User, pk=effective_student_id, role=User.Role.ETUDIANT)
     else:
         raise PermissionDenied("Acces non autorise")
 
@@ -41,8 +45,10 @@ def export_student_pdf(request, student_id=None):
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
     response = HttpResponse(content_type="application/pdf")
+    # Sanitize email for filename (remove special chars that could break header)
+    safe_email = "".join(c if c.isalnum() or c in "._-@" else "_" for c in student.email)
     response["Content-Disposition"] = (
-        f'attachment; filename="rapport_absences_{student.email}.pdf"'
+        f'attachment; filename="rapport_absences_{safe_email}.pdf"'
     )
 
     p = canvas.Canvas(response, pagesize=A4)
@@ -102,7 +108,7 @@ def export_student_pdf(request, student_id=None):
         p.setFont("Helvetica", 10)
         for ins in inscriptions:
             cours = ins.id_cours
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             text = (
                 f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiees"
@@ -162,6 +168,7 @@ def export_student_pdf(request, student_id=None):
 
 @login_required
 @secretary_required
+@require_GET
 def export_at_risk_excel(request):
     """
     Export list of students overlapping the 40% threshold to Excel.
@@ -192,7 +199,9 @@ def export_at_risk_excel(request):
     from apps.academic_sessions.models import AnneeAcademique
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
+    all_inscriptions = Inscription.objects.filter(status="EN_COURS").select_related(
+        "id_cours", "id_etudiant"
+    )
     if active_year:
         all_inscriptions = all_inscriptions.filter(id_annee=active_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
@@ -210,7 +219,7 @@ def export_at_risk_excel(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
             seuil = (

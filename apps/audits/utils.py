@@ -1,3 +1,5 @@
+import re
+
 from apps.accounts.models import User
 
 from .ip_utils import extract_client_ip
@@ -29,14 +31,14 @@ def log_action(
     if not user or not user.is_authenticated:
         return
 
-    ip = "0.0.0.0"
+    ip = "0.0.0.0"  # nosec B104
     if request:
         ip = get_client_ip(request)
 
-    # Sanitize action string: strip control characters, limit length
+    # Sanitize action string: strip all control characters, limit length
     if not isinstance(action, str):
         action = str(action)
-    action = action.replace("\n", " ").replace("\r", " ").replace("\x00", "")[:500]
+    action = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", action)[:500]
     if not action.strip():
         return
 

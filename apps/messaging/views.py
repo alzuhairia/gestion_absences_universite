@@ -1,8 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_http_methods
+
+from apps.accounts.models import User
 
 from .forms import MessageForm
 from .models import Message
@@ -23,44 +27,55 @@ def get_messaging_template(user, template_name):
 
 
 @login_required
+@require_GET
 def inbox(request):
     """
     Boîte de réception - Affiche les messages reçus par l'utilisateur.
     """
-    messages_list = Message.objects.filter(destinataire=request.user).order_by(
-        "-date_envoi"
-    )
+    messages_list = Message.objects.filter(
+        destinataire=request.user
+    ).select_related("expediteur").order_by("-date_envoi")
+    paginator = Paginator(messages_list, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
     template = get_messaging_template(request.user, "inbox")
     return render(
         request,
         template,
         {
-            "message_list": messages_list,
+            "message_list": page_obj,
+            "page_obj": page_obj,
             "active_tab": "inbox",
         },
     )
 
 
 @login_required
+@require_GET
 def sent_box(request):
     """
     Messages envoyés - Affiche les messages envoyés par l'utilisateur.
     """
-    messages_list = Message.objects.filter(expediteur=request.user).order_by(
-        "-date_envoi"
-    )
+    messages_list = Message.objects.filter(
+        expediteur=request.user
+    ).select_related("destinataire").order_by("-date_envoi")
+    paginator = Paginator(messages_list, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
     template = get_messaging_template(request.user, "sent_box")
     return render(
         request,
         template,
         {
-            "message_list": messages_list,
+            "message_list": page_obj,
+            "page_obj": page_obj,
             "active_tab": "sent",
         },
     )
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def compose(request):
     """
     Rédiger un nouveau message.
@@ -76,6 +91,16 @@ def compose(request):
                 )
                 template = get_messaging_template(request.user, "compose")
                 return render(request, template, {"form": form})
+            # Server-side role check: students can only message professors/secretaries
+            if request.user.role == User.Role.ETUDIANT:
+                dest = message.destinataire
+                if dest.role not in (User.Role.PROFESSEUR, User.Role.SECRETAIRE):
+                    messages.error(
+                        request,
+                        "Vous ne pouvez envoyer des messages qu'aux professeurs et secrétaires.",
+                    )
+                    template = get_messaging_template(request.user, "compose")
+                    return render(request, template, {"form": form})
             message.save()
             messages.success(request, "Message envoyé avec succès !")
             return redirect("messaging:sent")
@@ -93,11 +118,15 @@ def compose(request):
 
 
 @login_required
+@require_GET
 def message_detail(request, message_id):
     """
     Détail d'un message - Affiche le contenu complet d'un message.
     """
-    msg = get_object_or_404(Message, id_message=message_id)
+    msg = get_object_or_404(
+        Message.objects.select_related("expediteur", "destinataire"),
+        id_message=message_id,
+    )
 
     # Check permission (handle NULL expediteur/destinataire from SET_NULL)
     is_recipient = (
@@ -111,7 +140,7 @@ def message_detail(request, message_id):
     # Mark as read if user is recipient
     if is_recipient and not msg.lu:
         msg.lu = True
-        msg.save()
+        msg.save(update_fields=["lu"])
         cache.delete(f"messages:unread_count:{request.user.pk}")
 
     template = get_messaging_template(request.user, "detail")

@@ -29,8 +29,7 @@
                                     <h5 class="fw-bold text-dark mb-1">{{ absence.id_inscription.id_cours.nom_cours }}
                                     </h5>
                                     <p class="mb-0 text-muted small">
-                                        <i class="far fa-calendar me-1"></i> {{ absence.id_seance.date_seance|date:"d F
-                                        Y" }}<br>
+                                        <i class="far fa-calendar me-1"></i> {{ absence.id_seance.date_seance|date:"d/m/Y" }}<br>
                                         <i class="far fa-clock me-1"></i> {{ absence.id_seance.heure_debut|time:"H:i" }}
                                     </p>
                                 </div>
@@ -98,6 +97,14 @@
                     <!-- Form (Only if UNJUSTIFIED or PENDING) -->
                     {% if absence.statut != 'JUSTIFIEE' and not justification or justification.state == 'REFUSEE' %}
                     <hr class="my-4">
+
+                    {% if deadline %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-calendar-times me-2"></i>
+                        <strong>Date limite :</strong> Vous avez jusqu'au <strong>{{ deadline|date:"d/m/Y" }}</strong> pour soumettre votre justificatif.
+                    </div>
+                    {% endif %}
+
                     <form method="POST" enctype="multipart/form-data" id="justificationForm">
                         {% csrf_token %}
                         <h5 class="fw-bold mb-3"><i class="fas fa-file-upload me-2 text-primary"></i>Déposer un document
@@ -127,10 +134,11 @@
 
                         <div class="mb-4">
                             <label for="comment" class="form-label fw-bold">Commentaire additionnel (optionnel)</label>
-                            <textarea class="form-control" 
-                                      id="comment" 
-                                      name="comment" 
+                            <textarea class="form-control"
+                                      id="comment"
+                                      name="comment"
                                       rows="3"
+                                      maxlength="2000"
                                       placeholder="Précisions utiles pour l'administration..."></textarea>
                         </div>
 

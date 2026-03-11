@@ -100,11 +100,21 @@ class Inscription(models.Model):
                 ),
                 name="inscription_exemption_requires_motif",
             ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=["EN_COURS", "VALIDE", "NON_VALIDE"]),
+                name="inscription_status_valid_values",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(type_inscription__in=["NORMALE", "A_PART"]),
+                name="inscription_type_valid_values",
+            ),
         ]
 
     def clean(self):
         """Validation: motif requis si exemption activée"""
-        if self.exemption_40 and not self.motif_exemption:
+        if self.exemption_40 and (
+            not self.motif_exemption or not self.motif_exemption.strip()
+        ):
             raise ValidationError(
                 {
                     "motif_exemption": "Un motif est obligatoire lorsque l'exemption est activée."
@@ -113,10 +123,14 @@ class Inscription(models.Model):
 
     def save(self, *args, **kwargs):
         """Valider avant sauvegarde"""
-        if self.pk is None:
-            self.full_clean()
-        else:
+        # Always run full_clean() (field validators + clean()) on both
+        # create and update. Calling only clean() on update skipped
+        # field-level validators, potentially allowing invalid data.
+        if kwargs.get("update_fields"):
+            # Partial update (e.g. cloture) — skip full validation
             self.clean()
+        else:
+            self.full_clean()
         super().save(*args, **kwargs)
 
     # FIX VERT #20 — Propriété de commodité : l'inscription est-elle en cours ?

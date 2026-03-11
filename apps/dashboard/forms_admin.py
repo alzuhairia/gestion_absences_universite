@@ -78,6 +78,7 @@ class CoursForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._resolved_year = None
         # Filtrer les départements actifs
         self.fields["id_departement"].queryset = Departement.objects.filter(actif=True)
         # Filtrer les professeurs actifs
@@ -134,12 +135,21 @@ class CoursForm(forms.ModelForm):
             # Définir les prérequis initiaux uniquement lors de l'édition
             self.fields["prerequisites"].initial = self.instance.prerequisites.all()
         else:
-            # Lors de la création, aucun prérequis n'est sélectionné par défaut
-            # Le queryset sera mis à jour dynamiquement via JavaScript selon le niveau sélectionné
-            self.fields["prerequisites"].queryset = (
-                Cours.objects.none()
-            )  # Vide par défaut
-            self.fields["prerequisites"].initial = []  # Aucun prérequis par défaut
+            # Lors de la création, construire le queryset à partir du niveau soumis
+            # pour que la validation Django accepte les prérequis sélectionnés via JS
+            submitted_niveau = self.data.get("niveau") if self.is_bound else None
+            if submitted_niveau:
+                try:
+                    submitted_niveau = int(submitted_niveau)
+                except (TypeError, ValueError):
+                    submitted_niveau = None
+
+            if submitted_niveau and submitted_niveau >= 2:
+                self.fields["prerequisites"].queryset = Cours.objects.filter(
+                    actif=True, niveau__lt=submitted_niveau
+                ).order_by("niveau", "code_cours")
+            else:
+                self.fields["prerequisites"].queryset = Cours.objects.none()
 
         # Labels en français
         self.fields["code_cours"].label = "Code du Cours"
@@ -167,21 +177,26 @@ class CoursForm(forms.ModelForm):
             "Désactiver un cours le masque sans le supprimer"
         )
 
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-
-        # Si c'est une création (pas d'ID), assigner automatiquement l'année académique active
-        if not instance.pk:
+    def clean(self):
+        cleaned_data = super().clean()
+        # Validate academic year availability for new courses during clean(), not save()
+        if not self.instance.pk:
             active_year = AnneeAcademique.objects.filter(active=True).first()
             if not active_year:
-                # Si aucune année active, prendre la plus récente
                 active_year = AnneeAcademique.objects.order_by("-libelle").first()
-            if active_year:
-                instance.id_annee = active_year
-            else:
+            if not active_year:
                 raise forms.ValidationError(
                     "Impossible de créer un cours : aucune année académique n'est définie dans le système."
                 )
+            self._resolved_year = active_year
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Si c'est une création (pas d'ID), assigner l'année académique résolue dans clean()
+        if not instance.pk:
+            instance.id_annee = self._resolved_year
 
         if commit:
             instance.save()
@@ -387,3 +402,19 @@ class AnneeAcademiqueForm(forms.ModelForm):
             "libelle": "Format recommandé: AAAA-AAAA (ex: 2023-2024)",
             "active": "Une seule année peut être active à la fois. L'année précédente sera automatiquement désactivée.",
         }
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if commit:
+            if instance.active:
+                # Désactiver toutes les autres années avant d'activer celle-ci
+                from django.db import transaction
+
+                with transaction.atomic():
+                    AnneeAcademique.objects.exclude(pk=instance.pk).filter(
+                        active=True
+                    ).update(active=False)
+                    instance.save()
+            else:
+                instance.save()
+        return instance

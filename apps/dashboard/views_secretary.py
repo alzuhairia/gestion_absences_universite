@@ -792,6 +792,7 @@ def secretary_academic_year_delete(request, year_id):
 
 @login_required
 @secretary_required
+@require_http_methods(["GET"])
 def secretary_audit_logs(request):
     """Consultation de tous les journaux d'audit avec filtres (pour secrétaire)"""
 
@@ -812,7 +813,7 @@ def secretary_audit_logs(request):
     if date_from:
         logs = logs.filter(date_action__gte=date_from)
     if date_to:
-        logs = logs.filter(date_action__lte=date_to)
+        logs = logs.filter(date_action__date__lte=date_to)
     if user_filter:
         logs = logs.filter(
             Q(id_utilisateur__nom__icontains=user_filter)

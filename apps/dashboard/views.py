@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence, Justification
 from apps.academic_sessions.models import AnneeAcademique, Seance
@@ -62,6 +63,7 @@ def admin_dashboard(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_dashboard(request):
     """
     Vue tableau de bord secrétaire - KPIs uniquement
@@ -71,8 +73,12 @@ def secretary_dashboard(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    # 1. Pending Justifications Count
-    global_pending_count = Justification.objects.filter(state="EN_ATTENTE").count()
+    # 1. Absence status counts
+    absence_base_qs = Absence.objects.all()
+    if academic_year:
+        absence_base_qs = absence_base_qs.filter(id_inscription__id_annee=academic_year)
+    global_unjustified_count = absence_base_qs.filter(statut="NON_JUSTIFIEE").count()
+    global_pending_count = absence_base_qs.filter(statut="EN_ATTENTE").count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
     all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
@@ -94,7 +100,7 @@ def secretary_dashboard(request):
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
@@ -120,6 +126,7 @@ def secretary_dashboard(request):
         request,
         "dashboard/secretary_index.html",
         {
+            "global_unjustified_count": global_unjustified_count,
             "global_pending_count": global_pending_count,
             "global_at_risk_count": global_at_risk_count,
             "academic_year": academic_year,
@@ -131,6 +138,7 @@ def secretary_dashboard(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_enrollments(request):
     """
     Page "Inscriptions" - Gestion des inscriptions étudiantes.
@@ -230,74 +238,18 @@ def secretary_enrollments(request):
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_rules_40(request):
     """
-    Page "Règle des 40%" - Gestion des exemptions et étudiants à risque.
+    Redirect to the canonical rules management page to avoid duplication.
+    The enrollments:rules_management view has pagination and custom modals.
     """
-    # Get current academic year
-    academic_year = AnneeAcademique.objects.filter(active=True).first()
-
-    # Get inscriptions filtered by active year
-    all_inscriptions = Inscription.objects.select_related(
-        "id_cours", "id_etudiant", "id_cours__id_departement"
-    )
-    if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
-    absence_sums = dict(
-        Absence.objects.filter(
-            id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
-        )
-        .values("id_inscription")
-        .annotate(total=Sum("duree_absence"))
-        .values_list("id_inscription", "total")
-    )
-    at_risk_list = []
-
-    for ins in all_inscriptions:
-        cours = ins.id_cours
-        if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
-
-            rate = (total_abs / cours.nombre_total_periodes) * 100
-
-            # CORRECTION BUG CRITIQUE #4e — seuil configuré par cours
-            seuil = cours.get_seuil_absence()
-            # Afficher si taux >= seuil OU si exempté (pour pouvoir révoquer si besoin)
-            if rate >= seuil:
-                at_risk_list.append(
-                    {
-                        "inscription": ins,
-                        "etudiant": ins.id_etudiant,
-                        "cours": cours,
-                        "total_abs": total_abs,
-                        "rate": round(rate, 1),
-                        "is_blocked": not ins.exemption_40,
-                        "exemption": ins.exemption_40,
-                        "motif_exemption": ins.motif_exemption,
-                    }
-                )
-
-    # Calculate statistics
-    blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
-    exempted_count = len(at_risk_list) - blocked_count
-
-    return render(
-        request,
-        "dashboard/secretary_rules_40.html",
-        {
-            "academic_year": academic_year,
-            "at_risk_list": at_risk_list,
-            "blocked_count": blocked_count,
-            "exempted_count": exempted_count,
-        },
-    )
+    return redirect("enrollments:rules_management")
 
 
 @login_required
 @secretary_required
+@require_GET
 def secretary_exports(request):
     """
     Page "Exports" - Téléchargement des rapports Excel/PDF.
@@ -336,7 +288,7 @@ def secretary_exports(request):
     for ins in active_inscriptions_list:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
-            total_abs = absence_sums.get(ins.id_inscription, 0) or 0
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (total_abs / cours.nombre_total_periodes) * 100
             # CORRECTION BUG CRITIQUE #4f — seuil configuré par cours
             seuil = ins.id_cours.get_seuil_absence()
@@ -366,7 +318,7 @@ def get_active_courses_queryset(academic_year):
 
     Returns: QuerySet of Cours objects
     """
-    courses = Cours.objects.filter(professeur__isnull=False)
+    courses = Cours.objects.filter(professeur__isnull=False, actif=True)
 
     if not academic_year:
         return courses.none()
@@ -385,6 +337,7 @@ def get_active_courses_queryset(academic_year):
 
 
 @login_required
+@require_GET
 def active_courses(request):
     """
     View to display active courses for the current academic year.

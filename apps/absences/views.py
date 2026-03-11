@@ -10,10 +10,15 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from apps.absences.models import Absence, Justification
-from apps.absences.services import calculer_absence_stats, get_absences_queryset
+from apps.absences.services import (
+    calculer_absence_stats,
+    get_absences_queryset,
+    get_justification_deadline,
+    is_justification_expired,
+)
 from apps.absences.utils_upload import (
     UploadValidationError,
     generate_safe_upload_filename,
@@ -35,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 @student_required
+@require_GET
 def absence_details(request, id_inscription):
     """
     Affiche les détails des absences pour un étudiant - Lecture seule.
@@ -71,19 +77,18 @@ def absence_details(request, id_inscription):
                 status = "NON JUSTIFIÉE"
                 status_color = "danger"
 
-        # CORRECTION BUG CRITIQUE #2a — Logique can_submit corrigée
-        # AVANT : "and not justification" empêchait la resoumission après refus
-        # APRÈS : on distingue explicitement chaque état
-        # - Pas encore soumis (absence NON_JUSTIFIEE sans justificatif) → peut soumettre
-        # - Justificatif refusé (state=REFUSEE) → peut resoumettre
-        # - En attente → ne peut pas soumettre (déjà en cours d'examen)
-        # - Accepté → ne peut pas soumettre (déjà validé)
+        # Determine if the student can submit a justification
         is_refused = justification is not None and justification.state == "REFUSEE"
         is_not_yet_submitted = justification is None and absence.statut not in (
             "JUSTIFIEE",
             "EN_ATTENTE",
         )
-        can_submit = is_not_yet_submitted or is_refused
+        can_submit_status = is_not_yet_submitted or is_refused
+
+        # Deadline check: student can only submit within JUSTIFICATION_DEADLINE_DAYS
+        deadline = get_justification_deadline(absence)
+        expired = is_justification_expired(absence)
+        can_submit = can_submit_status and not expired
 
         absences_data.append(
             {
@@ -92,6 +97,8 @@ def absence_details(request, id_inscription):
                 "status_color": status_color,
                 "justification": justification,
                 "can_submit": can_submit,
+                "deadline": deadline,
+                "is_expired": expired and can_submit_status,
             }
         )
 
@@ -127,6 +134,7 @@ def absence_details(request, id_inscription):
 
 @login_required
 @student_required
+@require_http_methods(["GET", "POST"])
 def upload_justification(request, absence_id):
     """
     Telechargement de justificatif - STRICT: Uniquement pour les etudiants, uniquement pour les absences NON JUSTIFIEES ou EN ATTENTE.
@@ -170,6 +178,18 @@ def upload_justification(request, absence_id):
             request,
             "Un justificatif a deja ete soumis pour cette absence et est actuellement en cours d'examen par le secretariat. "
             "Vous ne pouvez plus le modifier. Vous serez notifie une fois la decision prise.",
+        )
+        return redirect(
+            "absences:details", id_inscription=absence.id_inscription.id_inscription
+        )
+
+    # STRICT: Deadline check — student cannot submit after JUSTIFICATION_DEADLINE_DAYS
+    deadline = get_justification_deadline(absence)
+    if is_justification_expired(absence):
+        messages.error(
+            request,
+            f"Le delai de justification est depasse. "
+            f"Vous aviez jusqu'au {deadline.strftime('%d/%m/%Y')} pour soumettre un justificatif.",
         )
         return redirect(
             "absences:details", id_inscription=absence.id_inscription.id_inscription
@@ -238,8 +258,8 @@ def upload_justification(request, absence_id):
 
         messages.success(
             request,
-            "Votre justificatif a ete envoye avec succes. Il sera examine par le secretariat dans les plus brefs delais. "
-            "Vous serez notifie une fois la decision prise. Vous ne pourrez plus modifier ce justificatif.",
+            "Votre justificatif a été envoyé et est en attente de validation par le secrétariat. "
+            "Vous serez notifié une fois la décision prise.",
         )
         return redirect(
             "absences:details", id_inscription=absence.id_inscription.id_inscription
@@ -248,37 +268,44 @@ def upload_justification(request, absence_id):
     return render(
         request,
         "absences/justify.html",
-        {"absence": absence, "justification": justification},
+        {"absence": absence, "justification": justification, "deadline": deadline},
     )
 
 
 @login_required
 @secretary_required
+@require_http_methods(["GET", "POST"])
 def review_justification(request, absence_id):
     """
-    Review justification - STRICT: Only for secretaries, NOT for professors or admins.
-    Professors should NEVER see or modify justifications.
-    Administrators manage configuration, not daily operations.
+    Review absence details and justification (if any).
+    Handles both absences with and without a submitted justification.
     """
-    # FIX ORANGE #11c — Check de rôle supprimé car redondant avec @secretary_required.
-    # Le décorateur gère : SECRETAIRE autorisé, ADMIN → message avertissement,
-    # autres rôles → message erreur + redirection. Comportement identique, code centralisé.
-    absence = get_object_or_404(Absence, id_absence=absence_id)
-    justification = get_object_or_404(Justification, id_absence=absence)
+    absence = get_object_or_404(
+        Absence.objects.select_related(
+            "id_inscription__id_etudiant",
+            "id_seance__id_cours",
+        ),
+        id_absence=absence_id,
+    )
+    justification = Justification.objects.filter(id_absence=absence).first()
 
-    if request.method == "POST":
-        # Mise a jour du commentaire de gestion
+    if request.method == "POST" and justification:
+        if justification.state != "EN_ATTENTE":
+            messages.warning(
+                request,
+                "Le commentaire ne peut plus etre modifie apres validation ou refus.",
+            )
+            return redirect("absences:review_justification", absence_id=absence_id)
         new_comment = request.POST.get("commentaire_gestion")
         justification.commentaire_gestion = new_comment
         justification.save()
         messages.success(request, "Commentaire mis a jour.")
-        # On redirige vers la meme page pour voir le resultat
         return redirect("absences:review_justification", absence_id=absence_id)
 
-    # Document lie (FileField)
+    # Document link (only if justification with document exists)
     document_url = None
     document_name = None
-    if justification.document:
+    if justification and justification.document:
         document_url = reverse(
             "absences:download_justification", args=[justification.id_justification]
         )
@@ -345,6 +372,7 @@ def download_justification(request, justification_id):
 
 @login_required
 @professor_required
+@require_http_methods(["GET", "POST"])
 def mark_absence(request, course_id):
     """
     Vue pour qu'un professeur puisse noter les absences d'une séance.
@@ -388,12 +416,29 @@ def mark_absence(request, course_id):
         messages.error(request, "Accès non autorisé à ce cours.")
         return redirect("dashboard:instructor_dashboard")
 
-    inscriptions_qs = Inscription.objects.filter(id_cours=course).select_related(
-        "id_etudiant"
-    )
+    # Filter by active year and EN_COURS status to exclude past/inactive students
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    inscriptions_qs = Inscription.objects.filter(
+        id_cours=course, status="EN_COURS"
+    ).select_related("id_etudiant")
+    if active_year:
+        inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
     inscriptions_by_id = {str(ins.id_inscription): ins for ins in inscriptions_qs}
 
     if request.method == "POST":
+        # Block if this is a validated session
+        check_date = request.POST.get("date_seance", "").strip()
+        if check_date:
+            validated_seance = Seance.objects.filter(
+                id_cours=course, date_seance=check_date, validated=True
+            ).first()
+            if validated_seance:
+                messages.error(
+                    request,
+                    "Cette séance a déjà été validée. Vous ne pouvez plus modifier les présences.",
+                )
+                return redirect("absences:mark_absence", course_id=course_id)
+
         # Verifier que les inscriptions envoyees appartiennent au cours
         invalid_ids = []
         for key in request.POST.keys():
@@ -543,9 +588,9 @@ def mark_absence(request, course_id):
                     elif type_absence == "JOURNEE":
                         duree = 8.0  # Valeur arbitraire pour journee
 
-                    # Creation ou Mise a jour Absence (only if not validated)
-                    if existing_absence and existing_absence.statut == "JUSTIFIEE":
-                        # Skip validated absences - professors cannot modify them
+                    # Creation ou Mise a jour Absence (only if not validated/pending)
+                    if existing_absence and existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
+                        # Skip validated or pending absences - professors cannot modify them
                         continue
 
                     absence, created = Absence.objects.update_or_create(
@@ -575,14 +620,13 @@ def mark_absence(request, course_id):
                         )
                 else:
                     # Si marque PRESENT, on supprime une eventuelle absence existante pour cette seance
-                    # STRICT: Professors CANNOT delete or modify existing absences
                     if existing_absence:
-                        if is_prof:
-                            # Professors cannot delete absences (especially validated ones)
+                        # PROTECTION: JUSTIFIEE and EN_ATTENTE absences cannot be deleted
+                        if existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
                             continue
-                        # Only admins/secretaries can delete
-                        if existing_absence.statut != "JUSTIFIEE":
-                            existing_absence.delete()
+                        # Professors can correct their own NON_JUSTIFIEE absences
+                        # (e.g., marked absent by mistake, now correcting to present)
+                        existing_absence.delete()
 
             # Audit logging for session creation/attendance
             if request.user.role == User.Role.PROFESSEUR:
@@ -606,12 +650,40 @@ def mark_absence(request, course_id):
                     objet_id=seance.id_seance if hasattr(seance, "id_seance") else None,
                 )
 
-            messages.success(
-                request,
-                f"Les absences ont été enregistrées avec succès pour la séance du {date_seance}. "
-                "Vous pouvez consulter les détails dans la page du cours.",
+            # --- Validate or Draft? ---
+            post_action = request.POST.get("form_action", "draft")
+
+            if post_action == "validate":
+                # Save + lock in one step
+                seance.validated = True
+                seance.validated_by = request.user
+                seance.date_validated = timezone.now()
+                seance.save(update_fields=["validated", "validated_by", "date_validated"])
+
+                log_action(
+                    request.user,
+                    f"Professeur a validé la séance du {date_seance} pour {course.code_cours}",
+                    request,
+                    niveau="INFO",
+                    objet_type="SEANCE",
+                    objet_id=seance.id_seance,
+                )
+
+                messages.success(
+                    request,
+                    f"L'appel du {date_seance} a été validé et verrouillé. "
+                    "La séance ne peut plus être modifiée.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Brouillon enregistré pour la séance du {date_seance}. "
+                    "Vous pourrez le modifier et le valider ultérieurement.",
+                )
+
+            return redirect(
+                f"{reverse('absences:mark_absence', args=[course_id])}?date={date_seance}"
             )
-            return redirect("dashboard:instructor_dashboard")
 
     # --- AFFICHAGE DU FORMULAIRE (GET) ---
     students = inscriptions_qs.order_by("id_etudiant__nom")
@@ -629,11 +701,15 @@ def mark_absence(request, course_id):
 
     existing_absences = {}
     is_edit_mode = False
+    is_validated = False
 
     if existing_seance:
         is_edit_mode = True
-        default_start = existing_seance.heure_debut.strftime("%H:%M")
-        default_end = existing_seance.heure_fin.strftime("%H:%M")
+        is_validated = existing_seance.validated
+        if existing_seance.heure_debut:
+            default_start = existing_seance.heure_debut.strftime("%H:%M")
+        if existing_seance.heure_fin:
+            default_end = existing_seance.heure_fin.strftime("%H:%M")
 
         abs_list = Absence.objects.filter(id_seance=existing_seance)
         for ab in abs_list:
@@ -648,6 +724,10 @@ def mark_absence(request, course_id):
     for ins in students:
         ins.absence_data = existing_absences.get(ins.id_inscription)
 
+    # Recap counts for post-submission summary
+    recap_absent_count = len(existing_absences)
+    recap_present_count = len(students) - recap_absent_count
+
     return render(
         request,
         "absences/mark_absence.html",
@@ -658,5 +738,50 @@ def mark_absence(request, course_id):
             "default_start": default_start,
             "default_end": default_end,
             "is_edit_mode": is_edit_mode,
+            "is_validated": is_validated,
+            "existing_seance": existing_seance,
+            "recap_present_count": recap_present_count,
+            "recap_absent_count": recap_absent_count,
         },
     )
+
+
+@login_required
+@professor_required
+@require_POST
+def validate_session(request, seance_id):
+    """
+    Valide une séance — verrouille la présence.
+    Après validation, le professeur ne peut plus modifier les absences de cette séance.
+    """
+    seance = get_object_or_404(Seance, pk=seance_id)
+
+    # Vérifier que le cours appartient au professeur
+    if seance.id_cours.professeur != request.user:
+        messages.error(request, "Accès non autorisé à cette séance.")
+        return redirect("dashboard:instructor_dashboard")
+
+    if seance.validated:
+        messages.info(request, "Cette séance est déjà validée.")
+        return redirect("absences:mark_absence", course_id=seance.id_cours_id)
+
+    with transaction.atomic():
+        seance.validated = True
+        seance.validated_by = request.user
+        seance.date_validated = timezone.now()
+        seance.save(update_fields=["validated", "validated_by", "date_validated"])
+
+        log_action(
+            request.user,
+            f"Professeur a validé la séance du {seance.date_seance} pour {seance.id_cours.code_cours}",
+            request,
+            niveau="INFO",
+            objet_type="SEANCE",
+            objet_id=seance.id_seance,
+        )
+
+    messages.success(
+        request,
+        f"La séance du {seance.date_seance} a été validée. Les présences sont maintenant verrouillées.",
+    )
+    return redirect("absences:mark_absence", course_id=seance.id_cours_id)
