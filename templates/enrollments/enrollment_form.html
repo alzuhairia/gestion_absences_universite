@@ -54,24 +54,36 @@
                             {% endif %}
                         </div>
 
-                        <!-- Niveau (si inscription à un niveau complet) -->
+                        <!-- Département + Niveau (si inscription à un niveau complet) -->
                         <div id="levelSection" class="mb-4" style="display: none;">
                             <h5 class="mb-3">
-                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Niveau d'étude
+                                <i class="fas fa-graduation-cap me-2 text-primary"></i>Département et Niveau
                             </h5>
-                            <div class="mb-3">
-                                <label for="{{ enrollment_form.niveau.id_for_label }}" class="form-label">Niveau <span class="text-danger">*</span></label>
-                                {{ enrollment_form.niveau }}
-                                {% if enrollment_form.niveau.errors %}
-                                <div class="text-danger small">{{ enrollment_form.niveau.errors }}</div>
-                                {% endif %}
-                                {% if enrollment_form.niveau.help_text %}
-                                <small class="form-text text-muted">{{ enrollment_form.niveau.help_text }}</small>
-                                {% endif %}
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ enrollment_form.departement.id_for_label }}" class="form-label">Département / Filière <span class="text-danger">*</span></label>
+                                    {{ enrollment_form.departement }}
+                                    {% if enrollment_form.departement.errors %}
+                                    <div class="text-danger small">{{ enrollment_form.departement.errors }}</div>
+                                    {% endif %}
+                                    {% if enrollment_form.departement.help_text %}
+                                    <small class="form-text text-muted">{{ enrollment_form.departement.help_text }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ enrollment_form.niveau.id_for_label }}" class="form-label">Niveau <span class="text-danger">*</span></label>
+                                    {{ enrollment_form.niveau }}
+                                    {% if enrollment_form.niveau.errors %}
+                                    <div class="text-danger small">{{ enrollment_form.niveau.errors }}</div>
+                                    {% endif %}
+                                    {% if enrollment_form.niveau.help_text %}
+                                    <small class="form-text text-muted">{{ enrollment_form.niveau.help_text }}</small>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du niveau sélectionné pour l'année académique en cours.
+                                <strong>Inscription à un niveau complet :</strong> L'étudiant sera inscrit automatiquement à tous les cours actifs du département et du niveau sélectionnés.
                             </div>
                         </div>
 
@@ -388,7 +400,7 @@ function renderCourseList(courses) {
                 <div class="form-check flex-grow-1">
                     <input class="form-check-input course-checkbox" type="checkbox"
                         name="courses" value="${course.id}" id="${id}"
-                        data-code="${course.code}" data-name="${course.name}" data-dept="${dept}"
+                        data-code="${course.code}" data-name="${course.name}" data-dept="${dept}" data-hours="${course.hours || 0}"
                         ${course.already_enrolled ? 'disabled' : ''}
                         onchange="updateCounter()">
                     <label class="form-check-label w-100" for="${id}">
@@ -498,33 +510,73 @@ function getRecapData() {
     if (enrollmentType === 'COURSE') {
         document.querySelectorAll('.course-checkbox:checked').forEach(cb => {
             selectedCourses.push({
-                code: escapeHtml(cb.dataset.code || ''),
-                name: escapeHtml(cb.dataset.name || ''),
-                dept: escapeHtml(cb.dataset.dept || ''),
+                code: cb.dataset.code || '',
+                name: cb.dataset.name || '',
+                dept: cb.dataset.dept || '',
+                hours: parseInt(cb.dataset.hours, 10) || 0,
             });
         });
     }
 
-    // Niveau (mode LEVEL)
+    // Département + Niveau (mode LEVEL)
     let niveauLabel = '';
+    let departementLabel = '';
     if (enrollmentType === 'LEVEL') {
         const niveauSelect = document.getElementById('{{ enrollment_form.niveau.id_for_label }}');
         niveauLabel = niveauSelect?.selectedIndex > 0 ? escapeHtml(niveauSelect.options[niveauSelect.selectedIndex].text) : '';
+        const deptSelect = document.getElementById('{{ enrollment_form.departement.id_for_label }}');
+        departementLabel = deptSelect?.selectedIndex > 0 ? escapeHtml(deptSelect.options[deptSelect.selectedIndex].text) : '';
     }
 
-    return { enrollmentType, studentLabel, yearLabel, selectedCourses, niveauLabel };
+    return { enrollmentType, studentLabel, yearLabel, selectedCourses, niveauLabel, departementLabel };
 }
 
-function showRecap() {
-    const data = getRecapData();
-
-    // Validation rapide avant d'ouvrir le récap
-    if (data.enrollmentType === 'COURSE' && data.selectedCourses.length === 0) {
-        alert('Veuillez sélectionner au moins un cours.');
-        return;
+function buildCourseTable(courses, showDept) {
+    if (courses.length === 0) {
+        return `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Aucun cours trouvé.</div>`;
     }
+    const totalHours = courses.reduce((sum, c) => sum + (c.hours || 0), 0);
+    let html = `<div class="table-responsive">
+        <table class="table table-sm table-hover mb-2">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Nom du cours</th>
+                    ${showDept ? '<th>Département</th>' : ''}
+                    <th class="text-center">Heures</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>`;
+    courses.forEach(c => {
+        const code = typeof c.code === 'string' ? c.code : escapeHtml(c.code || '');
+        const name = typeof c.name === 'string' ? c.name : escapeHtml(c.name || '');
+        const dept = typeof c.dept === 'string' ? c.dept : escapeHtml(c.department || c.dept || '');
+        const hours = c.hours || '—';
+        const badge = c.already_enrolled
+            ? '<span class="badge bg-info">Déjà inscrit</span>'
+            : '';
+        html += `<tr>
+            <td><strong>${escapeHtml(code)}</strong></td>
+            <td>${escapeHtml(name)}</td>
+            ${showDept ? `<td class="text-muted">${escapeHtml(dept)}</td>` : ''}
+            <td class="text-center">${hours}h</td>
+            <td>${badge}</td>
+        </tr>`;
+    });
+    html += `</tbody>
+        <tfoot class="table-light">
+            <tr>
+                <td colspan="${showDept ? 3 : 2}" class="text-end fw-bold">Total</td>
+                <td class="text-center fw-bold">${totalHours}h</td>
+                <td></td>
+            </tr>
+        </tfoot>
+        </table></div>`;
+    return html;
+}
 
-    const body = document.getElementById('recapBody');
+function buildRecapHtml(data, levelCourses) {
     let html = '';
 
     // Étudiant
@@ -542,37 +594,72 @@ function showRecap() {
     // Mode inscription
     if (data.enrollmentType === 'LEVEL') {
         html += `<div class="recap-section">
-            <h6><i class="fas fa-graduation-cap me-2"></i>Mode</h6>
-            <p class="mb-0 ms-3">Inscription à un niveau complet : <strong>${data.niveauLabel}</strong></p>
-            <p class="ms-3 text-muted small mb-0">Tous les cours actifs de ce niveau seront inclus.</p>
+            <h6><i class="fas fa-building me-2"></i>Département / Filière</h6>
+            <p class="mb-0 ms-3">${data.departementLabel}</p>
         </div>`;
-    } else {
-        // Grouper les cours par département
-        const grouped = {};
-        data.selectedCourses.forEach(c => {
-            if (!grouped[c.dept]) grouped[c.dept] = [];
-            grouped[c.dept].push(c);
-        });
 
         html += `<div class="recap-section">
+            <h6><i class="fas fa-graduation-cap me-2"></i>Niveau</h6>
+            <p class="mb-0 ms-3">${data.niveauLabel}</p>
+        </div>`;
+
+        // Tableau des cours
+        html += `<div class="recap-section">
+            <h6><i class="fas fa-book me-2"></i>Cours inclus <span class="badge bg-success">${levelCourses.length}</span></h6>`;
+        html += buildCourseTable(levelCourses, false);
+        html += `</div>`;
+    } else {
+        html += `<div class="recap-section">
             <h6><i class="fas fa-book me-2"></i>Cours sélectionnés <span class="badge bg-success">${data.selectedCourses.length}</span></h6>`;
-
-        Object.keys(grouped).sort().forEach(dept => {
-            html += `<p class="mb-1 ms-3 text-muted small fw-bold">${dept}</p>`;
-            html += `<ul class="recap-course-list ms-3">`;
-            grouped[dept].forEach(c => {
-                html += `<li><strong>[${c.code}]</strong> ${c.name}</li>`;
-            });
-            html += `</ul>`;
-        });
-
+        html += buildCourseTable(data.selectedCourses, true);
         html += `</div>`;
     }
 
-    body.innerHTML = html;
+    return html;
+}
 
-    const modal = new bootstrap.Modal(document.getElementById('recapModal'));
-    modal.show();
+async function showRecap() {
+    const data = getRecapData();
+
+    // Validation rapide avant d'ouvrir le récap
+    if (data.enrollmentType === 'COURSE' && data.selectedCourses.length === 0) {
+        alert('Veuillez sélectionner au moins un cours.');
+        return;
+    }
+
+    const body = document.getElementById('recapBody');
+
+    if (data.enrollmentType === 'LEVEL') {
+        // Charger les cours du département + niveau via l'API
+        const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
+        const deptId = document.getElementById('{{ enrollment_form.departement.id_for_label }}').value;
+        const niveau = document.getElementById('{{ enrollment_form.niveau.id_for_label }}').value;
+
+        if (!deptId || !niveau || !yearId) {
+            alert('Veuillez sélectionner un département, un niveau et une année académique.');
+            return;
+        }
+
+        // Afficher le modal avec un spinner pendant le chargement
+        body.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Chargement des cours...</p></div>';
+        const modal = new bootstrap.Modal(document.getElementById('recapModal'));
+        modal.show();
+
+        try {
+            const apiData = await fetchJson(
+                `${API_COURSES_BY_YEAR_URL}?year_id=${yearId}&dept_id=${deptId}&niveau=${niveau}`
+            );
+            const levelCourses = Array.isArray(apiData) ? apiData : [];
+            body.innerHTML = buildRecapHtml(data, levelCourses);
+        } catch (error) {
+            console.error('Error loading level courses:', error);
+            body.innerHTML = buildRecapHtml(data, []);
+        }
+    } else {
+        body.innerHTML = buildRecapHtml(data, []);
+        const modal = new bootstrap.Modal(document.getElementById('recapModal'));
+        modal.show();
+    }
 }
 
 function confirmSubmit() {

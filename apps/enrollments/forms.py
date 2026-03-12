@@ -7,7 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from apps.academic_sessions.models import AnneeAcademique
-from apps.academics.models import Cours
+from apps.academics.models import Cours, Departement
 from apps.accounts.models import User
 
 from .models import Inscription
@@ -28,13 +28,6 @@ class StudentCreationForm(forms.Form):
     )
     email = forms.EmailField(
         label="Adresse e-mail", widget=forms.EmailInput(attrs={"class": "form-control"})
-    )
-    niveau = forms.ChoiceField(
-        choices=[(1, "Année 1"), (2, "Année 2"), (3, "Année 3")],
-        label="Niveau académique",
-        required=True,
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text="Niveau académique de l'étudiant (obligatoire)",
     )
     password = forms.CharField(
         label="Mot de passe temporaire",
@@ -77,8 +70,12 @@ class StudentCreationForm(forms.Form):
 
         return cleaned_data
 
-    def create_student(self):
-        """Crée un compte étudiant avec le mot de passe temporaire"""
+    def create_student(self, niveau=None):
+        """Crée un compte étudiant avec le mot de passe temporaire.
+
+        Args:
+            niveau: niveau académique (int) déduit du contexte d'inscription.
+        """
         student = User.objects.create_user(
             email=self.cleaned_data["email"],
             password=self.cleaned_data["password"],
@@ -86,12 +83,8 @@ class StudentCreationForm(forms.Form):
             prenom=self.cleaned_data["prenom"],
             role=User.Role.ETUDIANT,
             actif=True,
-            must_change_password=True,  # Forcer le changement de mot de passe
-            niveau=(
-                int(self.cleaned_data.get("niveau"))
-                if self.cleaned_data.get("niveau")
-                else None
-            ),  # Niveau académique si fourni
+            must_change_password=True,
+            niveau=int(niveau) if niveau else None,
         )
         return student
 
@@ -109,6 +102,16 @@ class EnrollmentForm(forms.Form):
         label="Type d'inscription",
         widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
         initial="COURSE",
+    )
+
+    # Département / filière pour l'inscription à un niveau complet
+    departement = forms.ModelChoiceField(
+        queryset=Departement.objects.filter(actif=True).order_by("nom_departement"),
+        label="Département / Filière",
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        empty_label="Sélectionner un département",
+        help_text="Seuls les cours de ce département seront inclus",
     )
 
     # Niveau pour l'inscription à un niveau complet
@@ -169,6 +172,12 @@ class EnrollmentForm(forms.Form):
 
         # Validation selon le type d'inscription
         if enrollment_type == "LEVEL":
+            if not cleaned_data.get("departement"):
+                raise ValidationError(
+                    {
+                        "departement": "Vous devez sélectionner un département pour une inscription à un niveau complet."
+                    }
+                )
             if not niveau:
                 raise ValidationError(
                     {
