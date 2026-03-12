@@ -96,6 +96,7 @@ def secretary_dashboard(request):
         .values_list("id_inscription", "total")
     )
     global_at_risk_count = 0
+    at_risk_list = []
 
     for ins in all_inscriptions:
         cours = ins.id_cours
@@ -106,8 +107,23 @@ def secretary_dashboard(request):
 
             # CORRECTION BUG CRITIQUE #4d — seuil configuré par cours
             seuil = cours.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
-                global_at_risk_count += 1
+            if rate >= seuil:
+                at_risk_list.append(
+                    {
+                        "inscription": ins,
+                        "etudiant": ins.id_etudiant,
+                        "cours": cours,
+                        "total_abs": total_abs,
+                        "rate": round(rate, 1),
+                        "is_blocked": not ins.exemption_40,
+                        "exemption": ins.exemption_40,
+                    }
+                )
+                if not ins.exemption_40:
+                    global_at_risk_count += 1
+
+    at_risk_blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
+    at_risk_exempted_count = len(at_risk_list) - at_risk_blocked_count
 
     # 5. KPI Calculations
     # Active Inscriptions (Inscriptions in the current academic year)
@@ -129,6 +145,9 @@ def secretary_dashboard(request):
             "global_unjustified_count": global_unjustified_count,
             "global_pending_count": global_pending_count,
             "global_at_risk_count": global_at_risk_count,
+            "at_risk_list": at_risk_list,
+            "at_risk_blocked_count": at_risk_blocked_count,
+            "at_risk_exempted_count": at_risk_exempted_count,
             "academic_year": academic_year,
             "active_inscriptions_count": active_inscriptions_count,
             "active_courses_count": active_courses_count,

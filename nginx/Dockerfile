@@ -16,4 +16,4 @@ RUN sed -i 's/\r$//' /docker-entrypoint.d/20-generate-health-allowlist.sh && chm
 
 RUN mkdir -p /app/staticfiles /app/media /etc/nginx/certs /var/www/certbot
 
-EXPOSE 80 443
+EXPOSE 80 443 8443

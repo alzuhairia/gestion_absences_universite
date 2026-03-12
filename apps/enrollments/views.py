@@ -193,9 +193,18 @@ def get_courses_by_year(request):
         return api_error("year_id requis", status=400, code="bad_request")
 
     try:
+        qs = Cours.objects.filter(id_annee_id=year_id, actif=True)
+
+        # Filtres optionnels pour l'aperçu inscription niveau complet
+        dept_id = request.GET.get("dept_id")
+        niveau = request.GET.get("niveau")
+        if dept_id:
+            qs = qs.filter(id_departement_id=dept_id)
+        if niveau:
+            qs = qs.filter(niveau=niveau)
+
         courses = (
-            Cours.objects.filter(id_annee_id=year_id, actif=True)
-            .select_related("id_departement", "id_annee")
+            qs.select_related("id_departement", "id_annee")
             .annotate(prereq_count=Count("prerequisites", distinct=True))
             .order_by("id_departement__nom_departement", "code_cours")
         )
@@ -219,6 +228,7 @@ def get_courses_by_year(request):
                     "id": c.id_cours,
                     "code": c.code_cours,
                     "name": c.nom_cours,
+                    "hours": c.nombre_total_periodes,
                     "department": c.id_departement.nom_departement,
                     "has_prereq": c.prereq_count > 0,
                     "already_enrolled": c.id_cours in enrolled_course_ids,
@@ -374,8 +384,14 @@ def enroll_student(request):
 
         # Récupérer ou créer l'étudiant
         if create_new:
+            # Déduire le niveau du contexte d'inscription
+            enrollment_type = enrollment_form.cleaned_data["enrollment_type"]
+            if enrollment_type == "LEVEL":
+                student_niveau = enrollment_form.cleaned_data["niveau"]
+            else:
+                student_niveau = None
             try:
-                student = student_form.create_student()
+                student = student_form.create_student(niveau=student_niveau)
                 log_action(
                     request.user,
                     f"CRITIQUE: Création du compte étudiant '{student.email}' ({student.get_full_name()}) lors de l'inscription",
@@ -429,38 +445,48 @@ def enroll_student(request):
         # ============================================
 
         if enrollment_type == "LEVEL":
-            # Inscription à un niveau complet = tous les cours actifs du niveau
+            # Inscription à un niveau complet = tous les cours actifs du niveau + département
 
             niveau = int(enrollment_form.cleaned_data["niveau"])
+            departement = enrollment_form.cleaned_data["departement"]
 
-            # Récupérer tous les cours du niveau pour l'année académique
+            # Récupérer les cours filtrés par département + niveau + année
             level_courses = Cours.objects.filter(
-                niveau=niveau, id_annee=year, actif=True
+                niveau=niveau,
+                id_annee=year,
+                id_departement=departement,
+                actif=True,
             )
 
             # Log de débogage
-            logger.info(f"Inscription niveau {niveau} pour étudiant {student.email}")
+            logger.info(
+                f"Inscription niveau {niveau}, département '{departement.nom_departement}' "
+                f"pour étudiant {student.email}"
+            )
             logger.info(
                 f"Année académique utilisée: {year.libelle} (ID: {year.id_annee})"
             )
             logger.info(f"Cours trouvés: {level_courses.count()}")
             for c in level_courses:
                 logger.info(
-                    f"  - {c.code_cours} (niveau={c.niveau}, année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})"
+                    f"  - {c.code_cours} (niveau={c.niveau}, "
+                    f"année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})"
                 )
 
             if not level_courses.exists():
-                # Vérifier si des cours existent avec ce niveau mais sans année académique
+                # Diagnostic détaillé
                 courses_without_year = Cours.objects.filter(
-                    niveau=niveau, actif=True, id_annee__isnull=True
+                    niveau=niveau, id_departement=departement, actif=True, id_annee__isnull=True
                 )
-
-                # Vérifier si des cours existent avec ce niveau mais avec une autre année
                 courses_other_year = Cours.objects.filter(
-                    niveau=niveau, actif=True
+                    niveau=niveau, id_departement=departement, actif=True
                 ).exclude(id_annee=year)
 
-                error_msg = f"Aucun cours actif trouvé pour l'Année {niveau} dans l'année académique {year.libelle}."
+                error_msg = (
+                    f"Aucun cours actif trouvé pour l'Année {niveau} "
+                    f"du département {departement.nom_departement} "
+                    f"dans l'année académique {year.libelle}."
+                )
 
                 if courses_without_year.exists():
                     error_msg += f" {courses_without_year.count()} cours trouvé(s) sans année académique assignée."
@@ -539,7 +565,7 @@ def enroll_student(request):
                     if enrolled_count > 0:
                         log_action(
                             request.user,
-                            f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au niveau {niveau} complet pour l'année {year.libelle} ({enrolled_count} cours(s))",
+                            f"CRITIQUE: Inscription de l'étudiant {student.get_full_name()} ({student.email}) au niveau {niveau} — {departement.nom_departement} pour l'année {year.libelle} ({enrolled_count} cours(s))",
                             request,
                             niveau="CRITIQUE",
                             objet_type="INSCRIPTION",
@@ -567,8 +593,9 @@ def enroll_student(request):
             if enrolled_count > 0:
                 messages.success(
                     request,
-                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours(s) de l'Année {niveau} pour l'année académique {year.libelle}. "
-                    f"Son niveau académique a été mis à jour à Année {niveau}.",
+                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours(s) "
+                    f"de l'Année {niveau} — {departement.nom_departement} "
+                    f"pour l'année académique {year.libelle}.",
                 )
             else:
                 # Si aucune inscription n'a été créée, donner plus de détails
