@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
-from apps.absences.services import get_system_threshold
+from apps.absences.services import get_system_threshold, is_justification_expired
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.dashboard.decorators import student_required
 from apps.enrollments.models import Inscription
@@ -356,12 +356,13 @@ def student_course_detail(request, inscription_id):
         # CORRECTION BUG CRITIQUE #2b — Logique can_submit corrigée (student_course_detail)
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
+        # + vérification du délai de 3 jours
         is_refused = justification is not None and justification.state == "REFUSEE"
         is_not_yet_submitted = justification is None and absence.statut not in (
             "JUSTIFIEE",
             "EN_ATTENTE",
         )
-        can_submit = is_not_yet_submitted or is_refused
+        can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
 
         absences_data.append(
             {
@@ -598,12 +599,13 @@ def student_absences(request):
         # CORRECTION BUG CRITIQUE #2c — Logique can_submit corrigée (student_absences)
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
+        # + vérification du délai de 3 jours
         is_refused = justification is not None and justification.state == "REFUSEE"
         is_not_yet_submitted = justification is None and absence.statut not in (
             "JUSTIFIEE",
             "EN_ATTENTE",
         )
-        can_submit = is_not_yet_submitted or is_refused
+        can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
 
         absences_data.append(
             {
