@@ -224,6 +224,13 @@
                             </div>
                         </div>
 
+                        {% if absence.note_professeur %}
+                        <div class="comment-box" style="border-left-color: #6f42c1;">
+                            <i class="fas fa-chalkboard-teacher me-2 text-purple"></i>
+                            <strong>Note du professeur :</strong> {{ absence.note_professeur }}
+                        </div>
+                        {% endif %}
+
                         {% with justif=absence.justification %}
                         {% if justif %}
                             {% if justif.commentaire %}
