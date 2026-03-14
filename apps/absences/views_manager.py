@@ -15,15 +15,20 @@ _VALID_STATUTS = {"EN_ATTENTE", "JUSTIFIEE", "NON_JUSTIFIEE"}
 
 
 def _get_seance_duration(seance):
-    """Calculate session duration in hours from heure_debut/heure_fin."""
+    """Calculate session duration in hours from heure_debut/heure_fin.
+    Returns (hours_float, 'HH:MM' string) or (None, None)."""
     if seance.heure_debut and seance.heure_fin:
         from datetime import datetime, date
 
         dt_debut = datetime.combine(date.today(), seance.heure_debut)
         dt_fin = datetime.combine(date.today(), seance.heure_fin)
-        delta = (dt_fin - dt_debut).seconds / 3600.0
-        return round(delta, 2) if delta > 0 else None
-    return None
+        total_seconds = (dt_fin - dt_debut).seconds
+        hours = round(total_seconds / 3600.0, 2)
+        if hours > 0:
+            h = total_seconds // 3600
+            m = (total_seconds % 3600) // 60
+            return hours, f"{h:02d}:{m:02d}"
+    return None, None
 
 
 @login_required
@@ -33,10 +38,14 @@ def edit_absence(request, pk):
     absence = get_object_or_404(
         Absence.objects.select_related("id_seance"), pk=pk
     )
-    seance_duration = _get_seance_duration(absence.id_seance)
+    seance_duration, seance_duration_display = _get_seance_duration(absence.id_seance)
 
     if request.method == "POST":
-        ctx = {"absence": absence, "seance_duration": seance_duration}
+        ctx = {
+            "absence": absence,
+            "seance_duration": seance_duration,
+            "seance_duration_display": seance_duration_display,
+        }
 
         # --- Validate all inputs BEFORE any DB write ---
         reason = request.POST.get("reason", "").strip()
@@ -151,5 +160,9 @@ def edit_absence(request, pk):
     return render(
         request,
         "absences/edit_absence.html",
-        {"absence": absence, "seance_duration": seance_duration},
+        {
+            "absence": absence,
+            "seance_duration": seance_duration,
+            "seance_duration_display": seance_duration_display,
+        },
     )
