@@ -14,13 +14,30 @@ _VALID_TYPES = {"HEURE", "SEANCE", "JOURNEE"}
 _VALID_STATUTS = {"EN_ATTENTE", "JUSTIFIEE", "NON_JUSTIFIEE"}
 
 
+def _get_seance_duration(seance):
+    """Calculate session duration in hours from heure_debut/heure_fin."""
+    if seance.heure_debut and seance.heure_fin:
+        from datetime import datetime, date
+
+        dt_debut = datetime.combine(date.today(), seance.heure_debut)
+        dt_fin = datetime.combine(date.today(), seance.heure_fin)
+        delta = (dt_fin - dt_debut).seconds / 3600.0
+        return round(delta, 2) if delta > 0 else None
+    return None
+
+
 @login_required
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def edit_absence(request, pk):
-    absence = get_object_or_404(Absence, pk=pk)
+    absence = get_object_or_404(
+        Absence.objects.select_related("id_seance"), pk=pk
+    )
+    seance_duration = _get_seance_duration(absence.id_seance)
 
     if request.method == "POST":
+        ctx = {"absence": absence, "seance_duration": seance_duration}
+
         # --- Validate all inputs BEFORE any DB write ---
         reason = request.POST.get("reason", "").strip()
         new_type = request.POST.get("type_absence", "")
@@ -32,15 +49,15 @@ def edit_absence(request, pk):
                 "Un motif est obligatoire pour modifier une absence. "
                 "Veuillez indiquer la raison de cette modification.",
             )
-            return render(request, "absences/edit_absence.html", {"absence": absence})
+            return render(request, "absences/edit_absence.html", ctx)
 
         if new_type not in _VALID_TYPES:
             messages.error(request, "Type d'absence invalide.")
-            return render(request, "absences/edit_absence.html", {"absence": absence})
+            return render(request, "absences/edit_absence.html", ctx)
 
         if new_statut not in _VALID_STATUTS:
             messages.error(request, "Statut invalide.")
-            return render(request, "absences/edit_absence.html", {"absence": absence})
+            return render(request, "absences/edit_absence.html", ctx)
 
         try:
             new_duree = float(request.POST.get("duree_absence") or 0)
@@ -48,11 +65,20 @@ def edit_absence(request, pk):
             messages.error(
                 request, "Durée invalide. Veuillez entrer un nombre décimal (ex : 1.5)."
             )
-            return render(request, "absences/edit_absence.html", {"absence": absence})
+            return render(request, "absences/edit_absence.html", ctx)
 
         if new_duree <= 0:
             messages.error(request, "La durée doit être supérieure à zéro.")
-            return render(request, "absences/edit_absence.html", {"absence": absence})
+            return render(request, "absences/edit_absence.html", ctx)
+
+        # Validate duration does not exceed session duration
+        if seance_duration and new_duree > seance_duration:
+            messages.error(
+                request,
+                f"La durée d'absence ({new_duree}h) ne peut pas dépasser "
+                f"la durée de la séance ({seance_duration}h).",
+            )
+            return render(request, "absences/edit_absence.html", ctx)
 
         with transaction.atomic():
             # Re-fetch with row lock to prevent concurrent modification (TOCTOU)
@@ -122,4 +148,8 @@ def edit_absence(request, pk):
 
         return redirect("absences:validation_list")
 
-    return render(request, "absences/edit_absence.html", {"absence": absence})
+    return render(
+        request,
+        "absences/edit_absence.html",
+        {"absence": absence, "seance_duration": seance_duration},
+    )
