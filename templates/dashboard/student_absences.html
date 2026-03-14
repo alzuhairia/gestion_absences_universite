@@ -1,4 +1,5 @@
 {% extends 'base_student.html' %}
+{% load absence_tags %}
 
 {% block title %}Mes Absences{% endblock %}
 
@@ -25,9 +26,15 @@
     </div>
     {% endif %}
 
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Délai de justification :</strong> Vous disposez de <strong>3 jours</strong> après la date de l'absence pour soumettre un justificatif.
+        Passé ce délai, la soumission ne sera plus possible.
+    </div>
+
     <div class="alert alert-info">
         <i class="fas fa-info-circle me-2"></i>
-        <strong>Information :</strong> Vous pouvez soumettre un justificatif pour les absences non justifiées ou en attente. 
+        <strong>Information :</strong> Vous pouvez soumettre un justificatif pour les absences non justifiées ou en attente.
         Une fois soumis, le justificatif sera examiné par le secrétariat.
     </div>
 
@@ -89,10 +96,17 @@
                             </td>
                             <td>
                                 {% if item.can_submit %}
-                                    <a href="{% url 'absences:upload' item.absence.id_absence %}" 
+                                    <a href="{% url 'absences:upload' item.absence.id_absence %}"
                                        class="btn btn-sm btn-primary" title="Soumettre un justificatif" data-bs-toggle="tooltip">
                                         <i class="fas fa-upload me-1"></i> Justifier
                                     </a>
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>Avant le {{ item.absence|justification_deadline|date:"d/m/Y" }}
+                                    </small>
+                                {% elif item.absence|justification_expired and not item.justification %}
+                                    <span class="text-danger small">
+                                        <i class="fas fa-ban me-1"></i>Délai dépassé
+                                    </span>
                                 {% else %}
                                     <span class="text-muted small">Non disponible</span>
                                 {% endif %}
