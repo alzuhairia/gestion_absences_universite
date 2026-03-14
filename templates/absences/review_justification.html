@@ -65,6 +65,13 @@
             </div>
             <div class="card-body">
                 {% if justification %}
+                    {% if justification.date_soumission %}
+                    <p class="mb-3">
+                        <i class="fas fa-calendar-check me-1 text-muted"></i>
+                        <strong>Soumis le :</strong> {{ justification.date_soumission|date:"d/m/Y à H:i" }}
+                    </p>
+                    {% endif %}
+
                     <p><strong>Commentaire :</strong></p>
                     <div class="p-3 bg-light rounded mb-3">
                         {{ justification.commentaire|default:"Aucun commentaire." }}
