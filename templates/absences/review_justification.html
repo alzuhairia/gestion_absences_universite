@@ -46,6 +46,15 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% if absence.note_professeur %}
+                    <tr>
+                        <th>Note du professeur</th>
+                        <td>
+                            <i class="fas fa-comment-alt me-1 text-info"></i>
+                            {{ absence.note_professeur }}
+                        </td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>

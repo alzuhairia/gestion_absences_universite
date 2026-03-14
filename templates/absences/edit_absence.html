@@ -61,6 +61,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% if absence.note_professeur %}
+            <div class="alert alert-light border mt-3 mb-0">
+                <i class="fas fa-chalkboard-teacher me-2" style="color: #6f42c1;"></i>
+                <strong>Note du professeur :</strong> {{ absence.note_professeur }}
+            </div>
+            {% endif %}
 
             <hr>
 

@@ -59,6 +59,13 @@ class Absence(models.Model):
         verbose_name="Statut",
         db_index=True,
     )
+    note_professeur = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="Note du professeur",
+        help_text="Remarque ajoutée par le professeur lors de l'enregistrement",
+    )
     encodee_par = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         models.PROTECT,  # Empêche la suppression d'un utilisateur ayant encodé des absences
