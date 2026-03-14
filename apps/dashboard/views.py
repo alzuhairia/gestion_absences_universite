@@ -2,11 +2,13 @@ from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence, Justification
+from apps.absences.services import get_system_threshold
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
@@ -260,10 +262,67 @@ def secretary_enrollments(request):
 @require_GET
 def secretary_rules_40(request):
     """
-    Redirect to the canonical rules management page to avoid duplication.
-    The enrollments:rules_management view has pagination and custom modals.
+    List students violating the absence threshold rule (per-course or system default).
+    Integrated into the secretary dashboard layout.
     """
-    return redirect("enrollments:rules_management")
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    system_threshold = get_system_threshold()
+
+    inscriptions_qs = Inscription.objects.select_related("id_cours", "id_etudiant")
+    if active_year:
+        inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
+
+    inscription_ids = list(inscriptions_qs.values_list("id_inscription", flat=True))
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+    at_risk_list = []
+
+    for ins in inscriptions_qs:
+        cours = ins.id_cours
+        if cours.nombre_total_periodes > 0:
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
+            rate = (total_abs / cours.nombre_total_periodes) * 100
+            seuil = (
+                cours.seuil_absence
+                if cours.seuil_absence is not None
+                else system_threshold
+            )
+            if rate >= seuil:
+                at_risk_list.append(
+                    {
+                        "inscription": ins,
+                        "etudiant": ins.id_etudiant,
+                        "cours": cours,
+                        "total_abs": total_abs,
+                        "rate": round(rate, 1),
+                        "is_blocked": not ins.exemption_40,
+                        "exemption": ins.exemption_40,
+                    }
+                )
+
+    blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
+    exempted_count = len(at_risk_list) - blocked_count
+
+    paginator = Paginator(at_risk_list, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "dashboard/secretary_rules_40.html",
+        {
+            "at_risk_list": page_obj,
+            "page_obj": page_obj,
+            "blocked_count": blocked_count,
+            "exempted_count": exempted_count,
+        },
+    )
 
 
 @login_required

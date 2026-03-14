@@ -105,10 +105,10 @@ def toggle_exemption(request, pk):
     if action == "grant":
         if not motif:
             messages.error(request, "Un motif est requis pour accorder une exemption.")
-            return redirect("dashboard:secretary_dashboard")
+            return redirect("dashboard:secretary_rules_40")
         if len(motif) > 2000:
             messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
-            return redirect("dashboard:secretary_dashboard")
+            return redirect("dashboard:secretary_rules_40")
 
         with transaction.atomic():
             inscription = Inscription.objects.select_for_update().get(pk=pk)
@@ -151,4 +151,4 @@ def toggle_exemption(request, pk):
             f"L'étudiant est maintenant bloqué pour les examens.",
         )
 
-    return redirect("dashboard:secretary_dashboard")
+    return redirect("dashboard:secretary_rules_40")
