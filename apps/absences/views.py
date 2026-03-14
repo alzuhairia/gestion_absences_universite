@@ -1,5 +1,6 @@
 import datetime
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 from django.contrib import messages
@@ -497,7 +498,8 @@ def mark_absence(request, course_id):
             return redirect("absences:mark_absence", course_id=course_id)
 
         # Durée calculée une seule fois, avant le bloc transactionnel
-        duree_seance = (t_fin - t_debut).seconds / 3600.0
+        duree_seance = Decimal((t_fin - t_debut).seconds) / Decimal(3600)
+        duree_seance = duree_seance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # Vérification de l'année active AVANT la transaction
         annee = AnneeAcademique.objects.filter(active=True).first()
@@ -574,9 +576,9 @@ def mark_absence(request, course_id):
                     duree = duree_seance  # Default for SEANCE
                     if type_absence == "HEURE":
                         try:
-                            duree = float(
-                                request.POST.get(f"duree_{inscription_id}", 0)
-                            )
+                            duree = Decimal(
+                                str(float(request.POST.get(f"duree_{inscription_id}", 0)))
+                            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                             if duree <= 0 or duree > 24:
                                 raise ValueError("invalid duration range")
                         except (TypeError, ValueError):
@@ -586,7 +588,7 @@ def mark_absence(request, course_id):
                             )
                             duree = duree_seance
                     elif type_absence == "JOURNEE":
-                        duree = 8.0  # Valeur arbitraire pour journee
+                        duree = Decimal("8.00")
 
                     # Creation ou Mise a jour Absence (only if not validated/pending)
                     if existing_absence and existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
