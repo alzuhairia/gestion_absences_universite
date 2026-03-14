@@ -1,4 +1,5 @@
 import csv
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -8,7 +9,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
+from django.db.models.functions import TruncMonth
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -164,6 +166,86 @@ def admin_dashboard_main(request):
     # Paramètres système
     settings = SystemSettings.get_settings()
 
+    # ========== STATISTIQUES AVANCÉES ==========
+
+    # Filtre de base pour l'année active
+    year_filter = Q(id_inscription__id_annee=academic_year) if academic_year else Q()
+
+    # 1. Top 5 professeurs avec le plus d'absences
+    top_professors = list(
+        Absence.objects.filter(year_filter)
+        .values(
+            prof_nom=F("id_inscription__id_cours__professeur__nom"),
+            prof_prenom=F("id_inscription__id_cours__professeur__prenom"),
+        )
+        .annotate(total=Count("id_absence"))
+        .order_by("-total")[:5]
+    )
+    top_professors_labels = json.dumps(
+        [f"{p['prof_prenom']} {p['prof_nom']}" for p in top_professors if p["prof_nom"]]
+    )
+    top_professors_data = json.dumps(
+        [p["total"] for p in top_professors if p["prof_nom"]]
+    )
+
+    # 2. Top 5 cours avec le plus d'absences
+    top_courses = list(
+        Absence.objects.filter(year_filter)
+        .values(cours_nom=F("id_inscription__id_cours__nom_cours"))
+        .annotate(total=Count("id_absence"))
+        .order_by("-total")[:5]
+    )
+    top_courses_labels = json.dumps([c["cours_nom"] for c in top_courses])
+    top_courses_data = json.dumps([c["total"] for c in top_courses])
+
+    # 3. Évolution mensuelle des absences
+    monthly_absences = list(
+        Absence.objects.filter(year_filter)
+        .annotate(month=TruncMonth("id_seance__date_seance"))
+        .values("month")
+        .annotate(total=Count("id_absence"))
+        .order_by("month")
+    )
+    monthly_labels = json.dumps(
+        [m["month"].strftime("%b %Y") for m in monthly_absences if m["month"]]
+    )
+    monthly_data = json.dumps(
+        [m["total"] for m in monthly_absences if m["month"]]
+    )
+
+    # 4. Répartition par département
+    dept_absences = list(
+        Absence.objects.filter(year_filter)
+        .values(
+            dept_nom=F("id_inscription__id_cours__id_departement__nom_departement")
+        )
+        .annotate(total=Count("id_absence"))
+        .order_by("-total")
+    )
+    dept_labels = json.dumps([d["dept_nom"] for d in dept_absences if d["dept_nom"]])
+    dept_data = json.dumps([d["total"] for d in dept_absences if d["dept_nom"]])
+
+    # 5. Répartition par statut (justifiée, non justifiée, en attente)
+    status_absences = list(
+        Absence.objects.filter(year_filter)
+        .values("statut")
+        .annotate(total=Count("id_absence"))
+        .order_by("statut")
+    )
+    status_map = {"NON_JUSTIFIEE": "Non justifiée", "EN_ATTENTE": "En attente", "JUSTIFIEE": "Justifiée"}
+    status_labels = json.dumps([status_map.get(s["statut"], s["statut"]) for s in status_absences])
+    status_data = json.dumps([s["total"] for s in status_absences])
+
+    # 6. Répartition par niveau (Année 1, 2, 3)
+    level_absences = list(
+        Absence.objects.filter(year_filter)
+        .values(niveau=F("id_inscription__id_cours__niveau"))
+        .annotate(total=Count("id_absence"))
+        .order_by("niveau")
+    )
+    level_labels = json.dumps([f"Année {l['niveau']}" for l in level_absences if l["niveau"]])
+    level_data = json.dumps([l["total"] for l in level_absences if l["niveau"]])
+
     context = {
         "total_students": total_students,
         "total_professors": total_professors,
@@ -176,6 +258,21 @@ def admin_dashboard_main(request):
         "recent_audits": recent_audits,
         "academic_year": academic_year,
         "settings": settings,
+        # Statistiques avancées
+        "top_professors_labels": top_professors_labels,
+        "top_professors_data": top_professors_data,
+        "top_courses_labels": top_courses_labels,
+        "top_courses_data": top_courses_data,
+        "monthly_labels": monthly_labels,
+        "monthly_data": monthly_data,
+        "dept_labels": dept_labels,
+        "dept_data": dept_data,
+        "status_labels": status_labels,
+        "status_data": status_data,
+        "level_labels": level_labels,
+        "level_data": level_data,
+        "top_professors": top_professors,
+        "top_courses": top_courses,
     }
 
     return render(request, "dashboard/admin_dashboard.html", context)
