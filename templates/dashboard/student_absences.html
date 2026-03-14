@@ -100,9 +100,12 @@
                                        class="btn btn-sm btn-primary" title="Soumettre un justificatif" data-bs-toggle="tooltip">
                                         <i class="fas fa-upload me-1"></i> Justifier
                                     </a>
-                                    <br><small class="text-muted">
-                                        <i class="fas fa-clock me-1"></i>Avant le {{ item.absence|justification_deadline|date:"d/m/Y" }}
-                                    </small>
+                                    <div class="mt-1">
+                                        <small class="countdown-timer" data-deadline="{{ item.absence|justification_deadline_iso }}">
+                                            <i class="fas fa-hourglass-half me-1"></i>
+                                            <span class="countdown-text">Calcul...</span>
+                                        </small>
+                                    </div>
                                 {% elif item.absence|justification_expired and not item.justification %}
                                     <span class="text-danger small">
                                         <i class="fas fa-ban me-1"></i>Délai dépassé
@@ -153,5 +156,48 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function updateCountdowns() {
+    document.querySelectorAll('.countdown-timer').forEach(function(el) {
+        var deadline = new Date(el.dataset.deadline);
+        var now = new Date();
+        var diff = deadline - now;
+        var textEl = el.querySelector('.countdown-text');
+
+        if (diff <= 0) {
+            textEl.textContent = 'Délai expiré';
+            el.classList.add('text-danger');
+            el.classList.remove('text-warning', 'text-muted');
+            return;
+        }
+
+        var days = Math.floor(diff / 86400000);
+        var hours = Math.floor((diff % 86400000) / 3600000);
+        var minutes = Math.floor((diff % 3600000) / 60000);
+
+        var parts = [];
+        if (days > 0) parts.push(days + 'j');
+        if (hours > 0) parts.push(hours + 'h');
+        if (days === 0) parts.push(minutes + 'min');
+
+        textEl.textContent = parts.join(' ') + ' restant' + (days > 0 ? 's' : '');
+
+        if (days === 0 && hours < 12) {
+            el.classList.add('text-danger');
+            el.classList.remove('text-warning', 'text-muted');
+        } else if (days <= 1) {
+            el.classList.add('text-warning');
+            el.classList.remove('text-danger', 'text-muted');
+        } else {
+            el.classList.add('text-muted');
+            el.classList.remove('text-danger', 'text-warning');
+        }
+    });
+}
+
+updateCountdowns();
+setInterval(updateCountdowns, 60000);
+</script>
 {% endblock %}
 
