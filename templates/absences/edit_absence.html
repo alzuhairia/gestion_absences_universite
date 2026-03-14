@@ -53,6 +53,12 @@
                         <strong><i class="fas fa-clock me-2"></i>Heure :</strong>
                         {{ absence.id_seance.heure_debut|time:"H:i" }} - {{ absence.id_seance.heure_fin|time:"H:i" }}
                     </p>
+                    {% if seance_duration_display %}
+                    <p class="mb-2">
+                        <strong><i class="fas fa-hourglass-half me-2"></i>Durée de la séance :</strong>
+                        {{ seance_duration_display }}
+                    </p>
+                    {% endif %}
                 </div>
             </div>
 
@@ -71,13 +77,6 @@
                             name="duree_absence" id="duree_absence"
                             value="{{ absence.duree_absence }}"
                             class="form-control" required>
-                        {% if seance_duration %}
-                        <div class="form-text">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Durée de la séance : <strong>{{ seance_duration }}h</strong>
-                            ({{ absence.id_seance.heure_debut|time:"H:i" }} → {{ absence.id_seance.heure_fin|time:"H:i" }})
-                        </div>
-                        {% endif %}
                     </div>
 
                     <div class="col-md-6">
