@@ -1,9 +1,9 @@
-{% extends 'base.html' %}
+{% extends 'base_student.html' %}
 
 {% block title %}Justifier une Absence{% endblock %}
 
 {% block breadcrumbs %}
-<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
 <li class="breadcrumb-item"><a href="{% url 'absences:details' absence.id_inscription.id_inscription %}">{{
         absence.id_inscription.id_cours.code_cours }}</a></li>
 <li class="breadcrumb-item active" aria-current="page">Justification</li>
