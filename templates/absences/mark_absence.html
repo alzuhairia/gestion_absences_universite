@@ -190,7 +190,10 @@
                                 </td>
                                 <td class="align-middle">
                                     <input type="text" class="form-control form-control-sm"
-                                        placeholder="Remarque" {% if is_validated %}disabled{% endif %}>
+                                        name="note_{{ ins.id_inscription }}"
+                                        value="{% if ins.absence_data %}{{ ins.absence_data.note_professeur|default:'' }}{% endif %}"
+                                        placeholder="Remarque" maxlength="500"
+                                        {% if is_validated %}disabled{% endif %}>
                                 </td>
                             </tr>
                             {% empty %}

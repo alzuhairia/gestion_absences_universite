@@ -595,6 +595,10 @@ def mark_absence(request, course_id):
                         # Skip validated or pending absences - professors cannot modify them
                         continue
 
+                    note = request.POST.get(
+                        f"note_{inscription_id}", ""
+                    ).strip()[:500]
+
                     absence, created = Absence.objects.update_or_create(
                         id_inscription=inscription,
                         id_seance=seance,
@@ -603,6 +607,7 @@ def mark_absence(request, course_id):
                             "duree_absence": duree,
                             "statut": "NON_JUSTIFIEE",
                             "encodee_par": request.user,
+                            "note_professeur": note,
                         },
                     )
 
@@ -720,6 +725,7 @@ def mark_absence(request, course_id):
                 "type": ab.type_absence,
                 "duree": ab.duree_absence,
                 "statut": ab.statut,
+                "note_professeur": ab.note_professeur,
             }
 
     # Attach absence data to students for template usage
