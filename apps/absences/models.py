@@ -161,6 +161,14 @@ class Justification(models.Model):
         validators=[MaxLengthValidator(2000)],
     )
 
+    date_soumission = models.DateTimeField(
+        auto_now_add=True,
+        blank=True,
+        null=True,
+        verbose_name="Date de soumission",
+        help_text="Date et heure de soumission du justificatif par l'étudiant",
+    )
+
     state = models.CharField(
         max_length=20,
         choices=STATE_CHOICES,
