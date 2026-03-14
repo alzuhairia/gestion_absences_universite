@@ -15,3 +15,11 @@ def justification_deadline(absence):
 def justification_expired(absence):
     """Returns True if the justification deadline has passed."""
     return is_justification_expired(absence)
+
+
+@register.filter
+def justification_deadline_iso(absence):
+    """Returns the deadline as ISO 8601 string (end of day) for JS countdown."""
+    deadline = get_justification_deadline(absence)
+    # End of deadline day: 23:59:59
+    return f"{deadline.isoformat()}T23:59:59"
