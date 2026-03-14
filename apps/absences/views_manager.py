@@ -8,7 +8,7 @@ from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 
-from .models import Absence
+from .models import Absence, Justification
 
 _VALID_TYPES = {"HEURE", "SEANCE", "JOURNEE"}
 _VALID_STATUTS = {"EN_ATTENTE", "JUSTIFIEE", "NON_JUSTIFIEE"}
@@ -84,6 +84,21 @@ def edit_absence(request, pk):
                 absence.type_absence = new_type
                 absence.statut = new_statut
                 absence.save()
+
+                # Synchronize Justification.state with Absence.statut
+                # to maintain a single source of truth across all roles
+                if old_statut != new_statut:
+                    justification = Justification.objects.filter(
+                        id_absence=absence
+                    ).first()
+                    if justification:
+                        if new_statut == "JUSTIFIEE":
+                            justification.state = "ACCEPTEE"
+                        elif new_statut == "NON_JUSTIFIEE":
+                            justification.state = "REFUSEE"
+                        elif new_statut == "EN_ATTENTE":
+                            justification.state = "EN_ATTENTE"
+                        justification.save()
 
                 log_action(
                     request.user,
