@@ -264,7 +264,7 @@
 {% endblock content %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Gestion de la sélection multiple
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     const userCheckboxes = document.querySelectorAll('.user-checkbox');

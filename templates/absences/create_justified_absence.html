@@ -328,7 +328,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('justified-form');
     if (!form) return;

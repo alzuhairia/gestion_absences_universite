@@ -304,8 +304,7 @@
                             {% if justif and absence.statut == 'EN_ATTENTE' %}
                             <button data-process-url="{% url 'absences:process_justification' justif.id_justification %}"
                                     data-student-name="{{ absence.id_inscription.id_etudiant.get_full_name|escapejs }}"
-                                    onclick="openReviewModal(this)"
-                                    class="btn btn-outline-success btn-action">
+                                    class="btn btn-outline-success btn-action js-review-btn">
                                 <i class="fas fa-bolt me-1"></i>Traiter rapide
                             </button>
                             {% endif %}
@@ -416,12 +415,16 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function openReviewModal(button) {
         document.getElementById('modalStudentName').textContent = button.dataset.studentName;
         document.getElementById('reviewForm').action = button.dataset.processUrl;
         var modal = new bootstrap.Modal(document.getElementById('reviewModal'));
         modal.show();
     }
+
+    document.querySelectorAll('.js-review-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { openReviewModal(this); });
+    });
 </script>
 {% endblock %}

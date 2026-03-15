@@ -150,7 +150,7 @@
                     <h5>
                         <i class="fas fa-envelope me-2"></i>{{ message.objet|default:"(Aucun objet)" }}
                     </h5>
-                    <button onclick="window.print()" class="btn btn-light btn-sm" title="Imprimer">
+                    <button class="btn btn-light btn-sm js-print-btn" title="Imprimer">
                         <i class="fas fa-print"></i>
                     </button>
                 </div>
@@ -203,4 +203,7 @@
         </div>
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+    document.querySelector('.js-print-btn').addEventListener('click', function() { window.print(); });
+</script>
 {% endblock %}

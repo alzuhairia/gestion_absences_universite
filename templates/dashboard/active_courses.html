@@ -214,7 +214,7 @@
                 <label for="faculty" class="form-label">
                     <i class="fas fa-university me-1"></i>Faculté
                 </label>
-                <select name="faculty" id="faculty" class="form-select" onchange="this.form.submit()">
+                <select name="faculty" id="faculty-filter" class="form-select">
                     <option value="">Toutes les facultés</option>
                     {% for faculty in faculties %}
                     <option value="{{ faculty.id_faculte }}" {% if current_faculty == faculty.id_faculte|stringformat:"s" %}selected{% endif %}>
@@ -386,5 +386,8 @@
     {% endif %}
 </div>
 
+<script nonce="{{ request.csp_nonce }}">
+    document.getElementById('faculty-filter').addEventListener('change', function() { this.form.submit(); });
+</script>
 {% endblock %}
 
