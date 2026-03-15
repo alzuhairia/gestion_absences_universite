@@ -137,7 +137,7 @@ def instructor_course_detail(request, course_id):
     """
     # Get course and verify it belongs to the instructor
     course = get_object_or_404(Cours, id_cours=course_id)
-    if course.professeur != request.user:
+    if course.professeur_id != request.user.pk:
         messages.error(request, "Accès non autorisé à ce cours.")
         return redirect("dashboard:instructor_dashboard")
 
@@ -160,7 +160,9 @@ def instructor_course_detail(request, course_id):
             id_cours=course, status="EN_COURS"
         ).select_related("id_etudiant")
 
-    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
+    # Evaluate once: extract IDs from Python objects instead of an extra query.
+    inscriptions = list(inscriptions)
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,

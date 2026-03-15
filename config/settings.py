@@ -145,6 +145,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.middleware.SessionInactivityMiddleware",
     "apps.accounts.middleware.RoleMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -260,6 +261,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+# ── Session security ──────────────────────────────────────────────────────────
+# Absolute max lifetime of a session cookie (seconds).  Default: 30 min.
+SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 1800)
+
+# Also expire the session when the browser window is closed.
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Reset the expiry countdown on every request (sliding window).
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Inactivity timeout (seconds) enforced by middleware.  Default: 15 min.
+SESSION_INACTIVITY_TIMEOUT = env_int("SESSION_INACTIVITY_TIMEOUT", 900)
 
 # Map Django message levels to Bootstrap alert CSS classes
 from django.contrib.messages import constants as message_constants
