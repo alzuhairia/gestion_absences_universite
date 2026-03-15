@@ -227,7 +227,7 @@
                                placeholder="etudiant@uni.edu" 
                                required 
                                list="students-list"
-                               onchange="updateStepIndicator(1)">
+                               >
                         <datalist id="students-list">
                             {% for student in students %}
                             <option value="{{ student.email }}">{{ student.get_full_name }}</option>
@@ -263,8 +263,8 @@
                             <i class="fas fa-university me-1"></i>Faculté
                             <span class="text-danger">*</span>
                         </label>
-                        <select id="faculty" name="faculty" class="form-select" 
-                                onchange="loadDepartments(); updateStepIndicator(2)" required>
+                        <select id="faculty" name="faculty" class="form-select"
+                                required>
                             <option value="">Sélectionner une faculté...</option>
                             {% for fac in facultes %}
                             <option value="{{ fac.id_faculte }}">{{ fac.nom_faculte }}</option>
@@ -286,8 +286,7 @@
                             <i class="fas fa-sitemap me-1"></i>Département
                             <span class="text-danger">*</span>
                         </label>
-                        <select id="department" name="department" class="form-select" 
-                                onchange="loadCourses(); updateStepIndicator(3)" 
+                        <select id="department" name="department" class="form-select"
                                 disabled required>
                             <option value="">Sélectionner d'abord une faculté</option>
                         </select>
@@ -310,8 +309,7 @@
                             <i class="fas fa-book-open me-1"></i>Cours
                             <span class="text-danger">*</span>
                         </label>
-                        <select id="course" name="course" class="form-select" 
-                                onchange="updateStepIndicator(4); showCourseInfo(this)" 
+                        <select id="course" name="course" class="form-select"
                                 disabled required>
                             <option value="">Sélectionner d'abord un département</option>
                         </select>
@@ -333,7 +331,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const API_DEPARTMENTS_URL = "{% url 'enrollments:get_departments' %}";
     const API_COURSES_URL = "{% url 'enrollments:get_courses' %}";
     let currentStep = 0;
@@ -514,6 +512,23 @@
         }
         updateStepIndicator(4);
     }
+
+    // Event listeners (CSP-compliant replacements for onchange handlers)
+    document.getElementById('student_email').addEventListener('change', function() {
+        updateStepIndicator(1);
+    });
+    document.getElementById('faculty').addEventListener('change', function() {
+        loadDepartments();
+        updateStepIndicator(2);
+    });
+    document.getElementById('department').addEventListener('change', function() {
+        loadCourses();
+        updateStepIndicator(3);
+    });
+    document.getElementById('course').addEventListener('change', function() {
+        updateStepIndicator(4);
+        showCourseInfo(this);
+    });
 
     // Initialize step indicator
     document.addEventListener('DOMContentLoaded', function() {

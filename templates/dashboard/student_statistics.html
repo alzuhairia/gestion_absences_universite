@@ -23,7 +23,7 @@
                 {% endif %}
             </p>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.print()">
+        <button class="btn btn-primary btn-sm" id="print-btn">
             <i class="fas fa-print me-2"></i>Imprimer
         </button>
     </div>
@@ -174,13 +174,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {{ course_labels_json|json_script:"course-labels-data" }}
 {{ absence_percentages_json|json_script:"absence-percentages-data" }}
 {{ trend_labels_json|json_script:"trend-labels-data" }}
 {{ trend_data_json|json_script:"trend-data-data" }}
 {{ system_threshold_json|json_script:"system-threshold-data" }}
-<script>
+<script nonce="{{ request.csp_nonce }}">
+    document.getElementById('print-btn').addEventListener('click', function() { window.print(); });
+
     const courseLabels = JSON.parse(document.getElementById('course-labels-data').textContent);
     const absencePercentages = JSON.parse(document.getElementById('absence-percentages-data').textContent);
     const trendLabels = JSON.parse(document.getElementById('trend-labels-data').textContent);

@@ -2,6 +2,7 @@ import ipaddress
 import os
 from pathlib import Path
 
+from csp.constants import NONCE
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
@@ -149,6 +150,7 @@ MIDDLEWARE = [
     "apps.accounts.middleware.RoleMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "csp.middleware.CSPMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -361,3 +363,28 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 RATELIMIT_USE_CACHE = "default"
+
+# ── Content Security Policy (CSP) ───────────────────────────────────────────
+# Nonce-based CSP: all <script> tags must carry nonce="{{ request.csp_nonce }}".
+# Inline styles use 'unsafe-inline' because 38+ templates rely on <style> blocks
+# and style= attributes; migrating them all to nonces is impractical and low risk
+# compared to script injection.
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", NONCE, "cdn.jsdelivr.net"],
+        "style-src": [
+            "'self'",
+            "'unsafe-inline'",
+            "cdn.jsdelivr.net",
+            "cdnjs.cloudflare.com",
+        ],
+        "font-src": ["'self'", "cdnjs.cloudflare.com"],
+        "img-src": ["'self'", "data:"],
+        "connect-src": ["'self'"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'self'"],
+        "frame-ancestors": ["'none'"],
+    },
+}

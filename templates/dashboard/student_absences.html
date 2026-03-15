@@ -157,7 +157,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function updateCountdowns() {
     document.querySelectorAll('.countdown-timer').forEach(function(el) {
         var deadline = new Date(el.dataset.deadline);

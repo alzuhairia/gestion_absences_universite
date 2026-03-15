@@ -126,7 +126,7 @@
                                    name="document"
                                    required 
                                    accept=".pdf,.jpg,.jpeg,.png"
-                                   onchange="validateFile(this)">
+                                   >
                             <small class="text-muted">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</small>
                             <div id="fileValidationError" class="text-danger small mt-2 d-none" role="alert" aria-live="assertive"></div>
                         </div>
@@ -173,7 +173,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function showFileError(message) {
         const errorEl = document.getElementById('fileValidationError');
         if (!errorEl) return;
@@ -209,6 +209,8 @@
         }
     }
     
+    document.querySelector('input[type="file"]').addEventListener('change', function() { validateFile(this); });
+
     // Prevent double submission
     document.getElementById('justificationForm')?.addEventListener('submit', function(e) {
         const submitBtn = document.getElementById('submitBtn');

@@ -80,10 +80,10 @@
                 </h6>
                 {% if not is_validated %}
                 <div>
-                    <button type="button" class="btn btn-sm btn-outline-success me-1" onclick="markAll('PRESENT')">
+                    <button type="button" class="btn btn-sm btn-outline-success me-1 js-mark-all" data-status="PRESENT">
                         <i class="fas fa-check me-1"></i>Tous présents
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="markAll('ABSENT')">
+                    <button type="button" class="btn btn-sm btn-outline-danger js-mark-all" data-status="ABSENT">
                         <i class="fas fa-times me-1"></i>Tous absents
                     </button>
                 </div>
@@ -137,17 +137,17 @@
                                     {% else %}
                                     <!-- EDITABLE -->
                                     <div class="btn-group" role="group">
-                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                        <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
                                             id="present_{{ ins.id_inscription }}" value="PRESENT"
-                                            {% if not ins.absence_data %}checked{% endif %}
-                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', false)">
+                                            data-inscription="{{ ins.id_inscription }}" data-absent="false"
+                                            {% if not ins.absence_data %}checked{% endif %}>
                                         <label class="btn btn-outline-success btn-sm"
                                             for="present_{{ ins.id_inscription }}">Présent</label>
 
-                                        <input type="radio" class="btn-check" name="status_{{ ins.id_inscription }}"
+                                        <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
                                             id="absent_{{ ins.id_inscription }}" value="ABSENT"
-                                            {% if ins.absence_data %}checked{% endif %}
-                                            onchange="toggleAbsenceOptions('{{ ins.id_inscription }}', true)">
+                                            data-inscription="{{ ins.id_inscription }}" data-absent="true"
+                                            {% if ins.absence_data %}checked{% endif %}>
                                         <label class="btn btn-outline-danger btn-sm"
                                             for="absent_{{ ins.id_inscription }}">Absent</label>
                                     </div>
@@ -161,10 +161,10 @@
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                     {% else %}
-                                    <select class="form-select form-select-sm" name="type_{{ ins.id_inscription }}"
+                                    <select class="form-select form-select-sm js-duration-toggle" name="type_{{ ins.id_inscription }}"
                                         id="type_{{ ins.id_inscription }}"
-                                        {% if not ins.absence_data %}disabled{% endif %}
-                                        onchange="toggleDuration('{{ ins.id_inscription }}')">
+                                        data-inscription="{{ ins.id_inscription }}"
+                                        {% if not ins.absence_data %}disabled{% endif %}>
                                         <option value="SEANCE" {% if ins.absence_data and ins.absence_data.type == 'SEANCE' %}selected{% endif %}>Séance complète</option>
                                         <option value="HEURE" {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
                                         <option value="JOURNEE" {% if ins.absence_data and ins.absence_data.type == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
@@ -217,10 +217,10 @@
                         <i class="fas fa-arrow-left me-1"></i>Retour
                     </a>
                     <div>
-                        <button type="button" class="btn btn-outline-secondary me-2" onclick="submitDraft()">
+                        <button type="button" class="btn btn-outline-secondary me-2" id="submit-draft-btn">
                             <i class="fas fa-save me-1"></i>Enregistrer brouillon
                         </button>
-                        <button type="button" class="btn btn-success btn-lg" onclick="showConfirmation()">
+                        <button type="button" class="btn btn-success btn-lg" id="show-confirm-btn">
                             <i class="fas fa-check-circle me-1"></i>Valider l'appel
                         </button>
                     </div>
@@ -235,10 +235,10 @@
                             L'appel sera verrouillé et ne pourra plus être modifié.
                         </span>
                         <div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="hideConfirmation()">
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="hide-confirm-btn">
                                 Annuler
                             </button>
-                            <button type="button" class="btn btn-sm btn-success" onclick="submitValidate()">
+                            <button type="button" class="btn btn-sm btn-success" id="submit-validate-btn">
                                 <i class="fas fa-check me-1"></i>Confirmer
                             </button>
                         </div>
@@ -282,7 +282,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     /* --- Toggle helpers --- */
     function toggleAbsenceOptions(id, isAbsent) {
         const typeSelect = document.getElementById('type_' + id);
@@ -338,5 +338,24 @@
     function hideConfirmation() {
         document.getElementById('confirm-bar').classList.add('d-none');
     }
+
+    // Event listeners (CSP-compliant replacements for onclick handlers)
+    document.querySelectorAll('.js-mark-all').forEach(function(btn) {
+        btn.addEventListener('click', function() { markAll(this.dataset.status); });
+    });
+    document.getElementById('submit-draft-btn').addEventListener('click', submitDraft);
+    document.getElementById('show-confirm-btn').addEventListener('click', showConfirmation);
+    document.getElementById('hide-confirm-btn').addEventListener('click', hideConfirmation);
+    document.getElementById('submit-validate-btn').addEventListener('click', submitValidate);
+    document.querySelectorAll('.js-status-radio').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            toggleAbsenceOptions(this.dataset.inscription, this.dataset.absent === 'true');
+        });
+    });
+    document.querySelectorAll('.js-duration-toggle').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            toggleDuration(this.dataset.inscription);
+        });
+    });
 </script>
 {% endblock %}

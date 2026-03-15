@@ -40,7 +40,7 @@
                             <div class="row">
                                 {% for choice in enrollment_form.enrollment_type %}
                                 <div class="col-md-6 mb-3">
-                                    <div class="form-check p-3 border rounded" style="cursor: pointer;" onclick="document.getElementById('{{ choice.id_for_label }}').checked = true; toggleSections();">
+                                    <div class="form-check p-3 border rounded js-enrollment-type" style="cursor: pointer;" data-target="{{ choice.id_for_label }}">
                                         {{ choice.tag }}
                                         <label class="form-check-label ms-2" for="{{ choice.id_for_label }}" style="cursor: pointer;">
                                             <strong>{{ choice.choice_label }}</strong>
@@ -98,7 +98,7 @@
 
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student" onchange="toggleStudentForm()">
+                                    <input type="checkbox" class="form-check-input" id="create_new_student" name="create_new_student">
                                     <label class="form-check-label" for="create_new_student">
                                         <strong>Créer un nouveau compte étudiant</strong>
                                     </label>
@@ -207,10 +207,10 @@
                                 <div class="flex-grow-1">
                                     <input type="text" id="courseSearch" class="form-control" placeholder="Rechercher un cours par code ou nom...">
                                 </div>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllVisible()">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="select-all-btn">
                                     <i class="fas fa-check-double me-1"></i>Tout cocher
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselectAll()">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="deselect-all-btn">
                                     <i class="fas fa-times me-1"></i>Tout décocher
                                 </button>
                             </div>
@@ -238,7 +238,7 @@
                             <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
                                 <i class="fas fa-times me-1"></i> Annuler
                             </a>
-                            <button type="button" class="btn btn-primary" id="reviewBtn" onclick="showRecap()">
+                            <button type="button" class="btn btn-primary" id="reviewBtn">
                                 <i class="fas fa-eye me-1"></i> Vérifier et confirmer
                             </button>
                         </div>
@@ -265,7 +265,7 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-arrow-left me-1"></i> Modifier
                 </button>
-                <button type="button" class="btn btn-success" id="confirmBtn" onclick="confirmSubmit()">
+                <button type="button" class="btn btn-success" id="confirmBtn">
                     <i class="fas fa-check me-1"></i> Confirmer l'inscription
                 </button>
             </div>
@@ -302,7 +302,7 @@
 #recapBody .recap-course-list li { padding: 0.35rem 0.75rem; border-left: 3px solid #0d6efd; margin-bottom: 0.25rem; background: #f8f9fa; border-radius: 0 0.25rem 0.25rem 0; }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const API_COURSES_BY_YEAR_URL = "{% url 'enrollments:get_courses_by_year' %}";
 let allCourses = [];
 
@@ -401,8 +401,7 @@ function renderCourseList(courses) {
                     <input class="form-check-input course-checkbox" type="checkbox"
                         name="courses" value="${course.id}" id="${id}"
                         data-code="${course.code}" data-name="${course.name}" data-dept="${dept}" data-hours="${course.hours || 0}"
-                        ${course.already_enrolled ? 'disabled' : ''}
-                        onchange="updateCounter()">
+                        ${course.already_enrolled ? 'disabled' : ''}>
                     <label class="form-check-label w-100" for="${id}">
                         <strong>[${course.code}]</strong> ${course.name}
                         ${course.has_prereq ? '<span class="badge bg-warning text-dark badge-enrolled ms-2">Prérequis</span>' : ''}
@@ -687,6 +686,29 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('courseSearch').addEventListener('input', filterCourses);
+
+    // Event listeners replacing inline onclick/onchange handlers
+    document.querySelectorAll('.js-enrollment-type').forEach(function(div) {
+        div.addEventListener('click', function() {
+            document.getElementById(this.dataset.target).checked = true;
+            toggleSections();
+        });
+    });
+
+    document.getElementById('create_new_student').addEventListener('change', toggleStudentForm);
+
+    document.getElementById('select-all-btn').addEventListener('click', selectAllVisible);
+    document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
+
+    document.getElementById('reviewBtn').addEventListener('click', showRecap);
+    document.getElementById('confirmBtn').addEventListener('click', confirmSubmit);
+
+    // Event delegation for dynamically created course checkboxes
+    document.getElementById('courseList').addEventListener('change', function(e) {
+        if (e.target.classList.contains('course-checkbox')) {
+            updateCounter();
+        }
+    });
 });
 </script>
 {% endblock %}
