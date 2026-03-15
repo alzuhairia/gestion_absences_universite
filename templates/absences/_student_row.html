@@ -1,0 +1,109 @@
+{% comment %}
+Partial template rendered by the HTMX endpoint after a per-student attendance toggle.
+Context: ins (Inscription with .absence_data attached), is_validated, course, seance_id
+{% endcomment %}
+<tr class="student-row" data-id="{{ ins.id_inscription }}" id="row-{{ ins.id_inscription }}">
+    <td class="align-middle">
+        <div class="fw-bold">{{ ins.id_etudiant.get_full_name }}</div>
+        <div class="small text-muted">{{ ins.id_etudiant.email }}</div>
+        {% if ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
+        <span class="badge bg-success mt-1">
+            <i class="fas fa-shield-alt me-1"></i>Justifiée (Secrétariat)
+        </span>
+        {% elif ins.absence_data and ins.absence_data.statut == 'EN_ATTENTE' %}
+        <span class="badge bg-warning text-dark mt-1">
+            <i class="fas fa-hourglass-half me-1"></i>Justification en attente
+        </span>
+        {% endif %}
+    </td>
+    <td class="align-middle">
+        {% if ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
+        <span class="btn btn-sm btn-success disabled">
+            <i class="fas fa-check-circle me-1"></i>Absent justifié
+        </span>
+        {% elif is_validated %}
+        {% if ins.absence_data %}
+        <span class="btn btn-sm btn-danger disabled">
+            <i class="fas fa-times-circle me-1"></i>Absent
+        </span>
+        {% else %}
+        <span class="btn btn-sm btn-success disabled">
+            <i class="fas fa-check me-1"></i>Présent
+        </span>
+        {% endif %}
+        {% else %}
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
+                id="present_{{ ins.id_inscription }}" value="PRESENT"
+                data-inscription="{{ ins.id_inscription }}" data-absent="false"
+                {% if not ins.absence_data %}checked{% endif %}
+                hx-post="{% url 'absences:mark_absence_htmx' course.id_cours %}"
+                hx-target="#row-{{ ins.id_inscription }}"
+                hx-swap="outerHTML"
+                hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
+                hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "PRESENT"}'
+                hx-indicator="#spinner-{{ ins.id_inscription }}">
+            <label class="btn btn-outline-success btn-sm"
+                for="present_{{ ins.id_inscription }}">Présent</label>
+
+            <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
+                id="absent_{{ ins.id_inscription }}" value="ABSENT"
+                data-inscription="{{ ins.id_inscription }}" data-absent="true"
+                {% if ins.absence_data %}checked{% endif %}
+                hx-post="{% url 'absences:mark_absence_htmx' course.id_cours %}"
+                hx-target="#row-{{ ins.id_inscription }}"
+                hx-swap="outerHTML"
+                hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
+                hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "ABSENT"}'
+                hx-indicator="#spinner-{{ ins.id_inscription }}">
+            <label class="btn btn-outline-danger btn-sm"
+                for="absent_{{ ins.id_inscription }}">Absent</label>
+        </div>
+        <span id="spinner-{{ ins.id_inscription }}" class="htmx-indicator ms-2">
+            <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+        </span>
+        {% endif %}
+    </td>
+    <td class="align-middle">
+        {% if is_validated or ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
+        {% if ins.absence_data %}
+        <span class="text-muted">{{ ins.absence_data.type }}</span>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+        {% else %}
+        <select class="form-select form-select-sm js-duration-toggle" name="type_{{ ins.id_inscription }}"
+            id="type_{{ ins.id_inscription }}"
+            data-inscription="{{ ins.id_inscription }}"
+            {% if not ins.absence_data %}disabled{% endif %}>
+            <option value="SEANCE" {% if ins.absence_data and ins.absence_data.type == 'SEANCE' %}selected{% endif %}>Séance complète</option>
+            <option value="HEURE" {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
+            <option value="JOURNEE" {% if ins.absence_data and ins.absence_data.type == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
+        </select>
+        {% endif %}
+    </td>
+    <td class="align-middle">
+        <div class="input-group input-group-sm">
+            {% if is_validated or ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
+            {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}
+            <input type="text" class="form-control" value="{{ ins.absence_data.duree }}" disabled>
+            {% else %}
+            <input type="text" class="form-control" value="—" disabled>
+            {% endif %}
+            {% else %}
+            <input type="number" class="form-control" name="duree_{{ ins.id_inscription }}"
+                id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0"
+                {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}value="{{ ins.absence_data.duree }}"
+                {% else %}disabled{% endif %}>
+            {% endif %}
+            <span class="input-group-text">h</span>
+        </div>
+    </td>
+    <td class="align-middle">
+        <input type="text" class="form-control form-control-sm"
+            name="note_{{ ins.id_inscription }}"
+            value="{% if ins.absence_data %}{{ ins.absence_data.note_professeur|default:'' }}{% endif %}"
+            placeholder="Remarque" maxlength="500"
+            {% if is_validated %}disabled{% endif %}>
+    </td>
+</tr>

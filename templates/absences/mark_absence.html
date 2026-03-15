@@ -2,6 +2,15 @@
 
 {% block title %}Faire l'appel - {{ course.nom_cours }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { display: inline-block; }
+    tr.htmx-swapping { opacity: 0.5; transition: opacity 0.2s; }
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
 <li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}">{{ course.code_cours }}</a></li>
@@ -72,6 +81,28 @@
             </div>
         </div>
 
+        <!-- Live recap card -->
+        {% if not is_validated and students %}
+        <div class="card shadow mb-4 border-start border-4 border-info" id="live-recap">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="h4 mb-0 font-weight-bold text-gray-800">{{ students|length }}</div>
+                        <div class="small text-muted text-uppercase">Inscrits</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h4 mb-0 font-weight-bold text-success" id="recap-present">{{ recap_present_count }}</div>
+                        <div class="small text-muted text-uppercase">Présents</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h4 mb-0 font-weight-bold text-danger" id="recap-absent">{{ recap_absent_count }}</div>
+                        <div class="small text-muted text-uppercase">Absents</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Student List -->
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
@@ -101,101 +132,9 @@
                                 <th style="width: 15%;">Note</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="student-tbody">
                             {% for ins in students %}
-                            <tr class="student-row" data-id="{{ ins.id_inscription }}">
-                                <td class="align-middle">
-                                    <div class="fw-bold">{{ ins.id_etudiant.get_full_name }}</div>
-                                    <div class="small text-muted">{{ ins.id_etudiant.email }}</div>
-                                    {% if ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
-                                    <span class="badge bg-success mt-1">
-                                        <i class="fas fa-shield-alt me-1"></i>Justifiée (Secrétariat)
-                                    </span>
-                                    {% elif ins.absence_data and ins.absence_data.statut == 'EN_ATTENTE' %}
-                                    <span class="badge bg-warning text-dark mt-1">
-                                        <i class="fas fa-hourglass-half me-1"></i>Justification en attente
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td class="align-middle">
-                                    {% if ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
-                                    <!-- JUSTIFIED — read-only -->
-                                    <span class="btn btn-sm btn-success disabled">
-                                        <i class="fas fa-check-circle me-1"></i>Absent justifié
-                                    </span>
-                                    {% elif is_validated %}
-                                    <!-- VALIDATED — read-only -->
-                                    {% if ins.absence_data %}
-                                    <span class="btn btn-sm btn-danger disabled">
-                                        <i class="fas fa-times-circle me-1"></i>Absent
-                                    </span>
-                                    {% else %}
-                                    <span class="btn btn-sm btn-success disabled">
-                                        <i class="fas fa-check me-1"></i>Présent
-                                    </span>
-                                    {% endif %}
-                                    {% else %}
-                                    <!-- EDITABLE -->
-                                    <div class="btn-group" role="group">
-                                        <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
-                                            id="present_{{ ins.id_inscription }}" value="PRESENT"
-                                            data-inscription="{{ ins.id_inscription }}" data-absent="false"
-                                            {% if not ins.absence_data %}checked{% endif %}>
-                                        <label class="btn btn-outline-success btn-sm"
-                                            for="present_{{ ins.id_inscription }}">Présent</label>
-
-                                        <input type="radio" class="btn-check js-status-radio" name="status_{{ ins.id_inscription }}"
-                                            id="absent_{{ ins.id_inscription }}" value="ABSENT"
-                                            data-inscription="{{ ins.id_inscription }}" data-absent="true"
-                                            {% if ins.absence_data %}checked{% endif %}>
-                                        <label class="btn btn-outline-danger btn-sm"
-                                            for="absent_{{ ins.id_inscription }}">Absent</label>
-                                    </div>
-                                    {% endif %}
-                                </td>
-                                <td class="align-middle">
-                                    {% if is_validated or ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
-                                    {% if ins.absence_data %}
-                                    <span class="text-muted">{{ ins.absence_data.type }}</span>
-                                    {% else %}
-                                    <span class="text-muted">—</span>
-                                    {% endif %}
-                                    {% else %}
-                                    <select class="form-select form-select-sm js-duration-toggle" name="type_{{ ins.id_inscription }}"
-                                        id="type_{{ ins.id_inscription }}"
-                                        data-inscription="{{ ins.id_inscription }}"
-                                        {% if not ins.absence_data %}disabled{% endif %}>
-                                        <option value="SEANCE" {% if ins.absence_data and ins.absence_data.type == 'SEANCE' %}selected{% endif %}>Séance complète</option>
-                                        <option value="HEURE" {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
-                                        <option value="JOURNEE" {% if ins.absence_data and ins.absence_data.type == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
-                                    </select>
-                                    {% endif %}
-                                </td>
-                                <td class="align-middle">
-                                    <div class="input-group input-group-sm">
-                                        {% if is_validated or ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
-                                        {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}
-                                        <input type="text" class="form-control" value="{{ ins.absence_data.duree }}" disabled>
-                                        {% else %}
-                                        <input type="text" class="form-control" value="—" disabled>
-                                        {% endif %}
-                                        {% else %}
-                                        <input type="number" class="form-control" name="duree_{{ ins.id_inscription }}"
-                                            id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0"
-                                            {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}value="{{ ins.absence_data.duree }}"
-                                            {% else %}disabled{% endif %}>
-                                        {% endif %}
-                                        <span class="input-group-text">h</span>
-                                    </div>
-                                </td>
-                                <td class="align-middle">
-                                    <input type="text" class="form-control form-control-sm"
-                                        name="note_{{ ins.id_inscription }}"
-                                        value="{% if ins.absence_data %}{{ ins.absence_data.note_professeur|default:'' }}{% endif %}"
-                                        placeholder="Remarque" maxlength="500"
-                                        {% if is_validated %}disabled{% endif %}>
-                                </td>
-                            </tr>
+                            {% include "absences/_student_row.html" %}
                             {% empty %}
                             <tr>
                                 <td colspan="5" class="text-center py-4 text-muted">
@@ -258,28 +197,6 @@
         <!-- Hidden field for action type -->
         <input type="hidden" name="form_action" id="form_action" value="draft">
     </form>
-
-    <!-- Recap card (edit mode, not yet validated) -->
-    {% if is_edit_mode and not is_validated and existing_seance %}
-    <div class="card shadow mb-4 border-start border-4 border-info">
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-4">
-                    <div class="h4 mb-0 font-weight-bold text-gray-800">{{ students|length }}</div>
-                    <div class="small text-muted text-uppercase">Inscrits</div>
-                </div>
-                <div class="col-md-4">
-                    <div class="h4 mb-0 font-weight-bold text-success">{{ recap_present_count }}</div>
-                    <div class="small text-muted text-uppercase">Présents</div>
-                </div>
-                <div class="col-md-4">
-                    <div class="h4 mb-0 font-weight-bold text-danger">{{ recap_absent_count }}</div>
-                    <div class="small text-muted text-uppercase">Absents</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
@@ -305,6 +222,27 @@
         }
     }
 
+    /* --- Live recap counter --- */
+    function updateRecap() {
+        const rows = document.querySelectorAll('#student-tbody .student-row');
+        let absent = 0;
+        rows.forEach(function(row) {
+            const absentRadio = row.querySelector('input[value="ABSENT"]');
+            const hasAbsenceBadge = row.querySelector('.btn-danger.disabled, .btn-success.disabled .fa-check-circle');
+            if (absentRadio && absentRadio.checked) {
+                absent++;
+            } else if (!absentRadio) {
+                // Read-only row: check if it's an absent (has danger disabled btn)
+                if (row.querySelector('.btn-danger.disabled')) absent++;
+            }
+        });
+        const present = rows.length - absent;
+        const recapPresent = document.getElementById('recap-present');
+        const recapAbsent = document.getElementById('recap-absent');
+        if (recapPresent) recapPresent.textContent = present;
+        if (recapAbsent) recapAbsent.textContent = absent;
+    }
+
     /* --- Bulk actions --- */
     function markAll(status) {
         document.querySelectorAll('.student-row').forEach(function(row) {
@@ -317,6 +255,7 @@
                 toggleAbsenceOptions(id, status === 'ABSENT');
             }
         });
+        updateRecap();
     }
 
     /* --- Submit actions --- */
@@ -343,10 +282,16 @@
     document.querySelectorAll('.js-mark-all').forEach(function(btn) {
         btn.addEventListener('click', function() { markAll(this.dataset.status); });
     });
-    document.getElementById('submit-draft-btn').addEventListener('click', submitDraft);
-    document.getElementById('show-confirm-btn').addEventListener('click', showConfirmation);
-    document.getElementById('hide-confirm-btn').addEventListener('click', hideConfirmation);
-    document.getElementById('submit-validate-btn').addEventListener('click', submitValidate);
+
+    var draftBtn = document.getElementById('submit-draft-btn');
+    var showBtn = document.getElementById('show-confirm-btn');
+    var hideBtn = document.getElementById('hide-confirm-btn');
+    var valBtn = document.getElementById('submit-validate-btn');
+    if (draftBtn) draftBtn.addEventListener('click', submitDraft);
+    if (showBtn) showBtn.addEventListener('click', showConfirmation);
+    if (hideBtn) hideBtn.addEventListener('click', hideConfirmation);
+    if (valBtn) valBtn.addEventListener('click', submitValidate);
+
     document.querySelectorAll('.js-status-radio').forEach(function(radio) {
         radio.addEventListener('change', function() {
             toggleAbsenceOptions(this.dataset.inscription, this.dataset.absent === 'true');

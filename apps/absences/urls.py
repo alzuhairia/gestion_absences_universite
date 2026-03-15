@@ -41,6 +41,7 @@ urlpatterns = [
     ),
     # --- Actions Professeur ---
     path("mark/<int:course_id>/", views.mark_absence, name="mark_absence"),
+    path("mark/<int:course_id>/htmx/", views.mark_absence_htmx, name="mark_absence_htmx"),
     path(
         "review/<int:absence_id>/",
         views.review_justification,
