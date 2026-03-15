@@ -1,0 +1,84 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Résultat du scan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .result-card {
+        max-width: 480px;
+        margin: 0 auto;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        text-align: center;
+    }
+    .result-header {
+        padding: 2.5rem 1.5rem 1.5rem;
+        color: white;
+    }
+    .result-header.success { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+    .result-header.duplicate { background: linear-gradient(135deg, #2980b9, #3498db); }
+    .result-header.expired { background: linear-gradient(135deg, #e67e22, #f39c12); }
+    .result-header.error { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+    .result-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .result-body { padding: 2rem 1.5rem; }
+
+    @keyframes pop-in {
+        0% { transform: scale(0); opacity: 0; }
+        70% { transform: scale(1.15); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .result-icon { animation: pop-in 0.5s ease-out; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="result-card">
+        <div class="result-header {{ scan_status }}">
+            {% if scan_status == 'success' %}
+            <div class="result-icon"><i class="fas fa-check-circle"></i></div>
+            <h4>Présence confirmée</h4>
+            {% elif scan_status == 'duplicate' %}
+            <div class="result-icon"><i class="fas fa-info-circle"></i></div>
+            <h4>Déjà enregistré</h4>
+            {% elif scan_status == 'expired' %}
+            <div class="result-icon"><i class="fas fa-clock"></i></div>
+            <h4>QR code expiré</h4>
+            {% else %}
+            <div class="result-icon"><i class="fas fa-times-circle"></i></div>
+            <h4>Erreur</h4>
+            {% endif %}
+        </div>
+
+        <div class="result-body">
+            <p class="mb-3">{{ message }}</p>
+
+            {% if scan_status == 'duplicate' and scanned_at %}
+            <p class="text-muted small">
+                <i class="fas fa-clock me-1"></i>Enregistré le {{ scanned_at|date:"d/m/Y" }} à {{ scanned_at|time:"H:i" }}
+            </p>
+            {% endif %}
+
+            {% if course %}
+            <div class="bg-light rounded p-3 mb-3 text-start">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Cours</span>
+                    <strong>{{ course.code_cours }}</strong>
+                </div>
+                {% if seance %}
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Séance</span>
+                    <strong>{{ seance.date_seance|date:"d/m/Y" }}</strong>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-home me-1"></i>Retour au tableau de bord
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

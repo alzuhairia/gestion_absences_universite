@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxLengthValidator, MinValueValidator
@@ -210,3 +212,78 @@ class Justification(models.Model):
 
     def __str__(self):
         return f"Justification pour l'absence n°{self.id_absence.id_absence}"
+
+
+class QRAttendanceToken(models.Model):
+    """
+    Short-lived token embedded in a QR code for attendance scanning.
+    One Seance may have several tokens over time (professor can refresh).
+    Only the latest active token accepts scans.
+    """
+
+    TOKEN_LIFETIME_MINUTES = 15
+
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    seance = models.ForeignKey(
+        "academic_sessions.Seance",
+        on_delete=models.CASCADE,
+        related_name="qr_tokens",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="qr_tokens_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "qr_attendance_token"
+        app_label = "absences"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"QR {self.token!s:.8} — {self.seance}"
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+    @property
+    def is_usable(self):
+        return self.is_active and not self.is_expired
+
+
+class QRScanRecord(models.Model):
+    """
+    Records a student's QR scan for a given seance.
+    Linked to seance (not token) so that scans survive token refreshes.
+    """
+
+    seance = models.ForeignKey(
+        "academic_sessions.Seance",
+        on_delete=models.CASCADE,
+        related_name="qr_scans",
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="qr_scans",
+    )
+    inscription = models.ForeignKey(
+        "enrollments.Inscription",
+        on_delete=models.CASCADE,
+        related_name="qr_scans",
+    )
+    scanned_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "qr_scan_record"
+        app_label = "absences"
+        unique_together = (("seance", "inscription"),)
+
+    def __str__(self):
+        return f"Scan {self.student} — {self.seance.date_seance}"

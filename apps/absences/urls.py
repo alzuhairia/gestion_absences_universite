@@ -52,4 +52,10 @@ urlpatterns = [
         views.validate_session,
         name="validate_session",
     ),
+    # --- QR Code Attendance ---
+    path("qr/generate/<int:course_id>/", views.qr_generate, name="qr_generate"),
+    path("qr/dashboard/<uuid:token>/", views.qr_dashboard, name="qr_dashboard"),
+    path("qr/refresh/<uuid:token>/", views.qr_refresh_token, name="qr_refresh_token"),
+    path("qr/finalize/<uuid:token>/", views.qr_finalize, name="qr_finalize"),
+    path("qr/scan/<uuid:token>/", views.qr_scan, name="qr_scan"),
 ]

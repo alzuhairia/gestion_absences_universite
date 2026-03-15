@@ -1,0 +1,168 @@
+{% extends 'base_instructor.html' %}
+
+{% block title %}QR Appel — {{ course.code_cours }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qr-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .qr-container img { max-width: 280px; width: 100%; height: auto; }
+    .countdown { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .countdown.expired { color: #e74a3b; }
+    .scan-url-box {
+        background: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        word-break: break-all;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}">{{ course.code_cours }}</a></li>
+<li class="breadcrumb-item active">QR Appel</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Left: QR Code -->
+        <div class="col-lg-5 mb-4">
+            <div class="qr-container">
+                <h5 class="fw-bold mb-1">{{ course.code_cours }}</h5>
+                <p class="text-muted small mb-3">
+                    {{ seance.date_seance|date:"d/m/Y" }} &mdash;
+                    {{ seance.heure_debut|time:"H:i" }} – {{ seance.heure_fin|time:"H:i" }}
+                </p>
+
+                {% if is_expired %}
+                <div class="alert alert-warning py-2 mb-3">
+                    <i class="fas fa-clock me-1"></i> QR expiré
+                </div>
+                {% else %}
+                <img src="{{ qr_data_uri }}" alt="QR Code" class="mb-3">
+                {% endif %}
+
+                <!-- Countdown -->
+                <div class="mb-3">
+                    <div class="countdown {% if is_expired %}expired{% else %}text-success{% endif %}"
+                         id="countdown"
+                         data-expires="{{ qr_token.expires_at|date:'c' }}">
+                        --:--
+                    </div>
+                    <div class="small text-muted">Temps restant</div>
+                </div>
+
+                <!-- Scan URL -->
+                <div class="scan-url-box mb-3" id="scan-url">{{ scan_url }}</div>
+                <button class="btn btn-sm btn-outline-secondary" id="copy-url-btn">
+                    <i class="fas fa-copy me-1"></i>Copier le lien
+                </button>
+
+                <hr>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    <form method="POST" action="{% url 'absences:qr_refresh_token' qr_token.token %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="duration" value="15">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-sync me-1"></i>Rafraîchir le QR
+                        </button>
+                    </form>
+
+                    <button type="button" class="btn btn-success btn-sm" id="show-finalize-btn">
+                        <i class="fas fa-check-circle me-1"></i>Finaliser la séance
+                    </button>
+                </div>
+
+                <!-- Finalize confirmation -->
+                <div id="finalize-bar" class="alert alert-warning mt-3 d-none text-start">
+                    <strong><i class="fas fa-exclamation-triangle me-1"></i>Confirmer ?</strong>
+                    <p class="mb-2 small">Les étudiants n'ayant pas scanné seront marqués absents. La séance sera verrouillée.</p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="hide-finalize-btn">Annuler</button>
+                        <form method="POST" action="{% url 'absences:qr_finalize' qr_token.token %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success">
+                                <i class="fas fa-check me-1"></i>Confirmer
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Live scan list -->
+        <div class="col-lg-7">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 fw-bold">
+                        <i class="fas fa-users me-2"></i>Suivi en temps réel
+                        <span class="badge bg-primary ms-2">{{ scanned_count }}/{{ total_students }}</span>
+                    </h6>
+                </div>
+                <div class="card-body"
+                     id="scan-list"
+                     hx-get="{% url 'absences:qr_dashboard' qr_token.token %}"
+                     hx-trigger="every 3s"
+                     hx-swap="innerHTML">
+                    {% include 'absences/_qr_scan_list.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    /* Countdown timer */
+    var countdownEl = document.getElementById('countdown');
+    var expires = new Date(countdownEl.dataset.expires).getTime();
+
+    function tick() {
+        var now = Date.now();
+        var diff = Math.max(0, Math.floor((expires - now) / 1000));
+        var m = Math.floor(diff / 60);
+        var s = diff % 60;
+        countdownEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        if (diff <= 0) {
+            countdownEl.textContent = 'Expiré';
+            countdownEl.classList.add('expired');
+            countdownEl.classList.remove('text-success');
+        } else {
+            requestAnimationFrame(function() { setTimeout(tick, 1000); });
+        }
+    }
+    tick();
+
+    /* Copy URL */
+    var copyBtn = document.getElementById('copy-url-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(document.getElementById('scan-url').textContent);
+            copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copié !';
+            setTimeout(function() {
+                copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i>Copier le lien';
+            }, 2000);
+        });
+    }
+
+    /* Finalize confirmation toggle */
+    var showBtn = document.getElementById('show-finalize-btn');
+    var hideBtn = document.getElementById('hide-finalize-btn');
+    var bar = document.getElementById('finalize-bar');
+    if (showBtn) showBtn.addEventListener('click', function() { bar.classList.remove('d-none'); });
+    if (hideBtn) hideBtn.addEventListener('click', function() { bar.classList.add('d-none'); });
+})();
+</script>
+{% endblock %}
