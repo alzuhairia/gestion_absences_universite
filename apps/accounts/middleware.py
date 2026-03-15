@@ -1,7 +1,10 @@
 # apps/accounts/middleware.py
+import time
 from functools import lru_cache
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
 
@@ -25,6 +28,32 @@ def _resolve_excluded_paths():
     paths.append("/api/health/")
     paths.append("/setup/")
     return tuple(paths)
+
+
+class SessionInactivityMiddleware:
+    """Log out users who have been inactive longer than SESSION_INACTIVITY_TIMEOUT."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.timeout = getattr(settings, "SESSION_INACTIVITY_TIMEOUT", 900)
+
+    def __call__(self, request):
+        if request.user.is_authenticated:
+            now = time.time()
+            last_activity = request.session.get("_last_activity")
+
+            if last_activity is not None and (now - last_activity) > self.timeout:
+                logout(request)
+                messages.warning(
+                    request,
+                    "Votre session a expiré pour cause d'inactivité. "
+                    "Veuillez vous reconnecter.",
+                )
+                return redirect(settings.LOGIN_URL)
+
+            request.session["_last_activity"] = now
+
+        return self.get_response(request)
 
 
 class RoleMiddleware:

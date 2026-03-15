@@ -30,7 +30,9 @@ def rules_management(request):
     if active_year:
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
 
-    inscription_ids = list(inscriptions_qs.values_list("id_inscription", flat=True))
+    # Evaluate once: extract IDs from Python objects instead of an extra query.
+    inscriptions_list = list(inscriptions_qs)
+    inscription_ids = [ins.id_inscription for ins in inscriptions_list]
     # EN_ATTENTE counts as non-justified (loophole closed — consistent with
     # all other views: services.py, views_professor.py, views_student.py).
     absence_sums = dict(
@@ -44,7 +46,7 @@ def rules_management(request):
     )
     at_risk_list = []
 
-    for ins in inscriptions_qs:
+    for ins in inscriptions_list:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
             total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)

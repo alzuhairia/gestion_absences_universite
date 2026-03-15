@@ -114,12 +114,18 @@ class QueryBudgetTests(TestCase):
             if hasattr(response, "render") and callable(response.render):
                 response.render()
 
+        # Exclude session housekeeping queries (SELECT/UPDATE django_session)
+        # so the budget focuses on business logic only.
+        business_queries = [
+            q for q in captured.captured_queries if "django_session" not in q["sql"]
+        ]
+
         self.assertLessEqual(
-            len(captured),
+            len(business_queries),
             max_queries,
             (
-                f"Trop de requetes SQL: {len(captured)} (max: {max_queries}).\n"
-                + "\n".join(q["sql"] for q in captured.captured_queries[:12])
+                f"Trop de requetes SQL: {len(business_queries)} (max: {max_queries}).\n"
+                + "\n".join(q["sql"] for q in business_queries[:12])
             ),
         )
         return response

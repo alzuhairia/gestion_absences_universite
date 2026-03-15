@@ -445,8 +445,10 @@ def student_courses(request):
 
     # Prepare course data with statistics
     courses_data = []
-    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
-    course_ids = list(inscriptions.values_list("id_cours", flat=True))
+    # Evaluate once: extract IDs from Python objects instead of 2 extra queries.
+    inscriptions = list(inscriptions)
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
+    course_ids = [ins.id_cours_id for ins in inscriptions]
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
