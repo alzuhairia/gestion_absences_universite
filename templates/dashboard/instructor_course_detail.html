@@ -344,9 +344,14 @@
              role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="mb-0">Historique des séances</h4>
-                <a href="{% url 'absences:mark_absence' course.id_cours %}" class="btn btn-primary">
-                    <i class="fas fa-plus me-1"></i>Créer une séance / Prendre l'appel
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'absences:qr_generate' course.id_cours %}" class="btn btn-success">
+                        <i class="fas fa-qrcode me-1"></i>QR Appel
+                    </a>
+                    <a href="{% url 'absences:mark_absence' course.id_cours %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Appel manuel
+                    </a>
+                </div>
             </div>
 
             {% if sessions %}

@@ -1,0 +1,71 @@
+{% extends 'base_instructor.html' %}
+
+{% block title %}QR Appel - {{ course.code_cours }}{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}">{{ course.code_cours }}</a></li>
+<li class="breadcrumb-item active">QR Appel</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="card shadow">
+        <div class="card-header py-3 bg-primary text-white">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-qrcode me-2"></i>Générer un QR code pour l'appel
+            </h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-4">
+                Les étudiants scanneront ce QR code avec leur téléphone pour confirmer leur présence.
+            </p>
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="date_seance">Date</label>
+                        <input type="date" class="form-control" id="date_seance"
+                               name="date_seance" value="{{ today }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_debut">Heure début</label>
+                        <input type="time" class="form-control" id="heure_debut"
+                               name="heure_debut" value="{{ default_start }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_fin">Heure fin</label>
+                        <input type="time" class="form-control" id="heure_fin"
+                               name="heure_fin" value="{{ default_end }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label" for="duration">Durée de validité du QR</label>
+                    <select class="form-select" id="duration" name="duration">
+                        <option value="5">5 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="15" selected>15 minutes</option>
+                        <option value="20">20 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
+                    </select>
+                    <div class="form-text">Le QR expirera automatiquement après cette durée. Vous pourrez le rafraîchir.</div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}"
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Retour
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-qrcode me-2"></i>Générer le QR
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

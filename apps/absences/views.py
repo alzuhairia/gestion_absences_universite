@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from apps.absences.models import Absence, Justification
+from apps.absences.models import Absence, Justification, QRAttendanceToken, QRScanRecord
 from apps.absences.services import (
     calculer_absence_stats,
     get_absences_queryset,
@@ -941,3 +941,321 @@ def validate_session(request, seance_id):
         f"La séance du {seance.date_seance} a été validée. Les présences sont maintenant verrouillées.",
     )
     return redirect("absences:mark_absence", course_id=seance.id_cours_id)
+
+
+# =====================================================================
+# QR Code Attendance
+# =====================================================================
+
+import base64
+import io
+
+import qrcode
+
+from apps.audits.utils import get_client_ip
+from datetime import timedelta
+
+
+def _generate_qr_data_uri(url):
+    """Generate a QR code PNG as a base64 data-URI (no file storage needed)."""
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
+
+
+@login_required
+@professor_required
+@require_http_methods(["GET", "POST"])
+def qr_generate(request, course_id):
+    """Professor creates a session and generates a QR code for student scanning."""
+    course = get_object_or_404(Cours, id_cours=course_id)
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé à ce cours.")
+        return redirect("dashboard:instructor_dashboard")
+
+    academic_year = AnneeAcademique.objects.filter(active=True).first()
+    if not academic_year:
+        messages.error(request, "Aucune année académique active.")
+        return redirect("dashboard:instructor_course_detail", course_id)
+
+    if request.method == "POST":
+        date_seance = request.POST.get("date_seance")
+        heure_debut = request.POST.get("heure_debut")
+        heure_fin = request.POST.get("heure_fin")
+        duration = int(request.POST.get("duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
+        duration = max(5, min(duration, 60))  # clamp 5–60 min
+
+        if not all([date_seance, heure_debut, heure_fin]):
+            messages.error(request, "Veuillez remplir tous les champs.")
+            return redirect("absences:qr_generate", course_id=course_id)
+
+        seance, _created = Seance.objects.get_or_create(
+            id_cours=course,
+            date_seance=date_seance,
+            heure_debut=heure_debut,
+            heure_fin=heure_fin,
+            defaults={"id_annee": academic_year},
+        )
+
+        if seance.validated:
+            messages.error(request, "Cette séance est déjà validée et verrouillée.")
+            return redirect("dashboard:instructor_course_detail", course_id)
+
+        # Deactivate any previous active tokens for this seance
+        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+
+        token = QRAttendanceToken.objects.create(
+            seance=seance,
+            created_by=request.user,
+            expires_at=timezone.now() + timedelta(minutes=duration),
+        )
+
+        log_action(
+            request.user,
+            f"QR généré pour {course.code_cours} — séance {date_seance}",
+            request,
+            niveau="INFO",
+            objet_type="SEANCE",
+            objet_id=seance.id_seance,
+        )
+
+        return redirect("absences:qr_dashboard", token=token.token)
+
+    today = timezone.localdate().isoformat()
+    return render(request, "absences/qr_generate.html", {
+        "course": course,
+        "today": today,
+        "default_start": "08:00",
+        "default_end": "09:30",
+    })
+
+
+@login_required
+@professor_required
+@require_GET
+def qr_dashboard(request, token):
+    """Live dashboard: QR image + real-time scan list (HTMX polling)."""
+    qr_token = get_object_or_404(QRAttendanceToken, token=token)
+    seance = qr_token.seance
+    course = seance.id_cours
+
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé.")
+        return redirect("dashboard:instructor_dashboard")
+
+    scan_url = request.build_absolute_uri(
+        reverse("absences:qr_scan", kwargs={"token": str(token)})
+    )
+    qr_data_uri = _generate_qr_data_uri(scan_url)
+
+    inscriptions = list(
+        Inscription.objects.filter(
+            id_cours=course,
+            id_annee=seance.id_annee,
+            status=Inscription.Status.EN_COURS,
+        ).select_related("id_etudiant")
+    )
+
+    scanned_ids = set(
+        QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
+    )
+
+    scanned = [ins for ins in inscriptions if ins.id_inscription in scanned_ids]
+    not_scanned = [ins for ins in inscriptions if ins.id_inscription not in scanned_ids]
+
+    ctx = {
+        "qr_token": qr_token,
+        "seance": seance,
+        "course": course,
+        "qr_data_uri": qr_data_uri,
+        "scan_url": scan_url,
+        "scanned": scanned,
+        "not_scanned": not_scanned,
+        "total_students": len(inscriptions),
+        "scanned_count": len(scanned),
+        "is_expired": qr_token.is_expired,
+    }
+
+    # HTMX partial refresh (student list only)
+    if request.headers.get("HX-Request"):
+        return render(request, "absences/_qr_scan_list.html", ctx)
+
+    return render(request, "absences/qr_dashboard.html", ctx)
+
+
+@login_required
+@professor_required
+@require_POST
+def qr_refresh_token(request, token):
+    """Deactivate current token and create a fresh one (preserves scans)."""
+    qr_token = get_object_or_404(QRAttendanceToken, token=token)
+    seance = qr_token.seance
+    course = seance.id_cours
+
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé.")
+        return redirect("dashboard:instructor_dashboard")
+
+    duration = int(request.POST.get("duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
+    duration = max(5, min(duration, 60))
+
+    QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+
+    new_token = QRAttendanceToken.objects.create(
+        seance=seance,
+        created_by=request.user,
+        expires_at=timezone.now() + timedelta(minutes=duration),
+    )
+
+    messages.success(request, "QR code rafraîchi avec un nouveau token.")
+    return redirect("absences:qr_dashboard", token=new_token.token)
+
+
+@login_required
+@professor_required
+@require_POST
+def qr_finalize(request, token):
+    """Finalize QR session: students who did NOT scan are marked absent."""
+    qr_token = get_object_or_404(QRAttendanceToken, token=token)
+    seance = qr_token.seance
+    course = seance.id_cours
+
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé.")
+        return redirect("dashboard:instructor_dashboard")
+
+    if seance.validated:
+        messages.warning(request, "Cette séance est déjà validée.")
+        return redirect("dashboard:instructor_course_detail", course.id_cours)
+
+    inscriptions = list(
+        Inscription.objects.filter(
+            id_cours=course,
+            id_annee=seance.id_annee,
+            status=Inscription.Status.EN_COURS,
+        ).select_related("id_etudiant", "id_cours")
+    )
+
+    scanned_ids = set(
+        QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
+    )
+
+    with transaction.atomic():
+        # Deactivate token
+        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+
+        absent_count = 0
+        for ins in inscriptions:
+            if ins.id_inscription not in scanned_ids:
+                _absence, created = Absence.objects.get_or_create(
+                    id_inscription=ins,
+                    id_seance=seance,
+                    defaults={
+                        "type_absence": "SEANCE",
+                        "duree_absence": seance.duree_heures(),
+                        "statut": Absence.Statut.NON_JUSTIFIEE,
+                        "encodee_par": request.user,
+                        "note_professeur": "Absent (QR non scanné)",
+                    },
+                )
+                if created:
+                    absent_count += 1
+
+        seance.validated = True
+        seance.validated_by = request.user
+        seance.date_validated = timezone.now()
+        seance.save(update_fields=["validated", "validated_by", "date_validated"])
+
+        log_action(
+            request.user,
+            f"QR finalisé — {course.code_cours} {seance.date_seance}: "
+            f"{len(scanned_ids)} présent(s), {absent_count} absent(s)",
+            request,
+            niveau="INFO",
+            objet_type="SEANCE",
+            objet_id=seance.id_seance,
+        )
+
+    messages.success(
+        request,
+        f"Séance finalisée : {len(scanned_ids)} présent(s), {absent_count} absent(s).",
+    )
+    return redirect("dashboard:instructor_course_detail", course.id_cours)
+
+
+@login_required
+@student_required
+@require_http_methods(["GET", "POST"])
+def qr_scan(request, token):
+    """Student scans QR → confirmation page (GET) → record attendance (POST)."""
+    qr_token = get_object_or_404(QRAttendanceToken, token=token)
+    seance = qr_token.seance
+    course = seance.id_cours
+
+    error_ctx = {"course": course, "seance": seance}
+
+    # --- Guard checks ---
+    if not qr_token.is_active:
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "error",
+            "message": "Ce QR code n'est plus actif.",
+        })
+
+    if qr_token.is_expired:
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "expired",
+            "message": "Ce QR code a expiré. Demandez au professeur d'en générer un nouveau.",
+        })
+
+    if seance.validated:
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "error",
+            "message": "Cette séance est déjà validée et verrouillée.",
+        })
+
+    inscription = Inscription.objects.filter(
+        id_etudiant=request.user,
+        id_cours=course,
+        id_annee=seance.id_annee,
+        status=Inscription.Status.EN_COURS,
+    ).first()
+
+    if not inscription:
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "error",
+            "message": "Vous n'êtes pas inscrit(e) à ce cours.",
+        })
+
+    existing = QRScanRecord.objects.filter(seance=seance, inscription=inscription).first()
+    if existing:
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "duplicate",
+            "message": "Votre présence a déjà été enregistrée.",
+            "scanned_at": existing.scanned_at,
+        })
+
+    # --- GET: show confirmation page ---
+    if request.method == "GET":
+        return render(request, "absences/qr_scan.html", {
+            "qr_token": qr_token,
+            "course": course,
+            "seance": seance,
+        })
+
+    # --- POST: record attendance ---
+    QRScanRecord.objects.create(
+        seance=seance,
+        student=request.user,
+        inscription=inscription,
+        ip_address=get_client_ip(request),
+    )
+
+    return render(request, "absences/qr_scan_result.html", {
+        **error_ctx, "scan_status": "success",
+        "message": "Présence enregistrée avec succès !",
+    })

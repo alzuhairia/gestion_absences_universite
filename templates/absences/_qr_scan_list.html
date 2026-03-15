@@ -1,0 +1,66 @@
+{% comment %}
+HTMX partial — refreshed every 3s by the QR dashboard.
+Context: scanned, not_scanned, scanned_count, total_students, is_expired, qr_token
+{% endcomment %}
+
+<!-- Counters -->
+<div class="row text-center mb-4">
+    <div class="col-4">
+        <div class="h3 mb-0 fw-bold text-primary">{{ total_students }}</div>
+        <div class="small text-muted text-uppercase">Inscrits</div>
+    </div>
+    <div class="col-4">
+        <div class="h3 mb-0 fw-bold text-success">{{ scanned_count }}</div>
+        <div class="small text-muted text-uppercase">Présents</div>
+    </div>
+    <div class="col-4">
+        <div class="h3 mb-0 fw-bold text-danger">{{ not_scanned|length }}</div>
+        <div class="small text-muted text-uppercase">En attente</div>
+    </div>
+</div>
+
+<!-- Progress bar -->
+{% if total_students > 0 %}
+<div class="progress mb-4" style="height: 8px;">
+    <div class="progress-bar bg-success" role="progressbar"
+         style="width: {% widthratio scanned_count total_students 100 %}%;"
+         aria-valuenow="{{ scanned_count }}" aria-valuemin="0" aria-valuemax="{{ total_students }}">
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Scanned (present) -->
+    <div class="col-md-6 mb-3">
+        <h6 class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Présents ({{ scanned_count }})</h6>
+        {% if scanned %}
+        <ul class="list-group list-group-flush">
+            {% for ins in scanned %}
+            <li class="list-group-item d-flex align-items-center py-2 px-0 border-0">
+                <i class="fas fa-user-check text-success me-2"></i>
+                <span>{{ ins.id_etudiant.get_full_name }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">Aucun scan pour le moment.</p>
+        {% endif %}
+    </div>
+
+    <!-- Not scanned (waiting) -->
+    <div class="col-md-6 mb-3">
+        <h6 class="text-warning fw-bold"><i class="fas fa-hourglass-half me-1"></i>En attente ({{ not_scanned|length }})</h6>
+        {% if not_scanned %}
+        <ul class="list-group list-group-flush">
+            {% for ins in not_scanned %}
+            <li class="list-group-item d-flex align-items-center py-2 px-0 border-0">
+                <i class="fas fa-user-clock text-muted me-2"></i>
+                <span class="text-muted">{{ ins.id_etudiant.get_full_name }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-success small fw-bold">Tous les étudiants ont scanné !</p>
+        {% endif %}
+    </div>
+</div>
