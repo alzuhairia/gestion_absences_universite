@@ -206,6 +206,14 @@
                 </li>
                 
                 <li>
+                    <div class="section-title">Analyses</div>
+                    <a href="{% url 'dashboard:admin_statistics' %}"
+                       class="nav-link {% if 'admin_statistics' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-chart-bar"></i> Statistiques
+                    </a>
+                </li>
+
+                <li>
                     <div class="section-title">Structure Académique</div>
                     <a href="{% url 'dashboard:admin_faculties' %}" 
                        class="nav-link {% if 'admin_faculties' in request.resolver_match.view_name %}active{% endif %}">
