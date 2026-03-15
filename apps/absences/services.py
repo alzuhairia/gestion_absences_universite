@@ -331,14 +331,17 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
     today = timezone.localdate()
     thirty_days_ago = today - datetime.timedelta(days=30)
+    sixty_days_ago = today - datetime.timedelta(days=60)
 
     inscription_ids = [ins.id_inscription for ins in inscriptions]
+
+    _non_justified = [Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE]
 
     # 1. Total non-justified absences per inscription (single SQL query)
     total_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut__in=_non_justified,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -349,8 +352,21 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     recent_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut__in=_non_justified,
             id_seance__date_seance__gte=thirty_days_ago,
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+
+    # 3. Previous 30-day absences (days 31–60) for trend comparison
+    prev_abs_map = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut__in=_non_justified,
+            id_seance__date_seance__gte=sixty_days_ago,
+            id_seance__date_seance__lt=thirty_days_ago,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -427,6 +443,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
         total_abs = float(total_abs_map.get(ins.id_inscription, 0) or 0)
         recent_abs = float(recent_abs_map.get(ins.id_inscription, 0) or 0)
+        prev_abs = float(prev_abs_map.get(ins.id_inscription, 0) or 0)
         course_avg = course_avg_map.get(ins.id_cours_id, 0.0)
 
         current_rate = (total_abs / total_periodes) * 100
@@ -442,6 +459,21 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         # Recent 30-day rate as percentage (for comparison with course average)
         # Normalize to: what % of total_periodes did they miss in 30 days, annualized
         recent_rate = (recent_abs / total_periodes) * 100
+
+        # Trend: compare recent 30 days vs previous 30 days
+        # "up" = getting worse, "down" = improving, "stable" = ±10% tolerance
+        if prev_abs > 0:
+            change_ratio = (recent_abs - prev_abs) / prev_abs
+            if change_ratio > 0.10:
+                trend = "up"
+            elif change_ratio < -0.10:
+                trend = "down"
+            else:
+                trend = "stable"
+        elif recent_abs > 0:
+            trend = "up"  # went from 0 to something
+        else:
+            trend = "stable"
 
         # Already blocked — skip prediction
         if current_rate >= seuil and not ins.exemption_40:
@@ -473,6 +505,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
             "total_abs": total_abs,
             "recent_abs": recent_abs,
             "days_remaining": days_remaining,
+            "trend": trend,
         })
 
     return results

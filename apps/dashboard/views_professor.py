@@ -214,6 +214,7 @@ def instructor_course_detail(request, course_id):
             sd["recent_rate"] = pred["recent_rate"]
             sd["course_avg_rate"] = pred["course_avg_rate"]
             sd["days_remaining"] = pred["days_remaining"]
+            sd["trend"] = pred["trend"]
             if pred["risk_level"] in ("HIGH", "MEDIUM") and not sd["is_at_risk"]:
                 early_warnings_count += 1
         else:
@@ -222,6 +223,7 @@ def instructor_course_detail(request, course_id):
             sd["recent_rate"] = 0
             sd["course_avg_rate"] = 0
             sd["days_remaining"] = 0
+            sd["trend"] = "stable"
 
     # Tab 2: Sessions
     if academic_year:

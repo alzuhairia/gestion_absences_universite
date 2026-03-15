@@ -147,6 +147,12 @@
         border-radius: 8px;
         margin-bottom: 1.5rem;
     }
+    /* Trend arrow animation — only HIGH + up */
+    @keyframes pulse-critical {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.25); }
+    }
+    .trend-critical { animation: pulse-critical 1.5s ease-in-out infinite; }
 </style>
 {% endblock %}
 
@@ -259,6 +265,13 @@
                                     <span class="{% if item.risk_level == 'HIGH' %}risk-high{% elif item.risk_level == 'MEDIUM' %}risk-medium{% elif item.risk_level == 'LOW' %}risk-low{% else %}risk-none{% endif %}" title="Taux projeté en fin de semestre">
                                         {{ item.projected_rate }}%
                                     </span>
+                                    {% if item.trend == 'up' %}
+                                    <i class="fas fa-arrow-up risk-high" title="Tendance à la hausse (30j)"></i>
+                                    {% elif item.trend == 'down' %}
+                                    <i class="fas fa-arrow-down risk-none" title="Tendance à la baisse (30j)"></i>
+                                    {% else %}
+                                    <i class="fas fa-arrow-right text-muted" title="Tendance stable (30j)"></i>
+                                    {% endif %}
                                     <div class="projected-bar flex-grow-1" title="Seuil : {{ item.seuil|default:course_threshold }}%">
                                         <div class="projected-bar-fill {% if item.risk_level == 'HIGH' %}bg-danger{% elif item.risk_level == 'MEDIUM' %}bg-warning{% elif item.risk_level == 'LOW' %}bg-info{% else %}bg-success{% endif %}"
                                              style="width: {% widthratio item.projected_rate 100 100 %}%;"></div>
@@ -275,10 +288,18 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if item.risk_level == 'HIGH' %}
+                                {% if item.risk_level == 'HIGH' and item.trend == 'up' %}
+                                    <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1 trend-critical"></i>Critique</span>
+                                {% elif item.risk_level == 'HIGH' and item.trend == 'down' %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-arrow-down me-1"></i>En amélioration</span>
+                                {% elif item.risk_level == 'HIGH' %}
                                     <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Élevé</span>
+                                {% elif item.risk_level == 'MEDIUM' and item.trend == 'up' %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-arrow-up me-1"></i>À surveiller</span>
                                 {% elif item.risk_level == 'MEDIUM' %}
                                     <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle me-1"></i>Moyen</span>
+                                {% elif item.risk_level == 'LOW' and item.trend == 'down' %}
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>Normal</span>
                                 {% elif item.risk_level == 'LOW' %}
                                     <span class="badge bg-info text-white"><i class="fas fa-info-circle me-1"></i>Faible</span>
                                 {% else %}
