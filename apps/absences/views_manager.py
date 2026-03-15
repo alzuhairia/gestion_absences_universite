@@ -91,7 +91,16 @@ def edit_absence(request, pk):
 
         with transaction.atomic():
             # Re-fetch with row lock to prevent concurrent modification (TOCTOU)
-            absence = Absence.objects.select_for_update().get(pk=pk)
+            # select_related prefetches FK chains used in log_action message below
+            absence = (
+                Absence.objects
+                .select_related(
+                    "id_seance__id_cours",
+                    "id_inscription__id_etudiant",
+                )
+                .select_for_update()
+                .get(pk=pk)
+            )
 
             # Capture old state for audit comparison inside the lock
             old_statut = absence.statut

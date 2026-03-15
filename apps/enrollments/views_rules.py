@@ -113,7 +113,13 @@ def toggle_exemption(request, pk):
             return redirect("dashboard:secretary_rules_40")
 
         with transaction.atomic():
-            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            # select_related prefetches FK chains used in log_action/messages below
+            inscription = (
+                Inscription.objects
+                .select_related("id_etudiant", "id_cours")
+                .select_for_update()
+                .get(pk=pk)
+            )
             inscription.exemption_40 = True
             inscription.motif_exemption = motif
             inscription.save()
@@ -134,7 +140,12 @@ def toggle_exemption(request, pk):
 
     elif action == "revoke":
         with transaction.atomic():
-            inscription = Inscription.objects.select_for_update().get(pk=pk)
+            inscription = (
+                Inscription.objects
+                .select_related("id_etudiant", "id_cours")
+                .select_for_update()
+                .get(pk=pk)
+            )
             inscription.exemption_40 = False
             inscription.motif_exemption = None
             inscription.save()
