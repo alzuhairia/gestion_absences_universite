@@ -770,19 +770,14 @@ def mark_absence_htmx(request, course_id):
     status = request.POST.get("status", "")
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    inscription = Inscription.objects.filter(
+    ins_qs = Inscription.objects.filter(
         id_inscription=inscription_id,
         id_cours=course,
         status=Inscription.Status.EN_COURS,
-    ).select_related("id_etudiant").first()
-
+    ).select_related("id_etudiant", "id_cours")
     if active_year:
-        inscription = Inscription.objects.filter(
-            id_inscription=inscription_id,
-            id_cours=course,
-            id_annee=active_year,
-            status=Inscription.Status.EN_COURS,
-        ).select_related("id_etudiant").first()
+        ins_qs = ins_qs.filter(id_annee=active_year)
+    inscription = ins_qs.first()
 
     if not inscription:
         return HttpResponse("Inscription introuvable.", status=404)
@@ -880,7 +875,9 @@ def mark_absence_htmx(request, course_id):
                     existing_absence.delete()
 
     # Re-fetch absence data for the partial render
-    absence = Absence.objects.filter(
+    absence = Absence.objects.select_related(
+        "id_inscription__id_etudiant", "id_seance"
+    ).filter(
         id_inscription=inscription, id_seance=seance
     ).first()
     if absence:

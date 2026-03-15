@@ -4,10 +4,11 @@
 
 {% block extra_css %}
 <style>
+    /* Row-level loading: dim the row + show inline spinner */
+    tr.htmx-request { opacity: 0.45; transition: opacity 0.15s ease; pointer-events: none; }
     .htmx-indicator { display: none; }
-    .htmx-request .htmx-indicator,
-    .htmx-request.htmx-indicator { display: inline-block; }
-    tr.htmx-swapping { opacity: 0.5; transition: opacity 0.2s; }
+    tr.htmx-request .htmx-indicator { display: inline-block; }
+    tr.htmx-swapping { opacity: 0; transition: opacity 0.1s ease; }
 </style>
 {% endblock %}
 

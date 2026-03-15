@@ -2,7 +2,7 @@
 Partial template rendered by the HTMX endpoint after a per-student attendance toggle.
 Context: ins (Inscription with .absence_data attached), is_validated, course, seance_id
 {% endcomment %}
-<tr class="student-row" data-id="{{ ins.id_inscription }}" id="row-{{ ins.id_inscription }}">
+<tr class="student-row" data-id="{{ ins.id_inscription }}" id="row-{{ ins.id_inscription }}" hx-indicator="closest tr">
     <td class="align-middle">
         <div class="fw-bold">{{ ins.id_etudiant.get_full_name }}</div>
         <div class="small text-muted">{{ ins.id_etudiant.email }}</div>
@@ -42,7 +42,7 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
                 hx-swap="outerHTML"
                 hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
                 hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "PRESENT"}'
-                hx-indicator="#spinner-{{ ins.id_inscription }}">
+>
             <label class="btn btn-outline-success btn-sm"
                 for="present_{{ ins.id_inscription }}">Présent</label>
 
@@ -55,11 +55,11 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
                 hx-swap="outerHTML"
                 hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
                 hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "ABSENT"}'
-                hx-indicator="#spinner-{{ ins.id_inscription }}">
+>
             <label class="btn btn-outline-danger btn-sm"
                 for="absent_{{ ins.id_inscription }}">Absent</label>
         </div>
-        <span id="spinner-{{ ins.id_inscription }}" class="htmx-indicator ms-2">
+        <span class="htmx-indicator ms-2">
             <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
         </span>
         {% endif %}
