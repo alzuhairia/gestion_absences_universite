@@ -158,9 +158,15 @@ def process_justification(request, pk):
             justification.date_validation = timezone.now()
             justification.save()
 
-            # Update Absence Status (lock to prevent concurrent modification)
-            absence = Absence.objects.select_for_update().get(
-                pk=justification.id_absence_id
+            # Update Absence Status (lock + prefetch FK chains for notification/audit)
+            absence = (
+                Absence.objects
+                .select_related(
+                    "id_seance__id_cours",
+                    "id_inscription__id_etudiant",
+                )
+                .select_for_update()
+                .get(pk=justification.id_absence_id)
             )
             absence.statut = Absence.Statut.JUSTIFIEE
             absence.save()
@@ -195,9 +201,15 @@ def process_justification(request, pk):
             justification.date_validation = timezone.now()
             justification.save()
 
-            # Update Absence Status (lock to prevent concurrent modification)
-            absence = Absence.objects.select_for_update().get(
-                pk=justification.id_absence_id
+            # Update Absence Status (lock + prefetch FK chains for notification/audit)
+            absence = (
+                Absence.objects
+                .select_related(
+                    "id_seance__id_cours",
+                    "id_inscription__id_etudiant",
+                )
+                .select_for_update()
+                .get(pk=justification.id_absence_id)
             )
             absence.statut = Absence.Statut.NON_JUSTIFIEE
             absence.save()
