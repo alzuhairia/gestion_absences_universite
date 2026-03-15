@@ -116,6 +116,37 @@
         border-radius: 8px;
         margin-top: 1rem;
     }
+
+    .risk-high { color: #e74a3b; font-weight: 700; }
+    .risk-medium { color: #f6c23e; font-weight: 600; }
+    .risk-low { color: #36b9cc; font-weight: 500; }
+    .risk-none { color: #1cc88a; }
+    .projected-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: #e9ecef;
+        position: relative;
+        overflow: hidden;
+    }
+    .projected-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.4s ease;
+    }
+    .projected-bar-threshold {
+        position: absolute;
+        top: -3px;
+        width: 2px;
+        height: 12px;
+        background: #e74a3b;
+    }
+    .early-warning-box {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+        border-left: 4px solid #f6c23e;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -187,29 +218,71 @@
                 <strong>Lecture seule :</strong> Vous pouvez consulter les informations des étudiants mais ne pouvez pas modifier leurs inscriptions.
             </p>
 
+            {% if early_warnings_count > 0 %}
+            <div class="early-warning-box">
+                <i class="fas fa-bolt me-2 text-warning"></i>
+                <strong>Détection prédictive :</strong> {{ early_warnings_count }} étudiant(s) non encore bloqué(s) mais en trajectoire
+                de dépassement du seuil de {{ course_threshold }}%.
+                <span class="text-muted small d-block mt-1">Basé sur l'analyse des 30 derniers jours et la projection linéaire jusqu'à la fin du semestre.</span>
+            </div>
+            {% endif %}
+
             {% if students_data %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Étudiant</th>
-                            <th>Email</th>
                             <th>% Absence</th>
+                            <th>Projection</th>
+                            <th>Risque</th>
                             <th>Statut</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in students_data %}
-                        <tr class="{% if item.is_at_risk %}table-warning{% endif %}">
+                        <tr class="{% if item.is_at_risk %}table-warning{% elif item.risk_level == 'HIGH' %}table-danger table-opacity-25{% elif item.risk_level == 'MEDIUM' %}table-warning table-opacity-25{% endif %}">
                             <td>
                                 <strong>{{ item.etudiant.get_full_name }}</strong>
+                                <div class="small text-muted">{{ item.etudiant.email }}</div>
                             </td>
-                            <td>{{ item.etudiant.email }}</td>
                             <td>
                                 {% if item.is_at_risk %}
                                     <span class="badge-at-risk">{{ item.rate }}%</span>
                                 {% else %}
                                     <span class="badge-ok">{{ item.rate }}%</span>
+                                {% endif %}
+                            </td>
+                            <td style="min-width: 140px;">
+                                {% if item.days_remaining > 0 and not item.is_at_risk %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="{% if item.risk_level == 'HIGH' %}risk-high{% elif item.risk_level == 'MEDIUM' %}risk-medium{% elif item.risk_level == 'LOW' %}risk-low{% else %}risk-none{% endif %}" title="Taux projeté en fin de semestre">
+                                        {{ item.projected_rate }}%
+                                    </span>
+                                    <div class="projected-bar flex-grow-1" title="Seuil : {{ item.seuil|default:course_threshold }}%">
+                                        <div class="projected-bar-fill {% if item.risk_level == 'HIGH' %}bg-danger{% elif item.risk_level == 'MEDIUM' %}bg-warning{% elif item.risk_level == 'LOW' %}bg-info{% else %}bg-success{% endif %}"
+                                             style="width: {% widthratio item.projected_rate 100 100 %}%;"></div>
+                                        <div class="projected-bar-threshold" style="left: {{ course_threshold }}%;"></div>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    30j : {{ item.recent_rate }}% | Moy. cours : {{ item.course_avg_rate }}%
+                                </div>
+                                {% elif item.is_at_risk %}
+                                <span class="text-muted small">Seuil dépassé</span>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.risk_level == 'HIGH' %}
+                                    <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Élevé</span>
+                                {% elif item.risk_level == 'MEDIUM' %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle me-1"></i>Moyen</span>
+                                {% elif item.risk_level == 'LOW' %}
+                                    <span class="badge bg-info text-white"><i class="fas fa-info-circle me-1"></i>Faible</span>
+                                {% else %}
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>OK</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -232,7 +305,7 @@
             {% if at_risk_students > 0 %}
             <div class="warning-box">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                <strong>Attention :</strong> {{ at_risk_students }} étudiant(s) ont dépassé le seuil de 40% d'absences. 
+                <strong>Attention :</strong> {{ at_risk_students }} étudiant(s) ont dépassé le seuil de {{ course_threshold }}% d'absences.
                 Ils ne peuvent pas passer les examens. <strong>Toutes les actions administratives sont gérées par le secrétariat.</strong>
             </div>
             {% endif %}

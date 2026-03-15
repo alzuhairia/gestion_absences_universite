@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
-from apps.absences.services import get_system_threshold
+from apps.absences.services import get_system_threshold, predict_absence_risk
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours
 from apps.dashboard.decorators import professor_required
@@ -200,6 +200,29 @@ def instructor_course_detail(request, course_id):
             }
         )
 
+    # Predictive absence detection — enrich students_data with risk projections
+    predictions = predict_absence_risk(
+        inscriptions, academic_year=academic_year, system_threshold=system_threshold
+    )
+    predictions_by_id = {p["inscription"].id_inscription: p for p in predictions}
+    early_warnings_count = 0
+    for sd in students_data:
+        pred = predictions_by_id.get(sd["inscription"].id_inscription)
+        if pred:
+            sd["risk_level"] = pred["risk_level"]
+            sd["projected_rate"] = pred["projected_rate"]
+            sd["recent_rate"] = pred["recent_rate"]
+            sd["course_avg_rate"] = pred["course_avg_rate"]
+            sd["days_remaining"] = pred["days_remaining"]
+            if pred["risk_level"] in ("HIGH", "MEDIUM") and not sd["is_at_risk"]:
+                early_warnings_count += 1
+        else:
+            sd["risk_level"] = "NONE"
+            sd["projected_rate"] = sd["rate"]
+            sd["recent_rate"] = 0
+            sd["course_avg_rate"] = 0
+            sd["days_remaining"] = 0
+
     # Tab 2: Sessions
     if academic_year:
         sessions = Seance.objects.filter(
@@ -239,6 +262,8 @@ def instructor_course_detail(request, course_id):
             "at_risk_students": at_risk_students,
             "total_absences_all": total_absences_all,
             "overall_rate": round(overall_rate, 1),
+            "early_warnings_count": early_warnings_count,
+            "course_threshold": course_threshold,
         },
     )
 
