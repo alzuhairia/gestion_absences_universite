@@ -274,3 +274,205 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
             at_risk_count += 1
 
     return at_risk_count, absence_sums
+
+
+# ========== PREDICTIVE ABSENCE DETECTION ==========
+
+# Risk levels
+RISK_HIGH = "HIGH"
+RISK_MEDIUM = "MEDIUM"
+RISK_LOW = "LOW"
+RISK_NONE = "NONE"
+
+
+def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None):
+    """
+    Predictive absence detection — flags students trending toward the threshold
+    BEFORE they actually reach it.
+
+    Algorithm:
+    1. For each inscription, compute:
+       a) Current overall absence rate (total non-justified hours / total periods)
+       b) Recent 30-day absence rate (hours in last 30 days / sessions in last 30 days)
+       c) Course average absence rate (mean across all students in the course)
+    2. Project end-of-term rate using linear extrapolation:
+       - sessions_remaining = total_periods - sessions_elapsed_hours
+       - projected_rate = current_hours + (recent_daily_rate * days_remaining) / total_periods
+    3. Classify risk:
+       - HIGH:   projected_rate >= threshold OR current_rate >= 75% of threshold
+       - MEDIUM: projected_rate >= 75% of threshold OR recent_rate > 2x course_average
+       - LOW:    projected_rate >= 50% of threshold AND recent_rate > course_average
+       - NONE:   otherwise
+
+    Args:
+        inscriptions: list of Inscription objects (must have id_cours loaded)
+        academic_year: AnneeAcademique instance (for session date range)
+        system_threshold: pre-loaded system threshold (avoids repeated DB calls)
+
+    Returns:
+        list of dicts: [{
+            'inscription': Inscription,
+            'risk_level': 'HIGH'|'MEDIUM'|'LOW'|'NONE',
+            'current_rate': float,
+            'recent_rate': float,        # 30-day absence rate
+            'projected_rate': float,     # end-of-term projection
+            'course_avg_rate': float,
+            'seuil': int,
+            'total_abs': float,
+            'recent_abs': float,         # hours in last 30 days
+            'days_remaining': int,       # estimated days left in term
+        }]
+    """
+    if system_threshold is None:
+        system_threshold = get_system_threshold()
+
+    if not inscriptions:
+        return []
+
+    today = timezone.localdate()
+    thirty_days_ago = today - datetime.timedelta(days=30)
+
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
+
+    # 1. Total non-justified absences per inscription (single SQL query)
+    total_abs_map = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+
+    # 2. Recent 30-day absences per inscription (single SQL query)
+    recent_abs_map = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            id_seance__date_seance__gte=thirty_days_ago,
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+
+    # 3. Compute course-level averages (group inscriptions by course)
+    from collections import defaultdict
+    course_inscriptions = defaultdict(list)
+    for ins in inscriptions:
+        course_inscriptions[ins.id_cours_id].append(ins)
+
+    course_avg_map = {}  # course_id -> average rate
+    for course_id, course_ins_list in course_inscriptions.items():
+        cours = course_ins_list[0].id_cours
+        if not cours.nombre_total_periodes:
+            course_avg_map[course_id] = 0.0
+            continue
+        rates = []
+        for ins in course_ins_list:
+            t = float(total_abs_map.get(ins.id_inscription, 0) or 0)
+            rates.append((t / cours.nombre_total_periodes) * 100)
+        course_avg_map[course_id] = sum(rates) / len(rates) if rates else 0.0
+
+    # 4. Estimate days remaining in the academic year
+    from apps.academic_sessions.models import Seance
+    if academic_year:
+        # Use the latest session date as a proxy for term end
+        last_session = (
+            Seance.objects.filter(id_annee=academic_year)
+            .order_by("-date_seance")
+            .values_list("date_seance", flat=True)
+            .first()
+        )
+        first_session = (
+            Seance.objects.filter(id_annee=academic_year)
+            .order_by("date_seance")
+            .values_list("date_seance", flat=True)
+            .first()
+        )
+        if last_session and last_session > today:
+            days_remaining = (last_session - today).days
+        else:
+            # If all sessions are in the past, no projection needed
+            days_remaining = 0
+        term_days = (last_session - first_session).days if (last_session and first_session) else 1
+    else:
+        days_remaining = 0
+        term_days = 1
+
+    # 5. Build predictions
+    results = []
+    for ins in inscriptions:
+        cours = ins.id_cours
+        total_periodes = cours.nombre_total_periodes or 0
+        if total_periodes == 0:
+            results.append({
+                "inscription": ins,
+                "risk_level": RISK_NONE,
+                "current_rate": 0.0,
+                "recent_rate": 0.0,
+                "projected_rate": 0.0,
+                "course_avg_rate": 0.0,
+                "seuil": system_threshold,
+                "total_abs": 0.0,
+                "recent_abs": 0.0,
+                "days_remaining": days_remaining,
+            })
+            continue
+
+        seuil = (
+            cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+        )
+
+        total_abs = float(total_abs_map.get(ins.id_inscription, 0) or 0)
+        recent_abs = float(recent_abs_map.get(ins.id_inscription, 0) or 0)
+        course_avg = course_avg_map.get(ins.id_cours_id, 0.0)
+
+        current_rate = (total_abs / total_periodes) * 100
+
+        # Recent rate: hours per day over last 30 days
+        window_days = min(30, max((today - first_session).days, 1)) if first_session else 30
+        recent_daily_rate = recent_abs / window_days if window_days > 0 else 0
+
+        # Project: current hours + (daily rate * remaining days)
+        projected_hours = total_abs + (recent_daily_rate * days_remaining)
+        projected_rate = (projected_hours / total_periodes) * 100 if days_remaining > 0 else current_rate
+
+        # Recent 30-day rate as percentage (for comparison with course average)
+        # Normalize to: what % of total_periodes did they miss in 30 days, annualized
+        recent_rate = (recent_abs / total_periodes) * 100
+
+        # Already blocked — skip prediction
+        if current_rate >= seuil and not ins.exemption_40:
+            risk_level = RISK_HIGH
+        elif ins.exemption_40:
+            risk_level = RISK_NONE
+        # Classification
+        elif projected_rate >= seuil or current_rate >= seuil * 0.75:
+            risk_level = RISK_HIGH
+        elif projected_rate >= seuil * 0.75 or (
+            course_avg > 0 and recent_rate > course_avg * 2
+        ):
+            risk_level = RISK_MEDIUM
+        elif projected_rate >= seuil * 0.50 and (
+            course_avg > 0 and recent_rate > course_avg
+        ):
+            risk_level = RISK_LOW
+        else:
+            risk_level = RISK_NONE
+
+        results.append({
+            "inscription": ins,
+            "risk_level": risk_level,
+            "current_rate": round(current_rate, 1),
+            "recent_rate": round(recent_rate, 1),
+            "projected_rate": round(min(projected_rate, 100.0), 1),
+            "course_avg_rate": round(course_avg, 1),
+            "seuil": seuil,
+            "total_abs": total_abs,
+            "recent_abs": recent_abs,
+            "days_remaining": days_remaining,
+        })
+
+    return results
