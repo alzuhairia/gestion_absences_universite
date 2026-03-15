@@ -1,5 +1,6 @@
 from django import forms
 
+from apps.absences.models import Absence
 from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Cours
 from apps.accounts.models import User
@@ -49,12 +50,12 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
 
     type_absence = forms.ChoiceField(
         choices=[
-            ("SEANCE", "Séance complète"),
-            ("HEURE", "Retard / Partiel"),
-            ("JOURNEE", "Journée complète"),
+            (Absence.TypeAbsence.SEANCE, "Séance complète"),
+            (Absence.TypeAbsence.HEURE, "Retard / Partiel"),
+            (Absence.TypeAbsence.JOURNEE, "Journée complète"),
         ],
         label="Type d'absence",
-        initial="SEANCE",
+        initial=Absence.TypeAbsence.SEANCE,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
@@ -107,7 +108,7 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         heure_fin = cleaned_data.get("heure_fin")
 
         # Si type = HEURE, la durée est requise
-        if type_absence == "HEURE" and (not duree_absence or duree_absence <= 0):
+        if type_absence == Absence.TypeAbsence.HEURE and (not duree_absence or duree_absence <= 0):
             raise forms.ValidationError(
                 {"duree_absence": "La durée est requise pour une absence partielle."}
             )

@@ -61,17 +61,17 @@ def absence_details(request, id_inscription):
         justification = getattr(absence, "justification", None)
 
         if justification:
-            if justification.state == "ACCEPTEE":
+            if justification.state == Justification.State.ACCEPTEE:
                 status = "JUSTIFIÉE"
                 status_color = "success"
-            elif justification.state == "REFUSEE":
+            elif justification.state == Justification.State.REFUSEE:
                 status = "NON JUSTIFIÉE"
                 status_color = "danger"
             else:  # EN_ATTENTE
                 status = "EN ATTENTE"
                 status_color = "warning"
         else:
-            if absence.statut == "JUSTIFIEE":
+            if absence.statut == Absence.Statut.JUSTIFIEE:
                 status = "JUSTIFIÉE"
                 status_color = "success"
             else:
@@ -79,10 +79,10 @@ def absence_details(request, id_inscription):
                 status_color = "danger"
 
         # Determine if the student can submit a justification
-        is_refused = justification is not None and justification.state == "REFUSEE"
+        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
         is_not_yet_submitted = justification is None and absence.statut not in (
-            "JUSTIFIEE",
-            "EN_ATTENTE",
+            Absence.Statut.JUSTIFIEE,
+            Absence.Statut.EN_ATTENTE,
         )
         can_submit_status = is_not_yet_submitted or is_refused
 
@@ -151,7 +151,7 @@ def upload_justification(request, absence_id):
         return redirect("dashboard:student_dashboard")
 
     # STRICT: Can only submit justification for UNJUSTIFIED or PENDING absences
-    if absence.statut == "JUSTIFIEE":
+    if absence.statut == Absence.Statut.JUSTIFIEE:
         messages.info(
             request,
             "Cette absence est deja justifiee. Vous ne pouvez plus soumettre de justificatif pour cette absence.",
@@ -164,7 +164,7 @@ def upload_justification(request, absence_id):
     justification = Justification.objects.filter(id_absence=absence).first()
 
     # STRICT: If justification exists and is ACCEPTED, cannot modify
-    if justification and justification.state == "ACCEPTEE":
+    if justification and justification.state == Justification.State.ACCEPTEE:
         messages.success(
             request,
             "Votre justificatif a ete accepte par le secretariat. Cette absence est maintenant justifiee.",
@@ -174,7 +174,7 @@ def upload_justification(request, absence_id):
         )
 
     # STRICT: If justification is EN_ATTENTE, cannot modify (already submitted)
-    if justification and justification.state == "EN_ATTENTE":
+    if justification and justification.state == Justification.State.EN_ATTENTE:
         messages.warning(
             request,
             "Un justificatif a deja ete soumis pour cette absence et est actuellement en cours d'examen par le secretariat. "
@@ -217,11 +217,11 @@ def upload_justification(request, absence_id):
         # Create or update justification
         new_justification = None
         with transaction.atomic():
-            if justification and justification.state == "REFUSEE":
+            if justification and justification.state == Justification.State.REFUSEE:
                 # Resubmit if previous was refused - update existing justification
                 justification.document = file
                 justification.commentaire = comment
-                justification.state = "EN_ATTENTE"
+                justification.state = Justification.State.EN_ATTENTE
                 justification.validee_par = None
                 justification.date_validation = None
                 justification.save()
@@ -232,7 +232,7 @@ def upload_justification(request, absence_id):
                     id_absence=absence,
                     document=file,
                     commentaire=comment,
-                    state="EN_ATTENTE",
+                    state=Justification.State.EN_ATTENTE,
                 )
             else:
                 # Should not happen due to checks above, but handle gracefully
@@ -243,7 +243,7 @@ def upload_justification(request, absence_id):
                 return redirect("absences:upload", absence_id=absence_id)
 
             # Update absence status to EN_ATTENTE (for display purposes)
-            absence.statut = "EN_ATTENTE"
+            absence.statut = Absence.Statut.EN_ATTENTE
             absence.save()
 
         # Audit logging
@@ -291,7 +291,7 @@ def review_justification(request, absence_id):
     justification = Justification.objects.filter(id_absence=absence).first()
 
     if request.method == "POST" and justification:
-        if justification.state != "EN_ATTENTE":
+        if justification.state != Justification.State.EN_ATTENTE:
             messages.warning(
                 request,
                 "Le commentaire ne peut plus etre modifie apres validation ou refus.",
@@ -420,7 +420,7 @@ def mark_absence(request, course_id):
     # Filter by active year and EN_COURS status to exclude past/inactive students
     active_year = AnneeAcademique.objects.filter(active=True).first()
     inscriptions_qs = Inscription.objects.filter(
-        id_cours=course, status="EN_COURS"
+        id_cours=course, status=Inscription.Status.EN_COURS
     ).select_related("id_etudiant")
     if active_year:
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
@@ -563,18 +563,18 @@ def mark_absence(request, course_id):
                     # APRÈS : la protection JUSTIFIEE est gérée ligne ~584 pour TOUS les rôles.
                     #         Un professeur peut corriger ses propres absences NON_JUSTIFIEE.
 
-                    type_absence = request.POST.get(f"type_{inscription_id}", "SEANCE")
-                    if type_absence not in {"SEANCE", "HEURE", "JOURNEE"}:
+                    type_absence = request.POST.get(f"type_{inscription_id}", Absence.TypeAbsence.SEANCE)
+                    if type_absence not in Absence.TypeAbsence.values:
                         logger.warning(
                             "Type d'absence invalide recu (%s) pour inscription %s. Fallback SEANCE.",
                             type_absence,
                             inscription_id,
                         )
-                        type_absence = "SEANCE"
+                        type_absence = Absence.TypeAbsence.SEANCE
 
                     # Determiner la duree
                     duree = duree_seance  # Default for SEANCE
-                    if type_absence == "HEURE":
+                    if type_absence == Absence.TypeAbsence.HEURE:
                         try:
                             duree = Decimal(
                                 str(float(request.POST.get(f"duree_{inscription_id}", 0)))
@@ -587,11 +587,11 @@ def mark_absence(request, course_id):
                                 inscription_id,
                             )
                             duree = duree_seance
-                    elif type_absence == "JOURNEE":
+                    elif type_absence == Absence.TypeAbsence.JOURNEE:
                         duree = Decimal("8.00")
 
                     # Creation ou Mise a jour Absence (only if not validated/pending)
-                    if existing_absence and existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
+                    if existing_absence and existing_absence.statut in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
                         # Skip validated or pending absences - professors cannot modify them
                         continue
 
@@ -605,7 +605,7 @@ def mark_absence(request, course_id):
                         defaults={
                             "type_absence": type_absence,
                             "duree_absence": duree,
-                            "statut": "NON_JUSTIFIEE",
+                            "statut": Absence.Statut.NON_JUSTIFIEE,
                             "encodee_par": request.user,
                             "note_professeur": note,
                         },
@@ -629,7 +629,7 @@ def mark_absence(request, course_id):
                     # Si marque PRESENT, on supprime une eventuelle absence existante pour cette seance
                     if existing_absence:
                         # PROTECTION: JUSTIFIEE and EN_ATTENTE absences cannot be deleted
-                        if existing_absence.statut in ("JUSTIFIEE", "EN_ATTENTE"):
+                        if existing_absence.statut in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
                             continue
                         # Professors can correct their own NON_JUSTIFIEE absences
                         # (e.g., marked absent by mistake, now correcting to present)

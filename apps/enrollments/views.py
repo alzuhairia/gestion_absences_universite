@@ -217,7 +217,7 @@ def get_courses_by_year(request):
                 Inscription.objects.filter(
                     id_etudiant_id=student_id,
                     id_annee_id=year_id,
-                    status="EN_COURS",
+                    status=Inscription.Status.EN_COURS,
                 ).values_list("id_cours_id", flat=True)
             )
 
@@ -279,7 +279,7 @@ def get_courses_by_student(request):
             Inscription.objects.filter(
                 id_etudiant_id=student_id,
                 id_annee=annee_active,
-                status="EN_COURS",
+                status=Inscription.Status.EN_COURS,
             )
             .select_related(
                 "id_cours", "id_cours__id_departement", "id_cours__id_annee"
@@ -540,9 +540,9 @@ def enroll_student(request):
                                 id_cours=course,
                                 id_annee=year,
                                 defaults={
-                                    "type_inscription": "NORMALE",
+                                    "type_inscription": Inscription.TypeInscription.NORMALE,
                                     "eligible_examen": True,
-                                    "status": "EN_COURS",
+                                    "status": Inscription.Status.EN_COURS,
                                 },
                             )
                             if not created:
@@ -661,9 +661,9 @@ def enroll_student(request):
                             id_cours=course,
                             id_annee=year,
                             defaults={
-                                "type_inscription": "NORMALE",
+                                "type_inscription": Inscription.TypeInscription.NORMALE,
                                 "eligible_examen": True,
-                                "status": "EN_COURS",
+                                "status": Inscription.Status.EN_COURS,
                             },
                         )
 

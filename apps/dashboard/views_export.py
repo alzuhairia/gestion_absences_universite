@@ -77,7 +77,7 @@ def export_student_pdf(request, student_id=None):
     y_position = height - 180
 
     # Filtrer les inscriptions par année académique active
-    insc_filter = {"id_etudiant": student, "status": "EN_COURS"}
+    insc_filter = {"id_etudiant": student, "status": Inscription.Status.EN_COURS}
     if academic_year:
         insc_filter["id_annee"] = academic_year
     inscriptions = Inscription.objects.filter(**insc_filter).select_related("id_cours")
@@ -87,7 +87,7 @@ def export_student_pdf(request, student_id=None):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -127,7 +127,7 @@ def export_student_pdf(request, student_id=None):
     absences = (
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .select_related("id_seance", "id_seance__id_cours")
         .order_by("id_seance__date_seance")
@@ -199,7 +199,7 @@ def export_at_risk_excel(request):
     from apps.academic_sessions.models import AnneeAcademique
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    all_inscriptions = Inscription.objects.filter(status="EN_COURS").select_related(
+    all_inscriptions = Inscription.objects.filter(status=Inscription.Status.EN_COURS).select_related(
         "id_cours", "id_etudiant"
     )
     if active_year:
@@ -209,7 +209,7 @@ def export_at_risk_excel(request):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

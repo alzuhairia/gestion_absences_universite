@@ -8,17 +8,18 @@ class Inscription(models.Model):
     Modèle représentant l'inscription d'un étudiant à un cours pour une année académique.
     """
 
-    # --- CHOIX ---
-    TYPE_CHOICES = [
-        ("NORMALE", "Normale"),
-        ("A_PART", "À part"),
-    ]
+    # --- CHOIX (TextChoices) ---
+    class TypeInscription(models.TextChoices):
+        NORMALE = "NORMALE", "Normale"
+        A_PART = "A_PART", "À part"
 
-    STATUS_CHOICES = [
-        ("EN_COURS", "En cours"),
-        ("VALIDE", "Validé"),
-        ("NON_VALIDE", "Non validé"),
-    ]
+    class Status(models.TextChoices):
+        EN_COURS = "EN_COURS", "En cours"
+        VALIDE = "VALIDE", "Validé"
+        NON_VALIDE = "NON_VALIDE", "Non validé"
+
+    TYPE_CHOICES = TypeInscription.choices
+    STATUS_CHOICES = Status.choices
 
     # --- CHAMPS ---
     id_inscription = models.AutoField(primary_key=True)
@@ -46,8 +47,8 @@ class Inscription(models.Model):
     )
     type_inscription = models.CharField(
         max_length=20,
-        choices=TYPE_CHOICES,
-        default="NORMALE",
+        choices=TypeInscription,
+        default=TypeInscription.NORMALE,
         verbose_name="Type d'inscription",
         db_index=True,
     )
@@ -59,8 +60,8 @@ class Inscription(models.Model):
     )
     status = models.CharField(
         max_length=20,
-        choices=STATUS_CHOICES,
-        default="EN_COURS",
+        choices=Status,
+        default=Status.EN_COURS,
         verbose_name="Statut",
         db_index=True,
     )
@@ -137,7 +138,7 @@ class Inscription(models.Model):
     # Remplace les checks if inscription.status == 'EN_COURS' dispersés dans les vues.
     @property
     def is_active(self):
-        return self.status == "EN_COURS"
+        return self.status == self.Status.EN_COURS
 
     def cloture(self, valide: bool, save: bool = True):
         """
@@ -145,11 +146,11 @@ class Inscription(models.Model):
         Garantit la transition d'état : EN_COURS → VALIDE / NON_VALIDE.
         Lève ValueError si l'inscription n'est pas EN_COURS.
         """
-        if self.status != "EN_COURS":
+        if self.status != self.Status.EN_COURS:
             raise ValueError(
                 f"Impossible de cloturer une inscription au statut '{self.status}'."
             )
-        self.status = "VALIDE" if valide else "NON_VALIDE"
+        self.status = self.Status.VALIDE if valide else self.Status.NON_VALIDE
         if save:
             self.save(update_fields=["status"])
 

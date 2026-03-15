@@ -5,7 +5,7 @@ from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET
 
-from apps.absences.models import Absence
+from apps.absences.models import Absence, Justification
 from apps.absences.services import get_system_threshold, is_justification_expired
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.dashboard.decorators import student_required
@@ -30,7 +30,7 @@ def student_dashboard(request):
     # Get student's inscriptions for current academic year
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status="EN_COURS"
+            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement")
     else:
         inscriptions = Inscription.objects.filter(
@@ -62,7 +62,7 @@ def student_dashboard(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -141,7 +141,7 @@ def student_statistics(request):
 
     user = request.user
     inscriptions = Inscription.objects.filter(
-        id_etudiant=user, status="EN_COURS"
+        id_etudiant=user, status=Inscription.Status.EN_COURS
     ).select_related("id_cours")
 
     # Filter by academic year if available
@@ -160,14 +160,14 @@ def student_statistics(request):
     # --- Compteurs globaux (tous statuts) ---
     total_absences = Absence.objects.filter(id_inscription__in=inscription_ids).count()
     total_justified = Absence.objects.filter(
-        id_inscription__in=inscription_ids, statut="JUSTIFIEE"
+        id_inscription__in=inscription_ids, statut=Absence.Statut.JUSTIFIEE
     ).count()
 
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -304,7 +304,7 @@ def student_course_detail(request, inscription_id):
         absence = absences_by_session.get(session.id_seance)
 
         if absence:
-            if absence.statut == "JUSTIFIEE":
+            if absence.statut == Absence.Statut.JUSTIFIEE:
                 status = "Excused"
                 status_color = "success"
             else:
@@ -336,17 +336,17 @@ def student_course_detail(request, inscription_id):
         justification = getattr(absence, "justification", None)
 
         if justification:
-            if justification.state == "ACCEPTEE":
+            if justification.state == Justification.State.ACCEPTEE:
                 abs_status = "JUSTIFIÉE"
                 abs_status_color = "success"
-            elif justification.state == "REFUSEE":
+            elif justification.state == Justification.State.REFUSEE:
                 abs_status = "NON JUSTIFIÉE"
                 abs_status_color = "danger"
             else:  # EN_ATTENTE
                 abs_status = "EN ATTENTE"
                 abs_status_color = "warning"
         else:
-            if absence.statut == "JUSTIFIEE":
+            if absence.statut == Absence.Statut.JUSTIFIEE:
                 abs_status = "JUSTIFIÉE"
                 abs_status_color = "success"
             else:
@@ -357,10 +357,10 @@ def student_course_detail(request, inscription_id):
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
         # + vérification du délai de 3 jours
-        is_refused = justification is not None and justification.state == "REFUSEE"
+        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
         is_not_yet_submitted = justification is None and absence.statut not in (
-            "JUSTIFIEE",
-            "EN_ATTENTE",
+            Absence.Statut.JUSTIFIEE,
+            Absence.Statut.EN_ATTENTE,
         )
         can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
 
@@ -379,7 +379,7 @@ def student_course_detail(request, inscription_id):
         Absence.objects.filter(
             id_inscription=inscription,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         ).aggregate(total=Sum("duree_absence"))["total"]
         or 0
     )
@@ -425,7 +425,7 @@ def student_courses(request):
     # Get student's inscriptions
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status="EN_COURS"
+            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).select_related(
             "id_cours",
             "id_cours__professeur",
@@ -435,7 +435,7 @@ def student_courses(request):
     else:
         inscriptions = Inscription.objects.filter(
             id_etudiant=request.user,
-            status="EN_COURS",
+            status=Inscription.Status.EN_COURS,
         ).select_related(
             "id_cours",
             "id_cours__professeur",
@@ -453,7 +453,7 @@ def student_courses(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -561,7 +561,7 @@ def student_absences(request):
     # Get all inscriptions
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status="EN_COURS"
+            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
         )
     else:
         inscriptions = Inscription.objects.filter(id_etudiant=request.user)
@@ -581,17 +581,17 @@ def student_absences(request):
         justification = getattr(absence, "justification", None)
 
         if justification:
-            if justification.state == "ACCEPTEE":
+            if justification.state == Justification.State.ACCEPTEE:
                 status = "JUSTIFIÉE"
                 status_color = "success"
-            elif justification.state == "REFUSEE":
+            elif justification.state == Justification.State.REFUSEE:
                 status = "NON JUSTIFIÉE"
                 status_color = "danger"
             else:  # EN_ATTENTE
                 status = "EN ATTENTE"
                 status_color = "warning"
         else:
-            if absence.statut == "JUSTIFIEE":
+            if absence.statut == Absence.Statut.JUSTIFIEE:
                 status = "JUSTIFIÉE"
                 status_color = "success"
             else:
@@ -602,10 +602,10 @@ def student_absences(request):
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
         # + vérification du délai de 3 jours
-        is_refused = justification is not None and justification.state == "REFUSEE"
+        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
         is_not_yet_submitted = justification is None and absence.statut not in (
-            "JUSTIFIEE",
-            "EN_ATTENTE",
+            Absence.Statut.JUSTIFIEE,
+            Absence.Statut.EN_ATTENTE,
         )
         can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
 
@@ -649,7 +649,7 @@ def student_reports(request):
     # Get student's inscriptions for statistics
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status="EN_COURS"
+            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).select_related("id_cours")
     else:
         inscriptions = Inscription.objects.filter(
@@ -666,7 +666,7 @@ def student_reports(request):
         Absence.objects.filter(
             id_inscription__in=inscriptions.values_list("id_inscription", flat=True),
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

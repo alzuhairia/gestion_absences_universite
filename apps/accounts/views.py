@@ -135,7 +135,7 @@ def download_report_pdf(request):
         active_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
     inscriptions = Inscription.objects.filter(
-        id_etudiant=user, status="EN_COURS"
+        id_etudiant=user, status=Inscription.Status.EN_COURS
     ).select_related("id_cours", "id_annee")
     if active_year:
         inscriptions = inscriptions.filter(id_annee=active_year)
@@ -147,7 +147,7 @@ def download_report_pdf(request):
         total_abs = (
             Absence.objects.filter(
                 id_inscription=ins,
-                statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+                statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
             ).aggregate(total=Sum("duree_absence"))["total"]
             or 0
         )

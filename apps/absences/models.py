@@ -9,18 +9,20 @@ class Absence(models.Model):
     Modèle représentant une absence d'un étudiant à une séance de cours.
     """
 
-    # --- CHOIX POUR LE JURY ---
-    TYPE_CHOICES = [
-        ("HEURE", "Heure"),
-        ("SEANCE", "Séance"),
-        ("JOURNEE", "Journée"),
-    ]
+    # --- CHOIX (TextChoices) ---
+    class TypeAbsence(models.TextChoices):
+        HEURE = "HEURE", "Heure"
+        SEANCE = "SEANCE", "Séance"
+        JOURNEE = "JOURNEE", "Journée"
 
-    STATUT_CHOICES = [
-        ("EN_ATTENTE", "En attente"),
-        ("JUSTIFIEE", "Justifiée"),
-        ("NON_JUSTIFIEE", "Non justifiée"),
-    ]
+    class Statut(models.TextChoices):
+        EN_ATTENTE = "EN_ATTENTE", "En attente"
+        JUSTIFIEE = "JUSTIFIEE", "Justifiée"
+        NON_JUSTIFIEE = "NON_JUSTIFIEE", "Non justifiée"
+
+    # Backward-compat aliases for code that references the old list-of-tuples.
+    TYPE_CHOICES = TypeAbsence.choices
+    STATUT_CHOICES = Statut.choices
 
     # --- CHAMPS ---
     id_absence = models.AutoField(primary_key=True)
@@ -40,8 +42,8 @@ class Absence(models.Model):
     )
     type_absence = models.CharField(
         max_length=20,
-        choices=TYPE_CHOICES,
-        default="SEANCE",
+        choices=TypeAbsence,
+        default=TypeAbsence.SEANCE,
         verbose_name="Type d'absence",
         db_index=True,
     )
@@ -54,8 +56,8 @@ class Absence(models.Model):
     )
     statut = models.CharField(
         max_length=20,
-        choices=STATUT_CHOICES,
-        default="NON_JUSTIFIEE",
+        choices=Statut,
+        default=Statut.NON_JUSTIFIEE,
         verbose_name="Statut",
         db_index=True,
     )
@@ -125,11 +127,12 @@ class Justification(models.Model):
     Modèle représentant une justification d'absence soumise par un étudiant.
     """
 
-    STATE_CHOICES = [
-        ("EN_ATTENTE", "En attente"),
-        ("ACCEPTEE", "Acceptée"),
-        ("REFUSEE", "Refusée"),
-    ]
+    class State(models.TextChoices):
+        EN_ATTENTE = "EN_ATTENTE", "En attente"
+        ACCEPTEE = "ACCEPTEE", "Acceptée"
+        REFUSEE = "REFUSEE", "Refusée"
+
+    STATE_CHOICES = State.choices
 
     id_justification = models.AutoField(primary_key=True)
     id_absence = models.OneToOneField(
@@ -171,8 +174,8 @@ class Justification(models.Model):
 
     state = models.CharField(
         max_length=20,
-        choices=STATE_CHOICES,
-        default="EN_ATTENTE",
+        choices=State,
+        default=State.EN_ATTENTE,
         verbose_name="État de la demande",
         db_index=True,
     )

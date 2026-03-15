@@ -116,7 +116,7 @@ def admin_dashboard_main(request):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -256,9 +256,9 @@ def admin_statistics(request):
         .order_by("statut")
     )
     status_map = {
-        "NON_JUSTIFIEE": "Non justifiée",
-        "EN_ATTENTE": "En attente",
-        "JUSTIFIEE": "Justifiée",
+        Absence.Statut.NON_JUSTIFIEE: "Non justifiée",
+        Absence.Statut.EN_ATTENTE: "En attente",
+        Absence.Statut.JUSTIFIEE: "Justifiée",
     }
     status_labels = json.dumps(
         [status_map.get(s["statut"], s["statut"]) for s in status_absences]
