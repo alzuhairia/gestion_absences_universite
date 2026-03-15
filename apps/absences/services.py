@@ -50,7 +50,7 @@ def calculer_absence_stats(inscription):
     # (state=ACCEPTEE → statut=JUSTIFIEE). Jusqu'alors, EN_ATTENTE = non justifiée.
     total_absence = float(
         Absence.objects.filter(
-            id_inscription=inscription, statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"]
+            id_inscription=inscription, statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE]
         ).aggregate(total=Sum("duree_absence"))["total"]
         or 0
     )
@@ -251,8 +251,8 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=[
-                "NON_JUSTIFIEE",
-                "EN_ATTENTE",
+                Absence.Statut.NON_JUSTIFIEE,
+                Absence.Statut.EN_ATTENTE,
             ],  # EN_ATTENTE compte (loophole fermé)
         )
         .values("id_inscription")

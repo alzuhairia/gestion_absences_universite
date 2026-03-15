@@ -46,10 +46,10 @@ def validation_list(request):
     - EN_ATTENTE : justificatif soumis, en attente de validation
     - JUSTIFIEE : justificatif accepté
     """
-    _VALID_ABSENCE_STATUSES = {"NON_JUSTIFIEE", "EN_ATTENTE", "JUSTIFIEE"}
-    status_filter = request.GET.get("status", "NON_JUSTIFIEE")
+    _VALID_ABSENCE_STATUSES = set(Absence.Statut.values)
+    status_filter = request.GET.get("status", Absence.Statut.NON_JUSTIFIEE)
     if status_filter not in _VALID_ABSENCE_STATUSES:
-        status_filter = "NON_JUSTIFIEE"
+        status_filter = Absence.Statut.NON_JUSTIFIEE
 
     # Filter by active academic year
     active_year = AnneeAcademique.objects.filter(active=True).first()
@@ -77,9 +77,9 @@ def validation_list(request):
     if active_year:
         base_qs = base_qs.filter(id_inscription__id_annee=active_year)
     status_counts = {
-        "NON_JUSTIFIEE": base_qs.filter(statut="NON_JUSTIFIEE").count(),
-        "EN_ATTENTE": base_qs.filter(statut="EN_ATTENTE").count(),
-        "JUSTIFIEE": base_qs.filter(statut="JUSTIFIEE").count(),
+        Absence.Statut.NON_JUSTIFIEE: base_qs.filter(statut=Absence.Statut.NON_JUSTIFIEE).count(),
+        Absence.Statut.EN_ATTENTE: base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count(),
+        Absence.Statut.JUSTIFIEE: base_qs.filter(statut=Absence.Statut.JUSTIFIEE).count(),
     }
 
     # Pagination
@@ -148,11 +148,11 @@ def process_justification(request, pk):
         with transaction.atomic():
             # Lock row to prevent concurrent processing by two secretaries
             justification = Justification.objects.select_for_update().get(pk=pk)
-            if justification.state != "EN_ATTENTE":
+            if justification.state != Justification.State.EN_ATTENTE:
                 messages.warning(request, "Ce justificatif a déjà été traité.")
                 return redirect("absences:validation_list")
 
-            justification.state = "ACCEPTEE"
+            justification.state = Justification.State.ACCEPTEE
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
             justification.date_validation = timezone.now()
@@ -162,7 +162,7 @@ def process_justification(request, pk):
             absence = Absence.objects.select_for_update().get(
                 pk=justification.id_absence_id
             )
-            absence.statut = "JUSTIFIEE"
+            absence.statut = Absence.Statut.JUSTIFIEE
             absence.save()
 
             # Notification + audit inside same transaction for consistency
@@ -185,11 +185,11 @@ def process_justification(request, pk):
     elif action == "reject":
         with transaction.atomic():
             justification = Justification.objects.select_for_update().get(pk=pk)
-            if justification.state != "EN_ATTENTE":
+            if justification.state != Justification.State.EN_ATTENTE:
                 messages.warning(request, "Ce justificatif a déjà été traité.")
                 return redirect("absences:validation_list")
 
-            justification.state = "REFUSEE"
+            justification.state = Justification.State.REFUSEE
             justification.commentaire_gestion = comment
             justification.validee_par = request.user
             justification.date_validation = timezone.now()
@@ -199,7 +199,7 @@ def process_justification(request, pk):
             absence = Absence.objects.select_for_update().get(
                 pk=justification.id_absence_id
             )
-            absence.statut = "NON_JUSTIFIEE"
+            absence.statut = Absence.Statut.NON_JUSTIFIEE
             absence.save()
 
             # Notification + audit inside same transaction for consistency
@@ -323,7 +323,7 @@ def create_justified_absence(request):
                         id_etudiant=etudiant,
                         id_cours=cours,
                         id_annee=annee_active,
-                        status="EN_COURS",
+                        status=Inscription.Status.EN_COURS,
                     ).first()
 
                     if not inscription:
@@ -369,7 +369,7 @@ def create_justified_absence(request):
                     )
 
                     # Calculer la duree si necessaire
-                    if type_absence == "SEANCE":
+                    if type_absence == Absence.TypeAbsence.SEANCE:
                         # Calculer la duree de la seance
                         from datetime import datetime, timedelta
 
@@ -379,7 +379,7 @@ def create_justified_absence(request):
                         if fin < debut:
                             fin += timedelta(days=1)
                         duree = (fin - debut).total_seconds() / 3600.0
-                    elif type_absence == "HEURE":
+                    elif type_absence == Absence.TypeAbsence.HEURE:
                         duree = duree_absence if duree_absence > 0 else 1.0
                     else:  # JOURNEE
                         duree = 8.0
@@ -391,7 +391,7 @@ def create_justified_absence(request):
                         defaults={
                             "type_absence": type_absence,
                             "duree_absence": duree,
-                            "statut": "JUSTIFIEE",  # Directement justifiee
+                            "statut": Absence.Statut.JUSTIFIEE,  # Directement justifiee
                             "encodee_par": request.user,
                         },
                     )
@@ -409,7 +409,7 @@ def create_justified_absence(request):
                                 "document": document_to_save,
                                 "commentaire": commentaire,
                                 "commentaire_gestion": f"Absence encodee directement par le secretariat le {timezone.now().strftime('%d/%m/%Y a %H:%M')}",
-                                "state": "ACCEPTEE",
+                                "state": Justification.State.ACCEPTEE,
                                 "validee_par": request.user,
                                 "date_validation": timezone.now(),
                             },
@@ -490,9 +490,9 @@ def student_absence_history_api(request):
 
         stats = absences_qs.aggregate(
             total=Count("id_absence"),
-            justified=Count("id_absence", filter=Q(statut="JUSTIFIEE")),
-            pending=Count("id_absence", filter=Q(statut="EN_ATTENTE")),
-            unjustified=Count("id_absence", filter=Q(statut="NON_JUSTIFIEE")),
+            justified=Count("id_absence", filter=Q(statut=Absence.Statut.JUSTIFIEE)),
+            pending=Count("id_absence", filter=Q(statut=Absence.Statut.EN_ATTENTE)),
+            unjustified=Count("id_absence", filter=Q(statut=Absence.Statut.NON_JUSTIFIEE)),
         )
 
         recent_absences = absences_qs.order_by(
@@ -555,7 +555,7 @@ def justified_absences_list(request):
         active_year = AnneeAcademique.objects.filter(active=True).first()
 
         # Filtrer les absences justifiées
-        absences = Absence.objects.filter(statut="JUSTIFIEE")
+        absences = Absence.objects.filter(statut=Absence.Statut.JUSTIFIEE)
         if active_year:
             absences = absences.filter(id_inscription__id_annee=active_year)
         absences = (

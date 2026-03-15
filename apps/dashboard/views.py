@@ -51,7 +51,7 @@ def admin_dashboard(request):
     elif request.user.role == User.Role.SECRETAIRE:
         # Le secrétariat peut voir les justificatifs en attente
         pending_justifications = Justification.objects.filter(
-            state="EN_ATTENTE"
+            state=Justification.State.EN_ATTENTE
         ).select_related("id_absence__id_inscription__id_etudiant")
         return render(
             request,
@@ -79,8 +79,8 @@ def secretary_dashboard(request):
     absence_base_qs = Absence.objects.all()
     if academic_year:
         absence_base_qs = absence_base_qs.filter(id_inscription__id_annee=academic_year)
-    global_unjustified_count = absence_base_qs.filter(statut="NON_JUSTIFIEE").count()
-    global_pending_count = absence_base_qs.filter(statut="EN_ATTENTE").count()
+    global_unjustified_count = absence_base_qs.filter(statut=Absence.Statut.NON_JUSTIFIEE).count()
+    global_pending_count = absence_base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
     all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
@@ -91,7 +91,7 @@ def secretary_dashboard(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -132,7 +132,7 @@ def secretary_dashboard(request):
     active_inscriptions_count = 0
     if academic_year:
         active_inscriptions_count = Inscription.objects.filter(
-            id_annee=academic_year, status="EN_COURS"
+            id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).count()
 
     # Active Courses: Use shared function to ensure consistency with active_courses view
@@ -172,7 +172,7 @@ def secretary_enrollments(request):
     # Get all inscriptions for current year
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_annee=academic_year, status="EN_COURS"
+            id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).select_related(
             "id_etudiant",
             "id_cours",
@@ -180,7 +180,7 @@ def secretary_enrollments(request):
             "id_cours__id_departement__id_faculte",
         )
     else:
-        inscriptions = Inscription.objects.filter(status="EN_COURS").select_related(
+        inscriptions = Inscription.objects.filter(status=Inscription.Status.EN_COURS).select_related(
             "id_etudiant",
             "id_cours",
             "id_cours__id_departement",
@@ -276,7 +276,7 @@ def secretary_rules_40(request):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -341,11 +341,11 @@ def secretary_exports(request):
     if academic_year:
         active_inscriptions = Inscription.objects.filter(
             id_annee=academic_year,
-            status="EN_COURS",
+            status=Inscription.Status.EN_COURS,
         ).select_related("id_cours")
     else:
         active_inscriptions = Inscription.objects.filter(
-            status="EN_COURS"
+            status=Inscription.Status.EN_COURS
         ).select_related("id_cours")
 
     active_inscriptions_list = list(active_inscriptions)
@@ -354,7 +354,7 @@ def secretary_exports(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -476,7 +476,7 @@ def active_courses(request):
         if academic_year:
             enrollments_qs = enrollments_qs.filter(
                 id_annee=academic_year,
-                status="EN_COURS",
+                status=Inscription.Status.EN_COURS,
             )
             sessions_qs = sessions_qs.filter(id_annee=academic_year)
 

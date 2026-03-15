@@ -79,7 +79,7 @@ def instructor_dashboard(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -153,11 +153,11 @@ def instructor_course_detail(request, course_id):
     students_data = []
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_cours=course, id_annee=academic_year, status="EN_COURS"
+            id_cours=course, id_annee=academic_year, status=Inscription.Status.EN_COURS
         ).select_related("id_etudiant")
     else:
         inscriptions = Inscription.objects.filter(
-            id_cours=course, status="EN_COURS"
+            id_cours=course, status=Inscription.Status.EN_COURS
         ).select_related("id_etudiant")
 
     # Evaluate once: extract IDs from Python objects instead of an extra query.
@@ -167,7 +167,7 @@ def instructor_course_detail(request, course_id):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -269,7 +269,7 @@ def instructor_courses(request):
     if academic_year:
         enrolled_counts = dict(
             Inscription.objects.filter(
-                id_cours__in=course_ids, id_annee=academic_year, status="EN_COURS"
+                id_cours__in=course_ids, id_annee=academic_year, status=Inscription.Status.EN_COURS
             )
             .values("id_cours")
             .annotate(total=Count("id_inscription"))
@@ -296,7 +296,7 @@ def instructor_courses(request):
         )
 
     all_course_inscriptions = Inscription.objects.filter(
-        id_cours__in=course_ids, status="EN_COURS"
+        id_cours__in=course_ids, status=Inscription.Status.EN_COURS
     )
     if academic_year:
         all_course_inscriptions = all_course_inscriptions.filter(
@@ -308,7 +308,7 @@ def instructor_courses(request):
                 "id_inscription", flat=True
             ),
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -429,11 +429,11 @@ def instructor_statistics(request):
     course_ids = list(courses.values_list("id_cours", flat=True))
     if academic_year:
         all_inscriptions = Inscription.objects.filter(
-            id_cours__in=course_ids, id_annee=academic_year, status="EN_COURS"
+            id_cours__in=course_ids, id_annee=academic_year, status=Inscription.Status.EN_COURS
         )
     else:
         all_inscriptions = Inscription.objects.filter(
-            id_cours__in=course_ids, status="EN_COURS"
+            id_cours__in=course_ids, status=Inscription.Status.EN_COURS
         )
 
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
@@ -441,7 +441,7 @@ def instructor_statistics(request):
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

@@ -10,8 +10,8 @@ from apps.dashboard.decorators import secretary_required
 
 from .models import Absence, Justification
 
-_VALID_TYPES = {"HEURE", "SEANCE", "JOURNEE"}
-_VALID_STATUTS = {"EN_ATTENTE", "JUSTIFIEE", "NON_JUSTIFIEE"}
+_VALID_TYPES = set(Absence.TypeAbsence.values)
+_VALID_STATUTS = set(Absence.Statut.values)
 
 
 def _get_seance_duration(seance):
@@ -127,12 +127,12 @@ def edit_absence(request, pk):
                         id_absence=absence
                     ).first()
                     if justification:
-                        if new_statut == "JUSTIFIEE":
-                            justification.state = "ACCEPTEE"
-                        elif new_statut == "NON_JUSTIFIEE":
-                            justification.state = "REFUSEE"
-                        elif new_statut == "EN_ATTENTE":
-                            justification.state = "EN_ATTENTE"
+                        if new_statut == Absence.Statut.JUSTIFIEE:
+                            justification.state = Justification.State.ACCEPTEE
+                        elif new_statut == Absence.Statut.NON_JUSTIFIEE:
+                            justification.state = Justification.State.REFUSEE
+                        elif new_statut == Absence.Statut.EN_ATTENTE:
+                            justification.state = Justification.State.EN_ATTENTE
                         justification.save()
 
                 log_action(

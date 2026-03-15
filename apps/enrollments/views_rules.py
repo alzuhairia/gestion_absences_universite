@@ -38,7 +38,7 @@ def rules_management(request):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=["NON_JUSTIFIEE", "EN_ATTENTE"],
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
