@@ -60,6 +60,8 @@ urlpatterns = [
         name="export_at_risk_excel",
     ),
     # ========== ADMINISTRATOR DASHBOARD ROUTES ==========
+    # Statistics
+    path("admin/statistics/", views_admin.admin_statistics, name="admin_statistics"),
     # Academic Structure Management
     path("admin/faculties/", views_admin.admin_faculties, name="admin_faculties"),
     path(

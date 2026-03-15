@@ -166,9 +166,32 @@ def admin_dashboard_main(request):
     # Paramètres système
     settings = SystemSettings.get_settings()
 
-    # ========== STATISTIQUES AVANCÉES ==========
+    context = {
+        "total_students": total_students,
+        "total_professors": total_professors,
+        "total_secretaries": total_secretaries,
+        "active_courses": active_courses,
+        "system_alerts": at_risk_count,
+        "critical_actions": critical_actions,
+        "total_inscriptions": total_inscriptions,
+        "total_absences": total_absences,
+        "recent_audits": recent_audits,
+        "academic_year": academic_year,
+        "settings": settings,
+    }
 
-    # Filtre de base pour l'année active
+    return render(request, "dashboard/admin_dashboard.html", context)
+
+
+@login_required
+@admin_required
+@require_GET
+def admin_statistics(request):
+    """
+    Page dédiée aux statistiques avancées des absences.
+    Séparée du dashboard principal pour une meilleure lisibilité et performance.
+    """
+    academic_year = AnneeAcademique.objects.filter(active=True).first()
     year_filter = Q(id_inscription__id_annee=academic_year) if academic_year else Q()
 
     # 1. Top 5 professeurs avec le plus d'absences
@@ -225,40 +248,37 @@ def admin_dashboard_main(request):
     dept_labels = json.dumps([d["dept_nom"] for d in dept_absences if d["dept_nom"]])
     dept_data = json.dumps([d["total"] for d in dept_absences if d["dept_nom"]])
 
-    # 5. Répartition par statut (justifiée, non justifiée, en attente)
+    # 5. Répartition par statut
     status_absences = list(
         Absence.objects.filter(year_filter)
         .values("statut")
         .annotate(total=Count("id_absence"))
         .order_by("statut")
     )
-    status_map = {"NON_JUSTIFIEE": "Non justifiée", "EN_ATTENTE": "En attente", "JUSTIFIEE": "Justifiée"}
-    status_labels = json.dumps([status_map.get(s["statut"], s["statut"]) for s in status_absences])
+    status_map = {
+        "NON_JUSTIFIEE": "Non justifiée",
+        "EN_ATTENTE": "En attente",
+        "JUSTIFIEE": "Justifiée",
+    }
+    status_labels = json.dumps(
+        [status_map.get(s["statut"], s["statut"]) for s in status_absences]
+    )
     status_data = json.dumps([s["total"] for s in status_absences])
 
-    # 6. Répartition par niveau (Année 1, 2, 3)
+    # 6. Répartition par niveau
     level_absences = list(
         Absence.objects.filter(year_filter)
         .values(niveau=F("id_inscription__id_cours__niveau"))
         .annotate(total=Count("id_absence"))
         .order_by("niveau")
     )
-    level_labels = json.dumps([f"Année {l['niveau']}" for l in level_absences if l["niveau"]])
+    level_labels = json.dumps(
+        [f"Année {l['niveau']}" for l in level_absences if l["niveau"]]
+    )
     level_data = json.dumps([l["total"] for l in level_absences if l["niveau"]])
 
     context = {
-        "total_students": total_students,
-        "total_professors": total_professors,
-        "total_secretaries": total_secretaries,
-        "active_courses": active_courses,
-        "system_alerts": at_risk_count,
-        "critical_actions": critical_actions,
-        "total_inscriptions": total_inscriptions,
-        "total_absences": total_absences,
-        "recent_audits": recent_audits,
         "academic_year": academic_year,
-        "settings": settings,
-        # Statistiques avancées
         "top_professors_labels": top_professors_labels,
         "top_professors_data": top_professors_data,
         "top_courses_labels": top_courses_labels,
@@ -275,7 +295,7 @@ def admin_dashboard_main(request):
         "top_courses": top_courses,
     }
 
-    return render(request, "dashboard/admin_dashboard.html", context)
+    return render(request, "dashboard/admin_statistics.html", context)
 
 
 # ========== GESTION DE LA STRUCTURE ACADÉMIQUE ==========
