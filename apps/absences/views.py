@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -750,6 +750,157 @@ def mark_absence(request, course_id):
             "existing_seance": existing_seance,
             "recap_present_count": recap_present_count,
             "recap_absent_count": recap_absent_count,
+        },
+    )
+
+
+@login_required
+@professor_required
+@require_POST
+def mark_absence_htmx(request, course_id):
+    """
+    HTMX endpoint — update a single student's attendance status without full page reload.
+    Returns the updated <tr> partial for the student row.
+    """
+    course = get_object_or_404(Cours, id_cours=course_id)
+    if course.professeur != request.user:
+        return HttpResponse("Accès non autorisé.", status=403)
+
+    inscription_id = request.POST.get("inscription_id", "")
+    status = request.POST.get("status", "")
+
+    active_year = AnneeAcademique.objects.filter(active=True).first()
+    inscription = Inscription.objects.filter(
+        id_inscription=inscription_id,
+        id_cours=course,
+        status=Inscription.Status.EN_COURS,
+    ).select_related("id_etudiant").first()
+
+    if active_year:
+        inscription = Inscription.objects.filter(
+            id_inscription=inscription_id,
+            id_cours=course,
+            id_annee=active_year,
+            status=Inscription.Status.EN_COURS,
+        ).select_related("id_etudiant").first()
+
+    if not inscription:
+        return HttpResponse("Inscription introuvable.", status=404)
+
+    # Validate session fields
+    date_seance = request.POST.get("date_seance", "").strip()
+    heure_debut = request.POST.get("heure_debut", "").strip()
+    heure_fin = request.POST.get("heure_fin", "").strip()
+
+    if not date_seance or not heure_debut or not heure_fin:
+        return HttpResponse("Date et horaires requis.", status=400)
+
+    try:
+        fmt = "%H:%M"
+        t_debut = datetime.datetime.strptime(heure_debut, fmt)
+        t_fin = datetime.datetime.strptime(heure_fin, fmt)
+    except (TypeError, ValueError):
+        return HttpResponse("Format d'heure invalide.", status=400)
+
+    if t_fin <= t_debut:
+        return HttpResponse("L'heure de fin doit être après l'heure de début.", status=400)
+
+    duree_seance = Decimal((t_fin - t_debut).seconds) / Decimal(3600)
+    duree_seance = duree_seance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    annee = active_year
+    if not annee:
+        return HttpResponse("Aucune année académique active.", status=400)
+
+    with transaction.atomic():
+        seance, created = Seance.objects.get_or_create(
+            date_seance=date_seance,
+            heure_debut=heure_debut,
+            heure_fin=heure_fin,
+            id_cours=course,
+            defaults={"id_annee": annee},
+        )
+
+        if seance.validated:
+            return HttpResponse("Séance déjà validée.", status=403)
+
+        existing_absence = Absence.objects.filter(
+            id_inscription=inscription, id_seance=seance
+        ).first()
+
+        if status == "ABSENT":
+            # Protected absences
+            if existing_absence and existing_absence.statut in (
+                Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE
+            ):
+                pass  # Skip, don't modify
+            else:
+                type_absence = request.POST.get(
+                    f"type_{inscription_id}", Absence.TypeAbsence.SEANCE
+                )
+                if type_absence not in Absence.TypeAbsence.values:
+                    type_absence = Absence.TypeAbsence.SEANCE
+
+                duree = duree_seance
+                if type_absence == Absence.TypeAbsence.HEURE:
+                    try:
+                        duree = Decimal(
+                            str(float(request.POST.get(f"duree_{inscription_id}", 0)))
+                        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        if duree <= 0 or duree > 24:
+                            raise ValueError
+                    except (TypeError, ValueError):
+                        duree = duree_seance
+                elif type_absence == Absence.TypeAbsence.JOURNEE:
+                    duree = Decimal("8.00")
+
+                note = request.POST.get(
+                    f"note_{inscription_id}", ""
+                ).strip()[:500]
+
+                Absence.objects.update_or_create(
+                    id_inscription=inscription,
+                    id_seance=seance,
+                    defaults={
+                        "type_absence": type_absence,
+                        "duree_absence": duree,
+                        "statut": Absence.Statut.NON_JUSTIFIEE,
+                        "encodee_par": request.user,
+                        "note_professeur": note,
+                    },
+                )
+
+        elif status == "PRESENT":
+            if existing_absence:
+                if existing_absence.statut in (
+                    Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE
+                ):
+                    pass  # Protected
+                else:
+                    existing_absence.delete()
+
+    # Re-fetch absence data for the partial render
+    absence = Absence.objects.filter(
+        id_inscription=inscription, id_seance=seance
+    ).first()
+    if absence:
+        inscription.absence_data = {
+            "type": absence.type_absence,
+            "duree": absence.duree_absence,
+            "statut": absence.statut,
+            "note_professeur": absence.note_professeur,
+        }
+    else:
+        inscription.absence_data = None
+
+    return render(
+        request,
+        "absences/_student_row.html",
+        {
+            "ins": inscription,
+            "is_validated": False,
+            "course": course,
+            "seance_id": seance.id_seance,
         },
     )
 
