@@ -82,9 +82,9 @@
                            class="btn btn-primary" title="Voir les détails du cours" data-bs-toggle="tooltip">
                             <i class="fas fa-eye me-1"></i> Voir les détails
                         </a>
-                        <a href="{% url 'absences:mark_absence' course.id_cours %}" 
-                           class="btn btn-success" title="Créer une séance ou prendre l'appel" data-bs-toggle="tooltip">
-                            <i class="fas fa-calendar-check me-1"></i> Gérer les séances
+                        <a href="{% url 'absences:session_create' course.id_cours %}"
+                           class="btn btn-success" title="Créer une séance" data-bs-toggle="tooltip">
+                            <i class="fas fa-calendar-plus me-1"></i> Créer une séance
                         </a>
                     </div>
                 </div>

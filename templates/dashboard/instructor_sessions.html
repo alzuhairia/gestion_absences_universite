@@ -59,9 +59,9 @@
                                 {{ session.id_cours.id_departement.nom_departement }}
                             </td>
                             <td>
-                                <a href="{% url 'absences:mark_absence' session.id_cours.id_cours %}?date={{ session.date_seance|date:'Y-m-d' }}" 
-                                   class="btn btn-sm btn-primary" title="Prendre l'appel pour cette séance" data-bs-toggle="tooltip">
-                                    <i class="fas fa-edit me-1"></i> Prendre l'appel
+                                <a href="{% url 'absences:session_create' session.id_cours.id_cours %}"
+                                   class="btn btn-sm btn-primary" title="Créer une séance" data-bs-toggle="tooltip">
+                                    <i class="fas fa-calendar-plus me-1"></i> Nouvelle séance
                                 </a>
                                 <a href="{% url 'dashboard:instructor_course_detail' session.id_cours.id_cours %}" 
                                    class="btn btn-sm btn-info" title="Voir les détails du cours" data-bs-toggle="tooltip">
