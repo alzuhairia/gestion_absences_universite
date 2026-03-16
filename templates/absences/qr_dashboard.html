@@ -109,6 +109,12 @@
                     <h6 class="m-0 fw-bold">
                         <i class="fas fa-users me-2"></i>Suivi en temps réel
                         <span class="badge bg-primary ms-2">{{ scanned_count }}/{{ total_students }}</span>
+                        {% if has_gps %}
+                        <span class="badge bg-success ms-1" title="Vérification GPS activée"><i class="fas fa-map-marker-alt"></i></span>
+                        {% endif %}
+                        {% if suspicious_count > 0 %}
+                        <span class="badge bg-danger ms-1">{{ suspicious_count }} suspect(s)</span>
+                        {% endif %}
                     </h6>
                 </div>
                 <div class="card-body"

@@ -223,6 +223,8 @@ class QRAttendanceToken(models.Model):
 
     TOKEN_LIFETIME_MINUTES = 15
 
+    DISTANCE_THRESHOLD_METERS = 100
+
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     seance = models.ForeignKey(
         "academic_sessions.Seance",
@@ -237,6 +239,9 @@ class QRAttendanceToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True, db_index=True)
+    # GPS anti-fraud: professor's location when generating the QR
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
 
     class Meta:
         db_table = "qr_attendance_token"
@@ -279,6 +284,11 @@ class QRScanRecord(models.Model):
     )
     scanned_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    # GPS anti-fraud: student's location when scanning
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    distance_meters = models.FloatField(null=True, blank=True)
+    is_suspicious = models.BooleanField(default=False)
 
     class Meta:
         db_table = "qr_scan_record"

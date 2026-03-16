@@ -44,6 +44,7 @@
         color: white;
     }
     .btn-confirm:active { transform: translateY(0); }
+    .btn-confirm:disabled { opacity: 0.65; transform: none; box-shadow: none; }
 </style>
 {% endblock %}
 
@@ -74,18 +75,58 @@
                 <span class="detail-value">{{ course.professeur.get_full_name }}</span>
             </div>
 
-            <form method="POST" class="mt-4">
+            {% if has_gps %}
+            <div id="gps-status" class="text-center small mt-3 mb-0">
+                <span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Acquisition de votre position...</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" class="mt-3" id="scan-form">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-confirm">
+                <input type="hidden" name="latitude" id="stu-lat">
+                <input type="hidden" name="longitude" id="stu-lng">
+                <button type="submit" class="btn btn-confirm" id="confirm-btn"
+                        {% if has_gps %}disabled{% endif %}>
                     <i class="fas fa-check-circle me-2"></i>Je suis présent(e)
                 </button>
             </form>
 
             <p class="text-muted text-center small mt-3 mb-0">
                 <i class="fas fa-shield-alt me-1"></i>
-                Votre adresse IP sera enregistrée pour des raisons de sécurité.
+                Votre adresse IP{% if has_gps %} et position GPS{% endif %} seront enregistrées pour des raisons de sécurité.
             </p>
         </div>
     </div>
 </div>
+
+{% if has_gps %}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var gpsStatus = document.getElementById('gps-status');
+    var latInput = document.getElementById('stu-lat');
+    var lngInput = document.getElementById('stu-lng');
+    var confirmBtn = document.getElementById('confirm-btn');
+
+    if (!navigator.geolocation) {
+        gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Géolocalisation non supportée</span>';
+        confirmBtn.disabled = false;
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            latInput.value = pos.coords.latitude;
+            lngInput.value = pos.coords.longitude;
+            gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position acquise</span>';
+            confirmBtn.disabled = false;
+        },
+        function(err) {
+            gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>GPS refusé — scan autorisé sans vérification</span>';
+            confirmBtn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+})();
+</script>
+{% endif %}
 {% endblock %}
