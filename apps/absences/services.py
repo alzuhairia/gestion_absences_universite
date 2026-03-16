@@ -5,6 +5,12 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.audits.models import LogAudit
+from apps.notifications.email import (
+    build_eligibility_restored_email,
+    build_threshold_exceeded_email,
+    build_threshold_exceeded_professor_email,
+    send_notification_email,
+)
 from apps.notifications.models import Notification
 
 from .models import Absence
@@ -143,6 +149,14 @@ def recalculer_eligibilite(inscription):
                     type="ALERTE",
                 )
 
+                # Email to student + professor (deferred after commit)
+                student = inscription.id_etudiant
+                professor = cours.professeur
+                course_name = cours.nom_cours
+                transaction.on_commit(lambda: _send_threshold_emails(
+                    student, professor, course_name, taux, seuil
+                ))
+
                 # Log d'Audit
                 LogAudit.objects.create(
                     id_utilisateur=inscription.id_etudiant,
@@ -167,6 +181,24 @@ def recalculer_eligibilite(inscription):
                     message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
                     type="INFO",
                 )
+
+                # Email to student (deferred after commit)
+                student = inscription.id_etudiant
+                course_name = cours.nom_cours
+                transaction.on_commit(lambda: send_notification_email(
+                    student, *build_eligibility_restored_email(student, course_name)
+                ))
+
+
+def _send_threshold_emails(student, professor, course_name, taux, seuil):
+    """Send threshold-exceeded emails to student and professor. Never raises."""
+    subj, body = build_threshold_exceeded_email(student, course_name, taux, seuil)
+    send_notification_email(student, subj, body)
+    if professor:
+        subj, body = build_threshold_exceeded_professor_email(
+            professor, student, course_name, taux, seuil
+        )
+        send_notification_email(professor, subj, body)
 
 
 def get_system_threshold():

@@ -21,6 +21,11 @@ from apps.dashboard.decorators import (
     secretary_required,
 )
 from apps.enrollments.models import Inscription
+from apps.notifications.email import (
+    build_justification_decision_email,
+    build_justification_decision_professor_email,
+    send_notification_email,
+)
 from apps.notifications.models import Notification
 
 from .forms import SecretaryJustifiedAbsenceForm
@@ -32,6 +37,27 @@ from .utils_upload import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _send_justification_decision_emails(absence, approved, motif=""):
+    """Send decision emails to student + professor. Never raises."""
+    student = absence.id_inscription.id_etudiant
+    course_code = absence.id_seance.id_cours.code_cours
+    date_str = str(absence.id_seance.date_seance)
+    professor = absence.id_seance.id_cours.professeur
+
+    # Email to student
+    subj, body = build_justification_decision_email(
+        student, course_code, date_str, approved, motif
+    )
+    send_notification_email(student, subj, body)
+
+    # Email to professor
+    if professor:
+        subj, body = build_justification_decision_professor_email(
+            professor, student, course_code, date_str, approved
+        )
+        send_notification_email(professor, subj, body)
 
 
 @login_required
@@ -188,6 +214,9 @@ def process_justification(request, pk):
                 objet_id=justification.id_justification,
             )
 
+        # Emails (outside transaction — failures must not roll back)
+        _send_justification_decision_emails(absence, approved=True, motif=comment)
+
     elif action == "reject":
         with transaction.atomic():
             justification = Justification.objects.select_for_update().get(pk=pk)
@@ -230,6 +259,9 @@ def process_justification(request, pk):
                 objet_type="JUSTIFICATION",
                 objet_id=justification.id_justification,
             )
+
+        # Emails (outside transaction — failures must not roll back)
+        _send_justification_decision_emails(absence, approved=False, motif=comment)
 
     else:
         messages.error(request, "Action invalide.")
