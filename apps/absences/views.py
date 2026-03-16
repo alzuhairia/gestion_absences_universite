@@ -1,5 +1,6 @@
 import datetime
 import logging
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
@@ -369,6 +370,121 @@ def download_justification(request, justification_id):
         as_attachment=True,
         filename=Path(justification.document.name).name,
     )
+
+
+@login_required
+@professor_required
+@require_http_methods(["GET", "POST"])
+def session_create(request, course_id):
+    """
+    Unified entry point: professor creates a séance first, then chooses
+    attendance mode (manual or QR).  The Seance is created upfront so
+    that both modes start from a known, persisted session.
+    """
+    course = get_object_or_404(Cours, id_cours=course_id)
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé à ce cours.")
+        return redirect("dashboard:instructor_dashboard")
+
+    academic_year = AnneeAcademique.objects.filter(active=True).first()
+    if not academic_year:
+        messages.error(request, "Aucune année académique active.")
+        return redirect("dashboard:instructor_course_detail", course_id)
+
+    if request.method == "POST":
+        date_seance = request.POST.get("date_seance", "").strip()
+        heure_debut = request.POST.get("heure_debut", "").strip()
+        heure_fin = request.POST.get("heure_fin", "").strip()
+        mode = request.POST.get("mode", "manual")
+
+        # --- Validation ---
+        if not all([date_seance, heure_debut, heure_fin]):
+            messages.error(request, "Veuillez remplir tous les champs obligatoires.")
+            return redirect("absences:session_create", course_id=course_id)
+
+        try:
+            fmt = "%H:%M"
+            t_debut = datetime.datetime.strptime(heure_debut, fmt)
+            t_fin = datetime.datetime.strptime(heure_fin, fmt)
+        except (TypeError, ValueError):
+            messages.error(request, "Format d'heure invalide (HH:MM attendu).")
+            return redirect("absences:session_create", course_id=course_id)
+
+        if t_fin <= t_debut:
+            messages.error(request, "L'heure de fin doit être postérieure à l'heure de début.")
+            return redirect("absences:session_create", course_id=course_id)
+
+        # --- Create or retrieve seance ---
+        seance, created = Seance.objects.get_or_create(
+            id_cours=course,
+            date_seance=date_seance,
+            heure_debut=heure_debut,
+            heure_fin=heure_fin,
+            defaults={"id_annee": academic_year},
+        )
+
+        if seance.validated:
+            messages.error(request, "Cette séance est déjà validée et verrouillée.")
+            return redirect("dashboard:instructor_course_detail", course_id)
+
+        if not created:
+            messages.info(request, "Séance existante récupérée.")
+
+        # --- Redirect based on mode ---
+        if mode == "qr":
+            # Create QR token and redirect to dashboard
+            duration = int(request.POST.get("qr_duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
+            duration = max(5, min(duration, 60))
+
+            QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+
+            token_kwargs = {
+                "seance": seance,
+                "created_by": request.user,
+                "expires_at": timezone.now() + timedelta(minutes=duration),
+            }
+            try:
+                lat = request.POST.get("latitude")
+                lng = request.POST.get("longitude")
+                if lat and lng:
+                    token_kwargs["latitude"] = float(lat)
+                    token_kwargs["longitude"] = float(lng)
+            except (ValueError, TypeError):
+                pass
+
+            new_token = QRAttendanceToken.objects.create(**token_kwargs)
+
+            log_action(
+                request.user,
+                f"Séance créée (QR) — {course.code_cours} {date_seance}",
+                request,
+                niveau="INFO",
+                objet_type="SEANCE",
+                objet_id=seance.id_seance,
+            )
+            return redirect("absences:qr_dashboard", token=new_token.token)
+        else:
+            # Manual mode → redirect to mark_absence with date pre-filled
+            log_action(
+                request.user,
+                f"Séance créée (manuel) — {course.code_cours} {date_seance}",
+                request,
+                niveau="INFO",
+                objet_type="SEANCE",
+                objet_id=seance.id_seance,
+            )
+            return redirect(
+                f"{reverse('absences:mark_absence', args=[course_id])}?date={date_seance}"
+            )
+
+    # --- GET: render creation form ---
+    today = timezone.localdate().isoformat()
+    return render(request, "absences/session_create.html", {
+        "course": course,
+        "today": today,
+        "default_start": "08:30",
+        "default_end": "10:30",
+    })
 
 
 @login_required
@@ -954,7 +1070,6 @@ import math
 import qrcode
 
 from apps.audits.utils import get_client_ip
-from datetime import timedelta
 
 
 def _haversine(lat1, lon1, lat2, lon2):
