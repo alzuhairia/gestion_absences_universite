@@ -136,9 +136,97 @@ INSTALLED_APPS = [
     "apps.dashboard",
     "apps.audits",
     "apps.health",
+    "apps.api",
+    "rest_framework",
+    "django_filters",
+    "drf_spectacular",
     "crispy_forms",
     "crispy_bootstrap5",
 ]
+
+# ── Django REST Framework ─────────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "apps.api.pagination.StandardPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "50/hour",
+        "user": "500/hour",
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ── drf-spectacular (Swagger / OpenAPI) ───────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    "TITLE": "UniAbsences API",
+    "DESCRIPTION": "REST API pour le système de gestion des absences universitaires.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SCHEMA_PATH_PREFIX": r"/api/v1/",
+}
+
+# ── Email (SMTP) ─────────────────────────────────────────────────────────────
+#
+# HOW TO SWITCH BETWEEN BACKENDS:
+#
+#   Development (default) — emails print to terminal, no SMTP needed:
+#     Leave EMAIL_BACKEND unset in .env (or omit all EMAIL_* vars).
+#
+#   Production / Gmail SMTP — add these lines to your .env file:
+#     EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+#     EMAIL_HOST=smtp.gmail.com
+#     EMAIL_PORT=587
+#     EMAIL_USE_TLS=True
+#     EMAIL_HOST_USER=your_gmail@gmail.com
+#     EMAIL_HOST_PASSWORD=xxxx xxxx xxxx xxxx   (Gmail App Password)
+#     DEFAULT_FROM_EMAIL=UniAbsences Notification System <your_gmail@gmail.com>
+#
+#   To generate a Gmail App Password:
+#     1. Enable 2-Step Verification at https://myaccount.google.com/security
+#     2. Go to App Passwords → create one named "UniAbsences"
+#     3. Copy the 16-character password into EMAIL_HOST_PASSWORD
+#
+# SAFETY: If SMTP vars are missing, the app falls back to console backend
+# and will never crash on email send (see apps/notifications/email.py).
+#
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+
+# Auto-detect backend: use SMTP only when credentials are actually provided.
+_email_backend_env = os.getenv("EMAIL_BACKEND", "").strip()
+if _email_backend_env:
+    EMAIL_BACKEND = _email_backend_env
+elif EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    f"UniAbsences Notification System <{EMAIL_HOST_USER}>"
+    if EMAIL_HOST_USER
+    else "UniAbsences Notification System <noreply@uniabsences.local>",
+)
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
