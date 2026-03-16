@@ -1,28 +1,54 @@
 {% comment %}
 HTMX partial — refreshed every 3s by the QR dashboard.
-Context: scanned, not_scanned, scanned_count, total_students, is_expired, qr_token
+Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, has_gps, qr_token
 {% endcomment %}
 
+<!-- Big progress indicator -->
+{% if total_students > 0 %}
+<div class="text-center mb-3">
+    <div class="d-inline-block position-relative" style="width:130px; height:130px;">
+        <svg viewBox="0 0 36 36" style="width:130px; height:130px; transform:rotate(-90deg);">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e9ecef" stroke-width="3"></circle>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1cc88a" stroke-width="3"
+                    stroke-dasharray="{% widthratio scanned_count total_students 100 %} 100"
+                    stroke-linecap="round" style="transition: stroke-dasharray 0.6s ease;"></circle>
+        </svg>
+        <div class="position-absolute top-50 start-50 translate-middle text-center">
+            <div class="fw-bold fs-4">{% widthratio scanned_count total_students 100 %}%</div>
+            <div class="text-muted" style="font-size:0.7rem;">{{ scanned_count }}/{{ total_students }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Counters -->
-<div class="row text-center mb-4">
+<div class="row text-center mb-3">
     <div class="col-4">
-        <div class="h3 mb-0 fw-bold text-primary">{{ total_students }}</div>
+        <div class="h4 mb-0 fw-bold text-primary">{{ total_students }}</div>
         <div class="small text-muted text-uppercase">Inscrits</div>
     </div>
     <div class="col-4">
-        <div class="h3 mb-0 fw-bold text-success">{{ scanned_count }}</div>
+        <div class="h4 mb-0 fw-bold text-success">{{ scanned_count }}</div>
         <div class="small text-muted text-uppercase">Présents</div>
     </div>
     <div class="col-4">
-        <div class="h3 mb-0 fw-bold text-danger">{{ not_scanned|length }}</div>
+        <div class="h4 mb-0 fw-bold text-danger">{{ not_scanned|length }}</div>
         <div class="small text-muted text-uppercase">En attente</div>
     </div>
 </div>
 
-<!-- Progress bar -->
+<!-- Suspicious alert -->
+{% if suspicious_count > 0 %}
+<div class="alert alert-danger py-2 mb-3">
+    <i class="fas fa-map-marker-alt me-1"></i>
+    <strong>{{ suspicious_count }}</strong> scan(s) suspect(s) — distance > 100 m de la salle
+</div>
+{% endif %}
+
+<!-- Linear progress bar -->
 {% if total_students > 0 %}
-<div class="progress mb-4" style="height: 8px;">
-    <div class="progress-bar bg-success" role="progressbar"
+<div class="progress mb-4" style="height: 10px; border-radius: 5px;">
+    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar"
          style="width: {% widthratio scanned_count total_students 100 %}%;"
          aria-valuenow="{{ scanned_count }}" aria-valuemin="0" aria-valuemax="{{ total_students }}">
     </div>
@@ -36,9 +62,20 @@ Context: scanned, not_scanned, scanned_count, total_students, is_expired, qr_tok
         {% if scanned %}
         <ul class="list-group list-group-flush">
             {% for ins in scanned %}
-            <li class="list-group-item d-flex align-items-center py-2 px-0 border-0">
-                <i class="fas fa-user-check text-success me-2"></i>
-                <span>{{ ins.id_etudiant.get_full_name }}</span>
+            <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-0 border-0">
+                <span>
+                    {% if ins.scan_record.is_suspicious %}
+                    <i class="fas fa-exclamation-triangle text-danger me-2" title="Scan suspect ({{ ins.scan_record.distance_meters|floatformat:0 }} m)"></i>
+                    {% else %}
+                    <i class="fas fa-user-check text-success me-2"></i>
+                    {% endif %}
+                    {{ ins.id_etudiant.get_full_name }}
+                </span>
+                {% if has_gps and ins.scan_record.distance_meters != None %}
+                <span class="badge {% if ins.scan_record.is_suspicious %}bg-danger{% else %}bg-light text-muted{% endif %}">
+                    {{ ins.scan_record.distance_meters|floatformat:0 }} m
+                </span>
+                {% endif %}
             </li>
             {% endfor %}
         </ul>

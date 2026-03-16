@@ -54,6 +54,14 @@
         <div class="result-body">
             <p class="mb-3">{{ message }}</p>
 
+            {% if distance %}
+            <div class="alert alert-warning py-2 text-start small">
+                <i class="fas fa-map-marker-alt me-1"></i>
+                Distance de la salle : <strong>{{ distance|floatformat:0 }} m</strong>
+                <span class="text-muted">(seuil : 100 m)</span>
+            </div>
+            {% endif %}
+
             {% if scan_status == 'duplicate' and scanned_at %}
             <p class="text-muted small">
                 <i class="fas fa-clock me-1"></i>Enregistré le {{ scanned_at|date:"d/m/Y" }} à {{ scanned_at|time:"H:i" }}

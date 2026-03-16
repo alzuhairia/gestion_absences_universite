@@ -949,11 +949,22 @@ def validate_session(request, seance_id):
 
 import base64
 import io
+import math
 
 import qrcode
 
 from apps.audits.utils import get_client_ip
 from datetime import timedelta
+
+
+def _haversine(lat1, lon1, lat2, lon2):
+    """Return distance in metres between two GPS points (Haversine formula)."""
+    R = 6_371_000  # Earth radius in metres
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def _generate_qr_data_uri(url):
@@ -1006,14 +1017,26 @@ def qr_generate(request, course_id):
             messages.error(request, "Cette séance est déjà validée et verrouillée.")
             return redirect("dashboard:instructor_course_detail", course_id)
 
+        # GPS anti-fraud: professor's location (optional, sent by JS)
+        prof_lat = request.POST.get("latitude")
+        prof_lng = request.POST.get("longitude")
+
         # Deactivate any previous active tokens for this seance
         QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
-        token = QRAttendanceToken.objects.create(
-            seance=seance,
-            created_by=request.user,
-            expires_at=timezone.now() + timedelta(minutes=duration),
-        )
+        token_kwargs = {
+            "seance": seance,
+            "created_by": request.user,
+            "expires_at": timezone.now() + timedelta(minutes=duration),
+        }
+        try:
+            if prof_lat and prof_lng:
+                token_kwargs["latitude"] = float(prof_lat)
+                token_kwargs["longitude"] = float(prof_lng)
+        except (ValueError, TypeError):
+            pass  # GPS optional — skip silently
+
+        token = QRAttendanceToken.objects.create(**token_kwargs)
 
         log_action(
             request.user,
@@ -1061,11 +1084,21 @@ def qr_dashboard(request, token):
         ).select_related("id_etudiant")
     )
 
-    scanned_ids = set(
-        QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
-    )
+    scan_records = {
+        sr.inscription_id: sr
+        for sr in QRScanRecord.objects.filter(seance=seance).select_related("inscription")
+    }
+    scanned_ids = set(scan_records.keys())
 
-    scanned = [ins for ins in inscriptions if ins.id_inscription in scanned_ids]
+    scanned = []
+    suspicious_count = 0
+    for ins in inscriptions:
+        if ins.id_inscription in scanned_ids:
+            sr = scan_records[ins.id_inscription]
+            ins.scan_record = sr
+            if sr.is_suspicious:
+                suspicious_count += 1
+            scanned.append(ins)
     not_scanned = [ins for ins in inscriptions if ins.id_inscription not in scanned_ids]
 
     ctx = {
@@ -1078,7 +1111,9 @@ def qr_dashboard(request, token):
         "not_scanned": not_scanned,
         "total_students": len(inscriptions),
         "scanned_count": len(scanned),
+        "suspicious_count": suspicious_count,
         "is_expired": qr_token.is_expired,
+        "has_gps": qr_token.latitude is not None,
     }
 
     # HTMX partial refresh (student list only)
@@ -1245,17 +1280,44 @@ def qr_scan(request, token):
             "qr_token": qr_token,
             "course": course,
             "seance": seance,
+            "has_gps": qr_token.latitude is not None,
         })
 
     # --- POST: record attendance ---
-    QRScanRecord.objects.create(
-        seance=seance,
-        student=request.user,
-        inscription=inscription,
-        ip_address=get_client_ip(request),
-    )
+    scan_kwargs = {
+        "seance": seance,
+        "student": request.user,
+        "inscription": inscription,
+        "ip_address": get_client_ip(request),
+    }
 
-    return render(request, "absences/qr_scan_result.html", {
-        **error_ctx, "scan_status": "success",
-        "message": "Présence enregistrée avec succès !",
-    })
+    # GPS anti-fraud check
+    distance = None
+    is_suspicious = False
+    try:
+        stu_lat = request.POST.get("latitude")
+        stu_lng = request.POST.get("longitude")
+        if stu_lat and stu_lng and qr_token.latitude is not None:
+            stu_lat_f = float(stu_lat)
+            stu_lng_f = float(stu_lng)
+            distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
+            is_suspicious = distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
+            scan_kwargs.update({
+                "latitude": stu_lat_f,
+                "longitude": stu_lng_f,
+                "distance_meters": round(distance, 1),
+                "is_suspicious": is_suspicious,
+            })
+    except (ValueError, TypeError):
+        pass  # GPS optional
+
+    QRScanRecord.objects.create(**scan_kwargs)
+
+    result_ctx = {**error_ctx, "scan_status": "success"}
+    if is_suspicious:
+        result_ctx["message"] = "Présence enregistrée, mais votre position est éloignée de la salle."
+        result_ctx["distance"] = round(distance, 0)
+    else:
+        result_ctx["message"] = "Présence enregistrée avec succès !"
+
+    return render(request, "absences/qr_scan_result.html", result_ctx)

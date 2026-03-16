@@ -21,7 +21,7 @@
                 Les étudiants scanneront ce QR code avec leur téléphone pour confirmer leur présence.
             </p>
 
-            <form method="POST">
+            <form method="POST" id="qr-form">
                 {% csrf_token %}
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
@@ -41,7 +41,7 @@
                     </div>
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-3">
                     <label class="form-label" for="duration">Durée de validité du QR</label>
                     <select class="form-select" id="duration" name="duration">
                         <option value="5">5 minutes</option>
@@ -53,6 +53,22 @@
                         <option value="60">60 minutes</option>
                     </select>
                     <div class="form-text">Le QR expirera automatiquement après cette durée. Vous pourrez le rafraîchir.</div>
+                </div>
+
+                <!-- GPS anti-fraud -->
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="enable-gps" checked>
+                        <label class="form-check-label" for="enable-gps">
+                            <i class="fas fa-map-marker-alt me-1"></i>Activer la vérification GPS anti-fraude
+                        </label>
+                    </div>
+                    <div class="form-text">
+                        Les scans éloignés de plus de 100 m seront signalés comme suspects.
+                    </div>
+                    <div id="gps-status" class="small mt-2"></div>
+                    <input type="hidden" name="latitude" id="prof-lat">
+                    <input type="hidden" name="longitude" id="prof-lng">
                 </div>
 
                 <div class="d-flex justify-content-between">
@@ -68,4 +84,41 @@
         </div>
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var gpsCheckbox = document.getElementById('enable-gps');
+    var gpsStatus = document.getElementById('gps-status');
+    var latInput = document.getElementById('prof-lat');
+    var lngInput = document.getElementById('prof-lng');
+
+    function captureGPS() {
+        if (!gpsCheckbox.checked) {
+            latInput.value = '';
+            lngInput.value = '';
+            gpsStatus.innerHTML = '<span class="text-muted"><i class="fas fa-times-circle me-1"></i>GPS désactivé</span>';
+            return;
+        }
+        if (!navigator.geolocation) {
+            gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Géolocalisation non supportée par le navigateur</span>';
+            return;
+        }
+        gpsStatus.innerHTML = '<span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Acquisition GPS...</span>';
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                latInput.value = pos.coords.latitude;
+                lngInput.value = pos.coords.longitude;
+                gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position capturée (' + pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5) + ')</span>';
+            },
+            function(err) {
+                gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>GPS refusé — la vérification de distance sera désactivée</span>';
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    gpsCheckbox.addEventListener('change', captureGPS);
+    captureGPS(); // auto-capture on load
+})();
+</script>
 {% endblock %}
