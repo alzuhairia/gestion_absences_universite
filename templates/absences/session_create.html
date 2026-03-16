@@ -1,0 +1,231 @@
+{% extends 'base_instructor.html' %}
+
+{% block title %}Nouvelle séance - {{ course.code_cours }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mode-card {
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        text-align: center;
+        position: relative;
+    }
+    .mode-card:hover { border-color: #4e73df; background: #f8f9fc; }
+    .mode-card.selected {
+        border-color: #4e73df;
+        background: linear-gradient(135deg, #f8f9fc 0%, #eef1fb 100%);
+        box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.2);
+    }
+    .mode-card .icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+    .mode-card .check-mark {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #4e73df;
+        color: white;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
+    .mode-card.selected .check-mark { display: flex; }
+    .mode-card input[type="radio"] { display: none; }
+
+    .qr-options { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.3s ease; opacity: 0; }
+    .qr-options.visible { max-height: 300px; opacity: 1; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_courses' %}">Mes Cours</a></li>
+<li class="breadcrumb-item"><a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}">{{ course.code_cours }}</a></li>
+<li class="breadcrumb-item active">Nouvelle séance</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 750px;">
+    <div class="card shadow">
+        <div class="card-header py-3 bg-primary text-white">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-calendar-plus me-2"></i>Créer une séance — {{ course.code_cours }}
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="session-form">
+                {% csrf_token %}
+
+                <!-- Step 1: Session details -->
+                <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                    <span class="badge bg-primary rounded-pill me-1">1</span> Détails de la séance
+                </h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label" for="date_seance">Date</label>
+                        <input type="date" class="form-control" id="date_seance"
+                               name="date_seance" value="{{ today }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_debut">Heure début</label>
+                        <input type="time" class="form-control" id="heure_debut"
+                               name="heure_debut" value="{{ default_start }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="heure_fin">Heure fin</label>
+                        <input type="time" class="form-control" id="heure_fin"
+                               name="heure_fin" value="{{ default_end }}" required>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Step 2: Attendance mode -->
+                <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                    <span class="badge bg-primary rounded-pill me-1">2</span> Mode de prise d'appel
+                </h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="mode-card selected" id="card-manual">
+                            <input type="radio" name="mode" value="manual" checked>
+                            <div class="check-mark"><i class="fas fa-check"></i></div>
+                            <span class="icon text-primary"><i class="fas fa-clipboard-list"></i></span>
+                            <h6 class="fw-bold mb-1">Appel manuel</h6>
+                            <p class="text-muted small mb-0">
+                                Cochez les présences étudiant par étudiant sur votre écran.
+                            </p>
+                        </label>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="mode-card" id="card-qr">
+                            <input type="radio" name="mode" value="qr">
+                            <div class="check-mark"><i class="fas fa-check"></i></div>
+                            <span class="icon text-success"><i class="fas fa-qrcode"></i></span>
+                            <h6 class="fw-bold mb-1">QR Code</h6>
+                            <p class="text-muted small mb-0">
+                                Les étudiants scannent un QR depuis leur téléphone.
+                            </p>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- QR-specific options (hidden by default) -->
+                <div class="qr-options" id="qr-options">
+                    <div class="card bg-light border-0 p-3 mt-2">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="qr_duration">Durée du QR</label>
+                                <select class="form-select" id="qr_duration" name="qr_duration">
+                                    <option value="5">5 minutes</option>
+                                    <option value="10">10 minutes</option>
+                                    <option value="15" selected>15 minutes</option>
+                                    <option value="20">20 minutes</option>
+                                    <option value="30">30 minutes</option>
+                                    <option value="60">60 minutes</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Anti-fraude GPS</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="enable-gps" checked>
+                                    <label class="form-check-label small" for="enable-gps">
+                                        Vérifier la position des étudiants
+                                    </label>
+                                </div>
+                                <div id="gps-status" class="small mt-1"></div>
+                                <input type="hidden" name="latitude" id="prof-lat">
+                                <input type="hidden" name="longitude" id="prof-lng">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}"
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Retour
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        <span id="submit-label">Lancer l'appel manuel</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var cardManual = document.getElementById('card-manual');
+    var cardQR = document.getElementById('card-qr');
+    var qrOptions = document.getElementById('qr-options');
+    var submitLabel = document.getElementById('submit-label');
+    var submitBtn = document.getElementById('submit-btn');
+    var gpsCheckbox = document.getElementById('enable-gps');
+    var gpsStatus = document.getElementById('gps-status');
+    var latInput = document.getElementById('prof-lat');
+    var lngInput = document.getElementById('prof-lng');
+
+    function selectMode(mode) {
+        if (mode === 'qr') {
+            cardQR.classList.add('selected');
+            cardManual.classList.remove('selected');
+            qrOptions.classList.add('visible');
+            submitLabel.textContent = 'Générer le QR code';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-success');
+            captureGPS();
+        } else {
+            cardManual.classList.add('selected');
+            cardQR.classList.remove('selected');
+            qrOptions.classList.remove('visible');
+            submitLabel.textContent = "Lancer l'appel manuel";
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-primary');
+        }
+    }
+
+    cardManual.addEventListener('click', function() { selectMode('manual'); });
+    cardQR.addEventListener('click', function() { selectMode('qr'); });
+
+    /* GPS capture for QR mode */
+    function captureGPS() {
+        if (!gpsCheckbox.checked) {
+            latInput.value = '';
+            lngInput.value = '';
+            gpsStatus.innerHTML = '<span class="text-muted">GPS désactivé</span>';
+            return;
+        }
+        if (!navigator.geolocation) {
+            gpsStatus.innerHTML = '<span class="text-warning">Géolocalisation non supportée</span>';
+            return;
+        }
+        gpsStatus.innerHTML = '<span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Acquisition...</span>';
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                latInput.value = pos.coords.latitude;
+                lngInput.value = pos.coords.longitude;
+                gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position OK</span>';
+            },
+            function() {
+                gpsStatus.innerHTML = '<span class="text-warning">GPS refusé</span>';
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+    gpsCheckbox.addEventListener('change', captureGPS);
+})();
+</script>
+{% endblock %}

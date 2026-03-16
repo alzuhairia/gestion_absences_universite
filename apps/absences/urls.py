@@ -40,6 +40,7 @@ urlpatterns = [
         name="download_justification",
     ),
     # --- Actions Professeur ---
+    path("session/create/<int:course_id>/", views.session_create, name="session_create"),
     path("mark/<int:course_id>/", views.mark_absence, name="mark_absence"),
     path("mark/<int:course_id>/htmx/", views.mark_absence_htmx, name="mark_absence_htmx"),
     path(
