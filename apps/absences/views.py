@@ -36,6 +36,10 @@ from apps.dashboard.decorators import (
     student_required,
 )
 from apps.enrollments.models import Inscription
+from apps.notifications.email import (
+    build_justification_submitted_professor_email,
+    send_notification_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +261,17 @@ def upload_justification(request, absence_id):
                 objet_type="JUSTIFICATION",
                 objet_id=new_justification.id_justification,
             )
+
+            # Email to professor (outside transaction — failure must not block)
+            professor = absence.id_seance.id_cours.professeur
+            if professor:
+                subj, body = build_justification_submitted_professor_email(
+                    professor,
+                    request.user,
+                    absence.id_seance.id_cours.code_cours,
+                    str(absence.id_seance.date_seance),
+                )
+                send_notification_email(professor, subj, body)
 
         messages.success(
             request,
