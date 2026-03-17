@@ -352,6 +352,10 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
+# ── Password reset ───────────────────────────────────────────────────────────
+# Token validity period in seconds (default: 1 hour).
+PASSWORD_RESET_TIMEOUT = env_int("PASSWORD_RESET_TIMEOUT", 3600)
+
 # ── Session security ──────────────────────────────────────────────────────────
 # Absolute max lifetime of a session cookie (seconds).  Default: 30 min.
 SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 1800)
