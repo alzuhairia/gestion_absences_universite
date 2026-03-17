@@ -13,7 +13,12 @@ from django_ratelimit.decorators import ratelimit
 
 from apps.absences.models import Absence
 from apps.absences.utils import generate_absence_report
-from apps.accounts.forms import CustomAuthenticationForm, CustomPasswordChangeForm
+from apps.accounts.forms import (
+    CustomAuthenticationForm,
+    CustomPasswordChangeForm,
+    CustomPasswordResetForm,
+    CustomSetPasswordForm,
+)
 from apps.audits.ip_utils import ratelimit_client_ip, ratelimit_login_ip_username
 from apps.enrollments.models import Inscription
 
@@ -180,6 +185,58 @@ def download_report_pdf(request):
     generate_absence_report(response, user, academic_year, cours_data)
 
     return response
+
+
+@method_decorator(
+    ratelimit(
+        key=ratelimit_client_ip,
+        rate="5/h",
+        method="POST",
+        block=False,
+    ),
+    name="dispatch",
+)
+class CustomPasswordResetView(auth_views.PasswordResetView):
+    """Vue de demande de réinitialisation du mot de passe avec rate limiting."""
+
+    template_name = "accounts/password_reset.html"
+    email_template_name = "accounts/password_reset_email.html"
+    subject_template_name = "accounts/password_reset_subject.txt"
+    form_class = CustomPasswordResetForm
+    success_url = "/accounts/password_reset/done/"
+
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request, "limited", False):
+            messages.error(
+                request,
+                "Trop de demandes de réinitialisation. Réessayez plus tard.",
+            )
+            return self.render_to_response(
+                self.get_context_data(form=self.get_form()), status=429
+            )
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CustomPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    """Vue de confirmation de réinitialisation avec formulaire personnalisé."""
+
+    template_name = "accounts/password_reset_confirm.html"
+    form_class = CustomSetPasswordForm
+    success_url = "/accounts/reset/done/"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.dashboard.models import SystemSettings
+
+        pw_settings = SystemSettings.get_settings()
+        context["password_settings"] = {
+            "min_length": pw_settings.password_min_length,
+            "require_uppercase": pw_settings.password_require_uppercase,
+            "require_lowercase": pw_settings.password_require_lowercase,
+            "require_numbers": pw_settings.password_require_numbers,
+            "require_special": pw_settings.password_require_special,
+        }
+        return context
 
 
 class CustomPasswordChangeView(auth_views.PasswordChangeView):

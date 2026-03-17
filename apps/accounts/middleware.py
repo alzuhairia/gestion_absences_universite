@@ -15,6 +15,9 @@ def _resolve_excluded_paths():
     _excluded_url_names = [
         "accounts:password_change",
         "accounts:password_change_done",
+        "accounts:password_reset",
+        "accounts:password_reset_done",
+        "accounts:password_reset_complete",
         "accounts:logout",
         "accounts:login",
     ]

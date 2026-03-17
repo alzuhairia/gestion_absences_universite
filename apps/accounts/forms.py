@@ -3,6 +3,8 @@ from django import forms
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
     UserCreationForm,
 )
 
@@ -24,6 +26,68 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("email", "nom", "prenom", "role")
+
+
+class CustomPasswordResetForm(PasswordResetForm):
+    """Formulaire de demande de réinitialisation du mot de passe avec labels en français.
+
+    Overrides get_users() because the custom User model uses 'actif' instead of
+    Django's default 'is_active' field.
+    """
+
+    email = forms.EmailField(
+        label="Adresse email",
+        max_length=254,
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control form-control-lg",
+                "placeholder": "exemple@universite.edu",
+                "autocomplete": "email",
+            }
+        ),
+    )
+
+    def get_users(self, email):
+        """Return active users matching the given email (uses 'actif' field)."""
+        active_users = User.objects.filter(
+            email__iexact=email,
+            actif=True,
+        )
+        return (
+            u
+            for u in active_users
+            if u.has_usable_password()
+        )
+
+
+class CustomSetPasswordForm(SetPasswordForm):
+    """Formulaire de définition du nouveau mot de passe avec labels en français"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Nouveau mot de passe"
+        self.fields["new_password1"].help_text = (
+            "Votre nouveau mot de passe doit contenir au moins 8 caractères"
+        )
+        self.fields["new_password1"].widget.attrs.update(
+            {
+                "class": "form-control form-control-lg",
+                "placeholder": "••••••••",
+                "autocomplete": "new-password",
+            }
+        )
+
+        self.fields["new_password2"].label = "Confirmer le nouveau mot de passe"
+        self.fields["new_password2"].help_text = (
+            "Entrez à nouveau le nouveau mot de passe pour confirmation"
+        )
+        self.fields["new_password2"].widget.attrs.update(
+            {
+                "class": "form-control form-control-lg",
+                "placeholder": "••••••••",
+                "autocomplete": "new-password",
+            }
+        )
 
 
 class CustomPasswordChangeForm(PasswordChangeForm):
