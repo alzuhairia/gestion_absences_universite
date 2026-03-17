@@ -371,13 +371,13 @@ class JustificationViewSet(
         # Email to professor (outside transaction)
         professor = absence.id_seance.id_cours.professeur
         if professor:
-            subj, body = build_justification_submitted_professor_email(
+            subj, body, html_body = build_justification_submitted_professor_email(
                 professor,
                 self.request.user,
                 absence.id_seance.id_cours.code_cours,
                 str(absence.id_seance.date_seance),
             )
-            send_notification_email(professor, subj, body)
+            send_notification_email(professor, subj, body, html_body=html_body)
 
     @extend_schema(
         summary="Approve or reject a justification",
@@ -425,17 +425,17 @@ class JustificationViewSet(
         date_str = str(absence.id_seance.date_seance)
         approved = action_value == "approve"
 
-        subj, body = build_justification_decision_email(
+        subj, body, html_body = build_justification_decision_email(
             student, course_code, date_str, approved, comment
         )
-        send_notification_email(student, subj, body)
+        send_notification_email(student, subj, body, html_body=html_body)
 
         professor = absence.id_seance.id_cours.professeur
         if professor:
-            subj, body = build_justification_decision_professor_email(
+            subj, body, html_body = build_justification_decision_professor_email(
                 professor, student, course_code, date_str, approved
             )
-            send_notification_email(professor, subj, body)
+            send_notification_email(professor, subj, body, html_body=html_body)
 
         return Response(
             JustificationListSerializer(justification).data,
