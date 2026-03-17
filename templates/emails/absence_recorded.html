@@ -1,0 +1,31 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Absence enregistrée{% endblock %}
+{% block subtitle %}Notification d'absence{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<div class="alert-box alert-warning">
+    <strong>&#128203; Absence enregistrée</strong><br>
+    Une absence a été enregistrée pour le cours
+    &laquo;&nbsp;{{ course_name }}&nbsp;&raquo; le <strong>{{ absence_date }}</strong>.
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Cours</span>
+    <span class="stat-value">{{ course_name }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Date</span>
+    <span class="stat-value">{{ absence_date }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Taux d'absence actuel</span>
+    <span class="stat-value" style="color: {% if taux|floatformat:0|add:0 >= 30 %}#dc3545{% else %}#333333{% endif %};">{{ taux }}%</span>
+</div>
+
+<p style="margin-top: 20px;">
+    Si vous pensez qu'il s'agit d'une erreur, veuillez contacter votre professeur
+    ou soumettre un justificatif via la plateforme.
+</p>
+{% endblock %}

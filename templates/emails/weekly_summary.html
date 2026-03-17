@@ -1,0 +1,47 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Résumé hebdomadaire{% endblock %}
+{% block subtitle %}Résumé hebdomadaire des absences{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ secretary_name }}</strong>,</p>
+
+<p>Voici le résumé des absences pour la semaine du
+<strong>{{ week_start }}</strong> au <strong>{{ week_end }}</strong> :</p>
+
+<div class="stat-row">
+    <span class="stat-label">Absences enregistrées</span>
+    <span class="stat-value">{{ total_absences }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Nouveaux blocages</span>
+    <span class="stat-value" style="color: {% if new_blocked > 0 %}#dc3545{% else %}#198754{% endif %};">{{ new_blocked }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Justificatifs en attente</span>
+    <span class="stat-value" style="color: {% if pending_justifications > 0 %}#ffc107{% else %}#198754{% endif %};">{{ pending_justifications }}</span>
+</div>
+
+{% if courses_at_risk %}
+<p style="margin-top: 24px; font-weight: 600;">Cours avec étudiants à risque :</p>
+<table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px;">
+    <thead>
+        <tr style="border-bottom: 2px solid #dee2e6;">
+            <th style="text-align: left; padding: 8px 0; color: #6c757d;">Cours</th>
+            <th style="text-align: right; padding: 8px 0; color: #6c757d;">Étudiants à risque</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for course in courses_at_risk %}
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 8px 0;">{{ course.course_name }}</td>
+            <td style="text-align: right; padding: 8px 0; font-weight: 600; color: #dc3545;">{{ course.at_risk_count }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert-box alert-success" style="margin-top: 20px;">
+    <strong>&#10004;</strong> Aucun cours avec étudiants à risque cette semaine.
+</div>
+{% endif %}
+{% endblock %}

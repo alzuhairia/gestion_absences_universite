@@ -1,0 +1,32 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Justification {{ decision }}{% endblock %}
+{% block subtitle %}Notification Professeur{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ professor_name }}</strong>,</p>
+
+{% if approved %}
+<div class="alert-box alert-success">
+    <strong>&#10004; Justification acceptée</strong><br>
+    La justification de <strong>{{ student_name }}</strong> a été acceptée par le secrétariat.
+</div>
+{% else %}
+<div class="alert-box alert-danger">
+    <strong>&#10008; Justification refusée</strong><br>
+    La justification de <strong>{{ student_name }}</strong> a été refusée par le secrétariat.
+</div>
+{% endif %}
+
+<div class="stat-row">
+    <span class="stat-label">Étudiant</span>
+    <span class="stat-value">{{ student_name }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Cours</span>
+    <span class="stat-value">{{ course_code }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Date de l'absence</span>
+    <span class="stat-value">{{ absence_date }}</span>
+</div>
+{% endblock %}

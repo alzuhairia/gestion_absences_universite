@@ -1,0 +1,32 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Étudiant bloqué{% endblock %}
+{% block subtitle %}Notification Professeur{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ professor_name }}</strong>,</p>
+
+<div class="alert-box alert-warning">
+    <strong>&#9888; Étudiant bloqué</strong><br>
+    L'étudiant <strong>{{ student_name }}</strong> a dépassé le seuil d'absence
+    pour votre cours &laquo;&nbsp;{{ course_name }}&nbsp;&raquo;.
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Étudiant</span>
+    <span class="stat-value">{{ student_name }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Email</span>
+    <span class="stat-value">{{ student_email }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Taux d'absence</span>
+    <span class="stat-value" style="color: #dc3545;">{{ taux }}%</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Seuil</span>
+    <span class="stat-value">{{ seuil }}%</span>
+</div>
+
+<p style="margin-top: 20px;">L'accès à l'examen a été automatiquement bloqué.</p>
+{% endblock %}

@@ -185,20 +185,23 @@ def recalculer_eligibilite(inscription):
                 # Email to student (deferred after commit)
                 student = inscription.id_etudiant
                 course_name = cours.nom_cours
-                transaction.on_commit(lambda: send_notification_email(
-                    student, *build_eligibility_restored_email(student, course_name)
-                ))
+
+                def _send_restored():
+                    subj, body, html_body = build_eligibility_restored_email(student, course_name)
+                    send_notification_email(student, subj, body, html_body)
+
+                transaction.on_commit(_send_restored)
 
 
 def _send_threshold_emails(student, professor, course_name, taux, seuil):
     """Send threshold-exceeded emails to student and professor. Never raises."""
-    subj, body = build_threshold_exceeded_email(student, course_name, taux, seuil)
-    send_notification_email(student, subj, body)
+    subj, body, html_body = build_threshold_exceeded_email(student, course_name, taux, seuil)
+    send_notification_email(student, subj, body, html_body)
     if professor:
-        subj, body = build_threshold_exceeded_professor_email(
+        subj, body, html_body = build_threshold_exceeded_professor_email(
             professor, student, course_name, taux, seuil
         )
-        send_notification_email(professor, subj, body)
+        send_notification_email(professor, subj, body, html_body)
 
 
 def get_system_threshold():
