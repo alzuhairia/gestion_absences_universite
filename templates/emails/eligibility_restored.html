@@ -1,0 +1,15 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Éligibilité restaurée{% endblock %}
+{% block subtitle %}Bonne nouvelle{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<div class="alert-box alert-success">
+    <strong>&#10004; Éligibilité restaurée</strong><br>
+    Vous êtes à nouveau éligible à l'examen pour le cours
+    &laquo;&nbsp;{{ course_name }}&nbsp;&raquo;.
+</div>
+
+<p>Votre taux d'absence est repassé sous le seuil autorisé. Continuez ainsi !</p>
+{% endblock %}

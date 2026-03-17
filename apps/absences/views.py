@@ -37,8 +37,10 @@ from apps.dashboard.decorators import (
 )
 from apps.enrollments.models import Inscription
 from apps.notifications.email import (
+    build_absence_recorded_email,
     build_justification_submitted_professor_email,
     send_notification_email,
+    send_with_dedup,
 )
 
 logger = logging.getLogger(__name__)
@@ -265,13 +267,13 @@ def upload_justification(request, absence_id):
             # Email to professor (outside transaction — failure must not block)
             professor = absence.id_seance.id_cours.professeur
             if professor:
-                subj, body = build_justification_submitted_professor_email(
+                subj, body, html_body = build_justification_submitted_professor_email(
                     professor,
                     request.user,
                     absence.id_seance.id_cours.code_cours,
                     str(absence.id_seance.date_seance),
                 )
-                send_notification_email(professor, subj, body)
+                send_notification_email(professor, subj, body, html_body)
 
         messages.success(
             request,
@@ -755,6 +757,22 @@ def mark_absence(request, course_id):
                             niveau="INFO",
                             objet_type="ABSENCE",
                             objet_id=absence.id_absence,
+                        )
+
+                    # Email notification to student (with dedup to avoid spam)
+                    if created:
+                        from apps.absences.services import calculer_absence_stats
+
+                        stats = calculer_absence_stats(inscription)
+                        student = inscription.id_etudiant
+                        subj, body, html_body = build_absence_recorded_email(
+                            student, course.nom_cours, date_seance, stats["taux"]
+                        )
+                        event_key = f"{inscription.id_inscription}-{seance.id_seance}"
+                        send_with_dedup(
+                            student, subj, body, html_body,
+                            event_type="absence_recorded",
+                            event_key=event_key,
                         )
                 else:
                     # Si marque PRESENT, on supprime une eventuelle absence existante pour cette seance

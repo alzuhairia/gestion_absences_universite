@@ -1,0 +1,32 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Justificatif soumis{% endblock %}
+{% block subtitle %}Notification Professeur{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ professor_name }}</strong>,</p>
+
+<div class="alert-box alert-info">
+    <strong>&#128196; Justificatif soumis</strong><br>
+    L'étudiant <strong>{{ student_name }}</strong> a soumis un justificatif
+    pour son absence dans votre cours.
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Étudiant</span>
+    <span class="stat-value">{{ student_name }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Email</span>
+    <span class="stat-value">{{ student_email }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Cours</span>
+    <span class="stat-value">{{ course_code }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Date de l'absence</span>
+    <span class="stat-value">{{ absence_date }}</span>
+</div>
+
+<p style="margin-top: 20px;">Le secrétariat procédera à la validation.</p>
+{% endblock %}

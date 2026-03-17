@@ -47,17 +47,17 @@ def _send_justification_decision_emails(absence, approved, motif=""):
     professor = absence.id_seance.id_cours.professeur
 
     # Email to student
-    subj, body = build_justification_decision_email(
+    subj, body, html_body = build_justification_decision_email(
         student, course_code, date_str, approved, motif
     )
-    send_notification_email(student, subj, body)
+    send_notification_email(student, subj, body, html_body)
 
     # Email to professor
     if professor:
-        subj, body = build_justification_decision_professor_email(
+        subj, body, html_body = build_justification_decision_professor_email(
             professor, student, course_code, date_str, approved
         )
-        send_notification_email(professor, subj, body)
+        send_notification_email(professor, subj, body, html_body)
 
 
 @login_required

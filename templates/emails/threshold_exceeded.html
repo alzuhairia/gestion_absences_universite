@@ -1,0 +1,31 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Alerte — Seuil d'absence dépassé{% endblock %}
+{% block subtitle %}Alerte Absence{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<div class="alert-box alert-danger">
+    <strong>&#9888; Seuil d'absence dépassé</strong><br>
+    Votre taux d'absence pour le cours &laquo;&nbsp;{{ course_name }}&nbsp;&raquo;
+    a atteint <strong>{{ taux }}%</strong>, dépassant le seuil autorisé de <strong>{{ seuil }}%</strong>.
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Cours</span>
+    <span class="stat-value">{{ course_name }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Taux d'absence</span>
+    <span class="stat-value" style="color: #dc3545;">{{ taux }}%</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Seuil autorisé</span>
+    <span class="stat-value">{{ seuil }}%</span>
+</div>
+
+<p style="margin-top: 20px;">
+    Votre accès à l'examen pour ce cours est désormais <strong>bloqué</strong>.
+</p>
+<p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le secrétariat.</p>
+{% endblock %}

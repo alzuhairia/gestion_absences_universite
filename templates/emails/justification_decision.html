@@ -1,0 +1,38 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Justification {{ decision }}{% endblock %}
+{% block subtitle %}Décision Justificatif{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+{% if approved %}
+<div class="alert-box alert-success">
+    <strong>&#10004; Justification ACCEPTÉE</strong><br>
+    Votre justificatif pour l'absence du <strong>{{ absence_date }}</strong>
+    dans le cours <strong>{{ course_code }}</strong> a été accepté.
+</div>
+{% else %}
+<div class="alert-box alert-danger">
+    <strong>&#10008; Justification REFUSÉE</strong><br>
+    Votre justificatif pour l'absence du <strong>{{ absence_date }}</strong>
+    dans le cours <strong>{{ course_code }}</strong> a été refusé.
+</div>
+{% endif %}
+
+<div class="stat-row">
+    <span class="stat-label">Cours</span>
+    <span class="stat-value">{{ course_code }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Date de l'absence</span>
+    <span class="stat-value">{{ absence_date }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Décision</span>
+    <span class="stat-value">{{ decision }}</span>
+</div>
+
+{% if not approved and motif %}
+<p style="margin-top: 20px;"><strong>Motif :</strong> {{ motif }}</p>
+{% endif %}
+{% endblock %}
