@@ -215,10 +215,12 @@
         const durationInput = document.getElementById('duree_' + id);
         if (!typeSelect || !durationInput) return;
 
-        if (!typeSelect.disabled && typeSelect.value === 'HEURE') {
+        if (!typeSelect.disabled && typeSelect.value === 'PARTIEL') {
             durationInput.disabled = false;
+            durationInput.required = true;
         } else {
             durationInput.disabled = true;
+            durationInput.required = false;
             durationInput.value = '';
         }
     }
@@ -293,15 +295,18 @@
     if (hideBtn) hideBtn.addEventListener('click', hideConfirmation);
     if (valBtn) valBtn.addEventListener('click', submitValidate);
 
-    document.querySelectorAll('.js-status-radio').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            toggleAbsenceOptions(this.dataset.inscription, this.dataset.absent === 'true');
+    /* --- Event delegation on tbody (survives HTMX swaps) --- */
+    var tbody = document.getElementById('student-tbody');
+    if (tbody) {
+        tbody.addEventListener('change', function(e) {
+            var target = e.target;
+            if (target.classList.contains('js-status-radio')) {
+                toggleAbsenceOptions(target.dataset.inscription, target.dataset.absent === 'true');
+                updateRecap();
+            } else if (target.classList.contains('js-duration-toggle')) {
+                toggleDuration(target.dataset.inscription);
+            }
         });
-    });
-    document.querySelectorAll('.js-duration-toggle').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-            toggleDuration(this.dataset.inscription);
-        });
-    });
+    }
 </script>
 {% endblock %}

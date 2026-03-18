@@ -100,27 +100,36 @@
         </div>
     </div>
 
-    <!-- 40% Threshold Warning -->
+    <!-- Threshold Warnings -->
     {% if is_blocked %}
     <div class="warning-box">
         <h5 class="fw-bold mb-3">
             <i class="fas fa-exclamation-triangle text-danger me-2"></i>
-            Seuil de 40% dépassé
+            {% if is_exempted %}Bloqué malgré l'exemption{% else %}Seuil d'absences dépassé{% endif %}
         </h5>
         <p class="mb-2">
-            <strong>Vous avez dépassé le seuil de 40% d'absences non justifiées pour ce cours ({{ absence_rate }}%).</strong>
+            {% if is_exempted %}
+            <strong>Votre taux d'absence ({{ absence_rate }}%) dépasse le seuil de tolérance ({{ seuil_effectif }}%) malgré votre exemption.</strong>
+            {% else %}
+            <strong>Vous avez dépassé le seuil d'absences non justifiées pour ce cours ({{ absence_rate }}%).</strong>
+            {% endif %}
         </p>
         <p class="mb-0">
             <i class="fas fa-info-circle me-1"></i>
             Veuillez contacter le secrétariat pédagogique pour toute démarche administrative.
-            <strong>Toutes les actions administratives (déblocage, exemption) sont gérées par le secrétariat.</strong>
         </p>
+    </div>
+    {% elif is_under_exemption %}
+    <div class="alert alert-info">
+        <i class="fas fa-shield-alt me-2"></i>
+        <strong>Sous exemption :</strong> Votre taux d'absence ({{ absence_rate }}%) dépasse le seuil normal
+        mais vous bénéficiez d'une tolérance jusqu'à {{ seuil_effectif }}%. Restez vigilant.
     </div>
     {% elif absence_rate >= 30 %}
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-circle me-2"></i>
-        <strong>Attention :</strong> Votre taux d'absence est de {{ absence_rate }}%. 
-        Vous approchez du seuil critique de 40%. Pensez à justifier vos absences rapidement.
+        <strong>Attention :</strong> Votre taux d'absence est de {{ absence_rate }}%.
+        Vous approchez du seuil critique. Pensez à justifier vos absences rapidement.
     </div>
     {% endif %}
 

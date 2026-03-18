@@ -77,6 +77,11 @@ class Inscription(models.Model):
         verbose_name="Motif de l'exemption",
         help_text="Raison de l'exemption (obligatoire si exemption activée)",
     )
+    exemption_margin = models.PositiveIntegerField(
+        default=10,
+        verbose_name="Marge d'exemption (%)",
+        help_text="Points de pourcentage ajoutés au seuil quand l'étudiant est exempté. Ex: seuil=40%, marge=10% → bloqué à 50%.",
+    )
 
     class Meta:
         managed = True

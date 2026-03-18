@@ -245,6 +245,23 @@ class AbsenceWriteSerializer(serializers.ModelSerializer):
             "note_professeur",
         ]
 
+    def validate_type_absence(self, value):
+        allowed = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"Type invalide. Valeurs autorisées : {', '.join(allowed)}"
+            )
+        return value
+
+    def validate(self, data):
+        type_absence = data.get("type_absence")
+        duree = data.get("duree_absence")
+        if type_absence == Absence.TypeAbsence.PARTIEL and (not duree or duree <= 0):
+            raise serializers.ValidationError(
+                {"duree_absence": "La durée est obligatoire pour une absence partielle."}
+            )
+        return data
+
 
 # ── Justifications ────────────────────────────────────────────────────────────
 

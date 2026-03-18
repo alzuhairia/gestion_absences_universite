@@ -1,11 +1,11 @@
 {% extends 'base_secretary.html' %}
 
-{% block title %}Encoder une Absence Justifiée{% endblock %}
+{% block title %}Encoder une Absence{% endblock %}
 
 {% block breadcrumbs %}
 <li class="breadcrumb-item"><a href="{% url 'dashboard:secretary_dashboard' %}">Tableau de Bord</a></li>
 <li class="breadcrumb-item"><a href="{% url 'absences:validation_list' %}">Justificatifs</a></li>
-<li class="breadcrumb-item active" aria-current="page">Encoder une Absence Justifiée</li>
+<li class="breadcrumb-item active" aria-current="page">Encoder une Absence</li>
 {% endblock %}
 
 {% block extra_css %}
@@ -77,6 +77,58 @@
         line-height: 1;
     }
 
+    /* Searchable select component */
+    .searchable-select {
+        position: relative;
+    }
+    .searchable-select-input {
+        cursor: text;
+        background: #fff;
+    }
+    .searchable-select-input:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .searchable-select-dropdown {
+        position: absolute;
+        z-index: 1050;
+        width: 100%;
+        max-height: 260px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 0.375rem 0.375rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: none;
+    }
+    .searchable-select.open .searchable-select-dropdown {
+        display: block;
+    }
+    .searchable-select-option {
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .searchable-select-option:last-child {
+        border-bottom: none;
+    }
+    .searchable-select-option:hover,
+    .searchable-select-option.active {
+        background: #e9ecef;
+    }
+    .searchable-select-option.selected {
+        background: #cfe2ff;
+        font-weight: 600;
+    }
+    .searchable-select-empty {
+        padding: 0.75rem;
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
     .history-kpi-label {
         font-size: 0.7rem;
         text-transform: uppercase;
@@ -91,7 +143,7 @@
     <section class="hero-justified mb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
-                <h1 class="h3 mb-2"><i class="fas fa-check-circle me-2"></i>Encoder une Absence Justifiée</h1>
+                <h1 class="h3 mb-2"><i class="fas fa-file-medical me-2"></i>Encoder une Absence</h1>
                 <p class="mb-0 opacity-75">Formulaire modernisé avec résumé dynamique et historique étudiant.</p>
             </div>
             <div class="text-end">
@@ -128,23 +180,28 @@
                         <div id="cours-error" class="alert alert-danger d-none" role="alert">
                             <i class="fas fa-exclamation-circle me-2"></i>Veuillez sélectionner au moins un cours.
                         </div>
-                        <div id="doc-error" class="alert alert-danger d-none" role="alert">
-                            <i class="fas fa-exclamation-circle me-2"></i>Le document justificatif est obligatoire.
-                        </div>
+                        <div id="doc-error" class="alert alert-danger d-none" role="alert"></div>
 
                         <div class="section-title"><i class="fas fa-user-graduate me-2"></i>Étudiant</div>
                         <div class="row g-3 mb-4">
                             <div class="col-12">
-                                <label for="student-search" class="form-label fw-semibold">Recherche rapide étudiant</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    <input id="student-search" type="text" class="form-control" placeholder="Nom, prénom, e-mail ou numéro étudiant">
+                                <label for="student-searchable-input" class="form-label fw-semibold">{{ form.etudiant.label }}</label>
+                                <!-- Hidden real select (Django form field) -->
+                                <div style="display:none;">{{ form.etudiant }}</div>
+                                <!-- Searchable select component -->
+                                <div class="searchable-select" id="student-searchable">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input id="student-searchable-input" type="text" class="form-control searchable-select-input"
+                                               placeholder="Tapez pour rechercher un étudiant (nom, prénom, e-mail...)"
+                                               autocomplete="off">
+                                        <button class="btn btn-outline-secondary" type="button" id="student-searchable-clear"
+                                                title="Effacer la sélection" style="display:none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="searchable-select-dropdown" id="student-searchable-dropdown"></div>
                                 </div>
-                                <div class="info-muted mt-1">Le filtre agit sur la liste ci-dessous.</div>
-                            </div>
-                            <div class="col-12">
-                                <label for="{{ form.etudiant.id_for_label }}" class="form-label fw-semibold">{{ form.etudiant.label }}</label>
-                                {{ form.etudiant }}
                                 {% if form.etudiant.errors %}
                                 <div class="text-danger small mt-1">{% for error in form.etudiant.errors %}{{ error }}{% endfor %}</div>
                                 {% endif %}
@@ -222,7 +279,7 @@
 
                         <div class="section-title"><i class="fas fa-file-upload me-2"></i>Document justificatif</div>
                         <div class="mb-4">
-                            <label class="form-label fw-semibold">{{ form.document.label }} <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">{{ form.document.label }} <span class="text-muted">(optionnel)</span></label>
                             <div id="drop-zone" class="drop-zone text-center p-4">
                                 <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
                                 <p class="mb-1 text-muted">Glissez votre fichier ici ou <strong>cliquez pour sélectionner</strong></p>
@@ -248,12 +305,13 @@
 
                         <div class="alert alert-info mb-4 small">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong>Note :</strong> Cette absence sera créée avec le statut <em>Justifiée</em> directement.
+                            <strong>Note :</strong> Si un document justificatif est joint, l'absence sera créée avec le statut <em>Justifiée</em>.
+                            Sinon, elle sera enregistrée comme <em>Non justifiée</em>.
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">
                             <a href="{% url 'absences:validation_list' %}" class="btn btn-secondary"><i class="fas fa-times me-2"></i>Annuler</a>
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Encoder l'Absence Justifiée</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Encoder l'Absence</button>
                         </div>
                     </form>
                 </div>
@@ -334,7 +392,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!form) return;
 
     const etudiantSelect = document.getElementById('id_etudiant');
-    const studentSearch = document.getElementById('student-search');
+    const searchableWrap = document.getElementById('student-searchable');
+    const searchableInput = document.getElementById('student-searchable-input');
+    const searchableDropdown = document.getElementById('student-searchable-dropdown');
+    const searchableClear = document.getElementById('student-searchable-clear');
     const dateInput = document.getElementById('id_date_absence');
     const typeSelect = document.getElementById('id_type_absence');
     const heureDebutInput = document.getElementById('id_heure_debut');
@@ -560,15 +621,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateTypeBadge() {
         const map = {
-            SEANCE: { label: 'Séance complète', cls: 'badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle' },
-            HEURE: { label: 'Retard / Partiel', cls: 'badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle' },
-            JOURNEE: { label: 'Journée complète', cls: 'badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle' },
+            ABSENT: { label: 'Absent', cls: 'badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle' },
+            PARTIEL: { label: 'Absence partielle', cls: 'badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle' },
         };
-        const conf = map[typeSelect.value] || map.SEANCE;
+        const conf = map[typeSelect.value] || map.ABSENT;
         summaryType.className = conf.cls;
         summaryType.textContent = conf.label;
 
-        if (typeSelect.value === 'HEURE') {
+        if (typeSelect.value === 'PARTIEL') {
             dureeRow.classList.remove('d-none');
             dureeInput.required = true;
         } else {
@@ -730,18 +790,125 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    etudiantSelect.addEventListener('change', function () {
-        updateSummaryStudent();
-        loadStudentContext(etudiantSelect.value);
+    /* --- Searchable Select Component --- */
+    const studentOptions = [];
+    Array.from(etudiantSelect.options).forEach(function (opt) {
+        if (!opt.value) return;
+        studentOptions.push({ value: opt.value, text: opt.text.trim(), search: normalizeText(opt.text + ' ' + opt.value) });
     });
 
-    studentSearch.addEventListener('input', function () {
-        const term = normalizeText(studentSearch.value);
-        Array.from(etudiantSelect.options).forEach(function (option) {
-            if (!option.value) { option.hidden = false; return; }
-            option.hidden = Boolean(term) && !(normalizeText(option.text).includes(term) || option.value.includes(term));
+    let searchableActiveIdx = -1;
+
+    function renderSearchableDropdown(term) {
+        searchableDropdown.innerHTML = '';
+        const normalized = normalizeText(term);
+        const filtered = normalized
+            ? studentOptions.filter(function (o) { return o.search.includes(normalized); })
+            : studentOptions;
+
+        if (!filtered.length) {
+            const empty = document.createElement('div');
+            empty.className = 'searchable-select-empty';
+            empty.textContent = normalized ? 'Aucun étudiant trouvé' : 'Aucun étudiant disponible';
+            searchableDropdown.appendChild(empty);
+            searchableActiveIdx = -1;
+            return;
+        }
+
+        filtered.forEach(function (opt, idx) {
+            const div = document.createElement('div');
+            div.className = 'searchable-select-option';
+            if (opt.value === etudiantSelect.value) div.classList.add('selected');
+            div.dataset.value = opt.value;
+            div.dataset.idx = String(idx);
+            div.textContent = opt.text;
+            div.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                selectStudent(opt.value, opt.text);
+            });
+            searchableDropdown.appendChild(div);
         });
+        searchableActiveIdx = -1;
+    }
+
+    function selectStudent(value, text) {
+        etudiantSelect.value = value;
+        searchableInput.value = text;
+        searchableClear.style.display = value ? '' : 'none';
+        closeSearchable();
+        updateSummaryStudent();
+        loadStudentContext(value);
+    }
+
+    function openSearchable() {
+        renderSearchableDropdown(searchableInput.value);
+        searchableWrap.classList.add('open');
+    }
+
+    function closeSearchable() {
+        searchableWrap.classList.remove('open');
+        searchableActiveIdx = -1;
+    }
+
+    function highlightOption(idx) {
+        const items = searchableDropdown.querySelectorAll('.searchable-select-option');
+        items.forEach(function (el) { el.classList.remove('active'); });
+        if (idx >= 0 && idx < items.length) {
+            items[idx].classList.add('active');
+            items[idx].scrollIntoView({ block: 'nearest' });
+        }
+        searchableActiveIdx = idx;
+    }
+
+    searchableInput.addEventListener('focus', openSearchable);
+    searchableInput.addEventListener('input', function () {
+        openSearchable();
     });
+    searchableInput.addEventListener('blur', function () {
+        // Small delay so mousedown on option fires first
+        setTimeout(closeSearchable, 150);
+    });
+    searchableInput.addEventListener('keydown', function (e) {
+        const items = searchableDropdown.querySelectorAll('.searchable-select-option');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlightOption(Math.min(searchableActiveIdx + 1, items.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightOption(Math.max(searchableActiveIdx - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (searchableActiveIdx >= 0 && items[searchableActiveIdx]) {
+                const val = items[searchableActiveIdx].dataset.value;
+                const txt = items[searchableActiveIdx].textContent;
+                selectStudent(val, txt);
+            }
+        } else if (e.key === 'Escape') {
+            closeSearchable();
+            searchableInput.blur();
+        }
+    });
+
+    searchableClear.addEventListener('click', function () {
+        etudiantSelect.value = '';
+        searchableInput.value = '';
+        searchableClear.style.display = 'none';
+        updateSummaryStudent();
+        showCoursesState('empty');
+        updateHistoryStats({ total: 0, justified: 0, pending: 0, unjustified: 0 });
+        setHistoryState('empty', 'Sélectionnez un étudiant pour afficher son historique.');
+    });
+
+    // Pre-fill if a student is already selected (e.g. form validation error)
+    if (etudiantSelect.value) {
+        const selectedOpt = etudiantSelect.options[etudiantSelect.selectedIndex];
+        if (selectedOpt) {
+            searchableInput.value = selectedOpt.text.trim();
+            searchableClear.style.display = '';
+        }
+    }
 
     [dateInput, heureDebutInput, heureFinInput].forEach(function (input) { input.addEventListener('change', updateSummaryDateTime); });
     typeSelect.addEventListener('change', updateTypeBadge);
@@ -787,13 +954,6 @@ document.addEventListener('DOMContentLoaded', function () {
             valid = false;
         } else {
             coursError.classList.add('d-none');
-        }
-
-        if (!fileInput.files || !fileInput.files.length) {
-            docError.classList.remove('d-none');
-            valid = false;
-        } else {
-            docError.classList.add('d-none');
         }
 
         if (!valid) {

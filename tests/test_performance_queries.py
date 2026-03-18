@@ -99,7 +99,7 @@ class QueryBudgetTests(TestCase):
                 Absence.objects.create(
                     id_inscription=ins,
                     id_seance=seances[0],
-                    type_absence="SEANCE",
+                    type_absence="ABSENT",
                     duree_absence=2.0,
                     statut="NON_JUSTIFIEE",
                     encodee_par=cls.secretary,

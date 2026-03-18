@@ -14,6 +14,10 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
         <span class="badge bg-warning text-dark mt-1">
             <i class="fas fa-hourglass-half me-1"></i>Justification en attente
         </span>
+        {% elif ins.absence_data and ins.absence_data.encodee_par and ins.absence_data.encodee_par.role == 'SECRETAIRE' %}
+        <span class="badge bg-info text-dark mt-1">
+            <i class="fas fa-stamp me-1"></i>Encodée par le Secrétariat
+        </span>
         {% endif %}
     </td>
     <td class="align-middle">
@@ -76,24 +80,25 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
             id="type_{{ ins.id_inscription }}"
             data-inscription="{{ ins.id_inscription }}"
             {% if not ins.absence_data %}disabled{% endif %}>
-            <option value="SEANCE" {% if ins.absence_data and ins.absence_data.type == 'SEANCE' %}selected{% endif %}>Séance complète</option>
-            <option value="HEURE" {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
-            <option value="JOURNEE" {% if ins.absence_data and ins.absence_data.type == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
+            <option value="ABSENT" {% if ins.absence_data and ins.absence_data.type == 'ABSENT' or ins.absence_data and ins.absence_data.type == 'SEANCE' %}selected{% endif %}>Absent</option>
+            <option value="PARTIEL" {% if ins.absence_data and ins.absence_data.type == 'PARTIEL' or ins.absence_data and ins.absence_data.type == 'PARTIEL' or ins.absence_data and ins.absence_data.type == 'RETARD' or ins.absence_data and ins.absence_data.type == 'HEURE' %}selected{% endif %}>Absence partielle</option>
         </select>
         {% endif %}
     </td>
     <td class="align-middle">
         <div class="input-group input-group-sm">
             {% if is_validated or ins.absence_data and ins.absence_data.statut == 'JUSTIFIEE' %}
-            {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}
-            <input type="text" class="form-control" value="{{ ins.absence_data.duree }}" disabled>
+            {% if ins.absence_data and ins.absence_data.type == 'PARTIEL' or ins.absence_data and ins.absence_data.type == 'RETARD' or ins.absence_data and ins.absence_data.type == 'HEURE' %}
+            <input type="text" class="form-control" value="{{ ins.absence_data.duree }}h" disabled>
+            {% elif ins.absence_data %}
+            <input type="text" class="form-control" value="{{ ins.absence_data.duree }}h" disabled>
             {% else %}
             <input type="text" class="form-control" value="—" disabled>
             {% endif %}
             {% else %}
             <input type="number" class="form-control" name="duree_{{ ins.id_inscription }}"
-                id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0"
-                {% if ins.absence_data and ins.absence_data.type == 'HEURE' %}value="{{ ins.absence_data.duree }}"
+                id="duree_{{ ins.id_inscription }}" placeholder="Heures" step="0.5" min="0.5"
+                {% if ins.absence_data and ins.absence_data.type == 'PARTIEL' or ins.absence_data and ins.absence_data.type == 'RETARD' or ins.absence_data and ins.absence_data.type == 'HEURE' %}value="{{ ins.absence_data.duree }}"
                 {% else %}disabled{% endif %}>
             {% endif %}
             <span class="input-group-text">h</span>

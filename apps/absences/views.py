@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from apps.absences.models import Absence, Justification, QRAttendanceToken, QRScanRecord
 from apps.absences.services import (
     calculer_absence_stats,
+    calculer_pourcentage_absence,
     get_absences_queryset,
     get_justification_deadline,
     is_justification_expired,
@@ -116,14 +117,16 @@ def absence_details(request, id_inscription):
     if course.professeur:
         prof_name = course.professeur.get_full_name()
 
-    # Calculate absence statistics
+    # Calculate absence statistics (legacy + hours-based)
     stats = calculer_absence_stats(inscription)
     absence_rate = stats["taux"]
     # CORRECTION BUG CRITIQUE #4a — Utiliser le seuil configuré du cours
-    # Avant : seuil fixe 40% ignorant la personnalisation par cours
-    # Après : cours.get_seuil_absence() retourne le seuil configuré ou le défaut système
     seuil = inscription.id_cours.get_seuil_absence()
-    is_blocked = absence_rate >= seuil and not inscription.exemption_40
+    seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
+    is_blocked = absence_rate >= seuil_effectif
+
+    # New hours-based percentage calculation
+    pct_stats = calculer_pourcentage_absence(request.user, course)
 
     return render(
         request,
@@ -136,6 +139,10 @@ def absence_details(request, id_inscription):
             "absence_rate": round(absence_rate, 1),
             "is_blocked": is_blocked,
             "is_exempted": inscription.exemption_40,
+            "total_heures_cours": pct_stats["total_heures_cours"],
+            "total_heures_absence": pct_stats["total_heures_absence"],
+            "pourcentage_absence": pct_stats["pourcentage_absence"],
+            "pourcentage_presence": pct_stats["pourcentage_presence"],
         },
     )
 
@@ -431,21 +438,33 @@ def session_create(request, course_id):
             messages.error(request, "L'heure de fin doit être postérieure à l'heure de début.")
             return redirect("absences:session_create", course_id=course_id)
 
-        # --- Create or retrieve seance ---
-        seance, created = Seance.objects.get_or_create(
-            id_cours=course,
-            date_seance=date_seance,
-            heure_debut=heure_debut,
-            heure_fin=heure_fin,
-            defaults={"id_annee": academic_year},
-        )
+        # --- Create or retrieve seance (unique par cours + date) ---
+        try:
+            seance = Seance.objects.get(id_cours=course, date_seance=date_seance)
+            updated_fields = []
+            if seance.heure_debut != t_debut.time():
+                seance.heure_debut = heure_debut
+                updated_fields.append("heure_debut")
+            if seance.heure_fin != t_fin.time():
+                seance.heure_fin = heure_fin
+                updated_fields.append("heure_fin")
+            if updated_fields:
+                seance.save(update_fields=updated_fields)
+            messages.info(request, "Séance existante récupérée.")
+            created = False
+        except Seance.DoesNotExist:
+            seance = Seance.objects.create(
+                id_cours=course,
+                date_seance=date_seance,
+                heure_debut=heure_debut,
+                heure_fin=heure_fin,
+                id_annee=academic_year,
+            )
+            created = True
 
         if seance.validated:
             messages.error(request, "Cette séance est déjà validée et verrouillée.")
             return redirect("dashboard:instructor_course_detail", course_id)
-
-        if not created:
-            messages.info(request, "Séance existante récupérée.")
 
         # --- Redirect based on mode ---
         if mode == "qr":
@@ -645,19 +664,30 @@ def mark_absence(request, course_id):
 
         with transaction.atomic():
             # --- OPÉRATIONS DB (données validées, aucun risque de séance fantôme) ---
-            # Création ou Récupération de la séance (données déjà validées en amont)
-            seance, created = Seance.objects.get_or_create(
-                date_seance=date_seance,
-                heure_debut=heure_debut,
-                heure_fin=heure_fin,
-                id_cours=course,
-                defaults={"id_annee": annee},
-            )
-
-            if not created:
+            # Unique par cours + date — .get() crashe si doublon (fail fast)
+            try:
+                seance = Seance.objects.get(date_seance=date_seance, id_cours=course)
+                # Mettre à jour les heures si le prof les a modifiées
+                updated_fields = []
+                if seance.heure_debut != heure_debut:
+                    seance.heure_debut = heure_debut
+                    updated_fields.append("heure_debut")
+                if seance.heure_fin != heure_fin:
+                    seance.heure_fin = heure_fin
+                    updated_fields.append("heure_fin")
+                if updated_fields:
+                    seance.save(update_fields=updated_fields)
                 messages.info(
                     request,
                     "Une séance existe déjà pour cette date. Les absences seront mises à jour pour cette séance existante.",
+                )
+            except Seance.DoesNotExist:
+                seance = Seance.objects.create(
+                    date_seance=date_seance,
+                    heure_debut=heure_debut,
+                    heure_fin=heure_fin,
+                    id_cours=course,
+                    id_annee=annee,
                 )
 
             # Traitement des etudiants
@@ -696,23 +726,24 @@ def mark_absence(request, course_id):
                     # APRÈS : la protection JUSTIFIEE est gérée ligne ~584 pour TOUS les rôles.
                     #         Un professeur peut corriger ses propres absences NON_JUSTIFIEE.
 
-                    type_absence = request.POST.get(f"type_{inscription_id}", Absence.TypeAbsence.SEANCE)
-                    if type_absence not in Absence.TypeAbsence.values:
+                    _ALLOWED_TYPES = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
+                    type_absence = request.POST.get(f"type_{inscription_id}", Absence.TypeAbsence.ABSENT)
+                    if type_absence not in _ALLOWED_TYPES:
                         logger.warning(
-                            "Type d'absence invalide recu (%s) pour inscription %s. Fallback SEANCE.",
+                            "Type d'absence invalide recu (%s) pour inscription %s. Fallback ABSENT.",
                             type_absence,
                             inscription_id,
                         )
-                        type_absence = Absence.TypeAbsence.SEANCE
+                        type_absence = Absence.TypeAbsence.ABSENT
 
                     # Determiner la duree
-                    duree = duree_seance  # Default for SEANCE
-                    if type_absence == Absence.TypeAbsence.HEURE:
+                    duree = duree_seance  # Default for ABSENT (= full session)
+                    if type_absence == Absence.TypeAbsence.PARTIEL:
                         try:
                             duree = Decimal(
                                 str(float(request.POST.get(f"duree_{inscription_id}", 0)))
                             ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                            if duree <= 0 or duree > 24:
+                            if duree <= 0 or duree > duree_seance:
                                 raise ValueError("invalid duration range")
                         except (TypeError, ValueError):
                             logger.warning(
@@ -720,8 +751,12 @@ def mark_absence(request, course_id):
                                 inscription_id,
                             )
                             duree = duree_seance
-                    elif type_absence == Absence.TypeAbsence.JOURNEE:
-                        duree = Decimal("8.00")
+                            student_name = inscription.id_etudiant.get_full_name()
+                            messages.warning(
+                                request,
+                                f"Durée invalide pour {student_name} — absence complète ({duree_seance}h) "
+                                f"appliquée par défaut. Corrigez si nécessaire.",
+                            )
 
                     # Creation ou Mise a jour Absence (only if not validated/pending)
                     if existing_absence and existing_absence.statut in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
@@ -849,11 +884,10 @@ def mark_absence(request, course_id):
     default_start = "08:30"
     default_end = "10:30"
 
-    existing_seance = (
-        Seance.objects.filter(id_cours=course, date_seance=today)
-        .order_by("-id_seance")
-        .first()
-    )
+    try:
+        existing_seance = Seance.objects.get(id_cours=course, date_seance=today)
+    except Seance.DoesNotExist:
+        existing_seance = None
 
     existing_absences = {}
     is_edit_mode = False
@@ -867,7 +901,7 @@ def mark_absence(request, course_id):
         if existing_seance.heure_fin:
             default_end = existing_seance.heure_fin.strftime("%H:%M")
 
-        abs_list = Absence.objects.filter(id_seance=existing_seance)
+        abs_list = Absence.objects.filter(id_seance=existing_seance).select_related("encodee_par")
         for ab in abs_list:
             # ab.id_inscription_id is the raw FK int — no extra query per row
             existing_absences[ab.id_inscription_id] = {
@@ -875,6 +909,7 @@ def mark_absence(request, course_id):
                 "duree": ab.duree_absence,
                 "statut": ab.statut,
                 "note_professeur": ab.note_professeur,
+                "encodee_par": ab.encodee_par,
             }
 
     # Attach absence data to students for template usage
@@ -957,13 +992,26 @@ def mark_absence_htmx(request, course_id):
         return HttpResponse("Aucune année académique active.", status=400)
 
     with transaction.atomic():
-        seance, created = Seance.objects.get_or_create(
-            date_seance=date_seance,
-            heure_debut=heure_debut,
-            heure_fin=heure_fin,
-            id_cours=course,
-            defaults={"id_annee": annee},
-        )
+        # Unique par cours + date — .get() crashe si doublon (fail fast)
+        try:
+            seance = Seance.objects.get(date_seance=date_seance, id_cours=course)
+            updated_fields = []
+            if seance.heure_debut != heure_debut:
+                seance.heure_debut = heure_debut
+                updated_fields.append("heure_debut")
+            if seance.heure_fin != heure_fin:
+                seance.heure_fin = heure_fin
+                updated_fields.append("heure_fin")
+            if updated_fields:
+                seance.save(update_fields=updated_fields)
+        except Seance.DoesNotExist:
+            seance = Seance.objects.create(
+                date_seance=date_seance,
+                heure_debut=heure_debut,
+                heure_fin=heure_fin,
+                id_cours=course,
+                id_annee=annee,
+            )
 
         if seance.validated:
             return HttpResponse("Séance déjà validée.", status=403)
@@ -979,24 +1027,27 @@ def mark_absence_htmx(request, course_id):
             ):
                 pass  # Skip, don't modify
             else:
+                _ALLOWED_TYPES_HTMX = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
                 type_absence = request.POST.get(
-                    f"type_{inscription_id}", Absence.TypeAbsence.SEANCE
+                    f"type_{inscription_id}", Absence.TypeAbsence.ABSENT
                 )
-                if type_absence not in Absence.TypeAbsence.values:
-                    type_absence = Absence.TypeAbsence.SEANCE
+                if type_absence not in _ALLOWED_TYPES_HTMX:
+                    type_absence = Absence.TypeAbsence.ABSENT
 
                 duree = duree_seance
-                if type_absence == Absence.TypeAbsence.HEURE:
+                if type_absence == Absence.TypeAbsence.PARTIEL:
                     try:
                         duree = Decimal(
                             str(float(request.POST.get(f"duree_{inscription_id}", 0)))
                         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                        if duree <= 0 or duree > 24:
+                        if duree <= 0 or duree > duree_seance:
                             raise ValueError
                     except (TypeError, ValueError):
+                        logger.warning(
+                            "HTMX: Duree d'absence invalide pour inscription %s. Fallback duree_seance.",
+                            inscription_id,
+                        )
                         duree = duree_seance
-                elif type_absence == Absence.TypeAbsence.JOURNEE:
-                    duree = Decimal("8.00")
 
                 note = request.POST.get(
                     f"note_{inscription_id}", ""
@@ -1035,6 +1086,7 @@ def mark_absence_htmx(request, course_id):
             "duree": absence.duree_absence,
             "statut": absence.statut,
             "note_professeur": absence.note_professeur,
+            "encodee_par": absence.encodee_par,
         }
     else:
         inscription.absence_data = None
@@ -1153,13 +1205,26 @@ def qr_generate(request, course_id):
             messages.error(request, "Veuillez remplir tous les champs.")
             return redirect("absences:qr_generate", course_id=course_id)
 
-        seance, _created = Seance.objects.get_or_create(
-            id_cours=course,
-            date_seance=date_seance,
-            heure_debut=heure_debut,
-            heure_fin=heure_fin,
-            defaults={"id_annee": academic_year},
-        )
+        # Unique par cours + date — .get() crashe si doublon (fail fast)
+        try:
+            seance = Seance.objects.get(id_cours=course, date_seance=date_seance)
+            updated_fields = []
+            if str(seance.heure_debut)[:5] != heure_debut:
+                seance.heure_debut = heure_debut
+                updated_fields.append("heure_debut")
+            if str(seance.heure_fin)[:5] != heure_fin:
+                seance.heure_fin = heure_fin
+                updated_fields.append("heure_fin")
+            if updated_fields:
+                seance.save(update_fields=updated_fields)
+        except Seance.DoesNotExist:
+            seance = Seance.objects.create(
+                id_cours=course,
+                date_seance=date_seance,
+                heure_debut=heure_debut,
+                heure_fin=heure_fin,
+                id_annee=academic_year,
+            )
 
         if seance.validated:
             messages.error(request, "Cette séance est déjà validée et verrouillée.")
@@ -1339,7 +1404,7 @@ def qr_finalize(request, token):
                     id_inscription=ins,
                     id_seance=seance,
                     defaults={
-                        "type_absence": "SEANCE",
+                        "type_absence": Absence.TypeAbsence.ABSENT,
                         "duree_absence": seance.duree_heures(),
                         "statut": Absence.Statut.NON_JUSTIFIEE,
                         "encodee_par": request.user,

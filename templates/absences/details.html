@@ -54,15 +54,46 @@
         </div>
     </div>
 
-    <!-- 40% Threshold Warning -->
+    <!-- Hours-based statistics -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="h4 mb-0 fw-bold text-primary">{{ total_heures_cours }}h</div>
+                    <div class="small text-muted text-uppercase">Total heures cours</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="h4 mb-0 fw-bold text-danger">{{ total_heures_absence }}h</div>
+                    <div class="small text-muted text-uppercase">Heures d'absence</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="h4 mb-0 fw-bold text-success">{{ pourcentage_presence }}%</div>
+                    <div class="small text-muted text-uppercase">Présence</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="h4 mb-0 fw-bold {% if pourcentage_absence >= 20 %}text-danger{% elif pourcentage_absence >= 15 %}text-warning{% else %}text-info{% endif %}">{{ pourcentage_absence }}%</div>
+                    <div class="small text-muted text-uppercase">Absence</div>
+                </div>
+            </div>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Calcul basé sur les heures réelles des séances passées uniquement.
+                    Les absences justifiées ne sont pas comptabilisées.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Threshold Warning -->
     {% if is_blocked %}
     <div class="warning-box">
         <h5 class="fw-bold mb-3">
             <i class="fas fa-exclamation-triangle text-danger me-2"></i>
-            Seuil de 40% dépassé
+            Seuil d'absence dépassé
         </h5>
         <p class="mb-2">
-            <strong>Vous avez dépassé le seuil de 40% d'absences non justifiées pour ce cours ({{ absence_rate }}%).</strong>
+            <strong>Vous avez dépassé le seuil d'absences non justifiées pour ce cours ({{ pourcentage_absence }}% — {{ total_heures_absence }}h sur {{ total_heures_cours }}h).</strong>
         </p>
         <p class="mb-0">
             <i class="fas fa-info-circle me-1"></i>
@@ -70,11 +101,11 @@
             <strong>Toutes les actions administratives (déblocage, exemption) sont gérées par le secrétariat.</strong>
         </p>
     </div>
-    {% elif absence_rate >= 30 %}
+    {% elif pourcentage_absence >= 15 %}
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-circle me-2"></i>
-        <strong>Attention :</strong> Votre taux d'absence est de {{ absence_rate }}%. 
-        Vous approchez du seuil critique de 40%. Pensez à justifier vos absences rapidement.
+        <strong>Attention :</strong> Votre taux d'absence est de {{ pourcentage_absence }}% ({{ total_heures_absence }}h sur {{ total_heures_cours }}h).
+        Vous approchez du seuil critique. Pensez à justifier vos absences rapidement.
     </div>
     {% endif %}
 

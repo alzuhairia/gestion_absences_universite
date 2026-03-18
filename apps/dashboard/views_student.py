@@ -91,14 +91,16 @@ def student_dashboard(request):
             abs_hours = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (abs_hours / cours.nombre_total_periodes) * 100
 
-            # CORRECTION BUG CRITIQUE #4b — seuil configuré par cours
+            # Seuil effectif (avec marge d'exemption si applicable)
             seuil = cours.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+
+            if rate >= seuil_effectif:
                 is_blocked = True
                 academic_status = "BLOQUÉ"
                 status_color = "danger"
                 break
-            elif seuil > 0 and rate >= (seuil * 0.75):  # Alerte à 75% du seuil
+            elif seuil > 0 and rate >= (seuil * 0.75):
                 is_at_risk = True
 
     if not is_blocked and is_at_risk:
@@ -151,6 +153,7 @@ def student_statistics(request):
     # --- 1. Data for Bar Chart (Absences per Course) ---
     course_labels = []
     absence_percentages = []
+    course_thresholds = []
 
     total_hours_missed = 0
     courses_at_risk = 0
@@ -185,13 +188,16 @@ def student_statistics(request):
 
         rate = (total_abs / total_periods * 100) if total_periods > 0 else 0
 
+        # Seuil effectif (avec marge d'exemption si applicable)
+        seuil = cours.get_seuil_absence()
+        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+
         course_labels.append(cours.code_cours)
         absence_percentages.append(round(rate, 1))
+        course_thresholds.append(seuil_effectif)
 
         total_hours_missed += total_abs
-        # CORRECTION BUG CRITIQUE #4g — seuil configuré par cours
-        seuil = cours.get_seuil_absence()
-        if rate >= seuil and not ins.exemption_40:
+        if rate >= seuil_effectif:
             courses_at_risk += 1
 
     # --- 2. Data for Line Chart (Trend over time) ---
@@ -248,6 +254,7 @@ def student_statistics(request):
         "system_threshold": system_threshold,
         "course_labels_json": course_labels,
         "absence_percentages_json": absence_percentages,
+        "course_thresholds_json": course_thresholds,
         "trend_labels_json": trend_labels,
         "trend_data_json": trend_data,
         "system_threshold_json": system_threshold,
@@ -389,9 +396,10 @@ def student_course_detail(request, inscription_id):
         if course.nombre_total_periodes > 0
         else 0
     )
-    # CORRECTION BUG CRITIQUE #4l — seuil configuré par cours
     seuil = course.get_seuil_absence()
-    is_blocked = absence_rate >= seuil and not inscription.exemption_40
+    seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
+    is_blocked = absence_rate >= seuil_effectif
+    is_under_exemption = inscription.exemption_40 and absence_rate >= seuil and not is_blocked
 
     return render(
         request,
@@ -406,6 +414,8 @@ def student_course_detail(request, inscription_id):
             "absence_rate": round(absence_rate, 1),
             "is_blocked": is_blocked,
             "is_exempted": inscription.exemption_40,
+            "is_under_exemption": is_under_exemption,
+            "seuil_effectif": seuil_effectif,
         },
     )
 
@@ -498,13 +508,17 @@ def student_courses(request):
         # Determine course status
         course_status = "OK"
         course_status_color = "success"
-        # CORRECTION BUG CRITIQUE #4m — seuil configuré par cours
         seuil_cours = (
             cours.seuil_absence if cours.seuil_absence is not None else system_threshold
         )
-        if absence_rate >= seuil_cours and not ins.exemption_40:
+        seuil_effectif = min(seuil_cours + ins.exemption_margin, 100) if ins.exemption_40 else seuil_cours
+
+        if absence_rate >= seuil_effectif:
             course_status = "BLOQUÉ"
             course_status_color = "danger"
+        elif ins.exemption_40 and absence_rate >= seuil_cours:
+            course_status = "SOUS EXEMPTION"
+            course_status_color = "info"
         elif seuil_cours > 0 and absence_rate >= (seuil_cours * 0.75):
             course_status = "À RISQUE"
             course_status_color = "warning"
@@ -533,6 +547,7 @@ def student_courses(request):
                 "status": course_status,
                 "status_color": course_status_color,
                 "is_exempted": ins.exemption_40,
+                "seuil_effectif": seuil_effectif,
             }
         )
 

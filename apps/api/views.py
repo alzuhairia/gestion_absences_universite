@@ -547,7 +547,8 @@ def dashboard_analytics(request):
                 if cours.seuil_absence is not None
                 else system_threshold
             )
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 at_risk_count += 1
 
     seven_days_ago = timezone.now() - datetime.timedelta(days=7)
@@ -832,6 +833,16 @@ def export_student_pdf_api(request, student_id):
     tags=["Exports"],
     responses={(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"): bytes},
 )
+def _export_status(ins, rate, seuil):
+    """Return export status label based on exemption logic."""
+    seuil_eff = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+    if rate >= seuil_eff:
+        return "BLOQUE"
+    if ins.exemption_40:
+        return "SOUS EXEMPTION"
+    return "A RISQUE"
+
+
 @api_view(["GET"])
 @permission_classes([IsAdminOrSecretary])
 def export_at_risk_excel_api(request):
@@ -892,7 +903,7 @@ def export_at_risk_excel_api(request):
                     f"{cours.nom_cours} ({cours.code_cours})",
                     total_abs,
                     round(rate, 2),
-                    "EXEMPTE" if ins.exemption_40 else "BLOQUE",
+                    _export_status(ins, rate, seuil),
                 ])
 
     buf = io.BytesIO()

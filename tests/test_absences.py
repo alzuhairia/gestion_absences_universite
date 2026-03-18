@@ -114,7 +114,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
         absence = Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence="SEANCE",
+            type_absence="ABSENT",
             duree_absence=2.0,
             statut="EN_ATTENTE",
             encodee_par=self.secretary,
@@ -179,7 +179,7 @@ class JustificationDownloadTests(BaseAbsenceTestCase):
         return Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence="SEANCE",
+            type_absence="ABSENT",
             duree_absence=2.0,
             statut="EN_ATTENTE",
             encodee_par=self.secretary,
@@ -240,7 +240,7 @@ class AbsenceQueryTests(BaseAbsenceTestCase):
             absence = Absence.objects.create(
                 id_inscription=self.inscription1,
                 id_seance=seance,
-                type_absence="SEANCE",
+                type_absence="ABSENT",
                 duree_absence=2.0,
                 statut="EN_ATTENTE",
                 encodee_par=self.secretary,
@@ -283,7 +283,7 @@ class UploadValidationTests(BaseAbsenceTestCase):
         return Absence.objects.create(
             id_inscription=self.inscription1,
             id_seance=seance,
-            type_absence="SEANCE",
+            type_absence="ABSENT",
             duree_absence=2.0,
             statut="NON_JUSTIFIEE",
             encodee_par=self.secretary,

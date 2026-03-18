@@ -91,9 +91,8 @@
                             <i class="fas fa-clock me-2"></i>Type d'absence
                         </label>
                         <select id="type_absence" name="type_absence" class="form-select" required>
-                            <option value="SEANCE" {% if absence.type_absence == 'SEANCE' %}selected{% endif %}>Séance complète</option>
-                            <option value="HEURE" {% if absence.type_absence == 'HEURE' %}selected{% endif %}>Retard / Partiel</option>
-                            <option value="JOURNEE" {% if absence.type_absence == 'JOURNEE' %}selected{% endif %}>Journée complète</option>
+                            <option value="ABSENT" {% if absence.type_absence == 'ABSENT' or absence.type_absence == 'SEANCE' or absence.type_absence == 'JOURNEE' %}selected{% endif %}>Absent</option>
+                            <option value="PARTIEL" {% if absence.type_absence == 'PARTIEL' or absence.type_absence == 'RETARD' or absence.type_absence == 'HEURE' %}selected{% endif %}>Absence partielle</option>
                         </select>
                     </div>
                 </div>

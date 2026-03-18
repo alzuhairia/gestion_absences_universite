@@ -13,9 +13,15 @@ class Absence(models.Model):
 
     # --- CHOIX (TextChoices) ---
     class TypeAbsence(models.TextChoices):
-        HEURE = "HEURE", "Heure"
-        SEANCE = "SEANCE", "Séance"
-        JOURNEE = "JOURNEE", "Journée"
+        ABSENT = "ABSENT", "Absent"
+        PARTIEL = "PARTIEL", "Absence partielle"
+
+        # Legacy aliases kept for backward-compat in data migration queries only.
+        # Do NOT use these in new code.
+        HEURE = "HEURE", "Heure (legacy)"
+        SEANCE = "SEANCE", "Séance (legacy)"
+        JOURNEE = "JOURNEE", "Journée (legacy)"
+        RETARD = "RETARD", "Retard (legacy)"
 
     class Statut(models.TextChoices):
         EN_ATTENTE = "EN_ATTENTE", "En attente"
@@ -45,7 +51,7 @@ class Absence(models.Model):
     type_absence = models.CharField(
         max_length=20,
         choices=TypeAbsence,
-        default=TypeAbsence.SEANCE,
+        default=TypeAbsence.ABSENT,
         verbose_name="Type d'absence",
         db_index=True,
     )
@@ -99,11 +105,31 @@ class Absence(models.Model):
         unique_together = (("id_inscription", "id_seance"),)
 
     def clean(self):
-        """Validation: durée strictement positive"""
+        """Validation métier de l'absence."""
+        # Durée strictement positive
         if self.duree_absence is not None and self.duree_absence <= 0:
             raise ValidationError(
                 {"duree_absence": "La durée de l'absence doit être strictement positive."}
             )
+
+        # Durée ne peut pas dépasser la durée de la séance
+        if self.id_seance_id and self.duree_absence is not None:
+            try:
+                seance = self.id_seance
+                duree_seance = seance.duree_heures()
+                if duree_seance and float(self.duree_absence) > duree_seance:
+                    raise ValidationError(
+                        {"duree_absence": f"La durée d'absence ({self.duree_absence}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
+                    )
+            except (AttributeError, TypeError):
+                pass  # seance not loaded yet — skip validation
+
+        # Type PARTIEL requiert une durée obligatoire
+        if self.type_absence == self.TypeAbsence.PARTIEL:
+            if self.duree_absence is None or self.duree_absence <= 0:
+                raise ValidationError(
+                    {"duree_absence": "La durée est obligatoire pour une absence partielle."}
+                )
 
     def save(self, *args, **kwargs):
         # FIX ORANGE #13 — full_clean() uniquement à la création, pas aux mises à jour.

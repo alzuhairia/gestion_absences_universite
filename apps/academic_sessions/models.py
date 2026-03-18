@@ -139,8 +139,8 @@ class Seance(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=["id_cours", "date_seance", "heure_debut", "heure_fin"],
-                name="unique_seance_per_course_time",
+                fields=["id_cours", "date_seance"],
+                name="unique_seance_par_cours_date",
             ),
             models.CheckConstraint(
                 condition=models.Q(heure_fin__gt=models.F("heure_debut")),

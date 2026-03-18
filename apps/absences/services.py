@@ -1,7 +1,7 @@
 import datetime
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import DurationField, ExpressionWrapper, F, Sum
 from django.utils import timezone
 
 from apps.audits.models import LogAudit
@@ -83,6 +83,182 @@ def get_absences_queryset(inscription):
     )
 
 
+def calculer_pourcentage_absence(etudiant, cours):
+    """
+    Calcule le pourcentage d'absence d'un étudiant pour un cours donné,
+    basé sur les heures réelles (somme des durées de séances passées et durées d'absence).
+
+    Design :
+    - Pas de record Absence = étudiant PRÉSENT (absence inexistante = présence)
+    - ABSENT = absence complète (durée = durée séance)
+    - PARTIEL = toute absence non complète (retard, départ anticipé, etc.)
+    - Seules les séances passées (date <= aujourd'hui) sont comptabilisées
+
+    Args:
+        etudiant: Instance User (role=ETUDIANT)
+        cours: Instance Cours
+
+    Returns:
+        dict: {
+            'total_heures_cours': float,   # Somme durées des séances passées du cours
+            'total_heures_absence': float, # Somme duree_absence (non justifiées + en attente)
+            'pourcentage_absence': float,  # (heures_absence / heures_cours) * 100
+            'pourcentage_presence': float, # 100 - pourcentage_absence
+        }
+    """
+    from apps.academic_sessions.models import Seance
+    from apps.enrollments.models import Inscription
+
+    today = timezone.localdate()
+
+    # Total des heures de cours = somme des durées des séances PASSÉES (une seule requête SQL)
+    # DurationField car PostgreSQL renvoie un interval (timedelta) pour TimeField - TimeField.
+    raw = Seance.objects.filter(
+        id_cours=cours, date_seance__lte=today
+    ).aggregate(
+        total=Sum(
+            ExpressionWrapper(
+                F("heure_fin") - F("heure_debut"),
+                output_field=DurationField(),
+            )
+        )
+    )["total"]
+    if raw is None:
+        total_heures_cours = 0.0
+    else:
+        total_heures_cours = round(raw.total_seconds() / 3600.0, 2)
+
+    # Protection division par zéro : aucune séance passée → 0%
+    if total_heures_cours == 0:
+        return {
+            "total_heures_cours": 0.0,
+            "total_heures_absence": 0.0,
+            "pourcentage_absence": 0.0,
+            "pourcentage_presence": 0.0,
+        }
+
+    # Trouver l'inscription active de l'étudiant pour ce cours
+    inscription = Inscription.objects.filter(
+        id_etudiant=etudiant,
+        id_cours=cours,
+        status=Inscription.Status.EN_COURS,
+    ).first()
+
+    if not inscription:
+        return {
+            "total_heures_cours": round(total_heures_cours, 2),
+            "total_heures_absence": 0.0,
+            "pourcentage_absence": 0.0,
+            "pourcentage_presence": 100.0,
+        }
+
+    # Somme des durées d'absence (NON_JUSTIFIEE + EN_ATTENTE)
+    # Seules les absences de séances passées sont comptées
+    total_heures_absence = float(
+        Absence.objects.filter(
+            id_inscription=inscription,
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            id_seance__date_seance__lte=today,
+        ).aggregate(total=Sum("duree_absence"))["total"]
+        or 0
+    )
+
+    pourcentage_absence = round((total_heures_absence / total_heures_cours) * 100, 2)
+    pourcentage_presence = round(100 - pourcentage_absence, 2)
+
+    return {
+        "total_heures_cours": round(total_heures_cours, 2),
+        "total_heures_absence": round(total_heures_absence, 2),
+        "pourcentage_absence": pourcentage_absence,
+        "pourcentage_presence": pourcentage_presence,
+    }
+
+
+def etudiants_en_alerte(cours, seuil=None):
+    """
+    Retourne la liste des étudiants dont le pourcentage d'absence
+    dépasse le seuil pour un cours donné.
+
+    Args:
+        cours: Instance Cours
+        seuil: Seuil en % (par défaut: seuil du cours ou 20%)
+
+    Returns:
+        list of dict: [{
+            'etudiant': User,
+            'inscription': Inscription,
+            'pourcentage_absence': float,
+            'total_heures_absence': float,
+            'total_heures_cours': float,
+            'depasse_seuil': bool,
+        }]
+    """
+    from apps.academic_sessions.models import Seance
+    from apps.enrollments.models import Inscription
+
+    if seuil is None:
+        seuil = cours.get_seuil_absence() if hasattr(cours, 'get_seuil_absence') else 20
+
+    today = timezone.localdate()
+
+    # Total des heures de cours (somme des séances PASSÉES — une seule requête SQL)
+    raw = Seance.objects.filter(
+        id_cours=cours, date_seance__lte=today
+    ).aggregate(
+        total=Sum(
+            ExpressionWrapper(
+                F("heure_fin") - F("heure_debut"),
+                output_field=DurationField(),
+            )
+        )
+    )["total"]
+    if raw is None:
+        total_heures_cours = 0.0
+    else:
+        total_heures_cours = round(raw.total_seconds() / 3600.0, 2)
+
+    # Protection division par zéro : aucune séance passée → pas d'alerte
+    if total_heures_cours == 0:
+        return []
+
+    # Inscriptions actives pour ce cours
+    inscriptions = Inscription.objects.filter(
+        id_cours=cours,
+        status=Inscription.Status.EN_COURS,
+    ).select_related("id_etudiant")
+
+    # Agrégation des heures d'absence par inscription (séances passées, une seule requête SQL)
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscriptions,
+            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            id_seance__date_seance__lte=today,
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+
+    alertes = []
+    for ins in inscriptions:
+        total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
+        pourcentage = round((total_abs / total_heures_cours) * 100, 2)
+
+        if pourcentage >= seuil:
+            alertes.append({
+                "etudiant": ins.id_etudiant,
+                "inscription": ins,
+                "pourcentage_absence": pourcentage,
+                "total_heures_absence": round(total_abs, 2),
+                "total_heures_cours": round(total_heures_cours, 2),
+                "depasse_seuil": True,
+            })
+
+    # Trier par pourcentage décroissant
+    alertes.sort(key=lambda x: x["pourcentage_absence"], reverse=True)
+    return alertes
+
+
 def recalculer_eligibilite(inscription):
     """
     Recalcule l'éligibilité d'un étudiant à l'examen basé sur ses absences non justifiées.
@@ -134,18 +310,36 @@ def recalculer_eligibilite(inscription):
     # Utiliser le seuil du cours (ou le seuil par défaut)
     seuil = cours.get_seuil_absence()
 
-    # 2. Logique de blocage / déblocage
-    if taux >= seuil and not inscription.exemption_40:
-        # Étudiant dépasse le seuil et n'a pas d'exemption
+    # 2. Calcul du seuil effectif (avec marge d'exemption)
+    #    - Sans exemption : seuil_effectif = seuil (ex: 40%)
+    #    - Avec exemption : seuil_effectif = seuil + marge (ex: 40% + 10% = 50%)
+    #    - Plafonné à 100%
+    if inscription.exemption_40:
+        seuil_effectif = min(seuil + inscription.exemption_margin, 100)
+    else:
+        seuil_effectif = seuil
+
+    # 3. Logique de blocage / déblocage
+    doit_bloquer = taux >= seuil_effectif
+
+    if doit_bloquer:
+        # Étudiant dépasse le seuil effectif → bloqué (même si exempté)
         if inscription.eligible_examen:
             with transaction.atomic():
                 inscription.eligible_examen = False
                 inscription.save(update_fields=["eligible_examen"])
 
-                # Notification à l'étudiant
+                if inscription.exemption_40:
+                    msg = (
+                        f"ALERTE : Seuil d'exemption de {seuil_effectif}% dépassé pour {cours.nom_cours}. "
+                        f"Examen bloqué malgré l'exemption."
+                    )
+                else:
+                    msg = f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué."
+
                 Notification.objects.create(
                     id_utilisateur=inscription.id_etudiant,
-                    message=f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué.",
+                    message=msg,
                     type="ALERTE",
                 )
 
@@ -154,35 +348,35 @@ def recalculer_eligibilite(inscription):
                 professor = cours.professeur
                 course_name = cours.nom_cours
                 transaction.on_commit(lambda: _send_threshold_emails(
-                    student, professor, course_name, taux, seuil
+                    student, professor, course_name, taux, seuil_effectif
                 ))
 
                 # Log d'Audit
                 LogAudit.objects.create(
                     id_utilisateur=inscription.id_etudiant,
-                    action=f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} (Taux: {taux:.1f}%, Seuil: {seuil}%)",
-                    # CORRECTION BUG CRITIQUE #5 — IP système (action automatique, pas d'utilisateur connecté)
-                    # "0.0.0.0" est la convention pour les actions système automatiques dans ce projet.
+                    action=(
+                        f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} "
+                        f"(Taux: {taux:.1f}%, Seuil effectif: {seuil_effectif}%"
+                        f"{', exempté' if inscription.exemption_40 else ''})"
+                    ),
                     adresse_ip="0.0.0.0",  # nosec B104
                     niveau="CRITIQUE",
                     objet_type="INSCRIPTION",
                     objet_id=inscription.id_inscription,
                 )
     else:
-        # Étudiant est sous le seuil ou a une exemption
+        # Étudiant est sous le seuil effectif → éligible
         if not inscription.eligible_examen:
             with transaction.atomic():
                 inscription.eligible_examen = True
                 inscription.save(update_fields=["eligible_examen"])
 
-                # Notification de déblocage
                 Notification.objects.create(
                     id_utilisateur=inscription.id_etudiant,
                     message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
                     type="INFO",
                 )
 
-                # Email to student (deferred after commit)
                 student = inscription.id_etudiant
                 course_name = cours.nom_cours
 
@@ -245,16 +439,26 @@ def calculer_risque_inscription(inscription, system_threshold=None):
     # Seuil personnalisé du cours, ou seuil système par défaut
     seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
 
+    # Seuil effectif avec marge d'exemption
+    if inscription.exemption_40:
+        seuil_effectif = min(seuil + inscription.exemption_margin, 100)
+    else:
+        seuil_effectif = seuil
+
     stats = calculer_absence_stats(inscription)
     taux = stats["taux"]
-    is_at_risk = taux >= seuil
-    is_blocked = is_at_risk and not inscription.exemption_40
+
+    is_at_risk = taux >= seuil  # dépasse le seuil normal
+    is_blocked = taux >= seuil_effectif  # dépasse le seuil effectif (bloqué)
+    is_under_exemption = inscription.exemption_40 and is_at_risk and not is_blocked
 
     return {
         "is_at_risk": is_at_risk,
         "is_blocked": is_blocked,
+        "is_under_exemption": is_under_exemption,  # exempté, entre seuil et seuil+marge
         "taux": round(taux, 1),
         "seuil": seuil,
+        "seuil_effectif": seuil_effectif,
         "total_absence": stats["total_absence"],
         "total_periodes": stats["total_periodes"],
     }
@@ -305,7 +509,8 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
         )
         total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         taux = (total_abs / cours.nombre_total_periodes) * 100
-        if taux >= seuil and not ins.exemption_40:
+        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        if taux >= seuil_effectif:
             at_risk_count += 1
 
     return at_risk_count, absence_sums
@@ -511,18 +716,17 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
             trend = "stable"
 
         # Already blocked — skip prediction
-        if current_rate >= seuil and not ins.exemption_40:
+        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        if current_rate >= seuil_effectif:
             risk_level = RISK_HIGH
-        elif ins.exemption_40:
-            risk_level = RISK_NONE
         # Classification
-        elif projected_rate >= seuil or current_rate >= seuil * 0.75:
+        elif projected_rate >= seuil_effectif or current_rate >= seuil_effectif * 0.75:
             risk_level = RISK_HIGH
-        elif projected_rate >= seuil * 0.75 or (
+        elif projected_rate >= seuil_effectif * 0.75 or (
             course_avg > 0 and recent_rate > course_avg * 2
         ):
             risk_level = RISK_MEDIUM
-        elif projected_rate >= seuil * 0.50 and (
+        elif projected_rate >= seuil_effectif * 0.50 and (
             course_avg > 0 and recent_rate > course_avg
         ):
             risk_level = RISK_LOW

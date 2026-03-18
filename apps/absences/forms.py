@@ -50,12 +50,11 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
 
     type_absence = forms.ChoiceField(
         choices=[
-            (Absence.TypeAbsence.SEANCE, "Séance complète"),
-            (Absence.TypeAbsence.HEURE, "Retard / Partiel"),
-            (Absence.TypeAbsence.JOURNEE, "Journée complète"),
+            (Absence.TypeAbsence.ABSENT, "Absent"),
+            (Absence.TypeAbsence.PARTIEL, "Absence partielle"),
         ],
         label="Type d'absence",
-        initial=Absence.TypeAbsence.SEANCE,
+        initial=Absence.TypeAbsence.ABSENT,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
@@ -66,7 +65,7 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         widget=forms.NumberInput(
             attrs={"class": "form-control", "step": "0.5", "min": "0.01"}
         ),
-        help_text="Durée en heures (requis si type = Retard/Partiel)",
+        help_text="Durée en heures (requis si type = Absence partielle)",
     )
 
     commentaire = forms.CharField(
@@ -79,11 +78,11 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
 
     document = forms.FileField(
         label="Document justificatif",
-        required=True,
+        required=False,
         widget=forms.FileInput(
             attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}
         ),
-        help_text="Document obligatoire (PDF, JPG, PNG) — max 5 Mo",
+        help_text="Optionnel (PDF, JPG, PNG — max 5 Mo). Si fourni, l'absence sera marquée comme justifiée.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -107,8 +106,8 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         heure_debut = cleaned_data.get("heure_debut")
         heure_fin = cleaned_data.get("heure_fin")
 
-        # Si type = HEURE, la durée est requise
-        if type_absence == Absence.TypeAbsence.HEURE and (not duree_absence or duree_absence <= 0):
+        # Si type = PARTIEL, la durée est requise
+        if type_absence == Absence.TypeAbsence.PARTIEL and (not duree_absence or duree_absence <= 0):
             raise forms.ValidationError(
                 {"duree_absence": "La durée est requise pour une absence partielle."}
             )

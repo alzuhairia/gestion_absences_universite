@@ -10,7 +10,8 @@ from apps.dashboard.decorators import secretary_required
 
 from .models import Absence, Justification
 
-_VALID_TYPES = set(Absence.TypeAbsence.values)
+# Only allow current (non-legacy) types for new edits
+_VALID_TYPES = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
 _VALID_STATUTS = set(Absence.Statut.values)
 
 
