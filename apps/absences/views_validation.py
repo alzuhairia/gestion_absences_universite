@@ -287,22 +287,23 @@ def process_justification(request, pk):
 @require_http_methods(["GET", "POST"])
 def create_justified_absence(request):
     """
-    Vue pour que le secretariat encode directement une absence justifiee.
+    Vue pour que le secretariat encode une absence (justifiee ou non).
 
     IMPORTANT POUR LA SOUTENANCE :
-    Cette fonction permet au secretariat d'encoder directement une absence justifiee,
-    sans passer par le processus normal de soumission de justificatif par l'etudiant.
+    Cette fonction permet au secretariat d'encoder une absence.
+    Si un document justificatif est fourni, l'absence est directement justifiee.
+    Sinon, elle est enregistree comme non justifiee.
 
     Cas d'usage :
-    - Un etudiant envoie un email au secretariat avec un justificatif
-    - Le secretariat encode directement l'absence comme justifiee
-    - L'absence est officielle et prioritaire (le professeur ne peut pas la modifier)
+    - Un etudiant envoie un email au secretariat avec un justificatif → absence justifiee
+    - Le secretariat constate une absence sans justificatif → absence non justifiee
+    - L'absence encodee par le secretariat est officielle
 
     Logique metier :
     1. Selection de l'etudiant, de la date et des cours concernes
     2. Possibilite d'encoder pour plusieurs cours le meme jour
     3. Creation automatique de la seance si elle n'existe pas
-    4. Creation de l'absence avec statut JUSTIFIEE
+    4. Statut JUSTIFIEE si document fourni, NON_JUSTIFIEE sinon
     5. Creation de la justification associee (si document fourni)
     6. Tracabilite complete (journal d'audit)
 
@@ -403,17 +404,25 @@ def create_justified_absence(request):
                             f"Elle a ete ajustee automatiquement a {seance_heure_fin.strftime('%H:%M')}.",
                         )
 
-                    # Creer ou recuperer la seance
-                    seance, _ = Seance.objects.get_or_create(
-                        date_seance=date_absence,
-                        heure_debut=seance_heure_debut,
-                        heure_fin=seance_heure_fin,
-                        id_cours=cours,
-                        defaults={"id_annee": annee_active},
-                    )
+                    # Creer ou recuperer la seance (unique par cours + date)
+                    # .get() crashe si doublon (fail fast)
+                    try:
+                        seance = Seance.objects.get(
+                            date_seance=date_absence, id_cours=cours
+                        )
+                    except Seance.DoesNotExist:
+                        seance = Seance.objects.create(
+                            date_seance=date_absence,
+                            heure_debut=seance_heure_debut,
+                            heure_fin=seance_heure_fin,
+                            id_cours=cours,
+                            id_annee=annee_active,
+                        )
 
                     # Calculer la duree si necessaire
-                    if type_absence == Absence.TypeAbsence.SEANCE:
+                    from decimal import Decimal, ROUND_HALF_UP
+
+                    if type_absence == Absence.TypeAbsence.ABSENT:
                         # Calculer la duree de la seance
                         from datetime import datetime, timedelta
 
@@ -422,20 +431,30 @@ def create_justified_absence(request):
                         fin = datetime.combine(date_ref, seance_heure_fin)
                         if fin < debut:
                             fin += timedelta(days=1)
-                        duree = (fin - debut).total_seconds() / 3600.0
-                    elif type_absence == Absence.TypeAbsence.HEURE:
-                        duree = duree_absence if duree_absence > 0 else 1.0
-                    else:  # JOURNEE
-                        duree = 8.0
+                        raw = (fin - debut).total_seconds() / 3600.0
+                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    elif type_absence == Absence.TypeAbsence.PARTIEL:
+                        raw = duree_absence if duree_absence and duree_absence > 0 else 1.0
+                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    else:
+                        # Legacy fallback
+                        raw = duree_absence if duree_absence and duree_absence > 0 else 2.0
+                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-                    # Creer ou mettre a jour l'absence (justifiee directement)
+                    # Statut selon la présence d'un document justificatif
+                    statut_absence = (
+                        Absence.Statut.JUSTIFIEE if document_bytes
+                        else Absence.Statut.NON_JUSTIFIEE
+                    )
+
+                    # Creer ou mettre a jour l'absence
                     absence, created = Absence.objects.update_or_create(
                         id_inscription=inscription,
                         id_seance=seance,
                         defaults={
                             "type_absence": type_absence,
                             "duree_absence": duree,
-                            "statut": Absence.Statut.JUSTIFIEE,  # Directement justifiee
+                            "statut": statut_absence,
                             "encodee_par": request.user,
                         },
                     )
@@ -464,9 +483,10 @@ def create_justified_absence(request):
                     )
 
                     # Audit logging
+                    statut_label = "justifiée" if document_bytes else "non justifiée"
                     log_action(
                         request.user,
-                        f"Secretaire a encode une absence justifiee pour {etudiant.get_full_name()} - {cours.code_cours} le {date_absence}",
+                        f"Secrétaire a encodé une absence {statut_label} pour {etudiant.get_full_name()} - {cours.code_cours} le {date_absence}",
                         request,
                         niveau="INFO",
                         objet_type="ABSENCE",
@@ -475,9 +495,10 @@ def create_justified_absence(request):
 
             if absences_created:
                 cours_list_str = ", ".join(a["cours"] for a in absences_created)
+                statut_msg = "justifiée(s)" if document_bytes else "non justifiée(s)"
                 messages.success(
                     request,
-                    f"Absence(s) justifiée(s) encodée(s) pour {etudiant.get_full_name()} "
+                    f"Absence(s) {statut_msg} encodée(s) pour {etudiant.get_full_name()} "
                     f"le {date_absence} — cours : {cours_list_str}.",
                 )
                 return redirect("absences:validation_list")

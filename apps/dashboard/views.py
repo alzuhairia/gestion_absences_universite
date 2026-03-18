@@ -109,7 +109,8 @@ def secretary_dashboard(request):
 
             # CORRECTION BUG CRITIQUE #4d — seuil configuré par cours
             seuil = cours.get_seuil_absence()
-            if rate >= seuil:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 at_risk_list.append(
                     {
                         "inscription": ins,
@@ -117,12 +118,11 @@ def secretary_dashboard(request):
                         "cours": cours,
                         "total_abs": total_abs,
                         "rate": round(rate, 1),
-                        "is_blocked": not ins.exemption_40,
+                        "is_blocked": rate >= seuil_effectif,
                         "exemption": ins.exemption_40,
                     }
                 )
-                if not ins.exemption_40:
-                    global_at_risk_count += 1
+                global_at_risk_count += 1
 
     at_risk_blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
     at_risk_exempted_count = len(at_risk_list) - at_risk_blocked_count
@@ -294,7 +294,10 @@ def secretary_rules_40(request):
                 if cours.seuil_absence is not None
                 else system_threshold
             )
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
             if rate >= seuil:
+                is_blocked = rate >= seuil_effectif
+                is_under_exemption = ins.exemption_40 and not is_blocked
                 at_risk_list.append(
                     {
                         "inscription": ins,
@@ -302,13 +305,17 @@ def secretary_rules_40(request):
                         "cours": cours,
                         "total_abs": total_abs,
                         "rate": round(rate, 1),
-                        "is_blocked": not ins.exemption_40,
+                        "seuil": seuil,
+                        "seuil_effectif": seuil_effectif,
+                        "is_blocked": is_blocked,
+                        "is_under_exemption": is_under_exemption,
                         "exemption": ins.exemption_40,
+                        "exemption_margin": ins.exemption_margin,
                     }
                 )
 
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
-    exempted_count = len(at_risk_list) - blocked_count
+    exempted_count = sum(1 for item in at_risk_list if item["is_under_exemption"])
 
     paginator = Paginator(at_risk_list, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -370,7 +377,8 @@ def secretary_exports(request):
             rate = (total_abs / cours.nombre_total_periodes) * 100
             # CORRECTION BUG CRITIQUE #4f — seuil configuré par cours
             seuil = ins.id_cours.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 at_risk_count += 1
 
     return render(

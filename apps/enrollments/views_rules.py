@@ -58,7 +58,11 @@ def rules_management(request):
                 else system_threshold
             )
 
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+
             if rate >= seuil:
+                is_blocked = rate >= seuil_effectif
+                is_under_exemption = ins.exemption_40 and not is_blocked
                 at_risk_list.append(
                     {
                         "inscription": ins,
@@ -66,14 +70,18 @@ def rules_management(request):
                         "cours": cours,
                         "total_abs": total_abs,
                         "rate": round(rate, 1),
-                        "is_blocked": not ins.exemption_40,
+                        "seuil": seuil,
+                        "seuil_effectif": seuil_effectif,
+                        "is_blocked": is_blocked,
+                        "is_under_exemption": is_under_exemption,
                         "exemption": ins.exemption_40,
+                        "exemption_margin": ins.exemption_margin,
                     }
                 )
 
     # Calculate statistics
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
-    exempted_count = len(at_risk_list) - blocked_count
+    exempted_count = sum(1 for item in at_risk_list if item["is_under_exemption"])
 
     # Pagination
     paginator = Paginator(at_risk_list, 25)
@@ -112,6 +120,13 @@ def toggle_exemption(request, pk):
             messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
             return redirect("dashboard:secretary_rules_40")
 
+        # Parse margin (default 10, clamped 1-100)
+        try:
+            margin = int(request.POST.get("exemption_margin", 10))
+        except (ValueError, TypeError):
+            margin = 10
+        margin = max(1, min(margin, 100))
+
         with transaction.atomic():
             # select_related prefetches FK chains used in log_action/messages below
             inscription = (
@@ -122,6 +137,7 @@ def toggle_exemption(request, pk):
             )
             inscription.exemption_40 = True
             inscription.motif_exemption = motif
+            inscription.exemption_margin = margin
             inscription.save()
             recalculer_eligibilite(inscription)
             log_action(

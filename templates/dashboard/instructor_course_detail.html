@@ -307,12 +307,16 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if item.is_at_risk %}
+                                {% if item.is_blocked %}
+                                    <span class="badge bg-danger">BLOQUÉ</span>
                                     {% if item.is_exempted %}
-                                        <span class="badge bg-success">Exempté</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">BLOQUÉ</span>
+                                    <br><small class="text-danger">malgré exemption</small>
                                     {% endif %}
+                                {% elif item.is_under_exemption %}
+                                    <span class="badge bg-info">SOUS EXEMPTION</span>
+                                    <br><small class="text-muted">tolérance {{ item.seuil_effectif }}%</small>
+                                {% elif item.is_at_risk %}
+                                    <span class="badge bg-warning text-dark">À RISQUE</span>
                                 {% else %}
                                     <span class="badge bg-success">OK</span>
                                 {% endif %}
@@ -433,8 +437,8 @@
 
             <div class="alert alert-info">
                 <i class="fas fa-info-circle me-2"></i>
-                <strong>Note :</strong> Ces statistiques sont calculées uniquement à partir des absences non justifiées. 
-                Les absences justifiées ne sont pas comptabilisées dans le calcul du taux d'absence.
+                <strong>Note :</strong> Les taux sont calculés sur le programme complet du cours ({{ course.nombre_total_periodes }}h).
+                Seules les absences non justifiées sont comptabilisées.
             </div>
         </div>
     </div>

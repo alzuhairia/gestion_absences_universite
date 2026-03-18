@@ -44,15 +44,14 @@
                             <span class="badge bg-{{ item.status_color }} px-3 py-2" style="font-size: 0.9rem;">
                                 {% if item.status == "BLOQUÉ" %}
                                     <i class="fas fa-ban me-1"></i>BLOQUÉ
+                                {% elif item.status == "SOUS EXEMPTION" %}
+                                    <i class="fas fa-shield-alt me-1"></i>SOUS EXEMPTION
                                 {% elif item.status == "À RISQUE" %}
                                     <i class="fas fa-exclamation-triangle me-1"></i>À RISQUE
                                 {% else %}
                                     <i class="fas fa-check-circle me-1"></i>OK
                                 {% endif %}
                             </span>
-                            {% if item.is_exempted %}
-                            <span class="badge bg-success ms-2">Exempté</span>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -75,27 +74,37 @@
                                 <div class="h4 {% if item.absence_rate >= 40 %}text-danger{% elif item.absence_rate >= 30 %}text-warning{% else %}text-success{% endif %} mb-0">
                                     {{ item.absence_rate }}%
                                 </div>
-                                <small class="text-muted">Taux d'absence</small>
+                                <small class="text-muted" title="Calculé sur le programme complet ({{ item.total_periods }}h)">Taux d'absence</small>
                             </div>
                         </div>
                         <div class="col-md-3 text-center">
                             <div class="border rounded p-3">
                                 <div class="h4 text-secondary mb-0">{{ item.total_periods }}h</div>
-                                <small class="text-muted">Total périodes</small>
+                                <small class="text-muted">Programme total</small>
                             </div>
                         </div>
                     </div>
                     
-                    {% if item.status == "BLOQUÉ" and not item.is_exempted %}
+                    {% if item.status == "BLOQUÉ" %}
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Attention :</strong> Vous avez dépassé le seuil de 40% d'absences non justifiées pour ce cours. 
-                        Vous ne pouvez pas passer les examens. Contactez le secrétariat pour toute démarche.
+                        {% if item.is_exempted %}
+                        <strong>Bloqué malgré l'exemption :</strong> Votre taux d'absence dépasse le seuil de tolérance ({{ item.seuil_effectif }}%).
+                        {% else %}
+                        <strong>Attention :</strong> Vous avez dépassé le seuil d'absences non justifiées pour ce cours.
+                        {% endif %}
+                        Vous ne pouvez pas passer les examens. Contactez le secrétariat.
+                    </div>
+                    {% elif item.status == "SOUS EXEMPTION" %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>Sous exemption :</strong> Votre taux dépasse le seuil normal mais vous bénéficiez d'une tolérance jusqu'à {{ item.seuil_effectif }}%.
+                        Restez vigilant.
                     </div>
                     {% elif item.status == "À RISQUE" %}
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong>Vigilance :</strong> Vous approchez du seuil de 40% d'absences. Soyez attentif à votre assiduité.
+                        <strong>Vigilance :</strong> Vous approchez du seuil d'absences. Soyez attentif à votre assiduité.
                     </div>
                     {% endif %}
                     

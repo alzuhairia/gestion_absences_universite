@@ -105,7 +105,8 @@ class Command(BaseCommand):
             seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
             total_abs = float(abs_sums.get(ins.id_inscription, 0) or 0)
             taux = (total_abs / cours.nombre_total_periodes) * 100
-            if taux >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if taux >= seuil_effectif:
                 course_risk[cours.nom_cours] = course_risk.get(cours.nom_cours, 0) + 1
 
         courses_at_risk = [

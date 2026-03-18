@@ -149,11 +149,7 @@
                                         <span class="badge bg-danger">{{ item.rate }}%</span>
                                     </td>
                                     <td>
-                                        {% if item.is_exempted %}
-                                            <span class="badge bg-success">Exempté</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">BLOQUÉ</span>
-                                        {% endif %}
+                                        <span class="badge bg-{{ item.status_color }}">{{ item.status_label }}</span>
                                     </td>
                                     <td>
                                         <a href="{% url 'dashboard:instructor_course_detail' item.cours.id_cours %}" 

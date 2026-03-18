@@ -136,7 +136,10 @@
                     <hr>
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        La ligne rouge indique le seuil critique de {{ system_threshold }}%. Au-delà de ce seuil, l'accès à l'examen est bloqué.
+                        Couleurs : <span style="color:#1cc88a">&#9632;</span> &lt; 50% du seuil,
+                        <span style="color:#f6c23e">&#9632;</span> 50-100% du seuil,
+                        <span style="color:#dc3545">&#9632;</span> &ge; seuil (bloqué).
+                        Le seuil est propre à chaque cours.
                     </small>
                 </div>
             </div>
@@ -177,6 +180,7 @@
 <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {{ course_labels_json|json_script:"course-labels-data" }}
 {{ absence_percentages_json|json_script:"absence-percentages-data" }}
+{{ course_thresholds_json|json_script:"course-thresholds-data" }}
 {{ trend_labels_json|json_script:"trend-labels-data" }}
 {{ trend_data_json|json_script:"trend-data-data" }}
 {{ system_threshold_json|json_script:"system-threshold-data" }}
@@ -185,9 +189,22 @@
 
     const courseLabels = JSON.parse(document.getElementById('course-labels-data').textContent);
     const absencePercentages = JSON.parse(document.getElementById('absence-percentages-data').textContent);
+    const courseThresholds = JSON.parse(document.getElementById('course-thresholds-data').textContent);
     const trendLabels = JSON.parse(document.getElementById('trend-labels-data').textContent);
     const trendData = JSON.parse(document.getElementById('trend-data-data').textContent);
     const systemThreshold = JSON.parse(document.getElementById('system-threshold-data').textContent);
+
+    // Couleur dynamique par cours selon son propre seuil
+    function getBarColor(value, seuil) {
+        if (value >= seuil) return '#dc3545';       // rouge — bloqué
+        if (value >= seuil * 0.5) return '#f6c23e';  // orange — attention
+        return '#1cc88a';                             // vert — OK
+    }
+    function getBarHoverColor(value, seuil) {
+        if (value >= seuil) return '#c82333';
+        if (value >= seuil * 0.5) return '#dda520';
+        return '#17a673';
+    }
 
     // --- Graphique en barres : Taux d'absence par cours ---
     const ctxBar = document.getElementById("absenceBarChart");
@@ -199,16 +216,16 @@
                 datasets: [{
                     label: "Taux d'absence (%)",
                     backgroundColor: (context) => {
-                        const value = context.raw;
-                        return value >= systemThreshold ? '#dc3545' : '#1cc88a';
+                        const i = context.dataIndex;
+                        return getBarColor(context.raw, courseThresholds[i]);
                     },
                     hoverBackgroundColor: (context) => {
-                        const value = context.raw;
-                        return value >= systemThreshold ? '#c82333' : '#17a673';
+                        const i = context.dataIndex;
+                        return getBarHoverColor(context.raw, courseThresholds[i]);
                     },
                     borderColor: (context) => {
-                        const value = context.raw;
-                        return value >= systemThreshold ? '#dc3545' : '#1cc88a';
+                        const i = context.dataIndex;
+                        return getBarColor(context.raw, courseThresholds[i]);
                     },
                     data: absencePercentages,
                     borderRadius: 5,
@@ -225,18 +242,6 @@
                             callback: function(value) {
                                 return value + '%';
                             }
-                        },
-                        grid: {
-                            color: (context) => {
-                                if (context.tick.value === systemThreshold) {
-                                    return 'rgba(220, 53, 69, 0.8)';
-                                }
-                                return 'rgba(0, 0, 0, 0.1)';
-                            },
-                            lineWidth: (context) => {
-                                if (context.tick.value === systemThreshold) return 2;
-                                return 1;
-                            }
                         }
                     }
                 },
@@ -247,7 +252,8 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return "Taux d'absence : " + context.parsed.y + '%';
+                                const seuil = courseThresholds[context.dataIndex];
+                                return "Taux : " + context.parsed.y + '% (seuil : ' + seuil + '%)';
                             }
                         }
                     }

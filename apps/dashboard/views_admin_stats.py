@@ -107,7 +107,8 @@ def admin_dashboard_main(request):
                 if cours.seuil_absence is not None
                 else system_threshold
             )
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 at_risk_count += 1
 
     # KPI 6: Nombre d'actions critiques (journaux d'audit des 7 derniers jours)

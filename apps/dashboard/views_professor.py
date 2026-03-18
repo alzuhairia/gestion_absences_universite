@@ -97,9 +97,11 @@ def instructor_dashboard(request):
 
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
-            # CORRECTION BUG CRITIQUE #4h — seuil configuré par cours
             seuil = cours.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+
+            if rate >= seuil_effectif:
+                # Bloqué (même si exempté, le seuil effectif est dépassé)
                 at_risk_count += 1
                 at_risk_list.append(
                     {
@@ -108,7 +110,23 @@ def instructor_dashboard(request):
                         "total_abs": total_abs,
                         "rate": round(rate, 1),
                         "inscription_id": ins.id_inscription,
-                        "is_exempted": ins.exemption_40,  # For display only
+                        "is_exempted": ins.exemption_40,
+                        "status_label": "BLOQUÉ",
+                        "status_color": "danger",
+                    }
+                )
+            elif ins.exemption_40 and rate >= seuil:
+                # Sous exemption (entre seuil normal et seuil effectif)
+                at_risk_list.append(
+                    {
+                        "etudiant": ins.id_etudiant,
+                        "cours": cours,
+                        "total_abs": total_abs,
+                        "rate": round(rate, 1),
+                        "inscription_id": ins.id_inscription,
+                        "is_exempted": True,
+                        "status_label": "SOUS EXEMPTION",
+                        "status_color": "info",
                     }
                 )
 
@@ -186,8 +204,10 @@ def instructor_course_detail(request, course_id):
             if course.nombre_total_periodes > 0
             else 0.0
         )
-        # CORRECTION BUG CRITIQUE #4i — seuil configuré par cours
+        seuil_effectif = min(course_threshold + ins.exemption_margin, 100) if ins.exemption_40 else course_threshold
         is_at_risk = rate >= course_threshold
+        is_blocked = rate >= seuil_effectif
+        is_under_exemption = ins.exemption_40 and is_at_risk and not is_blocked
 
         students_data.append(
             {
@@ -196,7 +216,10 @@ def instructor_course_detail(request, course_id):
                 "total_abs": total_abs,
                 "rate": round(rate, 1),
                 "is_at_risk": is_at_risk,
+                "is_blocked": is_blocked,
                 "is_exempted": ins.exemption_40,
+                "is_under_exemption": is_under_exemption,
+                "seuil_effectif": seuil_effectif,
             }
         )
 
@@ -359,9 +382,9 @@ def instructor_courses(request):
                 if course.nombre_total_periodes > 0
                 else 0.0
             )
-            # CORRECTION BUG CRITIQUE #4j — seuil configuré par cours
             seuil = course.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 at_risk += 1
 
         courses_data.append(
@@ -500,9 +523,9 @@ def instructor_statistics(request):
             )
             rates.append(rate)
             course_absences += absence_counts.get(ins.id_inscription, 0) or 0
-            # CORRECTION BUG CRITIQUE #4k — seuil configuré par cours
             seuil = course.get_seuil_absence()
-            if rate >= seuil and not ins.exemption_40:
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            if rate >= seuil_effectif:
                 course_at_risk += 1
 
         if rates:
