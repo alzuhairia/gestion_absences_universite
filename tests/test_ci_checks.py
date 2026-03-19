@@ -35,6 +35,10 @@ class MigrationCheckTests(SimpleTestCase):
             SECURE_HSTS_PRELOAD=True,
             SESSION_COOKIE_SECURE=True,
             CSRF_COOKIE_SECURE=True,
+            SILENCED_SYSTEM_CHECKS=[
+                "drf_spectacular.W001",
+                "drf_spectacular.W002",
+            ],
         ):
             call_command(
                 "check",

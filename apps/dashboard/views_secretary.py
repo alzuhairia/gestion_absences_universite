@@ -810,10 +810,19 @@ def secretary_audit_logs(request):
         logs = logs.filter(id_utilisateur__role=role_filter)
     if action_filter:
         logs = logs.filter(action__icontains=action_filter)
+    from datetime import date as date_type
     if date_from:
-        logs = logs.filter(date_action__gte=date_from)
+        try:
+            date_type.fromisoformat(date_from)
+            logs = logs.filter(date_action__gte=date_from)
+        except ValueError:
+            pass
     if date_to:
-        logs = logs.filter(date_action__date__lte=date_to)
+        try:
+            date_type.fromisoformat(date_to)
+            logs = logs.filter(date_action__date__lte=date_to)
+        except ValueError:
+            pass
     if user_filter:
         logs = logs.filter(
             Q(id_utilisateur__nom__icontains=user_filter)

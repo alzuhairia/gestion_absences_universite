@@ -1,6 +1,7 @@
 import hashlib
 
 from django.conf import settings
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 
@@ -28,6 +29,7 @@ class Notification(models.Model):
         db_column="message",
         verbose_name="Message",
         help_text="Contenu de la notification",
+        validators=[MaxLengthValidator(5000)],
     )
     type = models.CharField(
         max_length=20,

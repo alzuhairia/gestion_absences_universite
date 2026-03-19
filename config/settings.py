@@ -473,7 +473,7 @@ CONTENT_SECURITY_POLICY = {
             "cdnjs.cloudflare.com",
         ],
         "font-src": ["'self'", "cdnjs.cloudflare.com"],
-        "img-src": ["'self'", "data:"],
+        "img-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'"],
         "object-src": ["'none'"],
         "base-uri": ["'self'"],

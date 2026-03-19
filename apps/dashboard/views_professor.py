@@ -172,11 +172,11 @@ def instructor_course_detail(request, course_id):
     if academic_year:
         inscriptions = Inscription.objects.filter(
             id_cours=course, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_etudiant")
+        ).select_related("id_etudiant", "id_cours")
     else:
         inscriptions = Inscription.objects.filter(
             id_cours=course, status=Inscription.Status.EN_COURS
-        ).select_related("id_etudiant")
+        ).select_related("id_etudiant", "id_cours")
 
     # Evaluate once: extract IDs from Python objects instead of an extra query.
     inscriptions = list(inscriptions)

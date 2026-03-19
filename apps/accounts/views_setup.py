@@ -7,6 +7,7 @@ page returns 404 permanently.
 """
 
 from django import forms
+from django.contrib.auth.password_validation import validate_password
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
@@ -67,6 +68,8 @@ class InitialAdminForm(forms.Form):
         password_confirm = cleaned_data.get("password_confirm")
         if password and password_confirm and password != password_confirm:
             raise forms.ValidationError("Les mots de passe ne correspondent pas.")
+        if password:
+            validate_password(password)
         return cleaned_data
 
 

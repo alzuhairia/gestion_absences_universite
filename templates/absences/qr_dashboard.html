@@ -210,7 +210,13 @@
         })
         .then(function(data) {
             /* Update QR image */
-            qrContainer.innerHTML = '<img src="' + data.qr_data_uri + '" alt="QR Code" class="mb-3" id="qr-img">';
+            qrContainer.textContent = '';
+            var img = document.createElement('img');
+            img.src = data.qr_data_uri;
+            img.alt = 'QR Code';
+            img.className = 'mb-3';
+            img.id = 'qr-img';
+            qrContainer.appendChild(img);
 
             /* Update scan URL */
             scanUrlEl.textContent = data.scan_url;

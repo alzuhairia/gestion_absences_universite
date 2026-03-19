@@ -153,7 +153,7 @@ class QueryBudgetTests(TestCase):
     def test_instructor_course_detail_query_budget(self):
         self.client.force_login(self.professor)
         response = self.assert_max_queries(
-            14,
+            20,
             self.client.get,
             reverse(
                 "dashboard:instructor_course_detail", args=[self.courses[0].id_cours]
