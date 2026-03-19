@@ -45,6 +45,14 @@
     }
     .btn-confirm:active { transform: translateY(0); }
     .btn-confirm:disabled { opacity: 0.65; transform: none; box-shadow: none; }
+    .gps-loader { display: inline-block; }
+    .gps-blocked {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
@@ -75,58 +83,109 @@
                 <span class="detail-value">{{ course.professeur.get_full_name }}</span>
             </div>
 
-            {% if has_gps %}
-            <div id="gps-status" class="text-center small mt-3 mb-0">
-                <span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Acquisition de votre position...</span>
+            {% if gps_required %}
+            <div class="detail-row">
+                <span class="detail-label">GPS</span>
+                <span class="detail-value text-warning"><i class="fas fa-map-marker-alt me-1"></i>Obligatoire</span>
             </div>
             {% endif %}
+
+            <div id="gps-status" class="text-center small mt-3 mb-0">
+                {% if gps_required %}
+                <span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Acquisition de votre position...</span>
+                {% endif %}
+            </div>
+
+            <!-- GPS blocked message (hidden by default) -->
+            <div id="gps-blocked" class="gps-blocked mt-3 d-none">
+                <i class="fas fa-exclamation-triangle text-danger fa-2x mb-2 d-block"></i>
+                <strong id="gps-blocked-title" class="text-danger">Localisation obligatoire</strong>
+                <p id="gps-blocked-msg" class="small text-muted mt-1 mb-0"></p>
+            </div>
 
             <form method="POST" class="mt-3" id="scan-form">
                 {% csrf_token %}
                 <input type="hidden" name="latitude" id="stu-lat">
                 <input type="hidden" name="longitude" id="stu-lng">
+                <input type="hidden" name="gps_status" id="gps-status-field" value="">
                 <button type="submit" class="btn btn-confirm" id="confirm-btn"
-                        {% if has_gps %}disabled{% endif %}>
+                        {% if gps_required %}disabled{% endif %}>
                     <i class="fas fa-check-circle me-2"></i>Je suis présent(e)
                 </button>
             </form>
 
             <p class="text-muted text-center small mt-3 mb-0">
                 <i class="fas fa-shield-alt me-1"></i>
-                Votre adresse IP{% if has_gps %} et position GPS{% endif %} seront enregistrées pour des raisons de sécurité.
+                Votre adresse IP{% if gps_required %} et position GPS{% endif %} seront enregistrées pour des raisons de sécurité.
             </p>
         </div>
     </div>
 </div>
 
-{% if has_gps %}
 <script nonce="{{ request.csp_nonce }}">
 (function() {
+    var gpsRequired = {{ gps_required|yesno:"true,false" }};
     var gpsStatus = document.getElementById('gps-status');
+    var gpsBlocked = document.getElementById('gps-blocked');
+    var gpsBlockedTitle = document.getElementById('gps-blocked-title');
+    var gpsBlockedMsg = document.getElementById('gps-blocked-msg');
     var latInput = document.getElementById('stu-lat');
     var lngInput = document.getElementById('stu-lng');
+    var gpsStatusField = document.getElementById('gps-status-field');
     var confirmBtn = document.getElementById('confirm-btn');
 
+    if (!gpsRequired) {
+        /* Mode 1: GPS not required — submit directly */
+        gpsStatusField.value = 'not_required';
+        return;
+    }
+
+    /* Mode 2: GPS required */
     if (!navigator.geolocation) {
-        gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Géolocalisation non supportée</span>';
-        confirmBtn.disabled = false;
+        /* GPS not supported by browser */
+        gpsStatus.innerHTML = '';
+        gpsBlocked.classList.remove('d-none');
+        gpsBlockedTitle.textContent = 'GPS non disponible';
+        gpsBlockedMsg.textContent = 'Votre navigateur ne supporte pas la géolocalisation. Contactez le professeur.';
+        gpsStatusField.value = 'unavailable';
+        confirmBtn.disabled = true;
         return;
     }
 
     navigator.geolocation.getCurrentPosition(
         function(pos) {
+            /* CAS A: GPS accepted */
             latInput.value = pos.coords.latitude;
             lngInput.value = pos.coords.longitude;
+            gpsStatusField.value = 'accepted';
             gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position acquise</span>';
             confirmBtn.disabled = false;
         },
         function(err) {
-            gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>GPS refusé — scan autorisé sans vérification</span>';
-            confirmBtn.disabled = false;
+            gpsStatus.innerHTML = '';
+            gpsBlocked.classList.remove('d-none');
+            gpsStatusField.value = 'refused';
+
+            if (err.code === 1) {
+                /* CAS C: GPS refused by student */
+                gpsBlockedTitle.textContent = 'Localisation obligatoire';
+                gpsBlockedMsg.textContent = 'Vous avez refusé l\'accès à votre position. La localisation est obligatoire pour cette séance. Autorisez le GPS dans les paramètres de votre navigateur et rechargez la page.';
+            } else if (err.code === 2) {
+                /* CAS D: Position unavailable */
+                gpsBlockedTitle.textContent = 'Position indisponible';
+                gpsBlockedMsg.textContent = 'Impossible d\'obtenir votre position (erreur technique). Réessayez ou contactez le professeur.';
+                gpsStatusField.value = 'unavailable';
+            } else {
+                /* CAS D: Timeout */
+                gpsBlockedTitle.textContent = 'Délai dépassé';
+                gpsBlockedMsg.textContent = 'L\'acquisition GPS a pris trop de temps. Réessayez ou contactez le professeur.';
+                gpsStatusField.value = 'unavailable';
+            }
+            /* Button stays DISABLED — no bypass possible */
+            confirmBtn.disabled = true;
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 })();
 </script>
-{% endif %}
 {% endblock %}

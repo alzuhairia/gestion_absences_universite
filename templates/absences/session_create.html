@@ -122,22 +122,26 @@
                     <div class="card bg-light border-0 p-3 mt-2">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label" for="qr_duration">Durée du QR</label>
-                                <select class="form-select" id="qr_duration" name="qr_duration">
-                                    <option value="5">5 minutes</option>
-                                    <option value="10">10 minutes</option>
-                                    <option value="15" selected>15 minutes</option>
-                                    <option value="20">20 minutes</option>
-                                    <option value="30">30 minutes</option>
-                                    <option value="60">60 minutes</option>
-                                </select>
+                                <label class="form-label">Durée du QR</label>
+                                <p class="form-control-plaintext small text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>Configurée par l'admin (auto-refresh)
+                                </p>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Anti-fraude GPS</label>
+                                <label class="form-label">Vérification GPS</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="verify-location" name="verify_location">
+                                    <label class="form-check-label small" for="verify-location">
+                                        Position obligatoire pour les étudiants
+                                    </label>
+                                </div>
+                                <div id="gps-warning" class="small text-warning mt-1" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Sans GPS valide, la présence sera refusée.
+                                </div>
                                 <div class="form-check form-switch mt-2">
                                     <input class="form-check-input" type="checkbox" id="enable-gps" checked>
                                     <label class="form-check-label small" for="enable-gps">
-                                        Vérifier la position des étudiants
+                                        Capturer ma position (anti-fraude)
                                     </label>
                                 </div>
                                 <div id="gps-status" class="small mt-1"></div>
@@ -199,6 +203,14 @@
 
     cardManual.addEventListener('click', function() { selectMode('manual'); });
     cardQR.addEventListener('click', function() { selectMode('qr'); });
+
+    var verifyCheckbox = document.getElementById('verify-location');
+    var gpsWarning = document.getElementById('gps-warning');
+    if (verifyCheckbox) {
+        verifyCheckbox.addEventListener('change', function() {
+            gpsWarning.style.display = this.checked ? 'block' : 'none';
+        });
+    }
 
     /* GPS capture for QR mode */
     function captureGPS() {

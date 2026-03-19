@@ -42,29 +42,29 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="duration">Durée de validité du QR</label>
-                    <select class="form-select" id="duration" name="duration">
-                        <option value="5">5 minutes</option>
-                        <option value="10">10 minutes</option>
-                        <option value="15" selected>15 minutes</option>
-                        <option value="20">20 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="45">45 minutes</option>
-                        <option value="60">60 minutes</option>
-                    </select>
-                    <div class="form-text">Le QR expirera automatiquement après cette durée. Vous pourrez le rafraîchir.</div>
+                    <div class="alert alert-info py-2 small mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Le QR se régénère automatiquement. La durée de validité est configurée par l'administrateur dans les paramètres système.
+                    </div>
                 </div>
 
-                <!-- GPS anti-fraud -->
+                <!-- GPS verification -->
                 <div class="mb-4">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="enable-gps" checked>
-                        <label class="form-check-label" for="enable-gps">
-                            <i class="fas fa-map-marker-alt me-1"></i>Activer la vérification GPS anti-fraude
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="verify-location" name="verify_location">
+                        <label class="form-check-label" for="verify-location">
+                            <i class="fas fa-map-marker-alt me-1"></i>Vérifier la position des étudiants (obligatoire)
                         </label>
                     </div>
-                    <div class="form-text">
-                        Les scans éloignés de plus de 100 m seront signalés comme suspects.
+                    <div class="form-text text-warning" id="gps-warning" style="display:none;">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Les étudiants devront obligatoirement activer leur GPS. Sans GPS valide, la présence sera refusée.
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="enable-gps" checked>
+                        <label class="form-check-label small" for="enable-gps">
+                            Capturer ma position (anti-fraude supplémentaire)
+                        </label>
                     </div>
                     <div id="gps-status" class="small mt-2"></div>
                     <input type="hidden" name="latitude" id="prof-lat">
@@ -88,9 +88,15 @@
 <script nonce="{{ request.csp_nonce }}">
 (function() {
     var gpsCheckbox = document.getElementById('enable-gps');
+    var verifyCheckbox = document.getElementById('verify-location');
+    var gpsWarning = document.getElementById('gps-warning');
     var gpsStatus = document.getElementById('gps-status');
     var latInput = document.getElementById('prof-lat');
     var lngInput = document.getElementById('prof-lng');
+
+    verifyCheckbox.addEventListener('change', function() {
+        gpsWarning.style.display = this.checked ? 'block' : 'none';
+    });
 
     function captureGPS() {
         if (!gpsCheckbox.checked) {

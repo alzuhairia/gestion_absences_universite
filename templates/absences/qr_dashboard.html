@@ -23,6 +23,12 @@
         font-family: monospace;
         font-size: 0.85rem;
     }
+    .auto-refresh-bar {
+        background: linear-gradient(90deg, #1cc88a 0%, #17a673 100%);
+        height: 4px;
+        border-radius: 2px;
+        transition: width 0.5s linear;
+    }
 </style>
 {% endblock %}
 
@@ -44,22 +50,37 @@
                     {{ seance.heure_debut|time:"H:i" }} – {{ seance.heure_fin|time:"H:i" }}
                 </p>
 
-                {% if is_expired %}
-                <div class="alert alert-warning py-2 mb-3">
-                    <i class="fas fa-clock me-1"></i> QR expiré
+                {% if verify_location %}
+                <div class="badge bg-warning text-dark mb-2">
+                    <i class="fas fa-map-marker-alt me-1"></i>Vérification GPS obligatoire
                 </div>
-                {% else %}
-                <img src="{{ qr_data_uri }}" alt="QR Code" class="mb-3">
                 {% endif %}
+
+                <!-- QR Image -->
+                <div id="qr-image-container">
+                    {% if is_expired %}
+                    <div class="alert alert-warning py-2 mb-3">
+                        <i class="fas fa-clock me-1"></i> QR expiré — régénération...
+                    </div>
+                    {% else %}
+                    <img src="{{ qr_data_uri }}" alt="QR Code" class="mb-3" id="qr-img">
+                    {% endif %}
+                </div>
+
+                <!-- Auto-refresh progress bar -->
+                <div class="mb-2" style="height: 4px; background: #e9ecef; border-radius: 2px;">
+                    <div class="auto-refresh-bar" id="refresh-bar" style="width: 100%;"></div>
+                </div>
 
                 <!-- Countdown -->
                 <div class="mb-3">
                     <div class="countdown {% if is_expired %}expired{% else %}text-success{% endif %}"
                          id="countdown"
-                         data-expires="{{ qr_token.expires_at|date:'c' }}">
+                         data-expires="{{ qr_token.expires_at|date:'c' }}"
+                         data-duration="{{ qr_duration_seconds }}">
                         --:--
                     </div>
-                    <div class="small text-muted">Temps restant</div>
+                    <div class="small text-muted" id="countdown-label">Nouveau QR dans...</div>
                 </div>
 
                 <!-- Scan URL -->
@@ -72,11 +93,10 @@
 
                 <!-- Actions -->
                 <div class="d-flex gap-2 justify-content-center flex-wrap">
-                    <form method="POST" action="{% url 'absences:qr_refresh_token' qr_token.token %}">
+                    <form method="POST" action="{% url 'absences:qr_refresh_token' qr_token.token %}" id="refresh-form">
                         {% csrf_token %}
-                        <input type="hidden" name="duration" value="15">
                         <button type="submit" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-sync me-1"></i>Rafraîchir le QR
+                            <i class="fas fa-sync me-1"></i>Rafraîchir manuellement
                         </button>
                     </form>
 
@@ -91,7 +111,7 @@
                     <p class="mb-2 small">Les étudiants n'ayant pas scanné seront marqués absents. La séance sera verrouillée.</p>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="hide-finalize-btn">Annuler</button>
-                        <form method="POST" action="{% url 'absences:qr_finalize' qr_token.token %}">
+                        <form method="POST" action="{% url 'absences:qr_finalize' qr_token.token %}" id="finalize-form">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-success">
                                 <i class="fas fa-check me-1"></i>Confirmer
@@ -109,8 +129,10 @@
                     <h6 class="m-0 fw-bold">
                         <i class="fas fa-users me-2"></i>Suivi en temps réel
                         <span class="badge bg-primary ms-2">{{ scanned_count }}/{{ total_students }}</span>
-                        {% if has_gps %}
-                        <span class="badge bg-success ms-1" title="Vérification GPS activée"><i class="fas fa-map-marker-alt"></i></span>
+                        {% if verify_location %}
+                        <span class="badge bg-warning text-dark ms-1" title="Vérification GPS obligatoire"><i class="fas fa-map-marker-alt"></i></span>
+                        {% elif has_gps %}
+                        <span class="badge bg-success ms-1" title="GPS anti-fraude activé"><i class="fas fa-map-marker-alt"></i></span>
                         {% endif %}
                         {% if suspicious_count > 0 %}
                         <span class="badge bg-danger ms-1">{{ suspicious_count }} suspect(s)</span>
@@ -131,31 +153,103 @@
 
 <script nonce="{{ request.csp_nonce }}">
 (function() {
-    /* Countdown timer */
+    /* --- DOM refs --- */
     var countdownEl = document.getElementById('countdown');
-    var expires = new Date(countdownEl.dataset.expires).getTime();
+    var countdownLabel = document.getElementById('countdown-label');
+    var refreshBar = document.getElementById('refresh-bar');
+    var qrContainer = document.getElementById('qr-image-container');
+    var scanUrlEl = document.getElementById('scan-url');
+    var refreshForm = document.getElementById('refresh-form');
+    var finalizeForm = document.getElementById('finalize-form');
 
-    function tick() {
+    /* --- State --- */
+    var expires = new Date(countdownEl.dataset.expires).getTime();
+    var totalDuration = parseInt(countdownEl.dataset.duration) || 60;
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var refreshUrl = refreshForm.action;
+    var refreshing = false;  /* guard against concurrent fetches */
+
+    console.log('[QR] Timer started:', totalDuration, 'seconds, expires:', new Date(expires).toLocaleTimeString(), 'refreshUrl:', refreshUrl);
+
+    /* --- Countdown tick — runs every second, never stops --- */
+    setInterval(function() {
         var now = Date.now();
         var diff = Math.max(0, Math.floor((expires - now) / 1000));
         var m = Math.floor(diff / 60);
         var s = diff % 60;
+
         countdownEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        if (diff <= 0) {
-            countdownEl.textContent = 'Expiré';
+        refreshBar.style.width = Math.max(0, (diff / totalDuration) * 100) + '%';
+
+        if (diff <= 0 && !refreshing) {
+            refreshing = true;
+            countdownEl.textContent = 'Renouvellement...';
             countdownEl.classList.add('expired');
             countdownEl.classList.remove('text-success');
-        } else {
-            requestAnimationFrame(function() { setTimeout(tick, 1000); });
+            countdownLabel.textContent = 'Auto-refresh en cours...';
+            console.log('[QR] Timer expired, refreshing QR...');
+            doAutoRefresh();
         }
-    }
-    tick();
+    }, 1000);
 
-    /* Copy URL */
+    /* --- AJAX auto-refresh --- */
+    function doAutoRefresh() {
+        fetch(refreshUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var ct = resp.headers.get('content-type') || '';
+            if (ct.indexOf('application/json') === -1) throw new Error('Not JSON');
+            return resp.json();
+        })
+        .then(function(data) {
+            /* Update QR image */
+            qrContainer.innerHTML = '<img src="' + data.qr_data_uri + '" alt="QR Code" class="mb-3" id="qr-img">';
+
+            /* Update scan URL */
+            scanUrlEl.textContent = data.scan_url;
+
+            /* Update URLs for next cycle */
+            refreshUrl = data.refresh_url;
+            refreshForm.action = data.refresh_url;
+            finalizeForm.action = data.finalize_url;
+
+            /* Update HTMX polling URL */
+            var scanList = document.getElementById('scan-list');
+            if (scanList) {
+                scanList.setAttribute('hx-get', data.dashboard_url);
+                if (typeof htmx !== 'undefined') htmx.process(scanList);
+            }
+
+            /* Reset timer state */
+            expires = new Date(data.expires_at).getTime();
+            totalDuration = Math.max(1, Math.round((expires - Date.now()) / 1000));
+            countdownEl.classList.remove('expired');
+            countdownEl.classList.add('text-success');
+            countdownLabel.textContent = 'Nouveau QR dans...';
+            refreshBar.style.width = '100%';
+            refreshing = false;
+            console.log('[QR] QR refreshed successfully, new expiry:', new Date(expires).toLocaleTimeString());
+        })
+        .catch(function(err) {
+            console.error('[QR] QR refresh failed:', err);
+            countdownLabel.textContent = 'Erreur — nouvelle tentative dans 5s...';
+            /* Unlock after 5s so the setInterval can retry */
+            setTimeout(function() { refreshing = false; }, 5000);
+        });
+    }
+
+    /* --- Copy URL --- */
     var copyBtn = document.getElementById('copy-url-btn');
     if (copyBtn) {
         copyBtn.addEventListener('click', function() {
-            navigator.clipboard.writeText(document.getElementById('scan-url').textContent);
+            navigator.clipboard.writeText(scanUrlEl.textContent);
             copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copié !';
             setTimeout(function() {
                 copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i>Copier le lien';
@@ -163,7 +257,7 @@
         });
     }
 
-    /* Finalize confirmation toggle */
+    /* --- Finalize confirmation toggle --- */
     var showBtn = document.getElementById('show-finalize-btn');
     var hideBtn = document.getElementById('hide-finalize-btn');
     var bar = document.getElementById('finalize-bar');

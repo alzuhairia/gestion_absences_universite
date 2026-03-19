@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from apps.absences.models import Absence, Justification, QRAttendanceToken, QRScanRecord
+from apps.absences.models import Absence, Justification, QRAttendanceToken, QRScanLog, QRScanRecord
 from apps.absences.services import (
     calculer_absence_stats,
     calculer_pourcentage_absence,
@@ -469,15 +469,19 @@ def session_create(request, course_id):
         # --- Redirect based on mode ---
         if mode == "qr":
             # Create QR token and redirect to dashboard
-            duration = int(request.POST.get("qr_duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
-            duration = max(5, min(duration, 60))
+            from apps.dashboard.models import SystemSettings
+            sys_settings = SystemSettings.get_settings()
+            qr_duration_seconds = sys_settings.qr_token_duration_seconds
+
+            verify_location = request.POST.get("verify_location") == "on"
 
             QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
             token_kwargs = {
                 "seance": seance,
                 "created_by": request.user,
-                "expires_at": timezone.now() + timedelta(minutes=duration),
+                "expires_at": timezone.now() + timedelta(seconds=qr_duration_seconds),
+                "verify_location": verify_location,
             }
             try:
                 lat = request.POST.get("latitude")
@@ -1198,8 +1202,6 @@ def qr_generate(request, course_id):
         date_seance = request.POST.get("date_seance")
         heure_debut = request.POST.get("heure_debut")
         heure_fin = request.POST.get("heure_fin")
-        duration = int(request.POST.get("duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
-        duration = max(5, min(duration, 60))  # clamp 5–60 min
 
         if not all([date_seance, heure_debut, heure_fin]):
             messages.error(request, "Veuillez remplir tous les champs.")
@@ -1233,6 +1235,12 @@ def qr_generate(request, course_id):
         # GPS anti-fraud: professor's location (optional, sent by JS)
         prof_lat = request.POST.get("latitude")
         prof_lng = request.POST.get("longitude")
+        verify_location = request.POST.get("verify_location") == "on"
+
+        # Use system-configured QR duration if available
+        from apps.dashboard.models import SystemSettings
+        sys_settings = SystemSettings.get_settings()
+        qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
         # Deactivate any previous active tokens for this seance
         QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
@@ -1240,7 +1248,8 @@ def qr_generate(request, course_id):
         token_kwargs = {
             "seance": seance,
             "created_by": request.user,
-            "expires_at": timezone.now() + timedelta(minutes=duration),
+            "expires_at": timezone.now() + timedelta(seconds=qr_duration_seconds),
+            "verify_location": verify_location,
         }
         try:
             if prof_lat and prof_lng:
@@ -1314,6 +1323,9 @@ def qr_dashboard(request, token):
             scanned.append(ins)
     not_scanned = [ins for ins in inscriptions if ins.id_inscription not in scanned_ids]
 
+    from apps.dashboard.models import SystemSettings
+    sys_settings = SystemSettings.get_settings()
+
     ctx = {
         "qr_token": qr_token,
         "seance": seance,
@@ -1327,6 +1339,8 @@ def qr_dashboard(request, token):
         "suspicious_count": suspicious_count,
         "is_expired": qr_token.is_expired,
         "has_gps": qr_token.latitude is not None,
+        "verify_location": qr_token.verify_location,
+        "qr_duration_seconds": sys_settings.qr_token_duration_seconds,
     }
 
     # HTMX partial refresh (student list only)
@@ -1341,24 +1355,53 @@ def qr_dashboard(request, token):
 @require_POST
 def qr_refresh_token(request, token):
     """Deactivate current token and create a fresh one (preserves scans)."""
+    from django.http import JsonResponse
+    from apps.dashboard.models import SystemSettings
+
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
     seance = qr_token.seance
     course = seance.id_cours
 
     if course.professeur_id != request.user.pk:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Accès non autorisé."}, status=403)
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:instructor_dashboard")
 
-    duration = int(request.POST.get("duration", QRAttendanceToken.TOKEN_LIFETIME_MINUTES))
-    duration = max(5, min(duration, 60))
+    sys_settings = SystemSettings.get_settings()
+    qr_duration_seconds = sys_settings.qr_token_duration_seconds
+
+    # Preserve verify_location and professor GPS from the original token
+    old_verify_location = qr_token.verify_location
+    old_lat = qr_token.latitude
+    old_lng = qr_token.longitude
 
     QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
     new_token = QRAttendanceToken.objects.create(
         seance=seance,
         created_by=request.user,
-        expires_at=timezone.now() + timedelta(minutes=duration),
+        expires_at=timezone.now() + timedelta(seconds=qr_duration_seconds),
+        verify_location=old_verify_location,
+        latitude=old_lat,
+        longitude=old_lng,
     )
+
+    # AJAX response for auto-refresh
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        scan_url = request.build_absolute_uri(
+            reverse("absences:qr_scan", kwargs={"token": str(new_token.token)})
+        )
+        qr_data_uri = _generate_qr_data_uri(scan_url)
+        return JsonResponse({
+            "token": str(new_token.token),
+            "qr_data_uri": qr_data_uri,
+            "scan_url": scan_url,
+            "expires_at": new_token.expires_at.isoformat(),
+            "refresh_url": reverse("absences:qr_refresh_token", kwargs={"token": str(new_token.token)}),
+            "dashboard_url": reverse("absences:qr_dashboard", kwargs={"token": str(new_token.token)}),
+            "finalize_url": reverse("absences:qr_finalize", kwargs={"token": str(new_token.token)}),
+        })
 
     messages.success(request, "QR code rafraîchi avec un nouveau token.")
     return redirect("absences:qr_dashboard", token=new_token.token)
@@ -1436,6 +1479,30 @@ def qr_finalize(request, token):
     return redirect("dashboard:instructor_course_detail", course.id_cours)
 
 
+def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
+                      latitude=None, longitude=None, distance=None):
+    """Log every QR scan attempt for audit."""
+    QRScanLog.objects.create(
+        etudiant=request.user,
+        seance=seance,
+        ip_address=get_client_ip(request),
+        latitude=latitude,
+        longitude=longitude,
+        distance_meters=round(distance, 1) if distance is not None else None,
+        gps_status=gps_status,
+        scan_result=scan_result,
+        qr_token_used=str(qr_token.token) if qr_token else "",
+        user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
+    )
+
+
+def _get_establishment_gps():
+    """Return (latitude, longitude, radius) from SystemSettings, or (None, None, 100)."""
+    from apps.dashboard.models import SystemSettings
+    settings = SystemSettings.get_settings()
+    return settings.gps_latitude, settings.gps_longitude, settings.gps_radius_meters
+
+
 @login_required
 @student_required
 @require_http_methods(["GET", "POST"])
@@ -1447,20 +1514,29 @@ def qr_scan(request, token):
 
     error_ctx = {"course": course, "seance": seance}
 
-    # --- Guard checks ---
+    # --- Guard checks with audit logging ---
     if not qr_token.is_active:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_INACTIVE)
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "error",
             "message": "Ce QR code n'est plus actif.",
         })
 
     if qr_token.is_expired:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_EXPIRED)
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "expired",
-            "message": "Ce QR code a expiré. Demandez au professeur d'en générer un nouveau.",
+            "message": "Ce QR code a expiré. Scannez le nouveau QR affiché par le professeur.",
         })
 
     if seance.validated:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_LOCKED)
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "error",
             "message": "Cette séance est déjà validée et verrouillée.",
@@ -1474,6 +1550,9 @@ def qr_scan(request, token):
     ).first()
 
     if not inscription:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_NOT_ENROLLED)
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "error",
             "message": "Vous n'êtes pas inscrit(e) à ce cours.",
@@ -1481,11 +1560,18 @@ def qr_scan(request, token):
 
     existing = QRScanRecord.objects.filter(seance=seance, inscription=inscription).first()
     if existing:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_DUPLICATE)
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "duplicate",
             "message": "Votre présence a déjà été enregistrée.",
             "scanned_at": existing.scanned_at,
         })
+
+    # Determine GPS requirement
+    gps_required = qr_token.verify_location
+    etab_lat, etab_lng, etab_radius = _get_establishment_gps()
 
     # --- GET: show confirmation page ---
     if request.method == "GET":
@@ -1493,38 +1579,113 @@ def qr_scan(request, token):
             "qr_token": qr_token,
             "course": course,
             "seance": seance,
-            "has_gps": qr_token.latitude is not None,
+            "gps_required": gps_required,
         })
 
     # --- POST: record attendance ---
+    stu_lat_raw = request.POST.get("latitude", "").strip()
+    stu_lng_raw = request.POST.get("longitude", "").strip()
+    gps_status_val = request.POST.get("gps_status", "")
+
+    stu_lat_f = None
+    stu_lng_f = None
+    distance = None
+    try:
+        if stu_lat_raw and stu_lng_raw:
+            stu_lat_f = float(stu_lat_raw)
+            stu_lng_f = float(stu_lng_raw)
+    except (ValueError, TypeError):
+        stu_lat_f = None
+        stu_lng_f = None
+
+    # --- MODE 2: GPS verification ENABLED ---
+    if gps_required:
+        # CAS C: GPS refused by student
+        if gps_status_val == "refused":
+            _log_scan_attempt(request, seance, qr_token,
+                              QRScanLog.GPSStatus.REFUSED,
+                              QRScanLog.ScanResult.REJECTED_GPS)
+            return render(request, "absences/qr_scan_result.html", {
+                **error_ctx, "scan_status": "error",
+                "message": "La localisation est obligatoire pour cette séance. "
+                           "Veuillez autoriser l'accès GPS et réessayer.",
+            })
+
+        # CAS D: GPS unavailable (error or no coords)
+        if stu_lat_f is None or stu_lng_f is None:
+            _log_scan_attempt(request, seance, qr_token,
+                              QRScanLog.GPSStatus.UNAVAILABLE,
+                              QRScanLog.ScanResult.REJECTED_GPS)
+            return render(request, "absences/qr_scan_result.html", {
+                **error_ctx, "scan_status": "error",
+                "message": "Impossible d'obtenir votre position. "
+                           "Réessayez ou contactez le professeur.",
+            })
+
+        # Calculate distance against establishment coordinates
+        if etab_lat is not None and etab_lng is not None:
+            distance = _haversine(etab_lat, etab_lng, stu_lat_f, stu_lng_f)
+
+            # CAS B: GPS OK but outside radius
+            if distance > etab_radius:
+                _log_scan_attempt(request, seance, qr_token,
+                                  QRScanLog.GPSStatus.ACCEPTED,
+                                  QRScanLog.ScanResult.REJECTED_DISTANCE,
+                                  stu_lat_f, stu_lng_f, distance)
+                return render(request, "absences/qr_scan_result.html", {
+                    **error_ctx, "scan_status": "error",
+                    "message": f"Vous n'êtes pas dans la zone autorisée. "
+                               f"Distance : {distance:.0f} m (max : {etab_radius} m).",
+                    "distance": round(distance, 0),
+                    "radius": etab_radius,
+                })
+        # If establishment GPS not configured, fall back to professor GPS
+        elif qr_token.latitude is not None and qr_token.longitude is not None:
+            distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
+            if distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS:
+                _log_scan_attempt(request, seance, qr_token,
+                                  QRScanLog.GPSStatus.ACCEPTED,
+                                  QRScanLog.ScanResult.REJECTED_DISTANCE,
+                                  stu_lat_f, stu_lng_f, distance)
+                return render(request, "absences/qr_scan_result.html", {
+                    **error_ctx, "scan_status": "error",
+                    "message": f"Vous n'êtes pas dans la zone autorisée. "
+                               f"Distance : {distance:.0f} m (max : {QRAttendanceToken.DISTANCE_THRESHOLD_METERS} m).",
+                    "distance": round(distance, 0),
+                    "radius": QRAttendanceToken.DISTANCE_THRESHOLD_METERS,
+                })
+        # CAS A: GPS OK + within radius → proceed to record
+
+    # --- Build scan record ---
     scan_kwargs = {
         "seance": seance,
         "student": request.user,
         "inscription": inscription,
         "ip_address": get_client_ip(request),
     }
-
-    # GPS anti-fraud check
-    distance = None
     is_suspicious = False
-    try:
-        stu_lat = request.POST.get("latitude")
-        stu_lng = request.POST.get("longitude")
-        if stu_lat and stu_lng and qr_token.latitude is not None:
-            stu_lat_f = float(stu_lat)
-            stu_lng_f = float(stu_lng)
+    if stu_lat_f is not None and stu_lng_f is not None:
+        scan_kwargs["latitude"] = stu_lat_f
+        scan_kwargs["longitude"] = stu_lng_f
+        # Calculate distance for record if not already done
+        if distance is None and qr_token.latitude is not None:
             distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
+        if distance is not None:
+            scan_kwargs["distance_meters"] = round(distance, 1)
             is_suspicious = distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
-            scan_kwargs.update({
-                "latitude": stu_lat_f,
-                "longitude": stu_lng_f,
-                "distance_meters": round(distance, 1),
-                "is_suspicious": is_suspicious,
-            })
-    except (ValueError, TypeError):
-        pass  # GPS optional
+            scan_kwargs["is_suspicious"] = is_suspicious
 
     QRScanRecord.objects.create(**scan_kwargs)
+
+    # Log successful scan
+    gps_log_status = (
+        QRScanLog.GPSStatus.ACCEPTED if stu_lat_f is not None
+        else QRScanLog.GPSStatus.NOT_REQUIRED
+    )
+    _log_scan_attempt(request, seance, qr_token,
+                      gps_log_status,
+                      QRScanLog.ScanResult.VALIDATED,
+                      stu_lat_f, stu_lng_f, distance)
 
     result_ctx = {**error_ctx, "scan_status": "success"}
     if is_suspicious:

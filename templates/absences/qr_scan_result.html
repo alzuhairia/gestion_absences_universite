@@ -47,7 +47,7 @@
             <h4>QR code expiré</h4>
             {% else %}
             <div class="result-icon"><i class="fas fa-times-circle"></i></div>
-            <h4>Erreur</h4>
+            <h4>Présence refusée</h4>
             {% endif %}
         </div>
 
@@ -57,8 +57,10 @@
             {% if distance %}
             <div class="alert alert-warning py-2 text-start small">
                 <i class="fas fa-map-marker-alt me-1"></i>
-                Distance de la salle : <strong>{{ distance|floatformat:0 }} m</strong>
-                <span class="text-muted">(seuil : 100 m)</span>
+                Distance de l'établissement : <strong>{{ distance|floatformat:0 }} m</strong>
+                {% if radius %}
+                <span class="text-muted">(rayon autorisé : {{ radius }} m)</span>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -66,6 +68,13 @@
             <p class="text-muted small">
                 <i class="fas fa-clock me-1"></i>Enregistré le {{ scanned_at|date:"d/m/Y" }} à {{ scanned_at|time:"H:i" }}
             </p>
+            {% endif %}
+
+            {% if scan_status == 'expired' %}
+            <div class="alert alert-info py-2 text-start small">
+                <i class="fas fa-info-circle me-1"></i>
+                Le QR code se renouvelle automatiquement. Scannez le nouveau QR affiché par le professeur.
+            </div>
             {% endif %}
 
             {% if course %}
