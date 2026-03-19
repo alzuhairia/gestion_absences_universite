@@ -411,7 +411,7 @@ def create_justified_absence(request):
                     # .get() crashe si doublon (fail fast)
                     try:
                         seance = Seance.objects.get(
-                            date_seance=date_absence, id_cours=cours
+                            date_seance=date_absence, id_cours=cours, id_annee=annee_active
                         )
                     except Seance.DoesNotExist:
                         seance = Seance.objects.create(
