@@ -17,7 +17,7 @@ if [ "$(id -u)" -eq 0 ]; then
     }
   else
     run_as_app() {
-      su -s /bin/bash django -c "$*"
+      su -s /bin/bash django -c '"$@"' -- "$@"
     }
   fi
 else

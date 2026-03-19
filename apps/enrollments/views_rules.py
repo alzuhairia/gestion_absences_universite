@@ -26,7 +26,9 @@ def rules_management(request):
     active_year = AnneeAcademique.objects.filter(active=True).first()
     system_threshold = get_system_threshold()
 
-    inscriptions_qs = Inscription.objects.select_related("id_cours", "id_etudiant")
+    inscriptions_qs = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS,
+    ).select_related("id_cours", "id_etudiant")
     if active_year:
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
 

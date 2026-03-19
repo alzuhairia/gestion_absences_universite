@@ -306,6 +306,14 @@ class JustificationCreateSerializer(serializers.ModelSerializer):
         fields = ["id_absence", "document", "commentaire"]
 
     def validate_id_absence(self, value):
+        # Ownership check: student can only justify their own absences
+        request = self.context.get("request")
+        if request and request.user.role == "ETUDIANT":
+            if value.id_inscription.id_etudiant_id != request.user.pk:
+                raise serializers.ValidationError(
+                    "You can only justify your own absences."
+                )
+
         if value.statut == Absence.Statut.JUSTIFIEE:
             raise serializers.ValidationError(
                 "This absence is already justified."

@@ -398,7 +398,9 @@ def create_justified_absence(request):
                         date_ref = datetime(2000, 1, 1)
                         debut = datetime.combine(date_ref, seance_heure_debut)
                         fin = debut + timedelta(hours=2)
-                        seance_heure_fin = fin.time()
+                        # Cap at 23:59 to avoid wrapping to next day
+                        max_time = dt_time(23, 59)
+                        seance_heure_fin = min(fin.time(), max_time)
                         messages.warning(
                             request,
                             f"L'heure de fin etait invalide pour le cours {cours.code_cours}. "

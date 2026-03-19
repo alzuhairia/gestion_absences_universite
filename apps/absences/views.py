@@ -1418,30 +1418,32 @@ def qr_refresh_token(request, token):
 def qr_finalize(request, token):
     """Finalize QR session: students who did NOT scan are marked absent."""
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
-    seance = qr_token.seance
-    course = seance.id_cours
+    course = qr_token.seance.id_cours
 
     if course.professeur_id != request.user.pk:
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:instructor_dashboard")
 
-    if seance.validated:
-        messages.warning(request, "Cette séance est déjà validée.")
-        return redirect("dashboard:instructor_course_detail", course.id_cours)
-
-    inscriptions = list(
-        Inscription.objects.filter(
-            id_cours=course,
-            id_annee=seance.id_annee,
-            status=Inscription.Status.EN_COURS,
-        ).select_related("id_etudiant", "id_cours")
-    )
-
-    scanned_ids = set(
-        QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
-    )
-
     with transaction.atomic():
+        # Lock the seance row to prevent concurrent finalization
+        seance = Seance.objects.select_for_update().get(pk=qr_token.seance_id)
+
+        if seance.validated:
+            messages.warning(request, "Cette séance est déjà validée.")
+            return redirect("dashboard:instructor_course_detail", course.id_cours)
+
+        inscriptions = list(
+            Inscription.objects.filter(
+                id_cours=course,
+                id_annee=seance.id_annee,
+                status=Inscription.Status.EN_COURS,
+            ).select_related("id_etudiant", "id_cours")
+        )
+
+        scanned_ids = set(
+            QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
+        )
+
         # Deactivate token
         QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
