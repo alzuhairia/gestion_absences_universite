@@ -36,5 +36,6 @@ from apps.dashboard.views_admin_users import (  # noqa: F401
 from apps.dashboard.views_admin_settings import (  # noqa: F401
     admin_audit_logs,
     admin_export_audit_csv,
+    admin_qr_scan_logs,
     admin_settings,
 )
