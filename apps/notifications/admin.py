@@ -6,4 +6,5 @@ from .models import Notification
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ("id_utilisateur", "message", "type", "lue", "date_envoi")
+    list_select_related = ("id_utilisateur",)
     list_filter = ("lue", "type", "date_envoi")
