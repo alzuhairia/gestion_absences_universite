@@ -231,7 +231,6 @@
         let absent = 0;
         rows.forEach(function(row) {
             const absentRadio = row.querySelector('input[value="ABSENT"]');
-            const hasAbsenceBadge = row.querySelector('.btn-danger.disabled, .btn-success.disabled .fa-check-circle');
             if (absentRadio && absentRadio.checked) {
                 absent++;
             } else if (!absentRadio) {

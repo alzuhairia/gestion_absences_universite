@@ -83,7 +83,9 @@ def secretary_dashboard(request):
     global_pending_count = absence_base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
-    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
+    all_inscriptions = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours", "id_etudiant")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
@@ -268,7 +270,9 @@ def secretary_seuils_absence(request):
     active_year = AnneeAcademique.objects.filter(active=True).first()
     system_threshold = get_system_threshold()
 
-    inscriptions_qs = Inscription.objects.select_related("id_cours", "id_etudiant")
+    inscriptions_qs = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours", "id_etudiant")
     if active_year:
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
 
@@ -413,7 +417,7 @@ def get_active_courses_queryset(academic_year):
         "id_cours"
     )
     courses_with_enrollments = Inscription.objects.filter(
-        id_annee=academic_year
+        id_annee=academic_year, status=Inscription.Status.EN_COURS
     ).values("id_cours")
 
     # Semi-join style filtering avoids correlated subqueries per row.
@@ -478,13 +482,14 @@ def active_courses(request):
     session_bounds = {}
     courses_with_sessions = set()
     if course_ids:
-        enrollments_qs = Inscription.objects.filter(id_cours__in=course_ids)
+        enrollments_qs = Inscription.objects.filter(
+            id_cours__in=course_ids, status=Inscription.Status.EN_COURS
+        )
         sessions_qs = Seance.objects.filter(id_cours__in=course_ids)
 
         if academic_year:
             enrollments_qs = enrollments_qs.filter(
                 id_annee=academic_year,
-                status=Inscription.Status.EN_COURS,
             )
             sessions_qs = sessions_qs.filter(id_annee=academic_year)
 
