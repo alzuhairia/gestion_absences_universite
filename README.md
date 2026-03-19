@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.13-blue?logo=python&logoColor=white" alt="Python 3.13" />
-  <img src="https://img.shields.io/badge/django-6.0-green?logo=django&logoColor=white" alt="Django 6.0" />
+  <img src="https://img.shields.io/badge/django-6.0.3-green?logo=django&logoColor=white" alt="Django 6.0.3" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
   <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready" />
   <a href="https://github.com/alzuhairia/gestion_absences_universite/actions/workflows/ci.yml">
@@ -27,8 +27,14 @@ UniAbsences automatise le suivi des presences et absences dans un contexte unive
 
 - 4 roles distincts (Admin, Secretariat, Professeur, Etudiant) avec separation stricte des responsabilites
 - Saisie des presences/absences par seance avec calcul automatique des taux
+- Presence par QR code avec verification GPS anti-fraude
+- Detection predictive des etudiants a risque (projection de fin de semestre)
+- Marquage en temps reel via HTMX (sans rechargement de page)
 - Workflow complet de justificatifs (soumission, validation, refus)
-- Blocage automatique a 40 % d'absences non justifiees (avec exemptions)
+- Blocage automatique au seuil d'absences configurable (avec exemptions)
+- API REST complete (DRF + documentation Swagger/OpenAPI)
+- Notifications par email (HTML templates, envoi asynchrone, resume hebdomadaire)
+- Reinitialisation de mot de passe avec rate limiting
 - Journal d'audit complet de toutes les actions sensibles
 - Messagerie interne et notifications
 - Export PDF / Excel
@@ -176,9 +182,9 @@ La CI GitHub Actions execute automatiquement :
 
 | Categorie      | Technologies                                         |
 |----------------|------------------------------------------------------|
-| Backend        | Python 3.13, Django 6.0, Gunicorn                    |
+| Backend        | Python 3.13, Django 6.0.3, DRF, Gunicorn             |
 | Base de donnees| PostgreSQL 16, Redis 7                               |
-| Frontend       | Bootstrap 5.3, FontAwesome 6, JavaScript             |
+| Frontend       | Bootstrap 5.3, FontAwesome 6, HTMX, JavaScript       |
 | Infrastructure | Docker, Nginx, Let's Encrypt                         |
 | CI/CD          | GitHub Actions (lint, test, security, Docker, CodeQL) |
 | Monitoring     | Uptime Kuma, health check endpoint                   |
