@@ -7,7 +7,7 @@ from pathlib import Path
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -1003,7 +1003,9 @@ def mark_absence_htmx(request, course_id):
     with transaction.atomic():
         # Unique par cours + date — .get() crashe si doublon (fail fast)
         try:
-            seance = Seance.objects.get(date_seance=date_seance, id_cours=course)
+            seance = Seance.objects.select_for_update().get(
+                date_seance=date_seance, id_cours=course
+            )
             updated_fields = []
             if str(seance.heure_debut or "")[:5] != heure_debut:
                 seance.heure_debut = heure_debut
@@ -1682,7 +1684,14 @@ def qr_scan(request, token):
             is_suspicious = distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
             scan_kwargs["is_suspicious"] = is_suspicious
 
-    QRScanRecord.objects.create(**scan_kwargs)
+    try:
+        QRScanRecord.objects.create(**scan_kwargs)
+    except IntegrityError:
+        # Unique constraint violation — concurrent duplicate scan
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "duplicate",
+            "message": "Votre présence a déjà été enregistrée.",
+        })
 
     # Log successful scan
     gps_log_status = (

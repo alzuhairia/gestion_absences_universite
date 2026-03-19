@@ -246,7 +246,7 @@ class AbsenceWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_type_absence(self, value):
-        allowed = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
+        allowed = (Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL)
         if value not in allowed:
             raise serializers.ValidationError(
                 f"Type invalide. Valeurs autorisées : {', '.join(allowed)}"
@@ -308,7 +308,7 @@ class JustificationCreateSerializer(serializers.ModelSerializer):
     def validate_id_absence(self, value):
         # Ownership check: student can only justify their own absences
         request = self.context.get("request")
-        if request and request.user.role == "ETUDIANT":
+        if request and request.user.role == User.Role.ETUDIANT:
             if value.id_inscription.id_etudiant_id != request.user.pk:
                 raise serializers.ValidationError(
                     "You can only justify your own absences."

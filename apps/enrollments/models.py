@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.db import models
 
 
@@ -79,6 +80,7 @@ class Inscription(models.Model):
     )
     exemption_margin = models.PositiveIntegerField(
         default=10,
+        validators=[MaxValueValidator(100)],
         verbose_name="Marge d'exemption (%)",
         help_text="Points de pourcentage ajoutés au seuil quand l'étudiant est exempté. Ex: seuil=40%, marge=10% → bloqué à 50%.",
     )

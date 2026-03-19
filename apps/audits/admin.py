@@ -7,6 +7,7 @@ from .models import LogAudit
 class LogAuditAdmin(admin.ModelAdmin):
     # Les colonnes à afficher dans la liste
     list_display = ("id_utilisateur", "action", "date_action", "adresse_ip")
+    list_select_related = ("id_utilisateur",)
 
     # Ajouter des filtres pour retrouver facilement les blocages
     list_filter = ("date_action", "id_utilisateur")

@@ -13,6 +13,7 @@ class InscriptionAdmin(admin.ModelAdmin):
         "type_inscription",
         "eligible_examen",
     )
+    list_select_related = ("id_etudiant", "id_cours", "id_annee")
     # Filtres sur le côté droit
     list_filter = ("id_annee", "type_inscription", "eligible_examen", "id_cours")
     # Barre de recherche (cherche par nom d'étudiant ou nom de cours)
