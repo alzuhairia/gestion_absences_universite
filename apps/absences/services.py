@@ -1,6 +1,9 @@
 import datetime
+import logging
 
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 from django.db.models import DurationField, ExpressionWrapper, F, Sum
 from django.utils import timezone
 
@@ -389,13 +392,16 @@ def recalculer_eligibilite(inscription):
 
 def _send_threshold_emails(student, professor, course_name, taux, seuil):
     """Send threshold-exceeded emails to student and professor. Never raises."""
-    subj, body, html_body = build_threshold_exceeded_email(student, course_name, taux, seuil)
-    send_notification_email(student, subj, body, html_body)
-    if professor:
-        subj, body, html_body = build_threshold_exceeded_professor_email(
-            professor, student, course_name, taux, seuil
-        )
-        send_notification_email(professor, subj, body, html_body)
+    try:
+        subj, body, html_body = build_threshold_exceeded_email(student, course_name, taux, seuil)
+        send_notification_email(student, subj, body, html_body)
+        if professor:
+            subj, body, html_body = build_threshold_exceeded_professor_email(
+                professor, student, course_name, taux, seuil
+            )
+            send_notification_email(professor, subj, body, html_body)
+    except Exception:
+        logger.exception("Failed to send threshold emails for %s", course_name)
 
 
 def get_system_threshold():
@@ -656,6 +662,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     else:
         days_remaining = 0
         term_days = 1
+        first_session = None
 
     # 5. Build predictions
     results = []

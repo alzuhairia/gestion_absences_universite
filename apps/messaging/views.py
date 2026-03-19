@@ -102,6 +102,7 @@ def compose(request):
                     template = get_messaging_template(request.user, "compose")
                     return render(request, template, {"form": form})
             message.save()
+            cache.delete(f"messages:unread_count:{message.destinataire_id}")
             messages.success(request, "Message envoyé avec succès !")
             return redirect("messaging:sent")
     else:

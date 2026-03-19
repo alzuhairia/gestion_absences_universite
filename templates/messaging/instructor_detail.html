@@ -172,7 +172,7 @@
                                     <i class="fas fa-user-tag"></i>
                                     <div>
                                         <strong>Destinataire :</strong>
-                                        <span class="ms-2">{{ message.destinataire.prenom }} {{ message.destinataire.nom }}</span>
+                                        <span class="ms-2">{% if message.destinataire %}{{ message.destinataire.prenom }} {{ message.destinataire.nom }}{% else %}(Utilisateur supprimé){% endif %}</span>
                                     </div>
                                 </div>
                                 <div class="meta-item">

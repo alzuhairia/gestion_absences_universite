@@ -177,7 +177,10 @@ def download_report_pdf(request):
         )
 
     response = HttpResponse(content_type="application/pdf")
-    filename_safe = f"{user.prenom}_{user.nom}".replace(" ", "_")
+    filename_safe = "".join(
+        c if c.isalnum() or c in "._-" else "_"
+        for c in f"{user.prenom}_{user.nom}"
+    )
     response["Content-Disposition"] = (
         f'attachment; filename="releve_absences_{filename_safe}.pdf"'
     )
@@ -263,21 +266,24 @@ class CustomPasswordChangeView(auth_views.PasswordChangeView):
 
     def form_valid(self, form):
         """Désactiver le flag must_change_password après un changement réussi et rediriger vers le dashboard"""
+        from django.db import transaction
+
         user = self.request.user
         must_change = (
             hasattr(user, "must_change_password") and user.must_change_password
         )
 
-        # Changer le mot de passe
-        form.save()
+        with transaction.atomic():
+            # Changer le mot de passe
+            form.save()
+
+            # Désactiver le flag must_change_password si nécessaire
+            if must_change:
+                user.must_change_password = False
+                user.save(update_fields=["must_change_password"])
 
         # Maintenir la session active après le changement de mot de passe
         update_session_auth_hash(self.request, form.user)
-
-        # Désactiver le flag must_change_password si nécessaire
-        if must_change:
-            user.must_change_password = False
-            user.save(update_fields=["must_change_password"])
 
         messages.success(
             self.request,

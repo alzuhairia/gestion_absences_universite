@@ -113,7 +113,8 @@ class StudentViewSet(viewsets.ModelViewSet):
             return qs.filter(pk=user.pk)
         if user.role == User.Role.PROFESSEUR:
             student_ids = Inscription.objects.filter(
-                id_cours__professeur=user
+                id_cours__professeur=user,
+                status=Inscription.Status.EN_COURS,
             ).values_list("id_etudiant", flat=True)
             return qs.filter(pk__in=student_ids)
         return qs
@@ -180,7 +181,9 @@ class CoursViewSet(viewsets.ModelViewSet):
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            ins_qs = Inscription.objects.filter(id_etudiant=user)
+            ins_qs = Inscription.objects.filter(
+                id_etudiant=user, status=Inscription.Status.EN_COURS
+            )
             if active_year:
                 ins_qs = ins_qs.filter(id_annee=active_year)
             enrolled_course_ids = ins_qs.values_list("id_cours", flat=True)
@@ -309,7 +312,10 @@ class AbsenceViewSet(viewsets.ModelViewSet):
                 flt["id_inscription__id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
-            return qs.filter(id_inscription__id_cours__professeur=user)
+            return qs.filter(
+                id_inscription__id_cours__professeur=user,
+                id_inscription__status=Inscription.Status.EN_COURS,
+            )
         return qs
 
     def perform_create(self, serializer):
@@ -384,7 +390,9 @@ class JustificationViewSet(
     def perform_create(self, serializer):
         with transaction.atomic():
             justification = serializer.save()
-            absence = justification.id_absence
+            absence = Absence.objects.select_for_update().get(
+                pk=justification.id_absence_id
+            )
             absence.statut = Absence.Statut.EN_ATTENTE
             absence.save(update_fields=["statut"])
 
@@ -921,11 +929,17 @@ def export_at_risk_excel_api(request):
                 else system_threshold
             )
             if rate >= seuil:
+                def _safe(val):
+                    s = str(val) if val is not None else ""
+                    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+                        return "'" + s
+                    return s
+
                 ws.append([
-                    ins.id_etudiant.nom,
-                    ins.id_etudiant.prenom,
-                    ins.id_etudiant.email,
-                    f"{cours.nom_cours} ({cours.code_cours})",
+                    _safe(ins.id_etudiant.nom),
+                    _safe(ins.id_etudiant.prenom),
+                    _safe(ins.id_etudiant.email),
+                    _safe(f"{cours.nom_cours} ({cours.code_cours})"),
                     total_abs,
                     round(rate, 2),
                     _export_status(ins, rate, seuil),

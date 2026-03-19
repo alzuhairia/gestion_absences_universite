@@ -2,6 +2,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 
 from .models import User
@@ -15,6 +16,17 @@ class UserCreationForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ("email", "nom", "prenom", "role", "actif")
+
+    def clean_password(self):
+        password = self.cleaned_data.get("password")
+        if password:
+            user = User(
+                email=self.cleaned_data.get("email", ""),
+                nom=self.cleaned_data.get("nom", ""),
+                prenom=self.cleaned_data.get("prenom", ""),
+            )
+            validate_password(password, user=user)
+        return password
 
     def save(self, commit=True):
         user = super().save(commit=False)

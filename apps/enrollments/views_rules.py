@@ -156,7 +156,11 @@ def toggle_exemption(request, pk):
             f"L'étudiant peut maintenant passer les examens malgré le dépassement du seuil.",
         )
 
-    elif action == "revoke":
+    elif action != "revoke":
+        messages.error(request, "Action invalide.")
+        return redirect("dashboard:secretary_seuils_absence")
+
+    if action == "revoke":
         with transaction.atomic():
             inscription = (
                 Inscription.objects

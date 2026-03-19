@@ -8,6 +8,7 @@ page returns 404 permanently.
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
@@ -84,16 +85,17 @@ def initial_setup(request):
     if request.method == "POST":
         form = InitialAdminForm(request.POST)
         if form.is_valid():
-            # Double-check no admin was created between GET and POST
-            if _admin_exists():
-                raise Http404
+            with transaction.atomic():
+                # Re-check under transaction to prevent race condition
+                if User.objects.select_for_update().filter(role=User.Role.ADMIN).exists():
+                    raise Http404
 
-            User.objects.create_superuser(
-                email=form.cleaned_data["email"],
-                nom=form.cleaned_data["nom"],
-                prenom=form.cleaned_data["prenom"],
-                password=form.cleaned_data["password"],
-            )
+                User.objects.create_superuser(
+                    email=form.cleaned_data["email"],
+                    nom=form.cleaned_data["nom"],
+                    prenom=form.cleaned_data["prenom"],
+                    password=form.cleaned_data["password"],
+                )
             return redirect("setup_complete")
     else:
         form = InitialAdminForm()
