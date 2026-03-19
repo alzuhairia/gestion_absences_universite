@@ -234,13 +234,13 @@
                        class="message-item {% if not message.lu %}unread{% endif %}">
                         <div class="d-flex">
                             <div class="message-avatar">
-                                {{ message.expediteur.prenom|first }}{{ message.expediteur.nom|first }}
+                                {% if message.expediteur %}{{ message.expediteur.prenom|first }}{{ message.expediteur.nom|first }}{% else %}?{% endif %}
                             </div>
                             <div class="message-content">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div>
                                         <div class="message-sender">
-                                            {{ message.expediteur.prenom }} {{ message.expediteur.nom }}
+                                            {% if message.expediteur %}{{ message.expediteur.prenom }} {{ message.expediteur.nom }}{% else %}(Utilisateur supprimé){% endif %}
                                         </div>
                                         <div class="message-subject">
                                             {{ message.objet|default:"(Aucun objet)" }}
