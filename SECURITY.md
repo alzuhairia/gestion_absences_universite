@@ -12,7 +12,7 @@ If you discover a security vulnerability in this project, please report it respo
 
 **Do NOT open a public GitHub issue.**
 
-Instead, send an email to the maintainer with:
+Instead, send an email to **alzuhairia@proton.me** with:
 
 - A description of the vulnerability
 - Steps to reproduce
@@ -26,14 +26,16 @@ We will acknowledge receipt within **48 hours** and aim to release a fix within 
 This project implements the following security practices:
 
 - **CI/CD security gates**: Bandit (SAST), pip-audit (dependency vulnerabilities), Gitleaks (secret scanning), Trivy (container scanning), CodeQL (semantic analysis)
-- **Runtime hardening**: CSRF protection, rate limiting, SRI on CDN assets, CSP headers, HSTS, secure cookies
-- **Access control**: Role-based decorators, server-side permission checks, forced password change on first login
+- **Runtime hardening**: CSRF protection, rate limiting, SRI on CDN assets, nonce-based CSP, HSTS, secure cookies
+- **Session security**: Inactivity timeout, session expiration, cookie hardening (Secure, HttpOnly, SameSite)
+- **Access control**: Role-based decorators, server-side permission checks, forced password change on first login, HTTP method enforcement on all views
+- **QR attendance anti-fraud**: GPS verification with configurable radius, scan audit logging, distance-based suspicion flagging
 - **Audit trail**: All sensitive actions are logged with user, timestamp, and action details
 - **Container security**: Non-root user, read-only filesystem, no-new-privileges, minimal base image
 
 ## Dependencies
 
 Dependencies are monitored via:
-- `pip-audit` in CI (blocks on fixable vulnerabilities)
-- GitHub Dependabot (automated PRs for updates)
+- `pip-audit` in CI (blocks on fixable vulnerabilities, allowlist for known exceptions)
 - Trivy container scanning (OS + library CVEs)
+- Dependency review action on pull requests (blocks high-severity additions)
