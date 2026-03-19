@@ -104,6 +104,8 @@ class StudentViewSet(viewsets.ModelViewSet):
         return StudentSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return User.objects.none()
         qs = User.objects.filter(role=User.Role.ETUDIANT)
         user = self.request.user
 
@@ -167,6 +169,8 @@ class CoursViewSet(viewsets.ModelViewSet):
         return CoursListSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Cours.objects.none()
         qs = Cours.objects.select_related(
             "id_departement", "professeur", "id_annee"
         )
@@ -226,6 +230,8 @@ class InscriptionViewSet(viewsets.ModelViewSet):
         return InscriptionListSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Inscription.objects.none()
         qs = Inscription.objects.select_related(
             "id_etudiant", "id_cours", "id_annee"
         )
@@ -281,6 +287,8 @@ class AbsenceViewSet(viewsets.ModelViewSet):
         return AbsenceListSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Absence.objects.none()
         qs = Absence.objects.select_related(
             "id_inscription__id_etudiant",
             "id_inscription__id_cours",
@@ -344,6 +352,8 @@ class JustificationViewSet(
         return JustificationListSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Justification.objects.none()
         qs = Justification.objects.select_related(
             "id_absence__id_inscription__id_etudiant",
             "id_absence__id_inscription__id_cours",
@@ -461,6 +471,8 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     pagination_class = StandardPagination
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Notification.objects.none()
         return Notification.objects.filter(
             id_utilisateur=self.request.user
         ).order_by("-date_envoi")

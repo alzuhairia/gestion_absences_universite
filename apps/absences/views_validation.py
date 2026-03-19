@@ -168,7 +168,11 @@ def process_justification(request, pk):
     justification = get_object_or_404(Justification, pk=pk)
 
     action = request.POST.get("action")
-    comment = request.POST.get("comment", "")
+    comment = request.POST.get("comment", "")[:2000]
+
+    if action not in ("approve", "reject"):
+        messages.error(request, "Action invalide.")
+        return redirect("absences:validation_list")
 
     if action == "approve":
         with transaction.atomic():
@@ -263,9 +267,6 @@ def process_justification(request, pk):
         # Emails (outside transaction — failures must not roll back)
         _send_justification_decision_emails(absence, approved=False, motif=comment)
 
-    else:
-        messages.error(request, "Action invalide.")
-        return redirect("absences:validation_list")
     if action == "approve":
         messages.success(
             request,
@@ -645,7 +646,12 @@ def justified_absences_list(request):
         # Filtrer par date si demandé
         date_filter = request.GET.get("date", "")[:10]
         if date_filter:
-            absences = absences.filter(id_seance__date_seance=date_filter)
+            try:
+                from datetime import date as date_type
+                date_type.fromisoformat(date_filter)
+                absences = absences.filter(id_seance__date_seance=date_filter)
+            except ValueError:
+                pass  # Ignore invalid date format
 
         # Filtrer par cours si demandé (limiter la longueur pour la performance)
         course_filter = request.GET.get("course", "")[:255]

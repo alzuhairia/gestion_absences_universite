@@ -884,7 +884,12 @@ def mark_absence(request, course_id):
     students = inscriptions_qs.order_by("id_etudiant__nom")
 
     # Check for date in GET (from dashboard link)
-    today = request.GET.get("date", timezone.now().strftime("%Y-%m-%d"))
+    from datetime import date as date_type
+    today = request.GET.get("date", "")
+    try:
+        date_type.fromisoformat(today)
+    except (ValueError, TypeError):
+        today = timezone.now().strftime("%Y-%m-%d")
     default_start = "08:30"
     default_end = "10:30"
 
