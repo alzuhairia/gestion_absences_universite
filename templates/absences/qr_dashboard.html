@@ -165,7 +165,8 @@
     /* --- State --- */
     var expires = new Date(countdownEl.dataset.expires).getTime();
     var totalDuration = parseInt(countdownEl.dataset.duration) || 60;
-    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var csrfTokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
+    var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
     var refreshUrl = refreshForm.action;
     var refreshing = false;  /* guard against concurrent fetches */
 

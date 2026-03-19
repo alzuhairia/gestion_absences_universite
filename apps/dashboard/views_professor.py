@@ -69,7 +69,7 @@ def instructor_dashboard(request):
 
     # --- KPI 5: Students At Risk - READ ONLY, INDICATIVE ONLY
     all_inscriptions = Inscription.objects.filter(
-        id_cours__professeur=request.user
+        id_cours__professeur=request.user, status=Inscription.Status.EN_COURS
     ).select_related("id_cours", "id_etudiant")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
@@ -333,7 +333,9 @@ def instructor_courses(request):
         )
     else:
         enrolled_counts = dict(
-            Inscription.objects.filter(id_cours__in=course_ids)
+            Inscription.objects.filter(
+                id_cours__in=course_ids, status=Inscription.Status.EN_COURS
+            )
             .values("id_cours")
             .annotate(total=Count("id_inscription"))
             .values_list("id_cours", "total")

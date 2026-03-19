@@ -1005,10 +1005,10 @@ def mark_absence_htmx(request, course_id):
         try:
             seance = Seance.objects.get(date_seance=date_seance, id_cours=course)
             updated_fields = []
-            if seance.heure_debut != heure_debut:
+            if str(seance.heure_debut or "")[:5] != heure_debut:
                 seance.heure_debut = heure_debut
                 updated_fields.append("heure_debut")
-            if seance.heure_fin != heure_fin:
+            if str(seance.heure_fin or "")[:5] != heure_fin:
                 seance.heure_fin = heure_fin
                 updated_fields.append("heure_fin")
             if updated_fields:

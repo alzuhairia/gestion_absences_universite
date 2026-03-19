@@ -81,7 +81,9 @@ def admin_dashboard_main(request):
 
     # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
     at_risk_count = 0
-    all_inscriptions = Inscription.objects.select_related("id_cours", "id_etudiant")
+    all_inscriptions = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours", "id_etudiant")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
