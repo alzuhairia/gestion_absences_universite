@@ -209,7 +209,8 @@
         }
     }
     
-    document.querySelector('input[type="file"]').addEventListener('change', function() { validateFile(this); });
+    var fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) fileInput.addEventListener('change', function() { validateFile(this); });
 
     // Prevent double submission
     document.getElementById('justificationForm')?.addEventListener('submit', function(e) {
