@@ -39,6 +39,15 @@ def edit_absence(request, pk):
     absence = get_object_or_404(
         Absence.objects.select_related("id_seance"), pk=pk
     )
+
+    if absence.statut == Absence.Statut.JUSTIFIEE:
+        messages.error(
+            request,
+            "Cette absence est déjà justifiée et ne peut plus être modifiée. "
+            "Veuillez d'abord changer son statut via le traitement des justificatifs.",
+        )
+        return redirect("absences:validation_list")
+
     seance_duration, seance_duration_display = _get_seance_duration(absence.id_seance)
 
     if request.method == "POST":

@@ -408,6 +408,10 @@ class JustificationViewSet(
             justification = Justification.objects.select_for_update().get(
                 pk=self.get_object().pk
             )
+            # Lock the absence row too to prevent concurrent status changes
+            absence = Absence.objects.select_for_update().get(
+                pk=justification.id_absence_id
+            )
 
             if justification.state != Justification.State.EN_ATTENTE:
                 return Response(
@@ -417,19 +421,18 @@ class JustificationViewSet(
 
             if action_value == "approve":
                 justification.state = Justification.State.ACCEPTEE
-                justification.id_absence.statut = Absence.Statut.JUSTIFIEE
+                absence.statut = Absence.Statut.JUSTIFIEE
             else:
                 justification.state = Justification.State.REFUSEE
-                justification.id_absence.statut = Absence.Statut.NON_JUSTIFIEE
+                absence.statut = Absence.Statut.NON_JUSTIFIEE
 
             justification.validee_par = request.user
             justification.date_validation = timezone.now()
             justification.commentaire_gestion = comment
             justification.save()
-            justification.id_absence.save(update_fields=["statut"])
+            absence.save(update_fields=["statut"])
 
         # Emails to student + professor (outside transaction)
-        absence = justification.id_absence
         student = absence.id_inscription.id_etudiant
         course_code = absence.id_seance.id_cours.code_cours
         date_str = str(absence.id_seance.date_seance)
@@ -840,11 +843,6 @@ def export_student_pdf_api(request, student_id):
     return response
 
 
-@extend_schema(
-    summary="Export at-risk students as Excel (admin/secretary)",
-    tags=["Exports"],
-    responses={(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"): bytes},
-)
 def _export_status(ins, rate, seuil):
     """Return export status label based on exemption logic."""
     seuil_eff = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
@@ -855,6 +853,11 @@ def _export_status(ins, rate, seuil):
     return "A RISQUE"
 
 
+@extend_schema(
+    summary="Export at-risk students as Excel (admin/secretary)",
+    tags=["Exports"],
+    responses={(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"): bytes},
+)
 @api_view(["GET"])
 @permission_classes([IsAdminOrSecretary])
 def export_at_risk_excel_api(request):
