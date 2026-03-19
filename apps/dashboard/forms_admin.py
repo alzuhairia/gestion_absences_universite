@@ -344,6 +344,10 @@ class SystemSettingsForm(forms.ModelForm):
             "password_require_special",
             "mfa_enabled_globally",
             "data_retention_days",
+            "gps_latitude",
+            "gps_longitude",
+            "gps_radius_meters",
+            "qr_token_duration_seconds",
         ]
         widgets = {
             "default_absence_threshold": forms.NumberInput(
@@ -367,6 +371,18 @@ class SystemSettingsForm(forms.ModelForm):
                 attrs={"class": "form-check-input"}
             ),
             "data_retention_days": forms.NumberInput(attrs={"class": "form-control"}),
+            "gps_latitude": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.00001", "placeholder": "ex: 36.75250"}
+            ),
+            "gps_longitude": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.00001", "placeholder": "ex: 3.04200"}
+            ),
+            "gps_radius_meters": forms.NumberInput(
+                attrs={"class": "form-control", "min": "10", "max": "5000"}
+            ),
+            "qr_token_duration_seconds": forms.NumberInput(
+                attrs={"class": "form-control", "min": "15", "max": "600"}
+            ),
         }
         labels = {
             "default_absence_threshold": "Seuil d'Absence par Défaut (%)",

@@ -55,6 +55,30 @@ class SystemSettings(models.Model):
         default=False, verbose_name="Authentification à deux facteurs (globale)"
     )
 
+    # GPS / QR Attendance
+    gps_latitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name="Latitude de l'établissement",
+        help_text="Latitude GPS de l'établissement (ex: 36.7525)",
+    )
+    gps_longitude = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name="Longitude de l'établissement",
+        help_text="Longitude GPS de l'établissement (ex: 3.0420)",
+    )
+    gps_radius_meters = models.PositiveIntegerField(
+        default=100,
+        verbose_name="Rayon de tolérance GPS (mètres)",
+        help_text="Distance maximale acceptée entre l'étudiant et l'établissement",
+    )
+    qr_token_duration_seconds = models.PositiveIntegerField(
+        default=60,
+        verbose_name="Durée de validité du QR (secondes)",
+        help_text="Le QR se régénère automatiquement après cette durée (défaut : 60s)",
+    )
+
     # GDPR Compliance
     data_retention_days = models.IntegerField(
         default=365,

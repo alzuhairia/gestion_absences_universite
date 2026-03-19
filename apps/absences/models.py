@@ -265,6 +265,10 @@ class QRAttendanceToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True, db_index=True)
+    verify_location = models.BooleanField(
+        default=False,
+        help_text="Si activé, la géolocalisation est obligatoire pour valider la présence.",
+    )
     # GPS anti-fraud: professor's location when generating the QR
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -323,3 +327,57 @@ class QRScanRecord(models.Model):
 
     def __str__(self):
         return f"Scan {self.student} — {self.seance.date_seance}"
+
+
+class QRScanLog(models.Model):
+    """
+    Audit log for EVERY QR scan attempt (successful or failed).
+    Unlike QRScanRecord (which only stores validated presences),
+    this logs all attempts for security auditing.
+    """
+
+    class GPSStatus(models.TextChoices):
+        ACCEPTED = "accepted", "GPS accepté"
+        REFUSED = "refused", "GPS refusé par l'étudiant"
+        UNAVAILABLE = "unavailable", "GPS indisponible"
+        NOT_REQUIRED = "not_required", "Vérification non activée"
+
+    class ScanResult(models.TextChoices):
+        VALIDATED = "validated", "Présence validée"
+        REJECTED_GPS = "rejected_gps", "Refusé — pas de GPS"
+        REJECTED_DISTANCE = "rejected_distance", "Refusé — hors zone"
+        REJECTED_EXPIRED = "rejected_expired", "Refusé — QR expiré"
+        REJECTED_NOT_ENROLLED = "rejected_not_enrolled", "Refusé — non inscrit"
+        REJECTED_DUPLICATE = "rejected_duplicate", "Refusé — déjà scanné"
+        REJECTED_LOCKED = "rejected_locked", "Refusé — séance verrouillée"
+        REJECTED_INACTIVE = "rejected_inactive", "Refusé — QR inactif"
+
+    etudiant = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="qr_scan_logs",
+    )
+    seance = models.ForeignKey(
+        "academic_sessions.Seance",
+        on_delete=models.CASCADE,
+        related_name="qr_scan_logs",
+        null=True,
+        blank=True,
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    distance_meters = models.FloatField(null=True, blank=True)
+    gps_status = models.CharField(max_length=20, choices=GPSStatus.choices)
+    scan_result = models.CharField(max_length=25, choices=ScanResult.choices)
+    qr_token_used = models.CharField(max_length=255, blank=True, default="")
+    user_agent = models.TextField(blank=True, default="")
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "qr_scan_log"
+        app_label = "absences"
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"ScanLog {self.etudiant} — {self.scan_result} — {self.timestamp}"

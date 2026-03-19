@@ -120,6 +120,47 @@
                             <small class="form-text text-muted">Durée de conservation des données personnelles</small>
                         </div>
 
+                        <hr>
+
+                        <!-- GPS / QR Settings -->
+                        <h5 class="mb-3 text-primary">
+                            <i class="fas fa-map-marker-alt me-2"></i>GPS &amp; QR Code
+                        </h5>
+                        <div class="row mb-4">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.gps_latitude.id_for_label }}" class="form-label">
+                                    Latitude de l'établissement
+                                </label>
+                                {{ form.gps_latitude }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.gps_longitude.id_for_label }}" class="form-label">
+                                    Longitude de l'établissement
+                                </label>
+                                {{ form.gps_longitude }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.gps_radius_meters.id_for_label }}" class="form-label">
+                                    Rayon de tolérance (mètres)
+                                </label>
+                                {{ form.gps_radius_meters }}
+                            </div>
+                        </div>
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.qr_token_duration_seconds.id_for_label }}" class="form-label">
+                                    Durée de validité du QR (secondes)
+                                </label>
+                                {{ form.qr_token_duration_seconds }}
+                                <small class="form-text text-muted">Le QR se régénère automatiquement. Défaut : 60 secondes.</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-info py-2 small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Les coordonnées GPS sont utilisées pour la vérification de position lors du scan QR.
+                            Si non renseignées, la position du professeur sera utilisée comme référence.
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="fas fa-save me-1"></i> Enregistrer les Paramètres
