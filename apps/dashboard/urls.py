@@ -16,7 +16,7 @@ urlpatterns = [
         views.secretary_enrollments,
         name="secretary_enrollments",
     ),
-    path("secretary/rules-40/", views.secretary_rules_40, name="secretary_rules_40"),
+    path("secretary/seuils-absence/", views.secretary_seuils_absence, name="secretary_seuils_absence"),
     path("secretary/exports/", views.secretary_exports, name="secretary_exports"),
     path(
         "secretary/audit-logs/",

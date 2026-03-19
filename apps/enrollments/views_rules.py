@@ -104,7 +104,7 @@ def rules_management(request):
 @require_POST
 def toggle_exemption(request, pk):
     """
-    Grant or Revoke 40% Exemption.
+    Grant or Revoke absence threshold exemption.
     """
     # Verify existence (404 if not found) before proceeding
     get_object_or_404(Inscription, pk=pk)
@@ -115,10 +115,10 @@ def toggle_exemption(request, pk):
     if action == "grant":
         if not motif:
             messages.error(request, "Un motif est requis pour accorder une exemption.")
-            return redirect("dashboard:secretary_rules_40")
+            return redirect("dashboard:secretary_seuils_absence")
         if len(motif) > 2000:
             messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
-            return redirect("dashboard:secretary_rules_40")
+            return redirect("dashboard:secretary_seuils_absence")
 
         # Parse margin (default 10, clamped 1-100)
         try:
@@ -142,7 +142,7 @@ def toggle_exemption(request, pk):
             recalculer_eligibilite(inscription)
             log_action(
                 request.user,
-                f"Secrétaire a accordé une EXEMPTION 40% à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif[:200]}",
+                f"Secrétaire a accordé une EXEMPTION à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif[:200]}",
                 request,
                 niveau="WARNING",
                 objet_type="INSCRIPTION",
@@ -150,7 +150,7 @@ def toggle_exemption(request, pk):
             )
         messages.success(
             request,
-            f"L'exemption 40% a été accordée avec succès à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. "
+            f"L'exemption a été accordée avec succès à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. "
             f"L'étudiant peut maintenant passer les examens malgré le dépassement du seuil.",
         )
 
@@ -168,7 +168,7 @@ def toggle_exemption(request, pk):
             recalculer_eligibilite(inscription)
             log_action(
                 request.user,
-                f"Secrétaire a RÉVOQUÉ l'exemption 40% de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
+                f"Secrétaire a RÉVOQUÉ l'exemption de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",
                 request,
                 niveau="WARNING",
                 objet_type="INSCRIPTION",
@@ -176,8 +176,8 @@ def toggle_exemption(request, pk):
             )
         messages.warning(
             request,
-            f"L'exemption 40% a été révoquée pour {inscription.id_etudiant.get_full_name()} dans le cours {inscription.id_cours.code_cours}. "
+            f"L'exemption a été révoquée pour {inscription.id_etudiant.get_full_name()} dans le cours {inscription.id_cours.code_cours}. "
             f"L'étudiant est maintenant bloqué pour les examens.",
         )
 
-    return redirect("dashboard:secretary_rules_40")
+    return redirect("dashboard:secretary_seuils_absence")

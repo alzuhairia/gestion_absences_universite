@@ -32,11 +32,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <!-- 40% Threshold Warning -->
+    <!-- Threshold Warning -->
     {% if is_blocked %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>Attention :</strong> Vous avez dépassé le seuil de 40% d'absences non justifiées. 
+        <strong>Attention :</strong> Vous avez dépassé le seuil d'absences non justifiées. 
         Vous ne pouvez pas passer les examens. Veuillez contacter le secrétariat pédagogique pour toute démarche administrative.
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
@@ -145,12 +145,12 @@
                     {% elif status_color == 'warning' %}
                         <p class="text-muted mb-0">
                             <i class="fas fa-exclamation-triangle me-1"></i>
-                            Vous approchez du seuil de 40% d'absences. Soyez vigilant.
+                            Vous approchez du seuil d'absences. Soyez vigilant.
                         </p>
                     {% else %}
                         <p class="text-muted mb-0">
                             <i class="fas fa-ban me-1"></i>
-                            Vous avez dépassé le seuil de 40% d'absences. Contactez le secrétariat.
+                            Vous avez dépassé le seuil d'absences. Contactez le secrétariat.
                         </p>
                     {% endif %}
                 </div>
