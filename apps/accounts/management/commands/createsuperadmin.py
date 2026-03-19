@@ -80,6 +80,18 @@ class Command(BaseCommand):
         if len(password) < 8:
             raise CommandError("Le mot de passe doit contenir au moins 8 caractères.")
 
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        try:
+            temp_user = User(email=email, nom=nom, prenom=prenom)
+            validate_password(password, user=temp_user)
+        except ValidationError as e:
+            raise CommandError(
+                "Le mot de passe ne respecte pas les règles de sécurité :\n"
+                + "\n".join(e.messages)
+            )
+
         user = User.objects.create_superuser(
             email=email,
             nom=nom,

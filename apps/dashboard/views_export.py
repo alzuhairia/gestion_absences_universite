@@ -231,12 +231,18 @@ def export_at_risk_excel(request):
             if rate >= seuil:
                 statut = "EXEMPTÉ" if ins.exemption_40 else "BLOQUÉ"
 
+                def _safe(val):
+                    s = str(val) if val is not None else ""
+                    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+                        return "'" + s
+                    return s
+
                 ws.append(
                     [
-                        ins.id_etudiant.nom,
-                        ins.id_etudiant.prenom,
-                        ins.id_etudiant.email,
-                        f"{cours.nom_cours} ({cours.code_cours})",
+                        _safe(ins.id_etudiant.nom),
+                        _safe(ins.id_etudiant.prenom),
+                        _safe(ins.id_etudiant.email),
+                        _safe(f"{cours.nom_cours} ({cours.code_cours})"),
                         total_abs,
                         round(rate, 2),
                         statut,

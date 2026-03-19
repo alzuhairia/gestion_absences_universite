@@ -54,4 +54,6 @@ class Message(models.Model):
         ]
 
     def __str__(self):
-        return f"Message de {self.expediteur} à {self.destinataire} - {self.objet}"
+        sender = str(self.expediteur) if self.expediteur else "(supprimé)"
+        recipient = str(self.destinataire) if self.destinataire else "(supprimé)"
+        return f"Message de {sender} à {recipient} - {self.objet}"

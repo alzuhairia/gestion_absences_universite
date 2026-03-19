@@ -188,7 +188,14 @@ def admin_export_audit_csv(request):
         except ValueError:
             pass
 
-    for log in logs:
+    def _sanitize_csv(value):
+        """Prefix dangerous CSV values to prevent formula injection in Excel."""
+        s = str(value) if value is not None else ""
+        if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+            return "'" + s
+        return s
+
+    for log in logs.iterator(chunk_size=2000):
         user = log.id_utilisateur
         if user:
             user_name = f"{user.prenom} {user.nom}"
@@ -201,10 +208,10 @@ def admin_export_audit_csv(request):
         writer.writerow(
             [
                 log.date_action.strftime("%Y-%m-%d %H:%M:%S"),
-                user_name,
-                user_email,
-                user_role,
-                log.action,
+                _sanitize_csv(user_name),
+                _sanitize_csv(user_email),
+                _sanitize_csv(user_role),
+                _sanitize_csv(log.action),
                 log.adresse_ip,
             ]
         )

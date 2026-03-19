@@ -128,6 +128,13 @@ def get_courses(request):
             )
 
         year_id = request.GET.get("year_id")
+        if year_id:
+            try:
+                year_id = int(year_id)
+            except (TypeError, ValueError):
+                return api_error(
+                    "year_id doit être un entier", status=400, code="bad_request"
+                )
 
         courses = Cours.objects.filter(
             id_departement_id=dept_id, actif=True
@@ -191,6 +198,10 @@ def get_courses_by_year(request):
 
     if not year_id:
         return api_error("year_id requis", status=400, code="bad_request")
+    try:
+        year_id = int(year_id)
+    except (TypeError, ValueError):
+        return api_error("year_id doit être un entier", status=400, code="bad_request")
 
     try:
         qs = Cours.objects.filter(id_annee_id=year_id, actif=True)
@@ -199,8 +210,16 @@ def get_courses_by_year(request):
         dept_id = request.GET.get("dept_id")
         niveau = request.GET.get("niveau")
         if dept_id:
+            try:
+                dept_id = int(dept_id)
+            except (TypeError, ValueError):
+                return api_error("dept_id doit être un entier", status=400, code="bad_request")
             qs = qs.filter(id_departement_id=dept_id)
         if niveau:
+            try:
+                niveau = int(niveau)
+            except (TypeError, ValueError):
+                return api_error("niveau doit être un entier", status=400, code="bad_request")
             qs = qs.filter(niveau=niveau)
 
         courses = (
@@ -213,6 +232,10 @@ def get_courses_by_year(request):
         enrolled_course_ids = set()
         student_id = request.GET.get("student_id")
         if student_id:
+            try:
+                student_id = int(student_id)
+            except (TypeError, ValueError):
+                return api_error("student_id doit être un entier", status=400, code="bad_request")
             enrolled_course_ids = set(
                 Inscription.objects.filter(
                     id_etudiant_id=student_id,
@@ -269,6 +292,10 @@ def get_courses_by_student(request):
     student_id = request.GET.get("student_id")
     if not student_id:
         return api_error("student_id requis", status=400, code="bad_request")
+    try:
+        student_id = int(student_id)
+    except (TypeError, ValueError):
+        return api_error("student_id doit être un entier", status=400, code="bad_request")
 
     try:
         annee_active = AnneeAcademique.objects.filter(active=True).first()

@@ -48,7 +48,8 @@ def absence_post_save(sender, instance, **kwargs):
     de la transaction en cours, évitant les écritures DB imbriquées et
     garantissant que toutes les données sont cohérentes avant le recalcul.
     """
-    _schedule_eligibility_recalc(instance.id_inscription_id)
+    if instance.id_inscription_id:
+        _schedule_eligibility_recalc(instance.id_inscription_id)
 
 
 @receiver(post_delete, sender=Absence)
@@ -60,4 +61,5 @@ def absence_post_delete(sender, instance, **kwargs):
     corrige un étudiant marqué absent par erreur) doit mettre à jour le
     statut eligible_examen.
     """
-    _schedule_eligibility_recalc(instance.id_inscription_id)
+    if instance.id_inscription_id:
+        _schedule_eligibility_recalc(instance.id_inscription_id)

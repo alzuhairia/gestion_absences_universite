@@ -113,5 +113,9 @@ class EmailLog(models.Model):
         digest = cls.make_digest(email, event_type, event_key)
         cls.objects.update_or_create(
             digest=digest,
-            defaults={"recipient_email": email, "event_type": event_type},
+            defaults={
+                "recipient_email": email,
+                "event_type": event_type,
+                "created_at": timezone.now(),
+            },
         )

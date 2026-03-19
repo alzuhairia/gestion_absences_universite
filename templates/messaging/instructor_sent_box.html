@@ -213,13 +213,13 @@
                     <a href="{% url 'messaging:detail' message.id_message %}" class="message-item">
                         <div class="d-flex">
                             <div class="message-avatar">
-                                {{ message.destinataire.prenom|first }}{{ message.destinataire.nom|first }}
+                                {% if message.destinataire %}{{ message.destinataire.prenom|first }}{{ message.destinataire.nom|first }}{% else %}?{% endif %}
                             </div>
                             <div class="message-content">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div>
                                         <div class="message-sender">
-                                            À : {{ message.destinataire.prenom }} {{ message.destinataire.nom }}
+                                            À : {% if message.destinataire %}{{ message.destinataire.prenom }} {{ message.destinataire.nom }}{% else %}(Utilisateur supprimé){% endif %}
                                         </div>
                                         <div class="message-subject">
                                             {{ message.objet|default:"(Aucun objet)" }}

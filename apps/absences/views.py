@@ -1129,11 +1129,12 @@ def validate_session(request, seance_id):
         messages.error(request, "Accès non autorisé à cette séance.")
         return redirect("dashboard:instructor_dashboard")
 
-    if seance.validated:
-        messages.info(request, "Cette séance est déjà validée.")
-        return redirect("absences:mark_absence", course_id=seance.id_cours_id)
-
     with transaction.atomic():
+        seance = Seance.objects.select_for_update().get(pk=seance_id)
+        if seance.validated:
+            messages.info(request, "Cette séance est déjà validée.")
+            return redirect("absences:mark_absence", course_id=seance.id_cours_id)
+
         seance.validated = True
         seance.validated_by = request.user
         seance.date_validated = timezone.now()
