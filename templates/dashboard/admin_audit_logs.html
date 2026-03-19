@@ -14,7 +14,7 @@
             <i class="fas fa-history me-2"></i>Journaux d'Audit
         </h1>
         <div>
-            <a href="{% url 'dashboard:admin_export_audit_csv' %}{% if role_filter %}?role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" 
+            <a href="{% url 'dashboard:admin_export_audit_csv' %}{% if role_filter %}?role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" 
                class="btn btn-success me-2">
                 <i class="fas fa-file-csv me-1"></i> Exporter CSV
             </a>
@@ -91,17 +91,25 @@
                         <tr>
                             <td>{{ log.date_action|date:"d/m/Y H:i:s" }}</td>
                             <td>
+                                {% if log.id_utilisateur %}
                                 <strong>{{ log.id_utilisateur.get_full_name }}</strong><br>
                                 <small class="text-muted">{{ log.id_utilisateur.email }}</small>
+                                {% else %}
+                                <strong class="text-muted">(utilisateur supprimé)</strong>
+                                {% endif %}
                             </td>
                             <td>
-                                <span class="badge 
+                                {% if log.id_utilisateur %}
+                                <span class="badge
                                     {% if log.id_utilisateur.role == 'ADMIN' %}bg-danger
                                     {% elif log.id_utilisateur.role == 'SECRETAIRE' %}bg-warning
                                     {% elif log.id_utilisateur.role == 'PROFESSEUR' %}bg-success
                                     {% else %}bg-info{% endif %}">
                                     {{ log.id_utilisateur.get_role_display }}
                                 </span>
+                                {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if 'CRITIQUE' in log.action %}
@@ -122,7 +130,7 @@
                 <ul class="pagination justify-content-center">
                     {% if logs.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ logs.previous_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}">Précédent</a>
+                        <a class="page-link" href="?page={{ logs.previous_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}">Précédent</a>
                     </li>
                     {% endif %}
                     <li class="page-item active">
@@ -130,7 +138,7 @@
                     </li>
                     {% if logs.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ logs.next_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}">Suivant</a>
+                        <a class="page-link" href="?page={{ logs.next_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if action_filter %}&action={{ action_filter|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}">Suivant</a>
                     </li>
                     {% endif %}
                 </ul>

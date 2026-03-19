@@ -160,7 +160,7 @@
                 <ul class="pagination justify-content-center">
                     {% if users.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ users.previous_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}">Précédent</a>
+                        <a class="page-link" href="?page={{ users.previous_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}">Précédent</a>
                     </li>
                     {% endif %}
                     <li class="page-item active">
@@ -168,7 +168,7 @@
                     </li>
                     {% if users.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ users.next_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}">Suivant</a>
+                        <a class="page-link" href="?page={{ users.next_page_number }}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}">Suivant</a>
                     </li>
                     {% endif %}
                 </ul>

@@ -158,14 +158,14 @@
                     <div class="message-meta-card">
                         <div class="d-flex align-items-center">
                             <div class="message-avatar-large">
-                                {{ message.expediteur.prenom|first }}{{ message.expediteur.nom|first }}
+                                {% if message.expediteur %}{{ message.expediteur.prenom|first }}{{ message.expediteur.nom|first }}{% else %}?{% endif %}
                             </div>
                             <div class="flex-grow-1">
                                 <div class="meta-item">
                                     <i class="fas fa-user"></i>
                                     <div>
                                         <strong>Expéditeur :</strong>
-                                        <span class="ms-2">{{ message.expediteur.prenom }} {{ message.expediteur.nom }}</span>
+                                        <span class="ms-2">{% if message.expediteur %}{{ message.expediteur.prenom }} {{ message.expediteur.nom }}{% else %}(Utilisateur supprimé){% endif %}</span>
                                     </div>
                                 </div>
                                 <div class="meta-item">
