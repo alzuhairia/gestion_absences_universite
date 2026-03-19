@@ -151,6 +151,8 @@ urlpatterns = [
         views_admin.admin_export_audit_csv,
         name="admin_export_audit_csv",
     ),
+    # QR Scan Logs
+    path("admin/qr-scan-logs/", views_admin.admin_qr_scan_logs, name="admin_qr_scan_logs"),
     # API pour les prérequis selon le niveau
     path(
         "api/prerequisites-by-level/",

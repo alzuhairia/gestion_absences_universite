@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
+from apps.absences.models import QRScanLog
 from apps.accounts.models import User
 from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
@@ -198,3 +199,57 @@ def admin_export_audit_csv(request):
         objet_type="SYSTEM",
     )
     return response
+
+
+# ========== LOGS QR SCANS ==========
+
+
+@login_required
+@admin_required
+@require_GET
+def admin_qr_scan_logs(request):
+    """Consultation des logs de scan QR avec filtres"""
+
+    result_filter = request.GET.get("result", "")
+    gps_filter = request.GET.get("gps", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+    student_filter = request.GET.get("student", "")
+
+    logs = QRScanLog.objects.select_related("etudiant", "seance", "seance__id_cours").all()
+
+    if result_filter:
+        logs = logs.filter(scan_result=result_filter)
+    if gps_filter:
+        logs = logs.filter(gps_status=gps_filter)
+    if date_from:
+        logs = logs.filter(timestamp__gte=date_from)
+    if date_to:
+        logs = logs.filter(timestamp__date__lte=date_to)
+    if student_filter:
+        logs = logs.filter(
+            Q(etudiant__nom__icontains=student_filter)
+            | Q(etudiant__prenom__icontains=student_filter)
+            | Q(etudiant__email__icontains=student_filter)
+        )
+
+    logs = logs.order_by("-timestamp")
+
+    paginator = Paginator(logs, 50)
+    page = request.GET.get("page")
+    logs_page = paginator.get_page(page)
+
+    return render(
+        request,
+        "dashboard/admin_qr_scan_logs.html",
+        {
+            "logs": logs_page,
+            "result_filter": result_filter,
+            "gps_filter": gps_filter,
+            "date_from": date_from,
+            "date_to": date_to,
+            "student_filter": student_filter,
+            "scan_results": QRScanLog.ScanResult.choices,
+            "gps_statuses": QRScanLog.GPSStatus.choices,
+        },
+    )
