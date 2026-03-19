@@ -114,7 +114,14 @@
             function(pos) {
                 latInput.value = pos.coords.latitude;
                 lngInput.value = pos.coords.longitude;
-                gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position capturée (' + pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5) + ')</span>';
+                gpsStatus.textContent = '';
+                var span = document.createElement('span');
+                span.className = 'text-success';
+                var icon = document.createElement('i');
+                icon.className = 'fas fa-check-circle me-1';
+                span.appendChild(icon);
+                span.appendChild(document.createTextNode('Position capturée (' + pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5) + ')'));
+                gpsStatus.appendChild(span);
             },
             function(err) {
                 gpsStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>GPS refusé — la vérification de distance sera désactivée</span>';

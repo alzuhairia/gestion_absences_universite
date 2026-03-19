@@ -179,9 +179,11 @@ class CoursViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == User.Role.ETUDIANT:
-            enrolled_course_ids = Inscription.objects.filter(
-                id_etudiant=user
-            ).values_list("id_cours", flat=True)
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            ins_qs = Inscription.objects.filter(id_etudiant=user)
+            if active_year:
+                ins_qs = ins_qs.filter(id_annee=active_year)
+            enrolled_course_ids = ins_qs.values_list("id_cours", flat=True)
             return qs.filter(pk__in=enrolled_course_ids)
         if user.role == User.Role.PROFESSEUR:
             return qs.filter(professeur=user)
@@ -238,7 +240,11 @@ class InscriptionViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == User.Role.ETUDIANT:
-            return qs.filter(id_etudiant=user)
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            flt = {"id_etudiant": user}
+            if active_year:
+                flt["id_annee"] = active_year
+            return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             return qs.filter(id_cours__professeur=user)
         return qs
@@ -297,7 +303,11 @@ class AbsenceViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == User.Role.ETUDIANT:
-            return qs.filter(id_inscription__id_etudiant=user)
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            flt = {"id_inscription__id_etudiant": user}
+            if active_year:
+                flt["id_inscription__id_annee"] = active_year
+            return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             return qs.filter(id_inscription__id_cours__professeur=user)
         return qs
