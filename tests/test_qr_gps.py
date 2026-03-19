@@ -82,7 +82,7 @@ class GPSRefusedVerificationEnabledTest(BaseQRTestCase):
         token = self._create_token(verify_location=True)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {"gps_status": "refused"})
+        resp = self.client.post(url, {"gps_status": "refused"}, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "localisation est obligatoire")
         # No scan record created
@@ -106,7 +106,7 @@ class GPSAcceptedWithinRadiusTest(BaseQRTestCase):
             "latitude": "36.75250",
             "longitude": "3.04200",
             "gps_status": "accepted",
-        })
+        }, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "avec succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -128,7 +128,7 @@ class GPSAcceptedOutsideRadiusTest(BaseQRTestCase):
             "latitude": "48.8566",
             "longitude": "2.3522",
             "gps_status": "accepted",
-        })
+        }, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "zone autoris")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -145,7 +145,7 @@ class QRExpiredTest(BaseQRTestCase):
         token = self._create_token(expired=True)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.get(url)
+        resp = self.client.get(url, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "expir")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -162,7 +162,7 @@ class QRValidNoGPSRequiredTest(BaseQRTestCase):
         token = self._create_token(verify_location=False)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {"gps_status": "not_required"})
+        resp = self.client.post(url, {"gps_status": "not_required"}, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "avec succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -176,7 +176,9 @@ class ScanLogCreatedForEveryAttemptTest(BaseQRTestCase):
 
         # 1) Expired token
         t1 = self._create_token(expired=True)
-        self.client.get(reverse("absences:qr_scan", kwargs={"token": t1.token}))
+        self.client.get(
+            reverse("absences:qr_scan", kwargs={"token": t1.token}), secure=True
+        )
         self.assertEqual(QRScanLog.objects.count(), 1)
 
         # 2) Valid token, GPS refused
@@ -184,6 +186,7 @@ class ScanLogCreatedForEveryAttemptTest(BaseQRTestCase):
         self.client.post(
             reverse("absences:qr_scan", kwargs={"token": t2.token}),
             {"gps_status": "refused"},
+            secure=True,
         )
         self.assertEqual(QRScanLog.objects.count(), 2)
 
@@ -192,6 +195,7 @@ class ScanLogCreatedForEveryAttemptTest(BaseQRTestCase):
         self.client.post(
             reverse("absences:qr_scan", kwargs={"token": t3.token}),
             {"gps_status": "not_required"},
+            secure=True,
         )
         self.assertEqual(QRScanLog.objects.count(), 3)
 
@@ -199,6 +203,7 @@ class ScanLogCreatedForEveryAttemptTest(BaseQRTestCase):
         self.client.post(
             reverse("absences:qr_scan", kwargs={"token": t3.token}),
             {"gps_status": "not_required"},
+            secure=True,
         )
         self.assertEqual(QRScanLog.objects.count(), 4)
 
@@ -211,7 +216,7 @@ class GPSUnavailableVerificationEnabledTest(BaseQRTestCase):
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
         # POST with no latitude/longitude
-        resp = self.client.post(url, {"gps_status": "unavailable"})
+        resp = self.client.post(url, {"gps_status": "unavailable"}, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Impossible")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())

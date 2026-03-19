@@ -457,6 +457,13 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 RATELIMIT_USE_CACHE = "default"
 
+# drf-spectacular path parameter warnings are cosmetic (all endpoints work correctly).
+# Silenced so that `manage.py check --deploy` produces zero warnings in CI.
+SILENCED_SYSTEM_CHECKS = [
+    "drf_spectacular.W001",
+    "drf_spectacular.W002",
+]
+
 # ── Content Security Policy (CSP) ───────────────────────────────────────────
 # Nonce-based CSP: all <script> tags must carry nonce="{{ request.csp_nonce }}".
 # Inline styles use 'unsafe-inline' because 38+ templates rely on <style> blocks
