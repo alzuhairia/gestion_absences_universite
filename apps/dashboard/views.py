@@ -260,7 +260,7 @@ def secretary_enrollments(request):
 @login_required
 @secretary_required
 @require_GET
-def secretary_rules_40(request):
+def secretary_seuils_absence(request):
     """
     List students violating the absence threshold rule (per-course or system default).
     Integrated into the secretary dashboard layout.
@@ -322,7 +322,7 @@ def secretary_rules_40(request):
 
     return render(
         request,
-        "dashboard/secretary_rules_40.html",
+        "dashboard/secretary_seuils_absence.html",
         {
             "at_risk_list": page_obj,
             "page_obj": page_obj,
