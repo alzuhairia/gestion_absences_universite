@@ -161,7 +161,7 @@ jobs:
       - name: Run Trivy - library scan (blocking)
         id: trivy_lib
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.42.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: unabsences-security:${{ github.sha }}
@@ -174,7 +174,7 @@ jobs:
       - name: Run Trivy - full scan (SARIF for GitHub Security tab)
         id: trivy_scan
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.42.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: unabsences-security:${{ github.sha }}
@@ -193,7 +193,7 @@ jobs:
           category: trivy
 
       - name: Generate SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@0.42.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: unabsences-security:${{ github.sha }}
