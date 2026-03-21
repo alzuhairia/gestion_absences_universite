@@ -1,3 +1,11 @@
+"""
+FICHIER : apps/absences/forms.py
+RESPONSABILITE : Formulaire d'encodage d'absences justifiees par le secretariat
+FONCTIONNALITES PRINCIPALES :
+  - SecretaryJustifiedAbsenceForm : encodage avec document optionnel
+DEPENDANCES CLES : apps.absences.models, apps.accounts.models, apps.academics.models, apps.academic_sessions.models
+"""
+
 from django import forms
 
 from apps.absences.models import Absence

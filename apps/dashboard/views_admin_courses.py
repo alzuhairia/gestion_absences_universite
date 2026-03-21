@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/dashboard/views_admin_courses.py
+RESPONSABILITE : CRUD structure academique (admin) - facultes, departements, cours, annees
+FONCTIONNALITES PRINCIPALES :
+  - CRUD Facultes avec soft delete
+  - CRUD Departements avec soft delete
+  - CRUD Cours avec prerequis et seuils
+  - CRUD Annees academiques avec activation unique
+  - API prerequis par niveau
+DEPENDANCES CLES : academics.models, academic_sessions.models, dashboard.forms_admin
+"""
+
 import logging
 
 from django.contrib import messages
@@ -33,7 +45,9 @@ from apps.enrollments.models import Inscription
 logger = logging.getLogger(__name__)
 
 
-# ========== GESTION DE LA STRUCTURE ACADÉMIQUE ==========
+# ---------------------------------------------------------------------------
+# CRUD Facultes
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -242,6 +256,11 @@ def admin_faculty_delete(request, faculte_id):
     return redirect("dashboard:admin_faculties")
 
 
+# ---------------------------------------------------------------------------
+# CRUD Departements
+# ---------------------------------------------------------------------------
+
+
 @login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
@@ -447,6 +466,11 @@ def admin_department_delete(request, dept_id):
     return redirect("dashboard:admin_departments")
 
 
+# ---------------------------------------------------------------------------
+# CRUD Cours
+# ---------------------------------------------------------------------------
+
+
 @login_required
 @admin_required
 @require_http_methods(["GET", "POST"])
@@ -649,7 +673,9 @@ def admin_course_delete(request, course_id):
     return redirect("dashboard:admin_courses")
 
 
-# ========== GESTION DES ANNÉES ACADÉMIQUES ==========
+# ---------------------------------------------------------------------------
+# CRUD Annees academiques
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -819,7 +845,9 @@ def admin_academic_year_delete(request, year_id):
     return redirect("dashboard:admin_academic_years")
 
 
-# ========== API ==========
+# ---------------------------------------------------------------------------
+# API prerequis par niveau
+# ---------------------------------------------------------------------------
 
 
 @ratelimit(key=ratelimit_client_ip, rate="30/5m", method="GET", block=False)

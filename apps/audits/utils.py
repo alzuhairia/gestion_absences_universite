@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/audits/utils.py
+RESPONSABILITE : Fonctions utilitaires pour la creation d'entrees d'audit
+FONCTIONNALITES PRINCIPALES :
+  - log_action() : cree une entree dans le journal d'audit avec sanitization
+  - get_client_ip() : extraction IP client via proxies de confiance
+DEPENDANCES CLES : audits.models.LogAudit, audits.ip_utils
+"""
+
 import re
 
 from apps.accounts.models import User

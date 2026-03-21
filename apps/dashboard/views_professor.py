@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/dashboard/views_professor.py
+RESPONSABILITE : Toutes les vues du dashboard professeur
+FONCTIONNALITES PRINCIPALES :
+  - Dashboard professeur : KPIs cours, etudiants a risque
+  - Detail cours : etudiants, seances, statistiques
+  - Liste cours assignes au professeur
+  - Liste seances et historique
+  - Statistiques globales du professeur
+DEPENDANCES CLES : absences.services, academics.models
+"""
+
 from collections import defaultdict
 
 from django.contrib import messages
@@ -13,6 +25,11 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours
 from apps.dashboard.decorators import professor_required
 from apps.enrollments.models import Inscription
+
+
+# ---------------------------------------------------------------------------
+# Dashboard professeur - KPIs et etudiants a risque
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -143,6 +160,11 @@ def instructor_dashboard(request):
             "at_risk_list": at_risk_list[:5],  # Limit to 5 for dashboard display
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Detail cours - etudiants, seances, statistiques
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -291,6 +313,11 @@ def instructor_course_detail(request, course_id):
             "course_threshold": course_threshold,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Liste cours et seances
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -455,6 +482,11 @@ def instructor_sessions(request):
             "sessions_by_course": dict(sessions_by_course),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Statistiques globales du professeur
+# ---------------------------------------------------------------------------
 
 
 @login_required

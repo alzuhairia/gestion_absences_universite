@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/academics/models.py
+RESPONSABILITE : Structure academique de l'universite (Faculte > Departement > Cours)
+FONCTIONNALITES PRINCIPALES :
+  - Hierarchie : Faculte -> Departement -> Cours
+  - Seuil d'absence personnalisable par cours (ou seuil systeme par defaut)
+  - Prerequis entre cours (ManyToMany, filtres par niveau)
+  - Soft delete via champ 'actif' sur chaque entite
+DEPENDANCES CLES : accounts.User (professeur), academic_sessions.AnneeAcademique
+"""
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 

@@ -1,5 +1,10 @@
 """
-Formulaires pour la gestion des inscriptions.
+FICHIER : apps/enrollments/forms.py
+RESPONSABILITE : Formulaires d'inscription etudiants
+FONCTIONNALITES PRINCIPALES :
+  - StudentCreationForm : creation compte etudiant
+  - EnrollmentForm : inscription par niveau ou cours specifiques
+DEPENDANCES CLES : apps.accounts.models, apps.academics.models, apps.academic_sessions.models, apps.enrollments.models
 """
 
 from django import forms

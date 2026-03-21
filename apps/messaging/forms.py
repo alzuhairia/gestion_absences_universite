@@ -1,3 +1,11 @@
+"""
+FICHIER : apps/messaging/forms.py
+RESPONSABILITE : Formulaire de composition de message
+FONCTIONNALITES PRINCIPALES :
+  - MessageForm : filtrage destinataires par role
+DEPENDANCES CLES : apps.accounts.models, apps.messaging.models
+"""
+
 from django import forms
 
 from apps.accounts.models import User

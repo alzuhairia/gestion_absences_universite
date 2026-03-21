@@ -1,6 +1,6 @@
 """
-URLs pour l'app health.
-Définit l'endpoint /api/health/ pour le monitoring.
+FICHIER : apps/health/urls.py
+RESPONSABILITE : Route URL pour le health check endpoint
 """
 
 from django.urls import path

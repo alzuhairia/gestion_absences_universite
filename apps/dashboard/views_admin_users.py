@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/dashboard/views_admin_users.py
+RESPONSABILITE : Gestion des utilisateurs (admin) - CRUD, mot de passe, audit
+FONCTIONNALITES PRINCIPALES :
+  - Liste et filtrage utilisateurs par role/statut
+  - Creation, modification, suppression utilisateurs
+  - Reset mot de passe avec validation
+  - Audit par utilisateur
+  - Suppression en lot avec verification dependances
+DEPENDANCES CLES : accounts.models, dashboard.forms_admin, audits.utils
+"""
+
 import logging
 
 from django.contrib import messages
@@ -23,7 +35,9 @@ from apps.enrollments.models import Inscription
 logger = logging.getLogger(__name__)
 
 
-# ========== GESTION DES UTILISATEURS ==========
+# ---------------------------------------------------------------------------
+# Liste et filtrage utilisateurs
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -200,6 +214,11 @@ def admin_user_reset_password(request, user_id):
     return redirect("dashboard:admin_user_edit", user_id=user_id)
 
 
+# ---------------------------------------------------------------------------
+# Audit par utilisateur
+# ---------------------------------------------------------------------------
+
+
 @login_required
 @admin_required
 @require_GET
@@ -222,6 +241,11 @@ def admin_user_audit(request, user_id):
             "logs": logs_page,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Suppression utilisateurs (unitaire et en lot)
+# ---------------------------------------------------------------------------
 
 
 @login_required
