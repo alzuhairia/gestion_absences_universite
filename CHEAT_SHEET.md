@@ -5,52 +5,52 @@
 ---
 
 ### Q: "Comment fonctionne le marquage des absences ?"
-**R:** `apps/absences/views.py` ligne 533 - fonction `mark_absence()`
-- Le prof cree une seance (`session_create()` L402), choisit mode manuel ou QR
+**R:** `apps/absences/views.py` ligne 554 - fonction `mark_absence()`
+- Le prof cree une seance (`session_create()` L423), choisit mode manuel ou QR
 - Mode manuel : formulaire avec liste etudiants, statut present/absent/partiel
 - Chaque absence sauvegardee declenche un signal (`signals.py` L43) qui recalcule l'eligibilite
-- Validation par le prof verrouille la seance (`validate_session()` L1120)
+- Validation par le prof verrouille la seance (`validate_session()` L1151)
 
 ---
 
 ### Q: "Montre-moi le systeme QR Code"
-**R:** `apps/absences/views.py` lignes 1182-1620
-- Generation QR : `qr_generate()` L1197 - cree token + QR en base64
-- Dashboard live : `qr_dashboard()` L1294 - affiche QR + liste scans en temps reel (HTMX polling)
-- Scan etudiant : `qr_scan()` L1519 - verifie GPS + anti-doublon + token valide
-- Verification GPS : `_haversine()` L1172 - formule mathematique distance GPS
-- Finalisation : `qr_finalize()` L1421 - marque non-scannes absents
-- Modeles : `QRAttendanceToken` L243, `QRScanRecord` L294, `QRScanLog` L332
+**R:** `apps/absences/views.py` lignes 1203-1650
+- Generation QR : `qr_generate()` L1228 - cree token + QR en base64
+- Dashboard live : `qr_dashboard()` L1325 - affiche QR + liste scans en temps reel (HTMX polling)
+- Scan etudiant : `qr_scan()` L1555 - verifie GPS + anti-doublon + token valide
+- Verification GPS : `_haversine()` L1203 - formule mathematique distance GPS
+- Finalisation : `qr_finalize()` L1452 - marque non-scannes absents
+- Modeles : `QRAttendanceToken` L272, `QRScanRecord` L323, `QRScanLog` L361
 
 ---
 
 ### Q: "Comment gerez-vous les justifications ?"
 **R:** Flux complet :
-1. Etudiant upload document : `upload_justification()` views.py L153
-2. Validation fichier (extension + MIME + signature binaire) : `utils_upload.py` L116
-3. Secretaire voit liste : `validation_list()` views_validation.py L66
-4. Approbation/rejet (avec lock + transaction) : `process_justification()` L130
-5. Emails envoyes : `_send_justification_decision_emails()` L42
-6. Deadline calculee : `services.py` L25 `get_justification_deadline()`
+1. Etudiant upload document : `upload_justification()` views.py L169
+2. Validation fichier (extension + MIME + signature binaire) : `utils_upload.py` L126
+3. Secretaire voit liste : `validation_list()` views_validation.py L82
+4. Approbation/rejet (avec lock + transaction) : `process_justification()` L151
+5. Emails envoyes : `_send_justification_decision_emails()` L56
+6. Deadline calculee : `services.py` L43 `get_justification_deadline()`
 
 ---
 
 ### Q: "Comment calculez-vous l'eligibilite ?"
-**R:** `apps/absences/services.py` ligne 265 - `recalculer_eligibilite()`
+**R:** `apps/absences/services.py` ligne 303 - `recalculer_eligibilite()`
 - Taux absence = heures absence / volume horaire total du cours
-- Seuil par cours (`Cours.get_seuil_absence()` academics/models.py L255) ou seuil systeme
+- Seuil par cours (`Cours.get_seuil_absence()` academics/models.py L266) ou seuil systeme
 - Si taux >= seuil : etudiant bloque (non eligible)
-- Exemption possible (regle des 40%) : `toggle_exemption()` enrollments/views_rules.py L107
+- Exemption possible (regle des 40%) : `toggle_exemption()` enrollments/views_rules.py L116
 - Recalcul automatique via signal post_save/post_delete sur Absence
 
 ---
 
 ### Q: "Comment securisez-vous l'application ?"
 **R:** Plusieurs couches :
-- **Authentification** : Login rate-limited (`accounts/views.py` L44), session timeout (`middleware.py` L36)
-- **Autorisation** : Decorateurs par role (`decorators.py` L89-253), permissions DRF (`api/permissions.py`)
+- **Authentification** : Login rate-limited (`accounts/views.py` L55), session timeout (`middleware.py` L47)
+- **Autorisation** : Decorateurs par role (`decorators.py` L89-299), permissions DRF (`api/permissions.py`)
 - **Mots de passe** : Validateur configurable (`validators.py` L8), force change au premier login
-- **Upload fichiers** : Triple validation extension + MIME + magic bytes (`utils_upload.py` L116)
+- **Upload fichiers** : Triple validation extension + MIME + magic bytes (`utils_upload.py` L126)
 - **Anti-injection** : Sanitization audit logs, ORM Django (pas de SQL brut)
 - **CSRF** : Middleware Django actif, SRI sur CDN
 - **GPS anti-fraude** : Verification distance Haversine pour scan QR
@@ -58,7 +58,7 @@
 ---
 
 ### Q: "Quels sont les 4 roles et leurs permissions ?"
-**R:** `apps/accounts/models.py` ligne 100 - `User.Role`
+**R:** `apps/accounts/models.py` ligne 111 - `User.Role`
 | Role | Peut faire | Decorateur |
 |------|-----------|-----------|
 | ADMIN | Tout : CRUD users/cours/facultes, stats, audit, parametres | `admin_required()` L89 |
@@ -79,10 +79,10 @@
 ---
 
 ### Q: "Comment gerez-vous les inscriptions ?"
-**R:** `apps/enrollments/views.py` ligne 362 - `enroll_student()`
+**R:** `apps/enrollments/views.py` ligne 381 - `enroll_student()`
 - Inscription par niveau (tous les cours) ou cours specifiques
 - Creation compte etudiant possible en meme temps (`StudentCreationForm`)
-- Verification prerequis (non bloquant, avertissement) : `get_prerequisite_info()` L342
+- Verification prerequis (non bloquant, avertissement) : `get_prerequisite_info()` L361
 - API dynamique : departements/cours/annees chargees via AJAX
 - Protection TOCTOU : `get_or_create()` pour inscription individuelle
 
@@ -109,23 +109,23 @@
 - Filtres avances : `api/filters.py` (5 classes FilterSet)
 - Serializers : `api/serializers.py` (14 serializers)
 - Documentation : Swagger UI + ReDoc auto-generee
-- Endpoints analytics : `dashboard_analytics()` L530, `statistics_analytics()` L613
+- Endpoints analytics : `dashboard_analytics()` L545, `statistics_analytics()` L628
 
 ---
 
 ### Q: "Comment gerez-vous l'audit/tracabilite ?"
 **R:** `apps/audits/`
-- Chaque action critique logguee : `log_action()` utils.py L17
+- Chaque action critique logguee : `log_action()` utils.py L26
 - Modele `LogAudit` : utilisateur, action, IP, timestamp, details
 - Sanitization caracteres de controle (regex) avant ecriture
-- Export CSV : `admin_export_audit_csv()` dashboard/views_admin_settings.py L150
-- IP extraction via proxies de confiance : `extract_client_ip()` ip_utils.py L34
+- Export CSV : `admin_export_audit_csv()` dashboard/views_admin_settings.py L166
+- IP extraction via proxies de confiance : `extract_client_ip()` ip_utils.py L44
 
 ---
 
 ### Q: "Montrez-moi la gestion des erreurs / cas limites"
 **R:** Exemples concrets :
-- Race condition justification : `select_for_update()` dans `process_justification()` views_validation.py L130
+- Race condition justification : `select_for_update()` dans `process_justification()` views_validation.py L151
 - Seuil = 0 : guard specifique dans `student_dashboard` et `student_courses`
 - Fichier upload : triple validation (extension + MIME + magic bytes)
 - Email : `send_notification_email()` ne leve jamais d'exception (try/except global)
