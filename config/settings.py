@@ -1,3 +1,17 @@
+"""
+FICHIER : config/settings.py
+RESPONSABILITE : Configuration centrale du projet Django
+FONCTIONNALITES PRINCIPALES :
+  - Chargement des variables d'environnement (.env + .env.local)
+  - Helpers de parsing env (bool, int, list, CIDR)
+  - Securite : SECRET_KEY, CSRF, CORS, HSTS, CSP, rate limiting
+  - Base de donnees PostgreSQL + Cache Redis
+  - Email SMTP avec auto-detection du backend
+  - Logging fichier + console avec rotation
+  - Sessions avec timeout d'inactivite
+DEPENDANCES CLES : .env, .env.local, django, django-csp, python-dotenv
+"""
+
 import ipaddress
 import os
 from pathlib import Path
@@ -8,12 +22,18 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load base env, then optional local overrides (.env.local)
+# Charge .env de base, puis surcharges locales (.env.local)
 load_dotenv(BASE_DIR / ".env")
 load_dotenv(BASE_DIR / ".env.local", override=True)
 
 
+# ========================================================================== #
+#                    HELPERS DE PARSING ENVIRONNEMENT                        #
+# ========================================================================== #
+
+
 def env_bool(name: str, default: bool = False) -> bool:
+    """Parse une variable d'environnement comme booleen (1/true/yes/on)."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -21,6 +41,7 @@ def env_bool(name: str, default: bool = False) -> bool:
 
 
 def env_int(name: str, default: int) -> int:
+    """Parse une variable d'environnement comme entier. Leve ImproperlyConfigured si invalide."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -31,11 +52,13 @@ def env_int(name: str, default: int) -> int:
 
 
 def env_list(name: str, default: str = "") -> list[str]:
+    """Parse une variable d'environnement comme liste separee par virgules."""
     raw = os.getenv(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def env_cidr_list(name: str, default: str = "") -> list[str]:
+    """Parse une liste de blocs CIDR avec validation IP."""
     values = env_list(name, default)
     for cidr in values:
         try:
@@ -45,7 +68,9 @@ def env_cidr_list(name: str, default: str = "") -> list[str]:
     return values
 
 
-# Core security settings
+# ========================================================================== #
+#                         SECURITE FONDAMENTALE                              #
+# ========================================================================== #
 DEBUG = env_bool("DEBUG", False)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -118,6 +143,10 @@ HEALTHCHECK_RATE_LIMIT = os.getenv("HEALTHCHECK_RATE_LIMIT", "12/m")
 LOGIN_RATE_LIMIT_IP = os.getenv("LOGIN_RATE_LIMIT_IP", "20/5m")
 LOGIN_RATE_LIMIT_COMBINED = os.getenv("LOGIN_RATE_LIMIT_COMBINED", "5/5m")
 
+
+# ========================================================================== #
+#                         APPLICATIONS INSTALLEES                            #
+# ========================================================================== #
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -228,6 +257,10 @@ DEFAULT_FROM_EMAIL = os.getenv(
     else "UniAbsences Notification System <noreply@uniabsences.local>",
 )
 
+# ========================================================================== #
+#                              MIDDLEWARE                                     #
+# ========================================================================== #
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -242,6 +275,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+
+# ========================================================================== #
+#                              TEMPLATES                                      #
+# ========================================================================== #
 
 TEMPLATES = [
     {
@@ -262,6 +299,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# ========================================================================== #
+#                     BASE DE DONNEES (PostgreSQL)                           #
+# ========================================================================== #
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -273,6 +314,10 @@ DATABASES = {
         "CONN_MAX_AGE": env_int("CONN_MAX_AGE", 0 if DEBUG else 600),
     }
 }
+
+# ========================================================================== #
+#                          CACHE (Redis / LocMem)                            #
+# ========================================================================== #
 
 CACHE_BACKEND = os.getenv("CACHE_BACKEND", "redis").strip().lower()
 if CACHE_BACKEND not in {"redis", "locmem"}:
@@ -315,6 +360,10 @@ else:
         }
     }
 
+# ========================================================================== #
+#                     VALIDATION MOTS DE PASSE                               #
+# ========================================================================== #
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -333,6 +382,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# ========================================================================== #
+#                   INTERNATIONALISATION ET FICHIERS                         #
+# ========================================================================== #
+
 LANGUAGE_CODE = "fr"
 TIME_ZONE = "Europe/Brussels"
 DEFAULT_CHARSET = "utf-8"
@@ -344,6 +397,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# ========================================================================== #
+#                    AUTHENTIFICATION ET SESSIONS                            #
+# ========================================================================== #
 
 AUTH_USER_MODEL = "accounts.User"
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
@@ -379,6 +436,10 @@ MESSAGE_TAGS = {
     message_constants.WARNING: "warning",
     message_constants.ERROR: "danger",
 }
+
+# ========================================================================== #
+#                              LOGGING                                       #
+# ========================================================================== #
 
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
@@ -429,7 +490,9 @@ LOGGING = {
     },
 }
 
-# Production hardening
+# ========================================================================== #
+#                    DURCISSEMENT PRODUCTION (HTTPS/HSTS)                    #
+# ========================================================================== #
 if DEBUG:
     SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
     SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)

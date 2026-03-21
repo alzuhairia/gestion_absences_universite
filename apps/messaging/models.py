@@ -1,3 +1,13 @@
+"""
+FICHIER : apps/messaging/models.py
+RESPONSABILITE : Messagerie interne entre utilisateurs
+FONCTIONNALITES PRINCIPALES :
+  - Message avec expediteur, destinataire, objet, contenu
+  - SET_NULL sur les FK pour preserver les messages si un utilisateur est supprime
+  - Statut lu/non-lu pour la boite de reception
+DEPENDANCES CLES : accounts.User
+"""
+
 from django.conf import settings
 from django.core.validators import MaxLengthValidator
 from django.db import models

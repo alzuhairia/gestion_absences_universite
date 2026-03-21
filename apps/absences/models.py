@@ -1,9 +1,26 @@
+"""
+FICHIER : apps/absences/models.py
+RESPONSABILITE : Modeles du coeur metier - absences, justifications et QR code
+FONCTIONNALITES PRINCIPALES :
+  - Absence : enregistrement d'une absence (type, duree, statut)
+  - Justification : document soumis par l'etudiant (workflow EN_ATTENTE -> ACCEPTEE/REFUSEE)
+  - QRAttendanceToken : token QR a duree limitee avec verification GPS
+  - QRScanRecord : enregistrement d'un scan valide
+  - QRScanLog : log audit de TOUTES les tentatives de scan (succes et echecs)
+DEPENDANCES CLES : enrollments.Inscription, academic_sessions.Seance, accounts.User
+"""
+
 import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db import models
+
+
+# ========================================================================== #
+#                              ABSENCE                                       #
+# ========================================================================== #
 
 
 class Absence(models.Model):
@@ -150,9 +167,16 @@ class Absence(models.Model):
         return f"Absence de {self.id_inscription.id_etudiant} - {self.id_seance.date_seance}"
 
 
+# ========================================================================== #
+#                           JUSTIFICATION                                    #
+# ========================================================================== #
+
+
 class Justification(models.Model):
     """
     Modèle représentant une justification d'absence soumise par un étudiant.
+    Workflow : EN_ATTENTE -> ACCEPTEE (absence passe a JUSTIFIEE)
+                          -> REFUSEE (absence reste NON_JUSTIFIEE)
     """
 
     class State(models.TextChoices):
@@ -238,6 +262,11 @@ class Justification(models.Model):
 
     def __str__(self):
         return f"Justification pour l'absence n°{self.id_absence.id_absence}"
+
+
+# ========================================================================== #
+#                     SYSTEME QR CODE (3 modeles)                            #
+# ========================================================================== #
 
 
 class QRAttendanceToken(models.Model):
