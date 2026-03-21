@@ -1,3 +1,13 @@
+"""
+FICHIER : apps/audits/ip_utils.py
+RESPONSABILITE : Extraction securisee de l'IP client derriere proxies/load balancers
+FONCTIONNALITES PRINCIPALES :
+  - extract_client_ip() : IP client via TRUSTED_PROXY_CIDRS (pas de trust aveugle)
+  - ratelimit_client_ip() : cle de rate limiting compatible django-ratelimit
+  - ratelimit_login_ip_username() : cle anti-brute-force (IP + username)
+DEPENDANCES CLES : settings.TRUSTED_PROXY_CIDRS
+"""
+
 import ipaddress
 
 from django.conf import settings

@@ -1,9 +1,11 @@
 """
-Signals Django pour la gestion automatique des absences.
-
-IMPORTANT POUR LA SOUTENANCE :
-Les signals permettent d'automatiser certaines actions lors de la création/modification
-d'objets. Ici, le signal garantit que l'éligibilité à l'examen est toujours à jour.
+FICHIER : apps/absences/signals.py
+RESPONSABILITE : Signaux Django pour recalcul automatique de l'eligibilite
+FONCTIONNALITES PRINCIPALES :
+  - post_save sur Absence : recalcule eligibilite apres chaque sauvegarde
+  - post_delete sur Absence : recalcule eligibilite apres suppression
+  - Utilise transaction.on_commit() pour eviter les ecritures imbriquees
+DEPENDANCES CLES : absences.services.recalculer_eligibilite
 """
 
 import logging

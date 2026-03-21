@@ -1,4 +1,12 @@
-# apps/accounts/middleware.py
+"""
+FICHIER : apps/accounts/middleware.py
+RESPONSABILITE : Middleware de securite pour les sessions et les roles
+FONCTIONNALITES PRINCIPALES :
+  - SessionInactivityMiddleware : deconnexion automatique apres inactivite (defaut: 15 min)
+  - RoleMiddleware : force changement mot de passe + controle acces admin Django
+DEPENDANCES CLES : settings.SESSION_INACTIVITY_TIMEOUT
+"""
+
 import time
 from functools import lru_cache
 

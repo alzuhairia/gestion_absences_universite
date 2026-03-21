@@ -1,9 +1,20 @@
+"""
+FICHIER : apps/absences/services.py
+RESPONSABILITE : Logique metier centrale de la gestion des absences
+FONCTIONNALITES PRINCIPALES :
+  - Calcul de statistiques d'absences (taux, heures, periodes)
+  - Calcul du pourcentage d'absence base sur les heures reelles
+  - Detection des etudiants en alerte (depassement seuil)
+  - Recalcul automatique de l'eligibilite examen (coeur du systeme)
+  - Calcul de risque centralise pour les dashboards
+  - Detection predictive d'absences (projection fin de semestre)
+DEPENDANCES CLES : absences.models, enrollments.Inscription, notifications.email
+"""
+
 import datetime
 import logging
 
 from django.db import transaction
-
-logger = logging.getLogger(__name__)
 from django.db.models import DurationField, ExpressionWrapper, F, Sum
 from django.utils import timezone
 
@@ -18,8 +29,15 @@ from apps.notifications.models import Notification
 
 from .models import Absence
 
-# Number of days after the absence date during which a student can submit a justification
+logger = logging.getLogger(__name__)
+
+# Nombre de jours apres la date d'absence pour soumettre une justification
 JUSTIFICATION_DEADLINE_DAYS = 3
+
+
+# ========================================================================== #
+#                     DELAIS DE JUSTIFICATION                                #
+# ========================================================================== #
 
 
 def get_justification_deadline(absence):
@@ -40,6 +58,11 @@ def is_justification_expired(absence):
     deadline = get_justification_deadline(absence)
     today = timezone.localdate()
     return today > deadline
+
+
+# ========================================================================== #
+#                     STATISTIQUES D'ABSENCES                                #
+# ========================================================================== #
 
 
 def calculer_absence_stats(inscription):
@@ -84,6 +107,11 @@ def get_absences_queryset(inscription):
         .select_related("id_seance", "id_seance__id_cours", "justification")
         .order_by("-id_seance__date_seance")
     )
+
+
+# ========================================================================== #
+#              POURCENTAGE D'ABSENCE (HEURES REELLES)                        #
+# ========================================================================== #
 
 
 def calculer_pourcentage_absence(etudiant, cours):
@@ -177,6 +205,11 @@ def calculer_pourcentage_absence(etudiant, cours):
     }
 
 
+# ========================================================================== #
+#                    ETUDIANTS EN ALERTE                                     #
+# ========================================================================== #
+
+
 def etudiants_en_alerte(cours, seuil=None):
     """
     Retourne la liste des étudiants dont le pourcentage d'absence
@@ -260,6 +293,11 @@ def etudiants_en_alerte(cours, seuil=None):
     # Trier par pourcentage décroissant
     alertes.sort(key=lambda x: x["pourcentage_absence"], reverse=True)
     return alertes
+
+
+# ========================================================================== #
+#           RECALCUL D'ELIGIBILITE (FONCTION CRITIQUE)                       #
+# ========================================================================== #
 
 
 def recalculer_eligibilite(inscription):
@@ -404,6 +442,11 @@ def _send_threshold_emails(student, professor, course_name, taux, seuil):
         logger.exception("Failed to send threshold emails for %s", course_name)
 
 
+# ========================================================================== #
+#                    SEUIL SYSTEME PAR DEFAUT                                #
+# ========================================================================== #
+
+
 def get_system_threshold():
     """
     FIX VERT #15 — Récupère le seuil d'absence par défaut du système en une seule requête.
@@ -412,6 +455,11 @@ def get_system_threshold():
     from apps.dashboard.models import SystemSettings
 
     return SystemSettings.get_settings().default_absence_threshold
+
+
+# ========================================================================== #
+#              CALCUL DE RISQUE CENTRALISE                                   #
+# ========================================================================== #
 
 
 def calculer_risque_inscription(inscription, system_threshold=None):
