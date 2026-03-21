@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/academics/admin.py
+RESPONSABILITE : Configuration admin Django pour Faculte, Departement, Cours
+"""
 from django.contrib import admin
 
 from .models import Cours, Departement, Faculte

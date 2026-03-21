@@ -1,3 +1,17 @@
+"""
+FICHIER : apps/api/permissions.py
+RESPONSABILITE : Permissions DRF basees sur les roles utilisateur
+FONCTIONNALITES PRINCIPALES :
+  - IsAdmin : acces reserve aux administrateurs
+  - IsSecretary : acces reserve aux secretaires
+  - IsProfessor : acces reserve aux professeurs
+  - IsStudent : acces reserve aux etudiants
+  - IsAdminOrSecretary : acces admin ou secretaire
+  - IsAdminOrSecretaryOrProfessor : acces admin, secretaire ou professeur
+  - IsStaffOrReadOnly : ecriture admin/secretaire, lecture seule pour les autres
+DEPENDANCES CLES : rest_framework.permissions, apps.accounts.models
+"""
+
 from rest_framework.permissions import BasePermission
 
 from apps.accounts.models import User

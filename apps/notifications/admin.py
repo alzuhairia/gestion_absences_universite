@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/notifications/admin.py
+RESPONSABILITE : Configuration admin Django pour les notifications
+"""
 from django.contrib import admin
 
 from .models import Notification

@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/enrollments/admin.py
+RESPONSABILITE : Configuration admin Django pour les inscriptions
+"""
 from django.contrib import admin
 
 from .models import Inscription

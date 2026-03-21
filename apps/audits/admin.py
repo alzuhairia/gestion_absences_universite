@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/audits/admin.py
+RESPONSABILITE : Configuration admin Django pour les logs d'audit
+"""
 from django.contrib import admin
 
 from .models import LogAudit
