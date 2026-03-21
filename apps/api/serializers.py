@@ -1,3 +1,18 @@
+"""
+FICHIER : apps/api/serializers.py
+RESPONSABILITE : Serializers DRF pour l'API REST
+FONCTIONNALITES PRINCIPALES :
+  - UserListSerializer, StudentSerializer : lecture et ecriture des utilisateurs/etudiants
+  - SeanceSerializer : serialisation des seances de cours
+  - CoursListSerializer, CoursDetailSerializer, CoursWriteSerializer : lecture liste/detail et ecriture des cours
+  - InscriptionListSerializer, InscriptionWriteSerializer : lecture et ecriture des inscriptions
+  - AbsenceListSerializer, AbsenceWriteSerializer : lecture et ecriture des absences
+  - JustificationListSerializer, JustificationCreateSerializer, JustificationProcessSerializer : gestion des justifications
+  - NotificationSerializer : serialisation des notifications
+  - DashboardAnalyticsSerializer, StatisticsAnalyticsSerializer : donnees analytiques du tableau de bord
+DEPENDANCES CLES : rest_framework.serializers, apps.absences.models, apps.academics.models, apps.accounts.models, apps.enrollments.models
+"""
+
 from rest_framework import serializers
 
 from apps.absences.models import Absence, Justification

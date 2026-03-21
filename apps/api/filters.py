@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/api/filters.py
+RESPONSABILITE : Filtres DRF pour le filtrage avance des ressources API
+FONCTIONNALITES PRINCIPALES :
+  - StudentFilter : filtrage etudiants par nom, prenom, email, niveau, actif
+  - CoursFilter : filtrage cours par code, nom, niveau, professeur, departement, annee
+  - InscriptionFilter : filtrage inscriptions par etudiant, cours, annee, status, type
+  - AbsenceFilter : filtrage absences par inscription, seance, statut, type, plage de dates
+  - JustificationFilter : filtrage justifications par etat, absence, etudiant, cours, plage de dates
+DEPENDANCES CLES : django_filters, apps.absences.models, apps.academics.models, apps.accounts.models, apps.enrollments.models
+"""
+
 from django_filters import rest_framework as filters
 
 from apps.absences.models import Absence, Justification

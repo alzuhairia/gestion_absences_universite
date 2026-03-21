@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/absences/urls.py
+RESPONSABILITE : Routes URL pour la gestion des absences et QR code
+"""
 from django.urls import path
 
 from . import views, views_manager, views_validation

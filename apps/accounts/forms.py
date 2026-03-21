@@ -1,4 +1,15 @@
-# apps/accounts/forms.py
+"""
+FICHIER : apps/accounts/forms.py
+RESPONSABILITE : Formulaires d'authentification et de mots de passe
+FONCTIONNALITES PRINCIPALES :
+  - CustomAuthenticationForm : formulaire de connexion stylise
+  - CustomUserCreationForm : creation utilisateur avec validation mot de passe
+  - CustomPasswordResetForm : demande de reinitialisation mot de passe
+  - CustomSetPasswordForm : definition nouveau mot de passe apres reset
+  - CustomPasswordChangeForm : changement de mot de passe utilisateur connecte
+DEPENDANCES CLES : django.contrib.auth.forms, apps.accounts.models
+"""
+
 from django import forms
 from django.contrib.auth.forms import (
     AuthenticationForm,

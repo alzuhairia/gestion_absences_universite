@@ -1,3 +1,16 @@
+"""
+FICHIER : apps/dashboard/forms_admin.py
+RESPONSABILITE : Formulaires admin pour la gestion academique et utilisateurs
+FONCTIONNALITES PRINCIPALES :
+  - FaculteForm : creation et edition de facultes
+  - DepartementForm : creation et edition de departements
+  - CoursForm : creation et edition de cours avec gestion des prerequis
+  - UserForm : creation et edition d'utilisateurs avec validation mot de passe
+  - SystemSettingsForm : parametres systeme (seuil d'absence par defaut)
+  - AnneeAcademiqueForm : gestion des annees academiques avec activation exclusive
+DEPENDANCES CLES : apps.academics.models, apps.accounts.models, apps.academic_sessions.models, apps.dashboard.models
+"""
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
