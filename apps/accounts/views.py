@@ -1,4 +1,14 @@
-# apps/accounts/views.py
+"""
+FICHIER : apps/accounts/views.py
+RESPONSABILITE : Authentification, profil utilisateur et gestion mots de passe
+FONCTIONNALITES PRINCIPALES :
+  - Login avec rate limiting
+  - Profil utilisateur avec template par role
+  - Telechargement rapport PDF etudiant
+  - Reset et changement de mot de passe
+DEPENDANCES CLES : accounts.models, accounts.forms, absences.utils
+"""
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash

@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/dashboard/views_admin_stats.py
+RESPONSABILITE : Dashboard principal admin et statistiques avancees
+FONCTIONNALITES PRINCIPALES :
+  - Dashboard admin : KPIs globaux, vue d'ensemble
+  - Statistiques avancees avec graphiques et analyses
+DEPENDANCES CLES : absences.services, enrollments.models
+"""
+
 import json
 from datetime import timedelta
 
@@ -18,12 +27,22 @@ from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
 def is_admin(user):
     """
     Vérifie si l'utilisateur est un administrateur.
     IMPORTANT: Séparé de is_secretary() pour éviter la confusion des rôles.
     """
     return user.is_authenticated and user.role == User.Role.ADMIN
+
+
+# ---------------------------------------------------------------------------
+# Dashboard admin - KPIs et vue d'ensemble
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -156,6 +175,11 @@ def admin_dashboard_main(request):
     }
 
     return render(request, "dashboard/admin_dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Statistiques avancees avec graphiques
+# ---------------------------------------------------------------------------
 
 
 @login_required

@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/dashboard/views_admin_settings.py
+RESPONSABILITE : Parametres systeme, logs audit et logs QR (admin)
+FONCTIONNALITES PRINCIPALES :
+  - Configuration parametres systeme (seuils, mots de passe)
+  - Consultation logs audit avec filtres
+  - Export CSV des logs audit
+  - Consultation logs scans QR
+DEPENDANCES CLES : dashboard.models.SystemSettings, audits.models, absences.models
+"""
+
 import csv
 import logging
 from datetime import datetime
@@ -21,7 +32,9 @@ from apps.dashboard.models import SystemSettings
 logger = logging.getLogger(__name__)
 
 
-# ========== PARAMÈTRES SYSTÈME ==========
+# ---------------------------------------------------------------------------
+# Parametres systeme
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -74,7 +87,9 @@ def admin_settings(request):
     )
 
 
-# ========== JOURNAUX D'AUDIT ==========
+# ---------------------------------------------------------------------------
+# Logs audit et export CSV
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -227,6 +242,11 @@ def admin_export_audit_csv(request):
 
 
 # ========== LOGS QR SCANS ==========
+
+
+# ---------------------------------------------------------------------------
+# Logs scans QR
+# ---------------------------------------------------------------------------
 
 
 @login_required

@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/absences/views_manager.py
+RESPONSABILITE : Edition des absences par le secretariat
+FONCTIONNALITES PRINCIPALES :
+  - Modification du type, statut et duree d'une absence
+  - Audit logging de chaque modification
+DEPENDANCES CLES : absences.models, audits.utils
+"""
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction

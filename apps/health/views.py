@@ -1,6 +1,11 @@
 """
-Vues pour l'endpoint de health check.
-Permet de verifier que l'application Django et la base de donnees sont operationnelles.
+FICHIER : apps/health/views.py
+RESPONSABILITE : Endpoint health check pour le monitoring (Uptime Kuma)
+FONCTIONNALITES PRINCIPALES :
+  - Verification connectivite base de donnees
+  - Authentification par token + allowlist IP
+  - Rate limiting par IP
+DEPENDANCES CLES : settings.HEALTHCHECK_TOKEN, audits.ip_utils
 """
 
 import hmac
