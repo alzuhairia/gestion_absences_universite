@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/dashboard/views_export.py
+RESPONSABILITE : Exports PDF et Excel des donnees d'absences
+FONCTIONNALITES PRINCIPALES :
+  - export_student_pdf() : rapport PDF assiduite par etudiant
+  - export_at_risk_excel() : liste Excel etudiants a risque
+DEPENDANCES CLES : absences.utils, absences.services, openpyxl
+"""
+
 import datetime
 
 from django.contrib.auth.decorators import login_required
@@ -15,6 +24,11 @@ from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
+
+
+# ---------------------------------------------------------------------------
+# Export PDF - rapport assiduite par etudiant
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -164,6 +178,11 @@ def export_student_pdf(request, student_id=None):
         )
 
     return response
+
+
+# ---------------------------------------------------------------------------
+# Export Excel - etudiants a risque (seuil 40%)
+# ---------------------------------------------------------------------------
 
 
 @login_required

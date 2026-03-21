@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/absences/views.py
+RESPONSABILITE : Vues principales pour la gestion des absences et le systeme QR code
+FONCTIONNALITES PRINCIPALES :
+  - Details et justification d'absences (etudiant)
+  - Marquage manuel des presences (professeur)
+  - Systeme QR code complet (generation, dashboard, scan, finalisation)
+  - Validation et verrouillage des seances
+DEPENDANCES CLES : absences.models, absences.services, academic_sessions.models
+"""
+
 import datetime
 import logging
 from datetime import timedelta
@@ -45,6 +56,11 @@ from apps.notifications.email import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ========================================================================== #
+#                    DETAILS ET JUSTIFICATIONS (ETUDIANT)                     #
+# ========================================================================== #
 
 
 @login_required
@@ -394,6 +410,11 @@ def download_justification(request, justification_id):
         as_attachment=True,
         filename=Path(justification.document.name).name,
     )
+
+
+# ========================================================================== #
+#                    CREATION DE SEANCE ET MARQUAGE MANUEL (PROFESSEUR)       #
+# ========================================================================== #
 
 
 @login_required
@@ -947,6 +968,11 @@ def mark_absence(request, course_id):
     )
 
 
+# ========================================================================== #
+#                    MISE A JOUR HTMX (TEMPS REEL)                           #
+# ========================================================================== #
+
+
 @login_required
 @professor_required
 @require_POST
@@ -1114,6 +1140,11 @@ def mark_absence_htmx(request, course_id):
     )
 
 
+# ========================================================================== #
+#                    VALIDATION ET VERROUILLAGE DE SEANCE                     #
+# ========================================================================== #
+
+
 @login_required
 @professor_required
 @require_POST
@@ -1156,9 +1187,9 @@ def validate_session(request, seance_id):
     return redirect("absences:mark_absence", course_id=seance.id_cours_id)
 
 
-# =====================================================================
-# QR Code Attendance
-# =====================================================================
+# ========================================================================== #
+#                    SYSTEME QR CODE                                          #
+# ========================================================================== #
 
 import base64
 import io
@@ -1511,6 +1542,11 @@ def _get_establishment_gps():
     from apps.dashboard.models import SystemSettings
     settings = SystemSettings.get_settings()
     return settings.gps_latitude, settings.gps_longitude, settings.gps_radius_meters
+
+
+# ========================================================================== #
+#                    SCAN QR ETUDIANT                                         #
+# ========================================================================== #
 
 
 @login_required

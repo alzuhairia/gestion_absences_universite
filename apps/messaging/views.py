@@ -1,3 +1,13 @@
+"""
+FICHIER : apps/messaging/views.py
+RESPONSABILITE : Messagerie interne entre utilisateurs
+FONCTIONNALITES PRINCIPALES :
+  - Boite de reception et messages envoyes
+  - Composition de message avec filtrage destinataires par role
+  - Detail message avec marquage lu automatique
+DEPENDANCES CLES : messaging.models, messaging.forms
+"""
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache

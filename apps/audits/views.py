@@ -1,3 +1,11 @@
+"""
+FICHIER : apps/audits/views.py
+RESPONSABILITE : Vue de consultation des logs d'audit
+FONCTIONNALITES PRINCIPALES :
+  - Liste filtree des logs audit avec pagination
+DEPENDANCES CLES : audits.models.LogAudit
+"""
+
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q

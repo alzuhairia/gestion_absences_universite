@@ -1,9 +1,10 @@
 """
-One-time initial setup view for creating the first admin account.
-
-This view is only accessible when NO admin account exists in the database.
-Once an admin is created (via this page or the management command), the
-page returns 404 permanently.
+FICHIER : apps/accounts/views_setup.py
+RESPONSABILITE : Configuration initiale - creation du premier administrateur
+FONCTIONNALITES PRINCIPALES :
+  - Page unique de setup (accessible uniquement si aucun admin n'existe)
+  - Formulaire de creation du premier admin avec validation
+DEPENDANCES CLES : accounts.models
 """
 
 from django import forms

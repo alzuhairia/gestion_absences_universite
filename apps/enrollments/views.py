@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/enrollments/views.py
+RESPONSABILITE : Gestion des inscriptions etudiants (UI + API AJAX)
+FONCTIONNALITES PRINCIPALES :
+  - Interface gestionnaire d'inscriptions
+  - API AJAX : departements, cours par departement/annee/etudiant
+  - Inscription par niveau complet ou cours individuels
+  - Creation de compte etudiant a l'inscription
+  - Verification des prerequis (non bloquant)
+DEPENDANCES CLES : enrollments.models, enrollments.forms, academics.models
+"""
+
 import logging
 
 from django.contrib import messages
@@ -28,6 +40,11 @@ logger = logging.getLogger(__name__)
 API_RATE_LIMIT = "30/5m"
 
 
+# ──────────────────────────────────────────────────────────────
+#  INTERFACE GESTIONNAIRE
+# ──────────────────────────────────────────────────────────────
+
+
 @login_required
 @secretary_required
 @require_GET
@@ -41,6 +58,11 @@ def enrollment_manager(request):
         "enrollments/manager.html",
         {"facultes": facultes, "academic_years": academic_years, "students": students},
     )
+
+
+# ──────────────────────────────────────────────────────────────
+#  API AJAX POUR L'INTERFACE DYNAMIQUE
+# ──────────────────────────────────────────────────────────────
 
 
 @ratelimit(key=ratelimit_client_ip, rate=API_RATE_LIMIT, method="GET", block=False)
@@ -354,6 +376,11 @@ def get_prerequisite_info(course):
         }
         for prereq in prerequisites
     ]
+
+
+# ──────────────────────────────────────────────────────────────
+#  INSCRIPTION ETUDIANT
+# ──────────────────────────────────────────────────────────────
 
 
 @login_required

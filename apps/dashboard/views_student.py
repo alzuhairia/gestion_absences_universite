@@ -1,3 +1,16 @@
+"""
+FICHIER : apps/dashboard/views_student.py
+RESPONSABILITE : Toutes les vues du dashboard etudiant
+FONCTIONNALITES PRINCIPALES :
+  - Dashboard etudiant : KPIs inscriptions/absences/alertes
+  - Statistiques detaillees avec graphiques
+  - Detail cours avec seances et absences
+  - Liste cours inscrits avec taux absence
+  - Historique complet absences + justifications
+  - Page rapports PDF
+DEPENDANCES CLES : absences.services, enrollments.models
+"""
+
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum
@@ -11,6 +24,11 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.dashboard.decorators import student_required
 from apps.enrollments.models import Inscription
 from apps.notifications.models import Notification
+
+
+# ---------------------------------------------------------------------------
+# Dashboard etudiant - KPIs et alertes
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -127,6 +145,11 @@ def student_dashboard(request):
             "notifications": notifications,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Statistiques detaillees
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -263,6 +286,11 @@ def student_statistics(request):
     }
 
     return render(request, "dashboard/student_statistics.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Detail cours - seances et absences
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -418,6 +446,11 @@ def student_course_detail(request, inscription_id):
             "seuil_effectif": seuil_effectif,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Liste cours et absences
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -647,6 +680,11 @@ def student_absences(request):
             "page_obj": page_obj,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Rapports PDF
+# ---------------------------------------------------------------------------
 
 
 @login_required
