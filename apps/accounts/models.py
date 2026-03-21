@@ -1,4 +1,15 @@
-# apps/accounts/models.py - VERSION CORRIGÉE
+"""
+FICHIER : apps/accounts/models.py
+RESPONSABILITE : Modele utilisateur personnalise (4 roles) et manager de creation
+FONCTIONNALITES PRINCIPALES :
+  - Modele User custom avec email comme identifiant (pas username)
+  - 4 roles : ADMIN, SECRETAIRE, PROFESSEUR, ETUDIANT
+  - Synchronisation automatique is_staff/is_superuser selon le role
+  - Niveau academique (1-3) obligatoire pour les etudiants
+  - Flag must_change_password pour mots de passe temporaires
+DEPENDANCES CLES : Django AbstractBaseUser, PermissionsMixin
+"""
+
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,

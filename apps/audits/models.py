@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/audits/models.py
+RESPONSABILITE : Journal d'audit pour la tracabilite des actions critiques
+FONCTIONNALITES PRINCIPALES :
+  - LogAudit : enregistrement immutable de chaque action (utilisateur, IP, timestamp)
+  - Niveaux : INFO, WARNING, CRITIQUE
+  - Types d'objets traces : USER, COURS, ABSENCE, JUSTIFICATION, EXPORT, etc.
+  - Logs en lecture seule (ne peuvent pas etre supprimes)
+DEPENDANCES CLES : accounts.User (SET_NULL pour preserver les logs)
+"""
+
 from django.conf import settings
 from django.db import models
 

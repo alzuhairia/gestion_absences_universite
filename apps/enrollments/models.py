@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/enrollments/models.py
+RESPONSABILITE : Inscription d'un etudiant a un cours pour une annee academique
+FONCTIONNALITES PRINCIPALES :
+  - Inscription avec type (NORMALE / A_PART) et statut (EN_COURS / VALIDE / NON_VALIDE)
+  - Eligibilite examen : calculee automatiquement selon le taux d'absences
+  - Exemption 40% : permet de relever le seuil pour un etudiant (avec motif obligatoire)
+  - Cloture d'inscription en fin d'annee
+DEPENDANCES CLES : accounts.User, academics.Cours, academic_sessions.AnneeAcademique
+"""
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator

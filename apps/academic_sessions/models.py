@@ -1,8 +1,24 @@
+"""
+FICHIER : apps/academic_sessions/models.py
+RESPONSABILITE : Gestion des annees academiques et des seances de cours
+FONCTIONNALITES PRINCIPALES :
+  - AnneeAcademique : une seule annee active a la fois (contrainte DB unique partielle)
+  - Seance : seance de cours avec date/heure, validation et verrouillage
+  - Calcul de duree en heures decimales et format lisible (2h30)
+  - Contrainte unicite : une seule seance par cours par date
+DEPENDANCES CLES : academics.Cours, accounts.User (validated_by)
+"""
+
 from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+
+
+# ========================================================================== #
+#                          ANNEE ACADEMIQUE                                  #
+# ========================================================================== #
 
 
 class AnneeAcademique(models.Model):
@@ -78,6 +94,11 @@ class AnneeAcademique(models.Model):
 
     def __str__(self):
         return self.libelle
+
+
+# ========================================================================== #
+#                          SEANCE DE COURS                                   #
+# ========================================================================== #
 
 
 class Seance(models.Model):
