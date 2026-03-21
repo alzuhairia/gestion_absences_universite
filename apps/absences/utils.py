@@ -1,3 +1,11 @@
+"""
+FICHIER : apps/absences/utils.py
+RESPONSABILITE : Generation de rapport PDF d'assiduite pour les etudiants
+FONCTIONNALITES PRINCIPALES :
+  - generate_absence_report() : cree un PDF avec tableau des absences par cours
+DEPENDANCES CLES : reportlab (generation PDF)
+"""
+
 import datetime
 
 from reportlab.lib import colors

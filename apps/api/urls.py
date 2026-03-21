@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/api/urls.py
+RESPONSABILITE : Routes URL de l'API REST (router DRF + endpoints custom)
+"""
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,

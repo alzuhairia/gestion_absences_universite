@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/dashboard/views.py
+RESPONSABILITE : Redirections par role et dashboard secretaire (KPIs, inscriptions, exports)
+FONCTIONNALITES PRINCIPALES :
+  - Redirection automatique vers dashboard par role
+  - Dashboard secretaire : KPIs absences, etudiants a risque
+  - Gestion inscriptions (filtres + pagination)
+  - Seuils d'absence et exports Excel/PDF
+  - Cours actifs avec statistiques
+DEPENDANCES CLES : absences.services, enrollments.models, academics.models
+"""
+
 from collections import defaultdict
 
 from django.contrib import messages
@@ -15,6 +27,11 @@ from apps.accounts.models import User
 from apps.dashboard import views_professor, views_student
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
+
+
+# ---------------------------------------------------------------------------
+# Redirection par role
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -61,6 +78,11 @@ def admin_dashboard(request):
     else:
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:index")
+
+
+# ---------------------------------------------------------------------------
+# Dashboard secretaire - KPIs et vue d'ensemble
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -157,6 +179,11 @@ def secretary_dashboard(request):
             "active_courses_count": active_courses_count,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Secretaire - Inscriptions, seuils et exports
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -394,6 +421,11 @@ def secretary_exports(request):
             "at_risk_count": at_risk_count,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Cours actifs - requete partagee et vue
+# ---------------------------------------------------------------------------
 
 
 def get_active_courses_queryset(academic_year):

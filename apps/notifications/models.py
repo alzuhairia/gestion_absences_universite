@@ -1,9 +1,23 @@
+"""
+FICHIER : apps/notifications/models.py
+RESPONSABILITE : Notifications in-app et deduplication des emails
+FONCTIONNALITES PRINCIPALES :
+  - Notification : notification in-app (INTERNE, ALERTE, INFO) avec statut lu/non-lu
+  - EmailLog : anti-doublon email via digest SHA-256 + fenetre de cooldown
+DEPENDANCES CLES : accounts.User
+"""
+
 import hashlib
 
 from django.conf import settings
 from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
+
+
+# ========================================================================== #
+#                        NOTIFICATION IN-APP                                 #
+# ========================================================================== #
 
 
 class Notification(models.Model):
@@ -67,6 +81,11 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification pour {self.id_utilisateur} - {self.date_envoi}"
+
+
+# ========================================================================== #
+#                     DEDUPLICATION EMAIL (EmailLog)                          #
+# ========================================================================== #
 
 
 class EmailLog(models.Model):

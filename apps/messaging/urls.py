@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/messaging/urls.py
+RESPONSABILITE : Routes URL pour la messagerie interne
+"""
 from django.urls import path
 
 from . import views

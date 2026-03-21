@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/dashboard/urls.py
+RESPONSABILITE : Routes URL centrales pour tous les dashboards par role
+"""
 from django.urls import path
 
 from . import views, views_admin, views_export, views_secretary

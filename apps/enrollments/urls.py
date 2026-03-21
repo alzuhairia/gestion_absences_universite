@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/enrollments/urls.py
+RESPONSABILITE : Routes URL pour les inscriptions et regles d'absence
+"""
 from django.urls import path
 
 from . import views, views_rules

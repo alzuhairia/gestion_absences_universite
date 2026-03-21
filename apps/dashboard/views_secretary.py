@@ -1,6 +1,11 @@
 """
-Vues pour la gestion de la structure académique par le secrétaire.
-Le secrétaire a accès complet à la structure académique (facultés, départements, cours, années académiques).
+FICHIER : apps/dashboard/views_secretary.py
+RESPONSABILITE : CRUD structure academique (secretaire) - memes fonctions qu'admin
+FONCTIONNALITES PRINCIPALES :
+  - CRUD Facultes, Departements, Cours (acces secretaire)
+  - Gestion annees academiques
+  - Consultation logs audit
+DEPENDANCES CLES : academics.models, academic_sessions.models, dashboard.forms_admin
 """
 
 import logging
@@ -31,7 +36,9 @@ from apps.enrollments.models import Inscription
 logger = logging.getLogger(__name__)
 
 
-# ========== GESTION DES FACULTÉS ==========
+# ---------------------------------------------------------------------------
+# CRUD Facultes
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -240,7 +247,9 @@ def secretary_faculty_delete(request, faculte_id):
     return redirect("dashboard:secretary_faculties")
 
 
-# ========== GESTION DES DÉPARTEMENTS ==========
+# ---------------------------------------------------------------------------
+# CRUD Departements
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -426,7 +435,9 @@ def secretary_department_delete(request, dept_id):
     return redirect("dashboard:secretary_departments")
 
 
-# ========== GESTION DES COURS ==========
+# ---------------------------------------------------------------------------
+# CRUD Cours
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -612,7 +623,9 @@ def secretary_course_delete(request, course_id):
     return redirect("dashboard:secretary_courses")
 
 
-# ========== GESTION DES ANNÉES ACADÉMIQUES ==========
+# ---------------------------------------------------------------------------
+# CRUD Annees academiques
+# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -787,7 +800,9 @@ def secretary_academic_year_delete(request, year_id):
     return redirect("dashboard:secretary_academic_years")
 
 
-# ========== JOURNAUX D'AUDIT ==========
+# ---------------------------------------------------------------------------
+# Consultation logs audit
+# ---------------------------------------------------------------------------
 
 
 @login_required

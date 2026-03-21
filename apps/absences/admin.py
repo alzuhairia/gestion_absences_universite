@@ -1,3 +1,7 @@
+"""
+FICHIER : apps/absences/admin.py
+RESPONSABILITE : Configuration admin Django pour les modeles d'absences
+"""
 from django.contrib import admin
 
 from .models import Absence, Justification, QRAttendanceToken, QRScanLog, QRScanRecord

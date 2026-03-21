@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/enrollments/views_rules.py
+RESPONSABILITE : Gestion des regles d'absence et exemptions (secretaire)
+FONCTIONNALITES PRINCIPALES :
+  - Liste des etudiants en infraction de seuil
+  - Attribution/revocation des exemptions avec motif
+DEPENDANCES CLES : enrollments.models, absences.services, audits.utils
+"""
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator

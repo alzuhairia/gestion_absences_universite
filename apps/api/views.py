@@ -1,3 +1,15 @@
+"""
+FICHIER : apps/api/views.py
+RESPONSABILITE : API REST (Django REST Framework) pour toutes les ressources
+FONCTIONNALITES PRINCIPALES :
+  - ViewSets CRUD : Student, Cours, Inscription, Absence, Justification, Notification
+  - Permissions par role (IsAdmin, IsSecretary, IsProfessor, IsStudent)
+  - Endpoints analytics : dashboard KPIs + statistiques avancees
+  - Exports : PDF etudiant + Excel etudiants a risque
+  - Approbation/rejet justifications via API
+DEPENDANCES CLES : api.serializers, api.filters, api.permissions, absences.services
+"""
+
 import datetime
 import io
 
@@ -66,7 +78,9 @@ from .serializers import (
 )
 
 
-# ── Students ──────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+#  VIEWSETS CRUD
+# ──────────────────────────────────────────────────────────────
 
 
 @extend_schema_view(
@@ -475,8 +489,9 @@ class JustificationViewSet(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Feature 1: Notifications API
-# ══════════════════════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+#  NOTIFICATIONS API
+# ──────────────────────────────────────────────────────────────
 
 
 @extend_schema_view(
@@ -515,9 +530,9 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         return Response({"marked_read": count})
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Feature 2: Dashboard Analytics API
-# ══════════════════════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+#  ENDPOINTS ANALYTICS
+# ──────────────────────────────────────────────────────────────
 
 
 @extend_schema(
@@ -710,9 +725,9 @@ def statistics_analytics(request):
     return Response(StatisticsAnalyticsSerializer(data).data)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Feature 3: Export PDF / Excel API
-# ══════════════════════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+#  ENDPOINTS EXPORTS
+# ──────────────────────────────────────────────────────────────
 
 
 @extend_schema(

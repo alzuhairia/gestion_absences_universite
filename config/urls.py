@@ -1,3 +1,7 @@
+"""
+FICHIER : config/urls.py
+RESPONSABILITE : Configuration URL racine du projet Django
+"""
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin

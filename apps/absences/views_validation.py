@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/absences/views_validation.py
+RESPONSABILITE : Validation des justifications et encodage d'absences justifiees (secretaire)
+FONCTIONNALITES PRINCIPALES :
+  - Liste des absences filtrees par statut avec pagination
+  - Approbation/rejet des justifications (avec lock transactionnel)
+  - Encodage direct d'absences justifiees par le secretariat
+  - API historique absences etudiant (JSON)
+DEPENDANCES CLES : absences.models, absences.services, notifications.email
+"""
+
 import logging
 
 from django.contrib import messages
@@ -58,6 +69,11 @@ def _send_justification_decision_emails(absence, approved, motif=""):
             professor, student, course_code, date_str, approved
         )
         send_notification_email(professor, subj, body, html_body)
+
+
+# ========================================================================== #
+#                    LISTE ET FILTRAGE DES ABSENCES                           #
+# ========================================================================== #
 
 
 @login_required
@@ -122,6 +138,11 @@ def validation_list(request):
             "status_counts": status_counts,
         },
     )
+
+
+# ========================================================================== #
+#                    APPROBATION / REJET DES JUSTIFICATIONS                   #
+# ========================================================================== #
 
 
 @login_required
@@ -281,6 +302,11 @@ def process_justification(request, pk):
         )
 
     return redirect("absences:validation_list")
+
+
+# ========================================================================== #
+#                    ENCODAGE ABSENCE JUSTIFIEE (SECRETAIRE)                  #
+# ========================================================================== #
 
 
 @login_required
@@ -524,6 +550,11 @@ def create_justified_absence(request):
     )
 
 
+# ========================================================================== #
+#                    API HISTORIQUE ABSENCES                                   #
+# ========================================================================== #
+
+
 @api_login_required(roles=[User.Role.SECRETAIRE])
 @require_GET
 def student_absence_history_api(request):
@@ -608,6 +639,11 @@ def student_absence_history_api(request):
             code="server_error",
             request_id=request_id,
         )
+
+
+# ========================================================================== #
+#                    LISTE DES ABSENCES JUSTIFIEES                            #
+# ========================================================================== #
 
 
 @login_required

@@ -1,4 +1,7 @@
-# apps/accounts/admin.py - VERSION CORRIGÉE
+"""
+FICHIER : apps/accounts/admin.py
+RESPONSABILITE : Configuration admin Django pour le modele User
+"""
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin

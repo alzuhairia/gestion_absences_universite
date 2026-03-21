@@ -1,3 +1,14 @@
+"""
+FICHIER : apps/absences/utils_upload.py
+RESPONSABILITE : Validation securisee des fichiers uploades (justificatifs)
+FONCTIONNALITES PRINCIPALES :
+  - Triple validation : extension + MIME (python-magic) + signature binaire (magic bytes)
+  - Protection contre les noms de fichiers dangereux (path traversal, double extensions)
+  - Generation de noms de fichiers securises (UUID)
+  - Limite de taille configurable (defaut : 5 Mo)
+DEPENDANCES CLES : python-magic (optionnel, pour detection MIME avancee)
+"""
+
 import os
 import re
 import uuid

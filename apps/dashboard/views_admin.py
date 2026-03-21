@@ -1,3 +1,8 @@
+"""
+FICHIER : apps/dashboard/views_admin.py
+RESPONSABILITE : Re-export des vues admin depuis les sous-modules
+"""
+
 # Re-export all admin views from sub-modules for backward compatibility.
 # New code should import from the specific sub-module directly.
 

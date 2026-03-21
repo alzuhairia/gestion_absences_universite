@@ -1,3 +1,12 @@
+"""
+FICHIER : apps/accounts/validators.py
+RESPONSABILITE : Validation des mots de passe selon les regles configurables du systeme
+FONCTIONNALITES PRINCIPALES :
+  - Regles dynamiques lues depuis SystemSettings (longueur, majuscules, chiffres, etc.)
+  - Fallback silencieux si la table n'existe pas encore (migrations)
+DEPENDANCES CLES : dashboard.models.SystemSettings
+"""
+
 import re
 
 from django.core.exceptions import ValidationError
