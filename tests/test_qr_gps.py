@@ -3,7 +3,9 @@ Tests for QR code GPS enforcement, token expiration, and scan logging.
 """
 
 from datetime import date, time, timedelta
+from unittest.mock import patch
 
+from django.db import IntegrityError
 from django.test import TestCase, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
@@ -296,3 +298,71 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "configuration")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+
+class DuplicateQRScanTest(BaseQRTestCase):
+    """Tests that double QR scans are properly rejected."""
+
+    def test_duplicate_qr_scan_rejected(self):
+        """Second scan by the same student for the same seance is rejected."""
+        token = self._create_token(verify_location=False)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+
+        # First scan — success
+        resp1 = self.client.post(url, {"gps_status": "not_required"}, secure=True)
+        self.assertEqual(resp1.status_code, 200)
+        self.assertContains(resp1, "succ")
+        self.assertEqual(QRScanRecord.objects.filter(seance=self.seance).count(), 1)
+
+        # Second scan — duplicate rejected
+        resp2 = self.client.post(url, {"gps_status": "not_required"}, secure=True)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertContains(resp2, "déjà été enregistrée")
+        # Still only one record
+        self.assertEqual(QRScanRecord.objects.filter(seance=self.seance).count(), 1)
+        # Audit log records the duplicate attempt
+        log = QRScanLog.objects.filter(
+            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DUPLICATE,
+        ).first()
+        self.assertIsNotNone(log)
+
+    def test_concurrent_duplicate_scan_handled_by_integrity_error(self):
+        """
+        Simulates a race condition: select_for_update check passes (no row yet)
+        but IntegrityError fires on create (concurrent insert between check and create).
+        """
+        token = self._create_token(verify_location=False)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+
+        # Patch create() to raise IntegrityError — simulates a concurrent insert
+        # that happened between the select_for_update check and the create call.
+        # No first scan needed: the checks will naturally return None.
+        with patch.object(
+            type(QRScanRecord.objects), "create",
+            side_effect=IntegrityError("UNIQUE constraint failed"),
+        ):
+            resp = self.client.post(url, {"gps_status": "not_required"}, secure=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "déjà été enregistrée")
+
+    def test_unique_constraint_on_scan_record(self):
+        """DB-level unique_together on (seance, inscription) prevents duplicates."""
+        token = self._create_token(verify_location=False)
+
+        # Create first record directly
+        QRScanRecord.objects.create(
+            seance=self.seance,
+            student=self.student,
+            inscription=self.inscription,
+        )
+
+        # Second direct create should fail at DB level
+        with self.assertRaises(IntegrityError):
+            QRScanRecord.objects.create(
+                seance=self.seance,
+                student=self.student,
+                inscription=self.inscription,
+            )

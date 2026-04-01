@@ -1736,7 +1736,7 @@ def qr_scan(request, token):
             })
         # CAS A: GPS OK + within radius → proceed to record
 
-    # --- Build scan record ---
+    # --- Build scan record (inside transaction to prevent double-scan race) ---
     scan_kwargs = {
         "seance": seance,
         "student": request.user,
@@ -1756,9 +1756,26 @@ def qr_scan(request, token):
             scan_kwargs["is_suspicious"] = is_suspicious
 
     try:
-        QRScanRecord.objects.create(**scan_kwargs)
+        with transaction.atomic():
+            # Re-check with row lock inside transaction to prevent TOCTOU race
+            dup = (
+                QRScanRecord.objects
+                .select_for_update()
+                .filter(seance=seance, inscription=inscription)
+                .first()
+            )
+            if dup:
+                _log_scan_attempt(request, seance, qr_token,
+                                  QRScanLog.GPSStatus.NOT_REQUIRED,
+                                  QRScanLog.ScanResult.REJECTED_DUPLICATE)
+                return render(request, "absences/qr_scan_result.html", {
+                    **error_ctx, "scan_status": "duplicate",
+                    "message": "Votre présence a déjà été enregistrée.",
+                    "scanned_at": dup.scanned_at,
+                })
+            QRScanRecord.objects.create(**scan_kwargs)
     except IntegrityError:
-        # Unique constraint violation — concurrent duplicate scan
+        # Unique constraint violation — ultimate safety net
         return render(request, "absences/qr_scan_result.html", {
             **error_ctx, "scan_status": "duplicate",
             "message": "Votre présence a déjà été enregistrée.",
