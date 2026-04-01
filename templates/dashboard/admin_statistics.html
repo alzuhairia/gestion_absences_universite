@@ -205,9 +205,11 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ chart_data|json_script:"chart-data" }}
 <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
+    const _cd = JSON.parse(document.getElementById('chart-data').textContent);
     const colors = {
         primary: 'rgba(13, 110, 253, 0.8)',
         primaryBg: 'rgba(13, 110, 253, 0.1)',
@@ -231,8 +233,8 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // 1. Evolution mensuelle (Line/Area chart)
-    const monthlyLabels = {{ monthly_labels|safe }};
-    const monthlyData = {{ monthly_data|safe }};
+    const monthlyLabels = _cd.monthly_labels;
+    const monthlyData = _cd.monthly_data;
     if (monthlyLabels.length > 0) {
         new Chart(document.getElementById('monthlyChart'), {
             type: 'line',
@@ -275,8 +277,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 2. Top Professeurs (Horizontal Bar)
-    const profLabels = {{ top_professors_labels|safe }};
-    const profData = {{ top_professors_data|safe }};
+    const profLabels = _cd.top_professors_labels;
+    const profData = _cd.top_professors_data;
     if (profLabels.length > 0) {
         new Chart(document.getElementById('topProfessorsChart'), {
             type: 'bar',
@@ -305,8 +307,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 3. Top Cours (Horizontal Bar)
-    const courseLabels = {{ top_courses_labels|safe }};
-    const courseData = {{ top_courses_data|safe }};
+    const courseLabels = _cd.top_courses_labels;
+    const courseData = _cd.top_courses_data;
     if (courseLabels.length > 0) {
         new Chart(document.getElementById('topCoursesChart'), {
             type: 'bar',
@@ -335,8 +337,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 4. Repartition par Departement (Doughnut)
-    const deptLabels = {{ dept_labels|safe }};
-    const deptData = {{ dept_data|safe }};
+    const deptLabels = _cd.dept_labels;
+    const deptData = _cd.dept_data;
     if (deptLabels.length > 0) {
         new Chart(document.getElementById('deptChart'), {
             type: 'doughnut',
@@ -361,8 +363,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 5. Repartition par Statut (Doughnut)
-    const statusLabels = {{ status_labels|safe }};
-    const statusData = {{ status_data|safe }};
+    const statusLabels = _cd.status_labels;
+    const statusData = _cd.status_data;
     const statusColors = {
         'Non justifiée': colors.danger,
         'En attente': colors.warning,
@@ -392,8 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 6. Repartition par Niveau (Doughnut)
-    const levelLabels = {{ level_labels|safe }};
-    const levelData = {{ level_data|safe }};
+    const levelLabels = _cd.level_labels;
+    const levelData = _cd.level_data;
     if (levelLabels.length > 0) {
         new Chart(document.getElementById('levelChart'), {
             type: 'doughnut',
