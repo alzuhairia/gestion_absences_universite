@@ -76,13 +76,11 @@ def calculer_absence_stats(inscription):
             'total_periodes': int,
         }
     """
-    # CORRECTION BUG CRITIQUE #3 — EN_ATTENTE compte comme NON_JUSTIFIEE
-    # Un étudiant soumettant un justificatif non validé ne doit pas voir son taux
-    # d'absence baisser. L'absence est décomptée UNIQUEMENT après acceptation
-    # (state=ACCEPTEE → statut=JUSTIFIEE). Jusqu'alors, EN_ATTENTE = non justifiée.
+    # Seules les absences NON_JUSTIFIEE comptent pour le seuil.
+    # EN_ATTENTE = justificatif soumis, ne doit pas pénaliser l'étudiant.
     total_absence = float(
         Absence.objects.filter(
-            id_inscription=inscription, statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE]
+            id_inscription=inscription, statut=Absence.Statut.NON_JUSTIFIEE
         ).aggregate(total=Sum("duree_absence"))["total"]
         or 0
     )
@@ -132,7 +130,7 @@ def calculer_pourcentage_absence(etudiant, cours):
     Returns:
         dict: {
             'total_heures_cours': float,   # Somme durées des séances passées du cours
-            'total_heures_absence': float, # Somme duree_absence (non justifiées + en attente)
+            'total_heures_absence': float, # Somme duree_absence (non justifiées uniquement)
             'pourcentage_absence': float,  # (heures_absence / heures_cours) * 100
             'pourcentage_presence': float, # 100 - pourcentage_absence
         }
@@ -183,12 +181,12 @@ def calculer_pourcentage_absence(etudiant, cours):
             "pourcentage_presence": 100.0,
         }
 
-    # Somme des durées d'absence (NON_JUSTIFIEE + EN_ATTENTE)
-    # Seules les absences de séances passées sont comptées
+    # Somme des durées d'absence NON_JUSTIFIEE uniquement
+    # EN_ATTENTE ne pénalise pas l'étudiant (justificatif soumis)
     total_heures_absence = float(
         Absence.objects.filter(
             id_inscription=inscription,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
             id_seance__date_seance__lte=today,
         ).aggregate(total=Sum("duree_absence"))["total"]
         or 0
@@ -267,7 +265,7 @@ def etudiants_en_alerte(cours, seuil=None):
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscriptions,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
             id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
@@ -539,14 +537,11 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
     if not inscription_ids:
         return 0, {}
 
-    # Agrégation SQL unique pour toutes les absences (EN_ATTENTE + NON_JUSTIFIEE)
+    # Agrégation SQL unique — seules les NON_JUSTIFIEE comptent pour le seuil
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[
-                Absence.Statut.NON_JUSTIFIEE,
-                Absence.Statut.EN_ATTENTE,
-            ],  # EN_ATTENTE compte (loophole fermé)
+            statut=Absence.Statut.NON_JUSTIFIEE,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -629,7 +624,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
     inscription_ids = [ins.id_inscription for ins in inscriptions]
 
-    _non_justified = [Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE]
+    _non_justified = [Absence.Statut.NON_JUSTIFIEE]
 
     # 1. Total non-justified absences per inscription (single SQL query)
     total_abs_map = dict(

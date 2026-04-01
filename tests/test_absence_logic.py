@@ -18,6 +18,7 @@ from apps.absences.services import (
     calculer_absence_stats,
     calculer_pourcentage_absence,
     etudiants_en_alerte,
+    get_at_risk_count_for_queryset,
 )
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
@@ -173,18 +174,30 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         self.assertEqual(result["total_heures_absence"], 4.0)  # Only the unjustified one
         self.assertAlmostEqual(result["pourcentage_absence"], 6.67, places=2)
 
-    def test_en_attente_counts_as_non_justified(self):
-        """EN_ATTENTE absences count as non-justified."""
+    def test_pending_justification_does_not_count_as_unjustified(self):
+        """EN_ATTENTE absences must NOT count toward the threshold — justification submitted."""
+        # 1 absence NON_JUSTIFIEE (4h) — counts
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
+            type_absence=Absence.TypeAbsence.ABSENT,
+            duree_absence=Decimal("4.00"),
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            encodee_par=self.prof,
+        )
+        # 1 absence EN_ATTENTE (4h) — must NOT count
+        Absence.objects.create(
+            id_inscription=self.inscription,
+            id_seance=self.seances[1],
             type_absence=Absence.TypeAbsence.ABSENT,
             duree_absence=Decimal("4.00"),
             statut=Absence.Statut.EN_ATTENTE,
             encodee_par=self.prof,
         )
         result = calculer_pourcentage_absence(self.student, self.cours)
+        # Only the NON_JUSTIFIEE absence should count (4h, not 8h)
         self.assertEqual(result["total_heures_absence"], 4.0)
+        self.assertAlmostEqual(result["pourcentage_absence"], 6.67, places=2)
 
     def test_no_inscription_returns_zero(self):
         """Non-enrolled student returns 0% absence."""
@@ -520,3 +533,59 @@ class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
 
         stats = calculer_absence_stats(inscription)
         self.assertLessEqual(stats["taux"], 100)
+
+
+class EnAttenteExcludedFromThresholdTest(AbsenceLogicBaseTestCase):
+    """EN_ATTENTE absences must be excluded from all threshold/rate calculations."""
+
+    def _create_absence(self, seance_idx, statut, duree="4.00"):
+        return Absence.objects.create(
+            id_inscription=self.inscription,
+            id_seance=self.seances[seance_idx],
+            type_absence=Absence.TypeAbsence.ABSENT,
+            duree_absence=Decimal(duree),
+            statut=statut,
+            encodee_par=self.prof,
+        )
+
+    def test_calculer_absence_stats_excludes_en_attente(self):
+        """calculer_absence_stats only counts NON_JUSTIFIEE."""
+        self._create_absence(0, Absence.Statut.NON_JUSTIFIEE)
+        self._create_absence(1, Absence.Statut.EN_ATTENTE)
+        self._create_absence(2, Absence.Statut.JUSTIFIEE)
+
+        stats = calculer_absence_stats(self.inscription)
+        # Only the NON_JUSTIFIEE absence (4h / 60 periods)
+        self.assertEqual(stats["total_absence"], 4.0)
+        self.assertAlmostEqual(stats["taux"], 6.67, places=2)
+
+    def test_etudiants_en_alerte_excludes_en_attente(self):
+        """etudiants_en_alerte ignores EN_ATTENTE absences."""
+        # 3 NON_JUSTIFIEE (12h/60 = 20%) — at threshold
+        for i in range(3):
+            self._create_absence(i, Absence.Statut.NON_JUSTIFIEE)
+        # 3 EN_ATTENTE — should NOT push above threshold
+        for i in range(3, 6):
+            self._create_absence(i, Absence.Statut.EN_ATTENTE)
+
+        alertes = etudiants_en_alerte(self.cours, seuil=21)
+        # 20% < 21% threshold → no alert (would be 40% if EN_ATTENTE counted)
+        self.assertEqual(len(alertes), 0)
+
+    def test_get_at_risk_count_excludes_en_attente(self):
+        """get_at_risk_count_for_queryset ignores EN_ATTENTE."""
+        # 3 NON_JUSTIFIEE (12h) + 3 EN_ATTENTE (12h)
+        for i in range(3):
+            self._create_absence(i, Absence.Statut.NON_JUSTIFIEE)
+        for i in range(3, 6):
+            self._create_absence(i, Absence.Statut.EN_ATTENTE)
+
+        qs = Inscription.objects.filter(
+            id_inscription=self.inscription.id_inscription
+        ).select_related("id_cours")
+        count, sums = get_at_risk_count_for_queryset(qs, system_threshold=21)
+        # 12h / 60 = 20% < 21% → not at risk
+        self.assertEqual(count, 0)
+        # Only NON_JUSTIFIEE hours in the sums
+        total = sums.get(self.inscription.id_inscription, 0) or 0
+        self.assertEqual(float(total), 12.0)
