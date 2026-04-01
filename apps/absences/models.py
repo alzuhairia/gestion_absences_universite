@@ -129,15 +129,23 @@ class Absence(models.Model):
                 {"duree_absence": "La durée de l'absence doit être strictement positive."}
             )
 
-        # Durée ne peut pas dépasser la durée de la séance
+        # Validation par rapport à la durée de la séance
         if self.id_seance_id and self.duree_absence is not None:
             try:
                 seance = self.id_seance
                 duree_seance = seance.duree_heures()
-                if duree_seance and float(self.duree_absence) > duree_seance:
-                    raise ValidationError(
-                        {"duree_absence": f"La durée d'absence ({self.duree_absence}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
-                    )
+                if duree_seance:
+                    duree_f = float(self.duree_absence)
+                    # ABSENT : durée ne peut pas dépasser la séance
+                    if duree_f > duree_seance:
+                        raise ValidationError(
+                            {"duree_absence": f"La durée d'absence ({self.duree_absence}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
+                        )
+                    # PARTIEL : durée doit être strictement inférieure à la séance
+                    if self.type_absence == self.TypeAbsence.PARTIEL and duree_f >= duree_seance:
+                        raise ValidationError(
+                            {"duree_absence": f"Une absence partielle ({self.duree_absence}h) doit être strictement inférieure à la durée de la séance ({duree_seance}h). Utilisez le type ABSENT pour une absence complète."}
+                        )
             except (AttributeError, TypeError):
                 pass  # seance not loaded yet — skip validation
 

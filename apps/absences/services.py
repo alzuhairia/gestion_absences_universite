@@ -88,7 +88,7 @@ def calculer_absence_stats(inscription):
     )
 
     total_periodes = inscription.id_cours.nombre_total_periodes or 0
-    taux = (total_absence / total_periodes) * 100 if total_periodes else 0
+    taux = min((total_absence / total_periodes) * 100, 100) if total_periodes else 0
 
     return {
         "total_absence": total_absence,
@@ -194,7 +194,7 @@ def calculer_pourcentage_absence(etudiant, cours):
         or 0
     )
 
-    pourcentage_absence = round((total_heures_absence / total_heures_cours) * 100, 2)
+    pourcentage_absence = min(round((total_heures_absence / total_heures_cours) * 100, 2), 100)
     pourcentage_presence = round(100 - pourcentage_absence, 2)
 
     return {
@@ -278,7 +278,7 @@ def etudiants_en_alerte(cours, seuil=None):
     alertes = []
     for ins in inscriptions:
         total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
-        pourcentage = round((total_abs / total_heures_cours) * 100, 2)
+        pourcentage = min(round((total_abs / total_heures_cours) * 100, 2), 100)
 
         if pourcentage >= seuil:
             alertes.append({
@@ -562,7 +562,7 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
             cours.seuil_absence if cours.seuil_absence is not None else system_threshold
         )
         total_abs = absence_sums.get(ins.id_inscription, 0) or 0
-        taux = (total_abs / cours.nombre_total_periodes) * 100
+        taux = min((total_abs / cours.nombre_total_periodes) * 100, 100)
         seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
         if taux >= seuil_effectif:
             at_risk_count += 1
@@ -682,7 +682,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         rates = []
         for ins in course_ins_list:
             t = float(total_abs_map.get(ins.id_inscription, 0) or 0)
-            rates.append((t / cours.nombre_total_periodes) * 100)
+            rates.append(min((t / cours.nombre_total_periodes) * 100, 100))
         course_avg_map[course_id] = sum(rates) / len(rates) if rates else 0.0
 
     # 4. Estimate days remaining in the academic year
@@ -741,7 +741,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         prev_abs = float(prev_abs_map.get(ins.id_inscription, 0) or 0)
         course_avg = course_avg_map.get(ins.id_cours_id, 0.0)
 
-        current_rate = (total_abs / total_periodes) * 100
+        current_rate = min((total_abs / total_periodes) * 100, 100)
 
         # Recent rate: hours per day over last 30 days
         window_days = min(30, max((today - first_session).days, 1)) if first_session else 30
@@ -753,7 +753,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
         # Recent 30-day rate as percentage (for comparison with course average)
         # Normalize to: what % of total_periodes did they miss in 30 days, annualized
-        recent_rate = (recent_abs / total_periodes) * 100
+        recent_rate = min((recent_abs / total_periodes) * 100, 100)
 
         # Trend: compare recent 30 days vs previous 30 days
         # "up" = getting worse, "down" = improving, "stable" = ±10% tolerance

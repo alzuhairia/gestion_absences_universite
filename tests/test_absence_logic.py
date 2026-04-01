@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.absences.models import Absence
 from apps.absences.services import (
+    calculer_absence_stats,
     calculer_pourcentage_absence,
     etudiants_en_alerte,
 )
@@ -434,3 +435,88 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
         """Only ABSENT and PARTIEL are the primary type choices."""
         self.assertEqual(Absence.TypeAbsence.ABSENT, "ABSENT")
         self.assertEqual(Absence.TypeAbsence.PARTIEL, "PARTIEL")
+
+    def test_absence_exceeds_seance_duration(self):
+        """Creating an absence with duration > seance duration raises ValidationError."""
+        with self.assertRaises(ValidationError) as ctx:
+            Absence.objects.create(
+                id_inscription=self.inscription,
+                id_seance=self.seances[0],  # 4h session
+                type_absence=Absence.TypeAbsence.ABSENT,
+                duree_absence=Decimal("6.00"),  # > 4h
+                statut=Absence.Statut.NON_JUSTIFIEE,
+                encodee_par=self.prof,
+            )
+        self.assertIn("duree_absence", ctx.exception.message_dict)
+
+    def test_partiel_equal_to_seance_duration_rejected(self):
+        """PARTIEL with duration == seance duration is invalid (should use ABSENT)."""
+        absence = Absence(
+            id_inscription=self.inscription,
+            id_seance=self.seances[0],  # 4h session
+            type_absence=Absence.TypeAbsence.PARTIEL,
+            duree_absence=Decimal("4.00"),  # == seance duration
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            encodee_par=self.prof,
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            absence.clean()
+        self.assertIn("duree_absence", ctx.exception.message_dict)
+
+    def test_partiel_just_under_seance_duration_valid(self):
+        """PARTIEL with duration slightly less than seance duration is valid."""
+        absence = Absence(
+            id_inscription=self.inscription,
+            id_seance=self.seances[0],  # 4h session
+            type_absence=Absence.TypeAbsence.PARTIEL,
+            duree_absence=Decimal("3.99"),
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            encodee_par=self.prof,
+        )
+        absence.clean()  # Should not raise
+
+
+class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
+    """Tests that absence rate is capped at 100% even with corrupt data."""
+
+    def test_calculer_absence_stats_capped_at_100(self):
+        """
+        If total absence hours somehow exceed total periods,
+        taux should be capped at 100%.
+        """
+        # Course with only 2h total periods but we create a 4h absence
+        small_course = Cours.objects.create(
+            code_cours="TINY",
+            nom_cours="Tiny Course",
+            nombre_total_periodes=2,
+            id_departement=self.departement,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
+        )
+        inscription = Inscription.objects.create(
+            id_etudiant=self.student,
+            id_cours=small_course,
+            id_annee=self.annee,
+        )
+        seance = Seance.objects.create(
+            date_seance=date(2026, 6, 1),
+            heure_debut=time(8, 0),
+            heure_fin=time(12, 0),
+            id_cours=small_course,
+            id_annee=self.annee,
+        )
+        # Bypass model clean to simulate corrupt data (duree > total_periodes)
+        Absence.objects.bulk_create([
+            Absence(
+                id_inscription=inscription,
+                id_seance=seance,
+                type_absence=Absence.TypeAbsence.ABSENT,
+                duree_absence=Decimal("4.00"),
+                statut=Absence.Statut.NON_JUSTIFIEE,
+                encodee_par=self.prof,
+            )
+        ])
+
+        stats = calculer_absence_stats(inscription)
+        self.assertLessEqual(stats["taux"], 100)
