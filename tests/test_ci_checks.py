@@ -1,5 +1,6 @@
 from io import StringIO
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import SimpleTestCase
 from django.test.utils import override_settings
@@ -49,3 +50,22 @@ class MigrationCheckTests(SimpleTestCase):
 
         combined_output = f"{stdout.getvalue()}\n{stderr.getvalue()}".lower()
         self.assertNotIn("warning", combined_output)
+
+
+class ProductionCookieSecurityTests(SimpleTestCase):
+    """Verify cookie hardening flags that Django's check --deploy does not cover."""
+
+    @override_settings(
+        DEBUG=False,
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Strict",
+        CSRF_COOKIE_SECURE=True,
+        CSRF_COOKIE_HTTPONLY=True,
+    )
+    def test_production_cookie_flags(self):
+        self.assertTrue(settings.SESSION_COOKIE_SECURE)
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Strict")
+        self.assertTrue(settings.CSRF_COOKIE_SECURE)
+        self.assertTrue(settings.CSRF_COOKIE_HTTPONLY)
