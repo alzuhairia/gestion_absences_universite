@@ -7,6 +7,7 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : settings.SESSION_INACTIVITY_TIMEOUT
 """
 
+import logging
 import time
 from functools import lru_cache
 
@@ -15,6 +16,8 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -49,20 +52,23 @@ class SessionInactivityMiddleware:
         self.timeout = getattr(settings, "SESSION_INACTIVITY_TIMEOUT", 900)
 
     def __call__(self, request):
-        if request.user.is_authenticated:
-            now = time.time()
-            last_activity = request.session.get("_last_activity")
+        try:
+            if request.user.is_authenticated:
+                now = time.time()
+                last_activity = request.session.get("_last_activity")
 
-            if last_activity is not None and (now - last_activity) > self.timeout:
-                logout(request)
-                messages.warning(
-                    request,
-                    "Votre session a expiré pour cause d'inactivité. "
-                    "Veuillez vous reconnecter.",
-                )
-                return redirect(settings.LOGIN_URL)
+                if last_activity is not None and (now - last_activity) > self.timeout:
+                    logout(request)
+                    messages.warning(
+                        request,
+                        "Votre session a expiré pour cause d'inactivité. "
+                        "Veuillez vous reconnecter.",
+                    )
+                    return redirect(settings.LOGIN_URL)
 
-            request.session["_last_activity"] = now
+                request.session["_last_activity"] = now
+        except Exception:
+            logger.exception("SessionInactivityMiddleware error (session backend may be down)")
 
         return self.get_response(request)
 
