@@ -85,13 +85,14 @@ def instructor_dashboard(request):
         total_absences = 0
 
     # --- KPI 5: Students At Risk - READ ONLY, INDICATIVE ONLY
-    all_inscriptions = Inscription.objects.filter(
+    all_inscriptions_qs = Inscription.objects.filter(
         id_cours__professeur=request.user, status=Inscription.Status.EN_COURS
     ).select_related("id_cours", "id_etudiant")
     if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
+        all_inscriptions_qs = all_inscriptions_qs.filter(id_annee=academic_year)
 
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
+    all_inscriptions = list(all_inscriptions_qs)
+    inscription_ids = [ins.id_inscription for ins in all_inscriptions]
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -512,15 +513,15 @@ def instructor_statistics(request):
 
     course_ids = list(courses.values_list("id_cours", flat=True))
     if academic_year:
-        all_inscriptions = Inscription.objects.filter(
+        all_inscriptions = list(Inscription.objects.filter(
             id_cours__in=course_ids, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        )
+        ).select_related("id_cours"))
     else:
-        all_inscriptions = Inscription.objects.filter(
+        all_inscriptions = list(Inscription.objects.filter(
             id_cours__in=course_ids, status=Inscription.Status.EN_COURS
-        )
+        ).select_related("id_cours"))
 
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
+    inscription_ids = [ins.id_inscription for ins in all_inscriptions]
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -538,7 +539,7 @@ def instructor_statistics(request):
         .values_list("id_inscription", "total")
     )
     inscriptions_by_course = defaultdict(list)
-    for ins in all_inscriptions.select_related("id_cours"):
+    for ins in all_inscriptions:
         inscriptions_by_course[ins.id_cours_id].append(ins)
 
     for course in courses:

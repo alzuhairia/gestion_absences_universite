@@ -47,20 +47,20 @@ def student_dashboard(request):
 
     # Get student's inscriptions for current academic year
     if academic_year:
-        inscriptions = Inscription.objects.filter(
+        inscriptions = list(Inscription.objects.filter(
             id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement")
+        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
     else:
-        inscriptions = Inscription.objects.filter(
+        inscriptions = list(Inscription.objects.filter(
             id_etudiant=request.user
-        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement")
+        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
 
     # --- KPI 1: Total Courses Enrolled (current academic year)
-    total_courses = inscriptions.count()
+    total_courses = len(inscriptions)
 
     # --- KPI 2: Total Sessions (all sessions for student's courses in current year)
     if academic_year:
-        course_ids = inscriptions.values_list("id_cours", flat=True)
+        course_ids = [ins.id_cours_id for ins in inscriptions]
         total_sessions = Seance.objects.filter(
             id_cours__in=course_ids, id_annee=academic_year
         ).count()
@@ -68,14 +68,13 @@ def student_dashboard(request):
         total_sessions = 0
 
     # --- KPI 3: Number of Absences (all absences, regardless of status)
-    total_absences = Absence.objects.filter(id_inscription__in=inscriptions).count()
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
+    total_absences = Absence.objects.filter(id_inscription__in=inscription_ids).count()
 
     # --- KPI 4: Overall Absence Rate (%) - based on NON_JUSTIFIED absences only
     total_abs_hours = 0
     total_periods = 0
     overall_rate = 0
-
-    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -165,13 +164,15 @@ def student_statistics(request):
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
     user = request.user
-    inscriptions = Inscription.objects.filter(
+    inscriptions_qs = Inscription.objects.filter(
         id_etudiant=user, status=Inscription.Status.EN_COURS
-    ).select_related("id_cours")
+    ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement")
 
     # Filter by academic year if available
     if academic_year:
-        inscriptions = inscriptions.filter(id_annee=academic_year)
+        inscriptions_qs = inscriptions_qs.filter(id_annee=academic_year)
+
+    inscriptions = list(inscriptions_qs)
 
     # --- 1. Data for Bar Chart (Absences per Course) ---
     course_labels = []
@@ -181,7 +182,7 @@ def student_statistics(request):
     total_hours_missed = 0
     courses_at_risk = 0
 
-    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
 
     # --- Compteurs globaux (tous statuts) ---
     total_absences = Absence.objects.filter(id_inscription__in=inscription_ids).count()
@@ -701,23 +702,24 @@ def student_reports(request):
 
     # Get student's inscriptions for statistics
     if academic_year:
-        inscriptions = Inscription.objects.filter(
+        inscriptions = list(Inscription.objects.filter(
             id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours")
+        ).select_related("id_cours"))
     else:
-        inscriptions = Inscription.objects.filter(
+        inscriptions = list(Inscription.objects.filter(
             id_etudiant=request.user
-        ).select_related("id_cours")
+        ).select_related("id_cours"))
 
     # Calculate overall statistics
-    total_courses = inscriptions.count()
-    total_absences = Absence.objects.filter(id_inscription__in=inscriptions).count()
+    inscription_ids = [ins.id_inscription for ins in inscriptions]
+    total_courses = len(inscriptions)
+    total_absences = Absence.objects.filter(id_inscription__in=inscription_ids).count()
 
     total_abs_hours = 0
     total_periods = 0
     absence_sums = dict(
         Absence.objects.filter(
-            id_inscription__in=inscriptions.values_list("id_inscription", flat=True),
+            id_inscription__in=inscription_ids,
             # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
             statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
         )

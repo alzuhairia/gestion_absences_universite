@@ -105,12 +105,13 @@ def secretary_dashboard(request):
     global_pending_count = absence_base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
-    all_inscriptions = Inscription.objects.filter(
+    all_inscriptions_qs = Inscription.objects.filter(
         status=Inscription.Status.EN_COURS
     ).select_related("id_cours", "id_etudiant")
     if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
+        all_inscriptions_qs = all_inscriptions_qs.filter(id_annee=academic_year)
+    all_inscriptions = list(all_inscriptions_qs)
+    inscription_ids = [ins.id_inscription for ins in all_inscriptions]
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
