@@ -415,6 +415,11 @@ class QRScanLog(models.Model):
         db_table = "qr_scan_log"
         app_label = "absences"
         ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["seance", "etudiant", "-timestamp"]),
+            models.Index(fields=["etudiant", "-timestamp"]),
+            models.Index(fields=["scan_result"]),
+        ]
 
     def __str__(self):
         return f"ScanLog {self.etudiant} — {self.scan_result} — {self.timestamp}"
