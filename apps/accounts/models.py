@@ -290,3 +290,54 @@ class User(AbstractBaseUser, PermissionsMixin):
     def has_module_perms(self, app_label):
         """Est-ce que l'utilisateur a des permissions pour voir l'app?"""
         return self.is_staff or self.is_superuser
+
+
+class UserSession(models.Model):
+    """
+    Suivi des sessions actives par utilisateur.
+
+    Permet de limiter le nombre de sessions simultanées (MAX_SESSIONS_PER_USER)
+    en supprimant les plus anciennes au-delà du seuil lors de chaque connexion.
+    """
+
+    MAX_SESSIONS_PER_USER = 3
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="user_sessions",
+        verbose_name=_("Utilisateur"),
+    )
+    session_key = models.CharField(
+        max_length=40,
+        unique=True,
+        verbose_name=_("Clé de session"),
+    )
+    ip_address = models.GenericIPAddressField(
+        verbose_name=_("Adresse IP"),
+    )
+    user_agent = models.TextField(
+        blank=True,
+        default="",
+        verbose_name=_("User-Agent"),
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name=_("Date de création"),
+    )
+
+    class Meta:
+        db_table = "user_session"
+        app_label = "accounts"
+        verbose_name = _("Session utilisateur")
+        verbose_name_plural = _("Sessions utilisateur")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "-created_at"],
+                name="usersession_user_created_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Session {self.session_key[:8]}… — {self.user}"

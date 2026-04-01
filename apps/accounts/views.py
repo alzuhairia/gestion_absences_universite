@@ -9,11 +9,15 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : accounts.models, accounts.forms, absences.utils
 """
 
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib.sessions.backends.db import SessionStore
+from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -29,8 +33,15 @@ from apps.accounts.forms import (
     CustomPasswordResetForm,
     CustomSetPasswordForm,
 )
-from apps.audits.ip_utils import ratelimit_client_ip, ratelimit_login_ip_username
+from apps.accounts.models import UserSession
+from apps.audits.ip_utils import (
+    extract_client_ip,
+    ratelimit_client_ip,
+    ratelimit_login_ip_username,
+)
 from apps.enrollments.models import Inscription
+
+logger = logging.getLogger(__name__)
 
 
 @method_decorator(
@@ -68,6 +79,41 @@ class RateLimitedLoginView(auth_views.LoginView):
             response["Retry-After"] = "300"
             return response
         return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Authenticate, enforce max sessions per user, and register the new session."""
+        response = super().form_valid(form)
+        user = self.request.user
+
+        try:
+            with transaction.atomic():
+                # Register this new session
+                UserSession.objects.create(
+                    user=user,
+                    session_key=self.request.session.session_key,
+                    ip_address=extract_client_ip(self.request),
+                    user_agent=self.request.META.get("HTTP_USER_AGENT", "")[:500],
+                )
+
+                # Evict oldest sessions beyond the limit
+                active_sessions = (
+                    UserSession.objects.filter(user=user)
+                    .order_by("-created_at")
+                    .values_list("pk", "session_key", flat=False)
+                )
+                to_evict = list(active_sessions[UserSession.MAX_SESSIONS_PER_USER:])
+                if to_evict:
+                    evict_pks = [pk for pk, _ in to_evict]
+                    evict_keys = [key for _, key in to_evict]
+                    # Delete Django session data
+                    for key in evict_keys:
+                        SessionStore(session_key=key).delete()
+                    # Delete tracking rows
+                    UserSession.objects.filter(pk__in=evict_pks).delete()
+        except Exception:
+            logger.exception("Failed to enforce session limit for user %s", user.pk)
+
+        return response
 
 
 @login_required
