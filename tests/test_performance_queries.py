@@ -187,3 +187,33 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertIsInstance(payload, list)
+
+    def test_student_dashboard_query_budget(self):
+        self.client.force_login(self.students[0])
+        response = self.assert_max_queries(
+            10,
+            self.client.get,
+            reverse("dashboard:student_dashboard"),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_instructor_dashboard_query_budget(self):
+        self.client.force_login(self.professor)
+        response = self.assert_max_queries(
+            10,
+            self.client.get,
+            reverse("dashboard:instructor_dashboard"),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_secretary_dashboard_query_budget(self):
+        self.client.force_login(self.secretary)
+        response = self.assert_max_queries(
+            10,
+            self.client.get,
+            reverse("dashboard:secretary_dashboard"),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
