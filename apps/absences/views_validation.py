@@ -220,7 +220,7 @@ def process_justification(request, pk):
                 .get(pk=justification.id_absence_id)
             )
             absence.statut = Absence.Statut.JUSTIFIEE
-            absence.save()
+            absence.save(update_fields=["statut"])
 
             # Notification + audit inside same transaction for consistency
             msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été ACCEPTÉE."
@@ -243,6 +243,10 @@ def process_justification(request, pk):
         _send_justification_decision_emails(absence, approved=True, motif=comment)
 
     elif action == "reject":
+        if not comment:
+            messages.error(request, "Un motif de refus est obligatoire.")
+            return redirect("absences:validation_list")
+
         with transaction.atomic():
             justification = Justification.objects.select_for_update().get(pk=pk)
             if justification.state != Justification.State.EN_ATTENTE:
@@ -266,7 +270,7 @@ def process_justification(request, pk):
                 .get(pk=justification.id_absence_id)
             )
             absence.statut = Absence.Statut.NON_JUSTIFIEE
-            absence.save()
+            absence.save(update_fields=["statut"])
 
             # Notification + audit inside same transaction for consistency
             msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été REFUSÉE. Motif : {comment}"

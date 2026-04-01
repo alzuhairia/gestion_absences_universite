@@ -141,13 +141,34 @@ class JustificationStateTests(BaseAbsenceTestCase):
         self.assertEqual(absence.statut, "JUSTIFIEE")
         self.assertEqual(justification.state, "ACCEPTEE")
         self.assertEqual(justification.validee_par, self.secretary)
+        self.assertIsNotNone(justification.date_validation)
+
+    def test_valider_justificatif_recalculates_eligibility(self):
+        """Approving a justification triggers eligibility recalculation via signal."""
+        absence, justification = self._create_absence_with_justification()
+        # Block the student first
+        self.inscription1.eligible_examen = False
+        self.inscription1.save(update_fields=["eligible_examen"])
+
+        self.client.force_login(self.secretary)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        self.client.post(url, {"action": "approve"}, secure=True)
+
+        absence.refresh_from_db()
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+        # Eligibility should be recalculated (signal fires via on_commit)
+        self.inscription1.refresh_from_db()
+        self.assertTrue(self.inscription1.eligible_examen)
 
     def test_refuser_justificatif_sets_state(self):
         absence, justification = self._create_absence_with_justification()
 
         self.client.force_login(self.secretary)
         url = reverse("absences:process_justification", args=[justification.pk])
-        response = self.client.post(url, {"action": "reject"}, secure=True)
+        response = self.client.post(url, {
+            "action": "reject",
+            "comment": "Document illisible",
+        }, secure=True)
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
@@ -156,6 +177,36 @@ class JustificationStateTests(BaseAbsenceTestCase):
         self.assertEqual(absence.statut, "NON_JUSTIFIEE")
         self.assertEqual(justification.state, "REFUSEE")
         self.assertEqual(justification.validee_par, self.secretary)
+        self.assertIsNotNone(justification.date_validation)
+        self.assertEqual(justification.commentaire_gestion, "Document illisible")
+
+    def test_reject_without_comment_is_refused(self):
+        """Rejecting a justification without a motif is refused."""
+        absence, justification = self._create_absence_with_justification()
+
+        self.client.force_login(self.secretary)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        response = self.client.post(url, {"action": "reject"}, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        # Justification should remain EN_ATTENTE (not processed)
+        justification.refresh_from_db()
+        self.assertEqual(justification.state, "EN_ATTENTE")
+
+    def test_reprocessing_already_handled_justification(self):
+        """Processing an already-handled justification shows a warning."""
+        absence, justification = self._create_absence_with_justification()
+        justification.state = "ACCEPTEE"
+        justification.save(update_fields=["state"])
+
+        self.client.force_login(self.secretary)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        response = self.client.post(url, {"action": "approve"}, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        # State should remain unchanged
+        justification.refresh_from_db()
+        self.assertEqual(justification.state, "ACCEPTEE")
 
 
 class JustificationDownloadTests(BaseAbsenceTestCase):
