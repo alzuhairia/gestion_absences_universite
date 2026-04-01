@@ -310,7 +310,12 @@ def upload_justification(request, absence_id):
     return render(
         request,
         "absences/justify.html",
-        {"absence": absence, "justification": justification, "deadline": deadline},
+        {
+            "absence": absence,
+            "justification": justification,
+            "deadline": deadline,
+            "days_remaining": max((deadline - timezone.localdate()).days, 0),
+        },
     )
 
 

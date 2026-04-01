@@ -1,7 +1,9 @@
 import shutil
 import tempfile
-from datetime import date, time
+from datetime import date, time, timedelta
 from unittest.mock import patch
+
+from django.utils import timezone
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
@@ -409,6 +411,55 @@ class UploadValidationTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
+
+
+class JustificationDeadlineTests(BaseAbsenceTestCase):
+    """Tests that justification upload is rejected after the deadline."""
+
+    def _create_old_absence(self, days_ago):
+        """Create an absence whose seance was `days_ago` days in the past."""
+        seance_date = timezone.localdate() - timedelta(days=days_ago)
+        seance = Seance.objects.create(
+            date_seance=seance_date,
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+        return Absence.objects.create(
+            id_inscription=self.inscription1,
+            id_seance=seance,
+            type_absence="ABSENT",
+            duree_absence=2.0,
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.secretary,
+        )
+
+    def test_justification_upload_after_deadline_rejected(self):
+        """Upload is rejected when the 3-day deadline has passed."""
+        absence = self._create_old_absence(days_ago=10)  # well past the 3-day deadline
+        self.client.force_login(self.student1)
+
+        url = reverse("absences:upload", args=[absence.id_absence])
+        response = self.client.get(url, secure=True)
+
+        # Should redirect away with an error message
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
+
+    def test_justification_upload_within_deadline_allowed(self):
+        """Upload page is accessible when within the 3-day deadline."""
+        absence = self._create_old_absence(days_ago=1)  # within deadline
+        self.client.force_login(self.student1)
+
+        url = reverse("absences:upload", args=[absence.id_absence])
+        response = self.client.get(url, secure=True)
+
+        # Should render the upload form (200), not redirect
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("deadline", response.context)
+        self.assertIn("days_remaining", response.context)
+        self.assertGreaterEqual(response.context["days_remaining"], 0)
 
 
 class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
