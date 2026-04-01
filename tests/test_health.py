@@ -43,3 +43,21 @@ class HealthcheckSecurityTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {"status": "ok"})
+
+    def test_cache_control_no_store_on_200(self):
+        response = self.client.get(
+            self.url,
+            HTTP_X_HEALTHCHECK_TOKEN="current-token",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+    def test_cache_control_no_store_on_403(self):
+        response = self.client.get(
+            self.url,
+            HTTP_X_HEALTHCHECK_TOKEN="wrong-token",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response["Cache-Control"], "no-store")

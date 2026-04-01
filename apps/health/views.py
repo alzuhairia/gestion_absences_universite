@@ -72,11 +72,14 @@ def health_check(request):
             {"status": "error", "error": "Too Many Requests"}, status=429
         )
         response["Retry-After"] = "60"
+        response["Cache-Control"] = "no-store"
         return response
 
     client_ip = extract_client_ip(request)
     if not _is_health_client_allowed(client_ip):
-        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response = JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response["Cache-Control"] = "no-store"
+        return response
 
     valid_tokens = [
         token for token in getattr(settings, "HEALTHCHECK_VALID_TOKENS", []) if token
@@ -85,28 +88,38 @@ def health_check(request):
         logger.error(
             "HEALTHCHECK_TOKEN is not configured; refusing health endpoint access."
         )
-        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response = JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response["Cache-Control"] = "no-store"
+        return response
 
     provided = request.headers.get("X-Healthcheck-Token", "")
     if not provided:
-        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response = JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response["Cache-Control"] = "no-store"
+        return response
 
     if not any(
         hmac.compare_digest(str(provided), str(expected)) for expected in valid_tokens
     ):
-        return JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response = JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
+        response["Cache-Control"] = "no-store"
+        return response
 
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-        return JsonResponse({"status": "ok"}, status=200)
+        response = JsonResponse({"status": "ok"}, status=200)
+        response["Cache-Control"] = "no-store"
+        return response
     except Exception:
         logger.exception("Health check failed")
-        return JsonResponse(
+        response = JsonResponse(
             {
                 "status": "error",
                 "error": "Service unavailable",
             },
             status=503,
         )
+        response["Cache-Control"] = "no-store"
+        return response
