@@ -1,8 +1,10 @@
 import shutil
 import tempfile
 from datetime import date, time
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
@@ -356,3 +358,108 @@ class UploadValidationTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
+
+
+class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
+    """Tests race condition protection on simultaneous absence creation."""
+
+    def test_concurrent_absence_creation(self):
+        """
+        Simulates a race condition: two requests try to create the same absence
+        simultaneously. The unique_together constraint + IntegrityError handling
+        ensures only one absence is created and the duplicate is gracefully ignored.
+        """
+        seance = Seance.objects.create(
+            date_seance=date(2026, 3, 15),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+        self.client.force_login(self.prof)
+        url = reverse("absences:mark_absence", args=[self.course1.id_cours])
+        data = {
+            "date_seance": "2026-03-15",
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+            f"status_{self.inscription1.id_inscription}": "ABSENT",
+            f"type_{self.inscription1.id_inscription}": "ABSENT",
+        }
+
+        # First call — normal, creates the absence
+        response1 = self.client.post(url, data, secure=True)
+        self.assertEqual(response1.status_code, 302)
+        self.assertEqual(Absence.objects.filter(id_seance=seance).count(), 1)
+
+        # Second call — simulates concurrent request by patching update_or_create
+        # to raise IntegrityError (as if another transaction already inserted the row)
+        def raise_on_create(self_qs, **kwargs):
+            raise IntegrityError("duplicate key violates unique constraint")
+
+        with patch.object(
+            type(Absence.objects), "update_or_create", raise_on_create
+        ):
+            response2 = self.client.post(url, data, secure=True)
+
+        # Should redirect (not crash), and still only one absence in DB
+        self.assertEqual(response2.status_code, 302)
+        self.assertEqual(Absence.objects.filter(id_seance=seance).count(), 1)
+
+    def test_unique_constraint_prevents_duplicate_absence(self):
+        """
+        Verifies the unique_together constraint on (id_inscription, id_seance)
+        prevents duplicate absences. The model's full_clean() catches it as
+        ValidationError; the DB constraint catches it as IntegrityError.
+        """
+        from django.core.exceptions import ValidationError
+
+        seance = Seance.objects.create(
+            date_seance=date(2026, 3, 16),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+
+        Absence.objects.create(
+            id_inscription=self.inscription1,
+            id_seance=seance,
+            type_absence="ABSENT",
+            duree_absence=2.0,
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof,
+        )
+
+        # Model-level validation catches the duplicate via full_clean()
+        with self.assertRaises(ValidationError):
+            Absence.objects.create(
+                id_inscription=self.inscription1,
+                id_seance=seance,
+                type_absence="ABSENT",
+                duree_absence=2.0,
+                statut="NON_JUSTIFIEE",
+                encodee_par=self.prof,
+            )
+
+        self.assertEqual(Absence.objects.filter(id_seance=seance).count(), 1)
+
+    def test_select_for_update_on_seance(self):
+        """
+        Verifies that the seance is fetched with select_for_update() inside
+        the transaction, preventing concurrent modification of the same session.
+        """
+        self.client.force_login(self.prof)
+        url = reverse("absences:mark_absence", args=[self.course1.id_cours])
+        data = {
+            "date_seance": "2026-03-17",
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+            f"status_{self.inscription1.id_inscription}": "ABSENT",
+            f"type_{self.inscription1.id_inscription}": "ABSENT",
+        }
+
+        with patch.object(
+            Seance.objects, "select_for_update", wraps=Seance.objects.select_for_update
+        ) as mock_sfu:
+            self.client.post(url, data, secure=True)
+            mock_sfu.assert_called_once()

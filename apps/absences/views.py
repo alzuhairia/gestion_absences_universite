@@ -690,8 +690,9 @@ def mark_absence(request, course_id):
         with transaction.atomic():
             # --- OPÉRATIONS DB (données validées, aucun risque de séance fantôme) ---
             # Unique par cours + date — .get() crashe si doublon (fail fast)
+            seance_created = False
             try:
-                seance = Seance.objects.get(date_seance=date_seance, id_cours=course)
+                seance = Seance.objects.select_for_update().get(date_seance=date_seance, id_cours=course)
                 # Mettre à jour les heures si le prof les a modifiées
                 updated_fields = []
                 if seance.heure_debut != heure_debut:
@@ -714,6 +715,7 @@ def mark_absence(request, course_id):
                     id_cours=course,
                     id_annee=annee,
                 )
+                seance_created = True
 
             # Traitement des etudiants
             # On itere sur les cles POST qui commencent par 'status_'
@@ -792,17 +794,25 @@ def mark_absence(request, course_id):
                         f"note_{inscription_id}", ""
                     ).strip()[:500]
 
-                    absence, created = Absence.objects.update_or_create(
-                        id_inscription=inscription,
-                        id_seance=seance,
-                        defaults={
-                            "type_absence": type_absence,
-                            "duree_absence": duree,
-                            "statut": Absence.Statut.NON_JUSTIFIEE,
-                            "encodee_par": request.user,
-                            "note_professeur": note,
-                        },
-                    )
+                    try:
+                        absence, created = Absence.objects.update_or_create(
+                            id_inscription=inscription,
+                            id_seance=seance,
+                            defaults={
+                                "type_absence": type_absence,
+                                "duree_absence": duree,
+                                "statut": Absence.Statut.NON_JUSTIFIEE,
+                                "encodee_par": request.user,
+                                "note_professeur": note,
+                            },
+                        )
+                    except IntegrityError:
+                        student_name = inscription.id_etudiant.get_full_name()
+                        messages.warning(
+                            request,
+                            f"Absence déjà enregistrée pour {student_name} sur cette séance (doublon ignoré).",
+                        )
+                        continue
 
                     # Audit logging for professor actions
                     if is_prof:
@@ -846,7 +856,7 @@ def mark_absence(request, course_id):
 
             # Audit logging for session creation/attendance
             if request.user.role == User.Role.PROFESSEUR:
-                if created:
+                if seance_created:
                     log_action(
                         request.user,
                         f"Professeur a créé une séance pour {course.code_cours} le {date_seance}",
