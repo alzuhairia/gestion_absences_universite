@@ -10,7 +10,6 @@ DEPENDANCES CLES : messaging.models, messaging.forms
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -112,7 +111,6 @@ def compose(request):
                     template = get_messaging_template(request.user, "compose")
                     return render(request, template, {"form": form})
             message.save()
-            cache.delete(f"messages:unread_count:{message.destinataire_id}")
             messages.success(request, "Message envoyé avec succès !")
             return redirect("messaging:sent")
     else:
@@ -150,9 +148,7 @@ def message_detail(request, message_id):
 
     # Mark as read if user is recipient
     if is_recipient and not msg.lu:
-        msg.lu = True
-        msg.save(update_fields=["lu"])
-        cache.delete(f"messages:unread_count:{request.user.pk}")
+        msg.mark_as_read()
 
     template = get_messaging_template(request.user, "detail")
     return render(

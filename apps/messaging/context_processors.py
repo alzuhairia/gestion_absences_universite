@@ -23,9 +23,9 @@ def unread_messages_count(request):
                 destinataire=request.user,
                 lu=False,
             ).count()
-            # Cache court pour limiter les requetes repetitives sur les pages dashboard.
+            # Cache invalidé manuellement via Message.save(), timeout long acceptable.
             try:
-                cache.set(cache_key, unread_count, timeout=60)
+                cache.set(cache_key, unread_count, timeout=300)
             except Exception:
                 pass
 
