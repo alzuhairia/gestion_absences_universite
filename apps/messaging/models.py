@@ -9,6 +9,7 @@ DEPENDANCES CLES : accounts.User
 """
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.validators import MaxLengthValidator
 from django.db import models
 
@@ -62,6 +63,16 @@ class Message(models.Model):
             models.Index(fields=["destinataire", "lu", "date_envoi"]),
             models.Index(fields=["expediteur", "date_envoi"]),
         ]
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.destinataire_id is not None:
+            cache.delete(f"messages:unread_count:{self.destinataire_id}")
+
+    def mark_as_read(self):
+        if not self.lu:
+            self.lu = True
+            self.save(update_fields=["lu"])
 
     def __str__(self):
         sender = str(self.expediteur) if self.expediteur else "(supprimé)"
