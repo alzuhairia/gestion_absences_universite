@@ -220,3 +220,79 @@ class GPSUnavailableVerificationEnabledTest(BaseQRTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Impossible")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+
+class NullIslandGPSSpoofingTest(BaseQRTestCase):
+    """Null Island (0,0) and near-zero GPS coordinates are rejected."""
+
+    def test_null_island_gps_coordinates_rejected(self):
+        """Sending latitude=0.0, longitude=0.0 must be rejected when GPS is required."""
+        token = self._create_token(verify_location=True)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        resp = self.client.post(url, {
+            "latitude": "0.0",
+            "longitude": "0.0",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Impossible")
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+        log = QRScanLog.objects.filter(
+            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_GPS,
+        ).first()
+        self.assertIsNotNone(log)
+
+    def test_near_zero_coordinates_rejected(self):
+        """Coordinates very close to (0,0) — e.g. (0.001, 0.005) — are also rejected."""
+        token = self._create_token(verify_location=True)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        resp = self.client.post(url, {
+            "latitude": "0.005",
+            "longitude": "0.001",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+    def test_valid_negative_coordinates_accepted(self):
+        """Legitimate negative coordinates (e.g. Southern hemisphere) are accepted."""
+        # Set establishment to match — southern hemisphere location
+        settings = SystemSettings.get_settings()
+        settings.gps_latitude = -33.8688
+        settings.gps_longitude = 151.2093
+        settings.save()
+
+        token = self._create_token(verify_location=True)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        resp = self.client.post(url, {
+            "latitude": "-33.8688",
+            "longitude": "151.2093",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "succ")
+        self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+    def test_gps_misconfiguration_returns_error(self):
+        """GPS required but no reference coords configured → system error."""
+        # Clear establishment GPS
+        settings = SystemSettings.get_settings()
+        settings.gps_latitude = None
+        settings.gps_longitude = None
+        settings.save()
+
+        # Token without professor GPS either
+        token = self._create_token(verify_location=True, latitude=None, longitude=None)
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        resp = self.client.post(url, {
+            "latitude": "36.75250",
+            "longitude": "3.04200",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "configuration")
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())

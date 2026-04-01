@@ -1554,6 +1554,17 @@ def _get_establishment_gps():
     return settings.gps_latitude, settings.gps_longitude, settings.gps_radius_meters
 
 
+def _is_valid_coordinate(coord):
+    """
+    Return False if coord is None or near Null Island (0,0).
+    Coordinates with abs < 0.01 (~1.1 km from equator/meridian) are rejected
+    to prevent GPS spoofing with zeroed-out coordinates.
+    """
+    if coord is None:
+        return False
+    return abs(coord) >= 0.01
+
+
 # ========================================================================== #
 #                    SCAN QR ETUDIANT                                         #
 # ========================================================================== #
@@ -1667,8 +1678,8 @@ def qr_scan(request, token):
                            "Veuillez autoriser l'accès GPS et réessayer.",
             })
 
-        # CAS D: GPS unavailable (error or no coords)
-        if stu_lat_f is None or stu_lng_f is None:
+        # CAS D: GPS unavailable, invalid, or Null Island (0,0) spoofing
+        if not _is_valid_coordinate(stu_lat_f) or not _is_valid_coordinate(stu_lng_f):
             _log_scan_attempt(request, seance, qr_token,
                               QRScanLog.GPSStatus.UNAVAILABLE,
                               QRScanLog.ScanResult.REJECTED_GPS)
@@ -1679,7 +1690,7 @@ def qr_scan(request, token):
             })
 
         # Calculate distance against establishment coordinates
-        if etab_lat is not None and etab_lng is not None:
+        if _is_valid_coordinate(etab_lat) and _is_valid_coordinate(etab_lng):
             distance = _haversine(etab_lat, etab_lng, stu_lat_f, stu_lng_f)
 
             # CAS B: GPS OK but outside radius
@@ -1710,6 +1721,19 @@ def qr_scan(request, token):
                     "distance": round(distance, 0),
                     "radius": QRAttendanceToken.DISTANCE_THRESHOLD_METERS,
                 })
+        else:
+            # Neither establishment nor professor GPS configured — system misconfiguration
+            logger.warning(
+                "GPS verification enabled but no reference coordinates configured "
+                "(establishment: %s/%s, professor QR: %s/%s) for seance %s",
+                etab_lat, etab_lng, qr_token.latitude, qr_token.longitude, seance.id_seance,
+            )
+            return render(request, "absences/qr_scan_result.html", {
+                **error_ctx, "scan_status": "error",
+                "message": "Erreur de configuration : la vérification GPS est activée "
+                           "mais aucune position de référence n'est définie. "
+                           "Contactez le secrétariat ou le professeur.",
+            })
         # CAS A: GPS OK + within radius → proceed to record
 
     # --- Build scan record ---
