@@ -7,7 +7,6 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : absences.services, enrollments.models
 """
 
-import json
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
@@ -203,12 +202,10 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("-total")[:5]
     )
-    top_professors_labels = json.dumps(
-        [f"{p['prof_prenom']} {p['prof_nom']}" for p in top_professors if p["prof_nom"]]
-    )
-    top_professors_data = json.dumps(
-        [p["total"] for p in top_professors if p["prof_nom"]]
-    )
+    top_professors_labels = [
+        f"{p['prof_prenom']} {p['prof_nom']}" for p in top_professors if p["prof_nom"]
+    ]
+    top_professors_data = [p["total"] for p in top_professors if p["prof_nom"]]
 
     # 2. Top 5 cours avec le plus d'absences
     top_courses = list(
@@ -217,8 +214,8 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("-total")[:5]
     )
-    top_courses_labels = json.dumps([c["cours_nom"] for c in top_courses])
-    top_courses_data = json.dumps([c["total"] for c in top_courses])
+    top_courses_labels = [c["cours_nom"] for c in top_courses]
+    top_courses_data = [c["total"] for c in top_courses]
 
     # 3. Évolution mensuelle des absences
     monthly_absences = list(
@@ -228,12 +225,10 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("month")
     )
-    monthly_labels = json.dumps(
-        [m["month"].strftime("%b %Y") for m in monthly_absences if m["month"]]
-    )
-    monthly_data = json.dumps(
-        [m["total"] for m in monthly_absences if m["month"]]
-    )
+    monthly_labels = [
+        m["month"].strftime("%b %Y") for m in monthly_absences if m["month"]
+    ]
+    monthly_data = [m["total"] for m in monthly_absences if m["month"]]
 
     # 4. Répartition par département
     dept_absences = list(
@@ -244,8 +239,8 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("-total")
     )
-    dept_labels = json.dumps([d["dept_nom"] for d in dept_absences if d["dept_nom"]])
-    dept_data = json.dumps([d["total"] for d in dept_absences if d["dept_nom"]])
+    dept_labels = [d["dept_nom"] for d in dept_absences if d["dept_nom"]]
+    dept_data = [d["total"] for d in dept_absences if d["dept_nom"]]
 
     # 5. Répartition par statut
     status_absences = list(
@@ -259,10 +254,10 @@ def admin_statistics(request):
         Absence.Statut.EN_ATTENTE: "En attente",
         Absence.Statut.JUSTIFIEE: "Justifiée",
     }
-    status_labels = json.dumps(
-        [status_map.get(s["statut"], s["statut"]) for s in status_absences]
-    )
-    status_data = json.dumps([s["total"] for s in status_absences])
+    status_labels = [
+        status_map.get(s["statut"], s["statut"]) for s in status_absences
+    ]
+    status_data = [s["total"] for s in status_absences]
 
     # 6. Répartition par niveau
     level_absences = list(
@@ -271,25 +266,30 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("niveau")
     )
-    level_labels = json.dumps(
-        [f"Année {l['niveau']}" for l in level_absences if l["niveau"]]
-    )
-    level_data = json.dumps([l["total"] for l in level_absences if l["niveau"]])
+    level_labels = [
+        f"Année {l['niveau']}" for l in level_absences if l["niveau"]
+    ]
+    level_data = [l["total"] for l in level_absences if l["niveau"]]
 
-    context = {
-        "academic_year": academic_year,
+    # Combine chart data into a single dict for safe JSON serialization via |json_script
+    chart_data = {
+        "monthly_labels": monthly_labels,
+        "monthly_data": monthly_data,
         "top_professors_labels": top_professors_labels,
         "top_professors_data": top_professors_data,
         "top_courses_labels": top_courses_labels,
         "top_courses_data": top_courses_data,
-        "monthly_labels": monthly_labels,
-        "monthly_data": monthly_data,
         "dept_labels": dept_labels,
         "dept_data": dept_data,
         "status_labels": status_labels,
         "status_data": status_data,
         "level_labels": level_labels,
         "level_data": level_data,
+    }
+
+    context = {
+        "academic_year": academic_year,
+        "chart_data": chart_data,
         "top_professors": top_professors,
         "top_courses": top_courses,
     }
