@@ -581,7 +581,9 @@ def dashboard_analytics(request):
 
     # Students at risk
     system_threshold = get_system_threshold()
-    all_inscriptions = Inscription.objects.select_related("id_cours")
+    all_inscriptions = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(
