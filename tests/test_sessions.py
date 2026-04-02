@@ -7,6 +7,7 @@ from apps.accounts.models import User, UserSession
 
 @override_settings(
     RATELIMIT_ENABLE=False,
+    SECURE_SSL_REDIRECT=False,
 )
 class MaxSessionsPerUserTests(TestCase):
     """BUG #17 — Enforce a maximum of MAX_SESSIONS_PER_USER concurrent sessions."""
