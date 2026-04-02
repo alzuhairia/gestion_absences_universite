@@ -71,6 +71,62 @@ class PasswordPolicyFormTests(TestCase):
         self.assertTrue(form.is_valid(), msg=form.errors)
 
 
+class InitialSetupTests(TestCase):
+    """Tests for the one-time initial admin setup page."""
+
+    def test_initial_setup_prevents_double_admin(self):
+        """
+        If an admin is created between loading the form (GET) and submitting
+        it (POST), the select_for_update guard must reject the second creation.
+        """
+        # No admin exists yet — GET succeeds
+        url = reverse("setup")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        # Meanwhile, another admin is created (simulates concurrent request)
+        User.objects.create_superuser(
+            email="first-admin@example.com",
+            nom="First",
+            prenom="Admin",
+            password="StrongPass123!",
+        )
+        self.assertEqual(
+            User.objects.filter(role=User.Role.ADMIN).count(), 1
+        )
+
+        # POST arrives — must be rejected (404) since an admin now exists
+        response = self.client.post(url, {
+            "prenom": "Second",
+            "nom": "Admin",
+            "email": "second-admin@example.com",
+            "password": "StrongPass456!",
+            "password_confirm": "StrongPass456!",
+        })
+        self.assertEqual(response.status_code, 404)
+
+        # Only the first admin should exist
+        self.assertEqual(
+            User.objects.filter(role=User.Role.ADMIN).count(), 1
+        )
+        self.assertFalse(
+            User.objects.filter(email="second-admin@example.com").exists()
+        )
+
+    def test_initial_setup_returns_404_when_admin_exists(self):
+        """Both GET and POST return 404 if an admin already exists."""
+        User.objects.create_superuser(
+            email="existing-admin@example.com",
+            nom="Existing",
+            prenom="Admin",
+            password="StrongPass123!",
+        )
+        url = reverse("setup")
+
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.post(url, {}).status_code, 404)
+
+
 class AdminPasswordResetPolicyTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
