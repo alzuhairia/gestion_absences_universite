@@ -698,6 +698,17 @@ def mark_absence(request, course_id):
             seance_created = False
             try:
                 seance = Seance.objects.select_for_update().get(date_seance=date_seance, id_cours=course)
+
+                # Re-check under lock: reject if validated between
+                # the initial filter (no lock) and this point (TOCTOU).
+                if seance.validated:
+                    messages.error(
+                        request,
+                        "Cette séance a été validée entre-temps. "
+                        "Les présences ne peuvent plus être modifiées.",
+                    )
+                    return redirect("absences:mark_absence", course_id=course_id)
+
                 # Mettre à jour les heures si le prof les a modifiées
                 updated_fields = []
                 if seance.heure_debut != heure_debut:
