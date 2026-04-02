@@ -8,6 +8,7 @@ Tests for the new absence business logic:
 
 from datetime import date, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -678,3 +679,78 @@ class FutureSessionsExcludedTest(TestCase):
         # Only past séance counts: 2h total, 2h absent
         self.assertEqual(result["total_heures_cours"], 2.0)
         self.assertEqual(result["total_heures_absence"], 2.0)
+
+
+class SignalLoopProtectionTest(TestCase):
+    """
+    Verify that creating/modifying Absence objects does not cause
+    infinite signal loops via post_save → recalculer_eligibilite → save.
+    """
+
+    def setUp(self):
+        from apps.absences.services import recalculer_eligibilite
+
+        self.faculte = Faculte.objects.create(nom_faculte="Fac Signal")
+        self.departement = Departement.objects.create(
+            nom_departement="Dep Signal", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+        self.prof = User.objects.create_user(
+            email="prof-sig@test.com", nom="Prof", prenom="Sig",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-sig@test.com", nom="Stu", prenom="Sig",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.cours = Cours.objects.create(
+            code_cours="SIG", nom_cours="Signal Test",
+            nombre_total_periodes=40,
+            id_departement=self.departement,
+            professeur=self.prof,
+            id_annee=self.annee, niveau=1,
+        )
+        self.inscription = Inscription.objects.create(
+            id_etudiant=self.student,
+            id_cours=self.cours,
+            id_annee=self.annee,
+        )
+
+    def test_absence_save_does_not_trigger_infinite_signal_loop(self):
+        """
+        Create an absence, modify it 5 times, delete it.
+        _schedule_eligibility_recalc (called synchronously by the signal)
+        must fire exactly once per save/delete — bounded, never recursive.
+        """
+        seance = Seance.objects.create(
+            date_seance=date(2026, 1, 10),
+            heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.cours, id_annee=self.annee,
+        )
+
+        with patch(
+            "apps.absences.signals._schedule_eligibility_recalc",
+        ) as mock_schedule:
+            # Create (1 call)
+            absence = Absence.objects.create(
+                id_inscription=self.inscription,
+                id_seance=seance,
+                type_absence=Absence.TypeAbsence.ABSENT,
+                duree_absence=Decimal("2.00"),
+                statut=Absence.Statut.NON_JUSTIFIEE,
+                encodee_par=self.prof,
+            )
+
+            # Modify 5 times (5 calls)
+            for i in range(5):
+                absence.duree_absence = Decimal(f"1.{i:02d}")
+                absence.save(update_fields=["duree_absence"])
+
+            # Delete (1 call)
+            absence.delete()
+
+            # Exactly 7: 1 create + 5 updates + 1 delete — bounded, not infinite
+            self.assertEqual(mock_schedule.call_count, 7)
+            # Every call received the correct inscription PK
+            for call in mock_schedule.call_args_list:
+                self.assertEqual(call[0][0], self.inscription.pk)
