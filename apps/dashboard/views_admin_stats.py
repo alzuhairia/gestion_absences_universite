@@ -139,7 +139,9 @@ def admin_dashboard_main(request):
 
     # KPI 7: Total d'inscriptions actives
     if academic_year:
-        total_inscriptions = Inscription.objects.filter(id_annee=academic_year).count()
+        total_inscriptions = Inscription.objects.filter(
+            id_annee=academic_year, status=Inscription.Status.EN_COURS
+        ).count()
     else:
         total_inscriptions = 0
 

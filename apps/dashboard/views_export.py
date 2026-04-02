@@ -247,8 +247,12 @@ def export_at_risk_excel(request):
                 else system_threshold
             )
 
+            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
             if rate >= seuil:
-                statut = "EXEMPTÉ" if ins.exemption_40 else "BLOQUÉ"
+                if ins.exemption_40 and rate < seuil_effectif:
+                    statut = "EXEMPTÉ"
+                else:
+                    statut = "BLOQUÉ"
 
                 def _safe(val):
                     s = str(val) if val is not None else ""
