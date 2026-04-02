@@ -152,42 +152,12 @@ def process_justification(request, pk):
     """
     Traite une justification d'absence (Approuver/Refuser).
 
-    IMPORTANT POUR LA SOUTENANCE :
-    Cette fonction permet au secrétariat de valider ou refuser un justificatif
-    soumis par un étudiant.
-
-    Logique métier :
-    1. Récupération de la justification à traiter
-    2. Selon l'action (approve/reject) :
-       - APPROUVER :
-         * Mise à jour du statut de la justification à ACCEPTEE
-         * Mise à jour du statut de l'absence à JUSTIFIEE
-         * Notification à l'étudiant (acceptation)
-         * Log d'audit
-       - REFUSER :
-         * Mise à jour du statut de la justification à REFUSEE
-         * Mise à jour du statut de l'absence à NON_JUSTIFIEE
-         * Notification à l'étudiant avec le motif du refus
-         * Log d'audit
-
-    SÉCURITÉ :
-    - @secretary_required : SEUL le secrétariat peut valider/refuser
-    - @require_POST : Seulement via formulaire POST (pas d'accès direct par URL)
-    - ADMIN est explicitement exclu (gère la configuration, pas les opérations)
-
-    TRAÇABILITÉ :
-    - Toutes les actions sont enregistrées dans le journal d'audit
-    - Le motif du refus est enregistré et communiqué à l'étudiant
-
-    Args:
-        request: Objet HttpRequest contenant l'action (approve/reject) et le commentaire
-        pk: ID de la justification à traiter
-
-    Returns:
-        Redirection vers la liste des justificatifs
+    Sécurité :
+    - @secretary_required : seul le secrétariat peut valider/refuser
+    - @require_POST : pas d'accès direct par URL
+    - select_for_update() sur justification + absence pour éviter le double-traitement
+    - Emails envoyés APRÈS la transaction pour éviter un rollback sur échec SMTP
     """
-    justification = get_object_or_404(Justification, pk=pk)
-
     action = request.POST.get("action")
     comment = request.POST.get("comment", "")[:2000]
 
@@ -195,104 +165,85 @@ def process_justification(request, pk):
         messages.error(request, "Action invalide.")
         return redirect("absences:validation_list")
 
-    if action == "approve":
-        with transaction.atomic():
-            # Lock row to prevent concurrent processing by two secretaries
+    if action == "reject" and not comment:
+        messages.error(request, "Un motif de refus est obligatoire.")
+        return redirect("absences:validation_list")
+
+    approved = action == "approve"
+
+    with transaction.atomic():
+        # Single lock acquisition — prevents concurrent processing by two secretaries
+        try:
             justification = Justification.objects.select_for_update().get(pk=pk)
-            if justification.state != Justification.State.EN_ATTENTE:
-                messages.warning(request, "Ce justificatif a déjà été traité.")
-                return redirect("absences:validation_list")
-
-            justification.state = Justification.State.ACCEPTEE
-            justification.commentaire_gestion = comment
-            justification.validee_par = request.user
-            justification.date_validation = timezone.now()
-            justification.save()
-
-            # Update Absence Status (lock + prefetch FK chains for notification/audit)
-            absence = (
-                Absence.objects
-                .select_related(
-                    "id_seance__id_cours",
-                    "id_inscription__id_etudiant",
-                )
-                .select_for_update()
-                .get(pk=justification.id_absence_id)
-            )
-            absence.statut = Absence.Statut.JUSTIFIEE
-            absence.save(update_fields=["statut"])
-
-            # Notification + audit inside same transaction for consistency
-            msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été ACCEPTÉE."
-            Notification.objects.create(
-                id_utilisateur=absence.id_inscription.id_etudiant,
-                message=msg_text,
-                type="INFO",
-                lue=False,
-            )
-            log_action(
-                request.user,
-                f"Secrétaire a APPROUVÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
-                request,
-                niveau="INFO",
-                objet_type="JUSTIFICATION",
-                objet_id=justification.id_justification,
-            )
-
-        # Emails (outside transaction — failures must not roll back)
-        _send_justification_decision_emails(absence, approved=True, motif=comment)
-
-    elif action == "reject":
-        if not comment:
-            messages.error(request, "Un motif de refus est obligatoire.")
+        except Justification.DoesNotExist:
+            messages.error(request, "Justification introuvable.")
             return redirect("absences:validation_list")
 
-        with transaction.atomic():
-            justification = Justification.objects.select_for_update().get(pk=pk)
-            if justification.state != Justification.State.EN_ATTENTE:
-                messages.warning(request, "Ce justificatif a déjà été traité.")
-                return redirect("absences:validation_list")
+        # Guard: already processed (ACCEPTEE or REFUSEE)
+        if justification.state != Justification.State.EN_ATTENTE:
+            messages.warning(request, "Ce justificatif a déjà été traité.")
+            return redirect("absences:validation_list")
 
-            justification.state = Justification.State.REFUSEE
-            justification.commentaire_gestion = comment
-            justification.validee_par = request.user
-            justification.date_validation = timezone.now()
-            justification.save()
-
-            # Update Absence Status (lock + prefetch FK chains for notification/audit)
-            absence = (
-                Absence.objects
-                .select_related(
-                    "id_seance__id_cours",
-                    "id_inscription__id_etudiant",
-                )
-                .select_for_update()
-                .get(pk=justification.id_absence_id)
+        # Lock the linked absence row for consistent update
+        absence = (
+            Absence.objects
+            .select_related(
+                "id_seance__id_cours",
+                "id_inscription__id_etudiant",
             )
-            absence.statut = Absence.Statut.NON_JUSTIFIEE
-            absence.save(update_fields=["statut"])
+            .select_for_update()
+            .get(pk=justification.id_absence_id)
+        )
 
-            # Notification + audit inside same transaction for consistency
-            msg_text = f"Votre justification pour l'absence du {absence.id_seance.date_seance} a été REFUSÉE. Motif : {comment}"
-            Notification.objects.create(
-                id_utilisateur=absence.id_inscription.id_etudiant,
-                message=msg_text,
-                type="INFO",
-                lue=False,
-            )
-            log_action(
-                request.user,
-                f"Secrétaire a REFUSÉ la justification {justification.pk} pour l'absence {absence.pk} - {absence.id_seance.id_cours.code_cours}. Motif: {comment}",
-                request,
-                niveau="WARNING",
-                objet_type="JUSTIFICATION",
-                objet_id=justification.id_justification,
-            )
+        # Update justification metadata
+        justification.state = (
+            Justification.State.ACCEPTEE if approved
+            else Justification.State.REFUSEE
+        )
+        justification.commentaire_gestion = comment
+        justification.validee_par = request.user
+        justification.date_validation = timezone.now()
+        justification.save()
 
-        # Emails (outside transaction — failures must not roll back)
-        _send_justification_decision_emails(absence, approved=False, motif=comment)
+        # Update absence status
+        absence.statut = (
+            Absence.Statut.JUSTIFIEE if approved
+            else Absence.Statut.NON_JUSTIFIEE
+        )
+        absence.save(update_fields=["statut"])
 
-    if action == "approve":
+        # Notification to student
+        decision = "ACCEPTÉE" if approved else "REFUSÉE"
+        msg_text = (
+            f"Votre justification pour l'absence du "
+            f"{absence.id_seance.date_seance} a été {decision}."
+        )
+        if not approved and comment:
+            msg_text += f" Motif : {comment}"
+        Notification.objects.create(
+            id_utilisateur=absence.id_inscription.id_etudiant,
+            message=msg_text,
+            type="INFO",
+            lue=False,
+        )
+
+        # Audit log
+        action_label = "APPROUVÉ" if approved else "REFUSÉ"
+        log_action(
+            request.user,
+            f"Secrétaire a {action_label} la justification {justification.pk} "
+            f"pour l'absence {absence.pk} - "
+            f"{absence.id_seance.id_cours.code_cours}. Motif: {comment}",
+            request,
+            niveau="INFO" if approved else "WARNING",
+            objet_type="JUSTIFICATION",
+            objet_id=justification.id_justification,
+        )
+
+    # Emails OUTSIDE transaction — SMTP failures must not roll back DB changes
+    _send_justification_decision_emails(absence, approved=approved, motif=comment)
+
+    if approved:
         messages.success(
             request,
             f"Le justificatif a été accepté avec succès. L'absence de {absence.id_inscription.id_etudiant.get_full_name()} "
