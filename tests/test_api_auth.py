@@ -423,9 +423,9 @@ class ApiAcademicYearIsolationTests(TestCase):
     """Professor API endpoints must restrict data to the active academic year."""
 
     def setUp(self):
-        self.faculte = Faculte.objects.create(nom_faculte="Fac Year API")
+        self.faculte = Faculte.objects.create(nom_faculte="Fac Year Isolation")
         self.dept = Departement.objects.create(
-            nom_departement="Dept Year API", id_faculte=self.faculte
+            nom_departement="Dept Year Isolation", id_faculte=self.faculte
         )
         self.old_year = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
         self.current_year = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
