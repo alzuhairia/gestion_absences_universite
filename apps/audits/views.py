@@ -8,6 +8,8 @@ DEPENDANCES CLES : audits.models.LogAudit
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+
+from apps.utils import safe_get_page
 from django.db.models import Q
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
@@ -47,8 +49,7 @@ def audit_list(request):
 
     # Pagination
     paginator = Paginator(logs, 50)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

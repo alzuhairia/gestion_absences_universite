@@ -12,6 +12,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+
+from apps.utils import safe_get_page
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -45,8 +47,7 @@ def inbox(request):
         destinataire=request.user
     ).select_related("expediteur").order_by("-date_envoi")
     paginator = Paginator(messages_list, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
     template = get_messaging_template(request.user, "inbox")
     return render(
         request,
@@ -69,8 +70,7 @@ def sent_box(request):
         expediteur=request.user
     ).select_related("destinataire").order_by("-date_envoi")
     paginator = Paginator(messages_list, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
     template = get_messaging_template(request.user, "sent_box")
     return render(
         request,

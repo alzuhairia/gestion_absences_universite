@@ -11,6 +11,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+
+from apps.utils import safe_get_page
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -97,7 +99,7 @@ def rules_management(request):
 
     # Pagination
     paginator = Paginator(at_risk_list, 25)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

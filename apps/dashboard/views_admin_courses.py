@@ -16,6 +16,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+
+from apps.utils import safe_get_page
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -77,7 +79,7 @@ def admin_faculties(request):
 
     faculties = Faculte.objects.all().order_by("nom_faculte")
     paginator = Paginator(faculties, 20)
-    faculties_page = paginator.get_page(request.GET.get("page"))
+    faculties_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -292,7 +294,7 @@ def admin_departments(request):
         .order_by("id_faculte__nom_faculte", "nom_departement")
     )
     paginator = Paginator(departments, 20)
-    departments_page = paginator.get_page(request.GET.get("page"))
+    departments_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -504,8 +506,7 @@ def admin_courses(request):
 
     # Pagination
     paginator = Paginator(courses, 20)
-    page = request.GET.get("page")
-    courses_page = paginator.get_page(page)
+    courses_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

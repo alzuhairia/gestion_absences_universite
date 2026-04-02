@@ -925,3 +925,23 @@ class CourseDeletionTests(BaseAbsenceTestCase):
         mock_messages.error.assert_called_once()
         error_text = mock_messages.error.call_args[0][1]
         self.assertIn("Erreur lors de la suppression", error_text)
+
+
+class PaginationFallbackTests(BaseAbsenceTestCase):
+    """Invalid page numbers must fall back to page 1, not crash or show empty."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.secretary)
+        self.url = reverse("dashboard:secretary_courses")
+
+    def test_invalid_page_number_redirects_to_page_1(self):
+        """page=999, page=abc, page=-1 all return page 1 content (200)."""
+        for bad_page in ("999", "abc", "-1", "0", ""):
+            with self.subTest(page=bad_page):
+                response = self.client.get(
+                    self.url, {"page": bad_page}, secure=True
+                )
+                self.assertEqual(response.status_code, 200)
+                page_obj = response.context["courses"]
+                self.assertEqual(page_obj.number, 1)
