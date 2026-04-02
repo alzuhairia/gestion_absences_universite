@@ -1,12 +1,14 @@
 import shutil
 import tempfile
 from datetime import date, time, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.utils import timezone
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
+from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
@@ -822,3 +824,104 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
         ) as mock_sfu:
             self.client.post(url, data, secure=True)
             mock_sfu.assert_called_once()
+
+
+class CourseDeletionTests(BaseAbsenceTestCase):
+    """Tests for course deletion cascade and ProtectedError handling."""
+
+    def _build_course_with_deps(self):
+        """Create a course with seance, absence, and justification."""
+        seance = Seance.objects.create(
+            date_seance=date(2026, 2, 1),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+        absence = Absence.objects.create(
+            id_inscription=self.inscription1,
+            id_seance=seance,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.00"),
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof,
+        )
+        justification = Justification.objects.create(
+            id_absence=absence,
+            state="EN_ATTENTE",
+        )
+        return seance, absence, justification
+
+    def test_secretary_cascade_deletes_all_related_objects(self):
+        """Full cascade deletion removes justifications, absences, inscriptions, seances, and course."""
+        seance, absence, justification = self._build_course_with_deps()
+        course_pk = self.course1.id_cours
+
+        self.client.force_login(self.secretary)
+        url = reverse("dashboard:secretary_course_delete", args=[course_pk])
+        response = self.client.post(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Cours.objects.filter(pk=course_pk).exists())
+        self.assertFalse(Seance.objects.filter(pk=seance.pk).exists())
+        self.assertFalse(Absence.objects.filter(pk=absence.pk).exists())
+        self.assertFalse(Justification.objects.filter(pk=justification.pk).exists())
+        self.assertFalse(Inscription.objects.filter(pk=self.inscription1.pk).exists())
+
+    def test_course_deletion_with_protected_references_shows_error(self):
+        """
+        When a ProtectedError bubbles up (e.g. an unforeseen FK), the view
+        must show a clear, grouped error message — NOT a 500.
+        """
+        seance, absence, justification = self._build_course_with_deps()
+        course_pk = self.course1.id_cours
+
+        self.client.force_login(self.secretary)
+        url = reverse("dashboard:secretary_course_delete", args=[course_pk])
+
+        # Simulate ProtectedError on Cours.delete (last step in the cascade)
+        protected_err = ProtectedError(
+            "Cannot delete some instances of model 'Cours'.",
+            {self.inscription1},
+        )
+        with patch.object(Cours, "delete", side_effect=protected_err), \
+             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+            response = self.client.post(url, secure=True)
+
+        # View returns a redirect, not a 500
+        self.assertEqual(response.status_code, 302)
+        # The course must NOT have been deleted (transaction rolled back)
+        self.assertTrue(Cours.objects.filter(pk=course_pk).exists())
+
+        # Check messages.error was called with a user-friendly message
+        mock_messages.error.assert_called_once()
+        error_text = mock_messages.error.call_args[0][1]
+        self.assertIn("Impossible de supprimer", error_text)
+        self.assertIn("bloquants", error_text)
+        # Verify the blocking type is mentioned (grouped by verbose_name)
+        self.assertIn("inscription", error_text.lower())
+
+    def test_course_deletion_generic_exception_shows_error(self):
+        """
+        A generic exception during deletion must be logged and produce
+        a user-friendly error message, not a 500.
+        """
+        self._build_course_with_deps()
+        course_pk = self.course1.id_cours
+
+        self.client.force_login(self.secretary)
+        url = reverse("dashboard:secretary_course_delete", args=[course_pk])
+
+        with patch.object(Cours, "delete", side_effect=RuntimeError("DB connection lost")), \
+             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+            response = self.client.post(url, secure=True)
+
+        # View returns a redirect, not a 500
+        self.assertEqual(response.status_code, 302)
+        # Course still exists
+        self.assertTrue(Cours.objects.filter(pk=course_pk).exists())
+
+        # Check messages.error was called with a generic error message
+        mock_messages.error.assert_called_once()
+        error_text = mock_messages.error.call_args[0][1]
+        self.assertIn("Erreur lors de la suppression", error_text)

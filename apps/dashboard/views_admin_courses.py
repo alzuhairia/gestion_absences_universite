@@ -22,7 +22,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from apps.absences.models import Absence, Justification
-from apps.academic_sessions.models import AnneeAcademique
+from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.audits.ip_utils import ratelimit_client_ip
@@ -567,9 +567,6 @@ def admin_course_delete(request, course_id):
     cours_nom = cours.nom_cours
     dept_nom = cours.id_departement.nom_departement
 
-    # FIX VERT #19 — Calcul de l'impact cascade AVANT suppression pour confirmation.
-    from apps.academic_sessions.models import Seance
-
     inscriptions = Inscription.objects.filter(id_cours=cours)
     inscriptions_count = inscriptions.count()
     absences = Absence.objects.filter(id_inscription__in=inscriptions)
@@ -646,23 +643,28 @@ def admin_course_delete(request, course_id):
         messages.success(request, success_msg)
 
     except ProtectedError as e:
-        # Gérer les erreurs PROTECT
-        protected_objects = []
+        # Group protected objects by type and cap the display
+        by_type = {}
         for obj in e.protected_objects:
-            protected_objects.append(str(obj))
+            label = obj._meta.verbose_name
+            by_type.setdefault(label, 0)
+            by_type[label] += 1
+        summary = ", ".join(f"{count} {label}(s)" for label, count in by_type.items())
 
         logger.error(
-            f"ProtectedError lors de la suppression du cours {cours_code}: {e}"
+            "ProtectedError lors de la suppression du cours %s: %s",
+            cours_code,
+            e,
         )
         messages.error(
             request,
             f"Impossible de supprimer le cours '{cours_code}'. "
-            f"Dépendances trouvées : {', '.join(protected_objects)}. "
+            f"Objets liés bloquants : {summary}. "
             f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
-    except Exception as e:
-        logger.error(
-            f"Erreur lors de la suppression du cours {cours_code}: {e}", exc_info=True
+    except Exception:
+        logger.exception(
+            "Erreur lors de la suppression du cours %s", cours_code
         )
         messages.error(
             request,
