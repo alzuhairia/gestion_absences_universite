@@ -54,7 +54,7 @@ def student_dashboard(request):
         ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
     else:
         inscriptions = list(Inscription.objects.filter(
-            id_etudiant=request.user
+            id_etudiant=request.user, status=Inscription.Status.EN_COURS
         ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
 
     # --- KPI 1: Total Courses Enrolled (current academic year)
@@ -615,7 +615,7 @@ def student_absences(request):
             id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
         )
     else:
-        inscriptions = Inscription.objects.filter(id_etudiant=request.user)
+        inscriptions = Inscription.objects.filter(id_etudiant=request.user, status=Inscription.Status.EN_COURS)
 
     # Get all absences
     absences = (
