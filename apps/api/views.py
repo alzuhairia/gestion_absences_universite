@@ -800,10 +800,25 @@ def export_student_pdf_api(request, student_id):
             ],
         )
         .select_related("id_seance", "id_seance__id_cours")
-        .order_by("id_seance__date_seance")
+        .order_by("id_seance__date_seance")[:500]
     )
 
     # Build PDF
+    try:
+        return _build_student_pdf(student, academic_year, inscriptions, absence_sums, absences)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "PDF generation failed for student %s", student_id
+        )
+        return Response(
+            {"detail": "Erreur lors de la generation du rapport PDF."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+def _build_student_pdf(student, academic_year, inscriptions, absence_sums, absences):
+    """Build and return the PDF HttpResponse. Extracted for try/except clarity."""
     buf = io.BytesIO()
     p = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
