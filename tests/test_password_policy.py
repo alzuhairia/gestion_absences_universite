@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.accounts.models import User
@@ -71,6 +71,7 @@ class PasswordPolicyFormTests(TestCase):
         self.assertTrue(form.is_valid(), msg=form.errors)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class InitialSetupTests(TestCase):
     """Tests for the one-time initial admin setup page."""
 
