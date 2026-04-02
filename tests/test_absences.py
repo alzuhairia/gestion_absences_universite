@@ -210,6 +210,47 @@ class JustificationStateTests(BaseAbsenceTestCase):
         justification.refresh_from_db()
         self.assertEqual(justification.state, "ACCEPTEE")
 
+    def test_double_justification_processing_prevented(self):
+        """
+        First secretary approves, second secretary tries to approve the same
+        justification — the second attempt must be rejected without altering
+        the first decision or its metadata.
+        """
+        absence, justification = self._create_absence_with_justification()
+
+        secretary2 = User.objects.create_user(
+            email="sec2@example.com",
+            nom="Sec2",
+            prenom="Test",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
+        )
+
+        # First secretary approves
+        self.client.force_login(self.secretary)
+        url = reverse("absences:process_justification", args=[justification.pk])
+        resp1 = self.client.post(url, {"action": "approve", "comment": "OK"}, secure=True)
+        self.assertEqual(resp1.status_code, 302)
+
+        justification.refresh_from_db()
+        absence.refresh_from_db()
+        self.assertEqual(justification.state, "ACCEPTEE")
+        self.assertEqual(justification.validee_par, self.secretary)
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+
+        # Second secretary tries to approve the same justification
+        self.client.force_login(secretary2)
+        resp2 = self.client.post(url, {"action": "approve", "comment": "Moi aussi"}, secure=True)
+        self.assertEqual(resp2.status_code, 302)
+
+        # State and metadata must remain from the first processing
+        justification.refresh_from_db()
+        absence.refresh_from_db()
+        self.assertEqual(justification.state, "ACCEPTEE")
+        self.assertEqual(justification.validee_par, self.secretary)  # NOT secretary2
+        self.assertEqual(justification.commentaire_gestion, "OK")  # NOT "Moi aussi"
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+
 
 class JustificationDownloadTests(BaseAbsenceTestCase):
     def setUp(self):
