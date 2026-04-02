@@ -89,6 +89,10 @@ def compose(request):
     """
     Rédiger un nouveau message.
     """
+    if not request.user.actif:
+        messages.error(request, "Votre compte est désactivé. Vous ne pouvez pas envoyer de messages.")
+        return redirect("messaging:inbox")
+
     if request.method == "POST":
         form = MessageForm(request.POST, user=request.user)
         if form.is_valid():

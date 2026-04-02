@@ -278,11 +278,26 @@ class CustomPasswordResetView(auth_views.PasswordResetView):
 
 
 class CustomPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
-    """Vue de confirmation de réinitialisation avec formulaire personnalisé."""
+    """Vue de confirmation de réinitialisation avec formulaire personnalisé.
+
+    Django's PasswordResetConfirmView already invalidates tokens after use
+    (the token is derived from the password hash, so it changes when the
+    password is reset). We add a check that the user is still active.
+    """
 
     template_name = "accounts/password_reset_confirm.html"
     form_class = CustomSetPasswordForm
     success_url = "/accounts/reset/done/"
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        # After Django resolves the token, self.user is set (or None on bad token).
+        # Block inactive users from completing the reset.
+        user = getattr(self, "user", None)
+        if user is not None and not user.actif:
+            self.validlink = False
+            return self.render_to_response(self.get_context_data())
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

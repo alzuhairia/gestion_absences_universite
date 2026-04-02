@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.test import TestCase
+from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.messaging.forms import MessageForm
@@ -142,3 +143,19 @@ class MessageFormTests(TestCase):
         form = MessageForm(user=self.sender)
         qs = form.fields["destinataire"].queryset
         self.assertNotIn(self.sender, qs)
+
+    def test_inactive_user_cannot_send_message(self):
+        """A deactivated user must be blocked from sending messages."""
+        self.sender.actif = False
+        self.sender.save(update_fields=["actif"])
+
+        self.client.force_login(self.sender)
+        url = reverse("messaging:compose")
+        response = self.client.post(
+            url,
+            {"destinataire": self.active_recipient.pk, "objet": "Hi", "contenu": "Test"},
+            secure=True,
+        )
+        # Should redirect, not send
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Message.objects.count(), 0)
