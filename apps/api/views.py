@@ -330,7 +330,10 @@ class AbsenceViewSet(viewsets.ModelViewSet):
                 id_inscription__id_cours__professeur=user,
                 id_inscription__status=Inscription.Status.EN_COURS,
             )
-        return qs
+        if user.role in (User.Role.ADMIN, User.Role.SECRETAIRE):
+            return qs
+        # Unknown role — deny access
+        return qs.none()
 
     def perform_create(self, serializer):
         serializer.save(

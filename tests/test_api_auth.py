@@ -1,10 +1,15 @@
+from datetime import date, time
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.academics.models import Faculte
+from apps.absences.models import Absence
+from apps.academic_sessions.models import AnneeAcademique, Seance
+from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
+from apps.enrollments.models import Inscription
 
 
 class ApiAuthContractTests(TestCase):
@@ -165,3 +170,93 @@ class ApiAuthContractTests(TestCase):
         )
         self.assertIn("request_id", payload["error"])
         self.assertNotIn("secret-db-error", response.content.decode())
+
+
+class AbsenceApiIsolationTests(TestCase):
+    """Tests that the Absence API enforces per-role data isolation."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac ISO")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept ISO", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+
+        self.prof1 = User.objects.create_user(
+            email="prof1-iso@example.com", nom="Prof", prenom="One",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.prof2 = User.objects.create_user(
+            email="prof2-iso@example.com", nom="Prof", prenom="Two",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student1 = User.objects.create_user(
+            email="stu1-iso@example.com", nom="Stu", prenom="One",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.student2 = User.objects.create_user(
+            email="stu2-iso@example.com", nom="Stu", prenom="Two",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+
+        # Course 1 → prof1
+        self.course1 = Cours.objects.create(
+            code_cours="ISO1", nom_cours="Course One",
+            nombre_total_periodes=20, id_departement=self.dept,
+            professeur=self.prof1, id_annee=self.annee, niveau=1,
+        )
+        # Course 2 → prof2
+        self.course2 = Cours.objects.create(
+            code_cours="ISO2", nom_cours="Course Two",
+            nombre_total_periodes=20, id_departement=self.dept,
+            professeur=self.prof2, id_annee=self.annee, niveau=1,
+        )
+
+        self.ins1 = Inscription.objects.create(
+            id_etudiant=self.student1, id_cours=self.course1, id_annee=self.annee,
+        )
+        self.ins2 = Inscription.objects.create(
+            id_etudiant=self.student2, id_cours=self.course2, id_annee=self.annee,
+        )
+
+        seance1 = Seance.objects.create(
+            date_seance=date(2026, 1, 5), heure_debut=time(8, 0),
+            heure_fin=time(10, 0), id_cours=self.course1, id_annee=self.annee,
+        )
+        seance2 = Seance.objects.create(
+            date_seance=date(2026, 1, 5), heure_debut=time(8, 0),
+            heure_fin=time(10, 0), id_cours=self.course2, id_annee=self.annee,
+        )
+
+        self.absence1 = Absence.objects.create(
+            id_inscription=self.ins1, id_seance=seance1,
+            type_absence="ABSENT", duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE", encodee_par=self.prof1,
+        )
+        self.absence2 = Absence.objects.create(
+            id_inscription=self.ins2, id_seance=seance2,
+            type_absence="ABSENT", duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE", encodee_par=self.prof2,
+        )
+
+        self.url = reverse("api:absence-list")
+
+    def test_professor_cannot_see_other_courses_absences(self):
+        """Prof1 sees only absences from their own courses, not prof2's."""
+        self.client.force_login(self.prof1)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [a["id_absence"] for a in response.json()["results"]]
+        self.assertIn(self.absence1.pk, ids)
+        self.assertNotIn(self.absence2.pk, ids)
+
+    def test_student_cannot_see_other_students_absences(self):
+        """Student1 sees only their own absences, not student2's."""
+        self.client.force_login(self.student1)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [a["id_absence"] for a in response.json()["results"]]
+        self.assertIn(self.absence1.pk, ids)
+        self.assertNotIn(self.absence2.pk, ids)
