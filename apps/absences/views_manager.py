@@ -121,6 +121,16 @@ def edit_absence(request, pk):
                 .get(pk=pk)
             )
 
+            # Re-check status after lock: another request may have justified
+            # the absence between the GET and this POST (TOCTOU).
+            if absence.statut == Absence.Statut.JUSTIFIEE:
+                messages.error(
+                    request,
+                    "Cette absence a été justifiée entre-temps et ne peut "
+                    "plus être modifiée.",
+                )
+                return redirect("absences:validation_list")
+
             # Capture old state for audit comparison inside the lock
             old_statut = absence.statut
             old_duree = float(absence.duree_absence or 0)

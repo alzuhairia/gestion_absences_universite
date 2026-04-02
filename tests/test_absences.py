@@ -462,6 +462,92 @@ class JustificationDeadlineTests(BaseAbsenceTestCase):
         self.assertGreaterEqual(response.context["days_remaining"], 0)
 
 
+class EditAbsenceTests(BaseAbsenceTestCase):
+    """Tests for the edit_absence view (secretary editing an absence)."""
+
+    def _create_absence(self, statut="NON_JUSTIFIEE"):
+        seance = Seance.objects.create(
+            date_seance=date(2026, 2, 1),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+        return Absence.objects.create(
+            id_inscription=self.inscription1,
+            id_seance=seance,
+            type_absence="ABSENT",
+            duree_absence=2.0,
+            statut=statut,
+            encodee_par=self.secretary,
+        )
+
+    def test_edit_justified_absence_rejected_get(self):
+        """GET on an already-justified absence redirects with error."""
+        absence = self._create_absence(statut="JUSTIFIEE")
+        self.client.force_login(self.secretary)
+
+        url = reverse("absences:edit_absence", args=[absence.pk])
+        response = self.client.get(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        absence.refresh_from_db()
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+
+    def test_edit_justified_absence_rejected_post(self):
+        """POST on an already-justified absence redirects with error."""
+        absence = self._create_absence(statut="JUSTIFIEE")
+        self.client.force_login(self.secretary)
+
+        url = reverse("absences:edit_absence", args=[absence.pk])
+        response = self.client.post(url, {
+            "type_absence": "PARTIEL",
+            "statut": "NON_JUSTIFIEE",
+            "duree_absence": "1.0",
+            "reason": "correction",
+        }, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        absence.refresh_from_db()
+        # Absence must remain untouched
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+        self.assertEqual(absence.type_absence, "ABSENT")
+        self.assertEqual(float(absence.duree_absence), 2.0)
+
+    def test_edit_justified_absence_rejected_race_condition(self):
+        """
+        Simulates TOCTOU: absence is NON_JUSTIFIEE when the form loads,
+        but becomes JUSTIFIEE before the POST is processed. The
+        select_for_update + re-check must reject the edit.
+        """
+        absence = self._create_absence(statut="NON_JUSTIFIEE")
+        self.client.force_login(self.secretary)
+
+        url = reverse("absences:edit_absence", args=[absence.pk])
+
+        # Secretary loads the form (GET succeeds because status is NON_JUSTIFIEE)
+        get_response = self.client.get(url, secure=True)
+        self.assertEqual(get_response.status_code, 200)
+
+        # Meanwhile, the justification is approved (status changes to JUSTIFIEE)
+        absence.statut = "JUSTIFIEE"
+        absence.save(update_fields=["statut"])
+
+        # Secretary submits the form (POST must be rejected)
+        response = self.client.post(url, {
+            "type_absence": "PARTIEL",
+            "statut": "NON_JUSTIFIEE",
+            "duree_absence": "1.0",
+            "reason": "correction tardive",
+        }, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        absence.refresh_from_db()
+        # Absence must still be JUSTIFIEE — edit rejected
+        self.assertEqual(absence.statut, "JUSTIFIEE")
+        self.assertEqual(absence.type_absence, "ABSENT")
+
+
 class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
     """Tests race condition protection on simultaneous absence creation."""
 
