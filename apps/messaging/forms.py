@@ -7,6 +7,7 @@ DEPENDANCES CLES : apps.accounts.models, apps.messaging.models
 """
 
 from django import forms
+from django.core.exceptions import ValidationError
 
 from apps.accounts.models import User
 
@@ -15,7 +16,7 @@ from .models import Message
 
 class MessageForm(forms.ModelForm):
     destinataire = forms.ModelChoiceField(
-        queryset=User.objects.none(),
+        queryset=User.objects.filter(actif=True),
         widget=forms.Select(attrs={"class": "form-select"}),
         label="Destinataire",
     )
@@ -58,3 +59,9 @@ class MessageForm(forms.ModelForm):
             self.fields["destinataire"].label_from_instance = (
                 lambda obj: f"{obj.prenom} {obj.nom} ({obj.role})"
             )
+
+    def clean_destinataire(self):
+        dest = self.cleaned_data.get("destinataire")
+        if dest and not dest.actif:
+            raise ValidationError("Ce destinataire n'est plus actif.")
+        return dest
