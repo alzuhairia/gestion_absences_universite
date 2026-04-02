@@ -76,11 +76,15 @@ def calculer_absence_stats(inscription):
             'total_periodes': int,
         }
     """
-    # Seules les absences NON_JUSTIFIEE comptent pour le seuil.
+    # Seules les absences NON_JUSTIFIEE pour des séances passées comptent.
     # EN_ATTENTE = justificatif soumis, ne doit pas pénaliser l'étudiant.
+    # Séances futures exclues pour ne pas fausser le taux.
+    today = timezone.localdate()
     total_absence = float(
         Absence.objects.filter(
-            id_inscription=inscription, statut=Absence.Statut.NON_JUSTIFIEE
+            id_inscription=inscription,
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         ).aggregate(total=Sum("duree_absence"))["total"]
         or 0
     )
@@ -537,11 +541,14 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
     if not inscription_ids:
         return 0, {}
 
-    # Agrégation SQL unique — seules les NON_JUSTIFIEE comptent pour le seuil
+    today = timezone.localdate()
+
+    # Agrégation SQL unique — seules les NON_JUSTIFIEE pour séances passées comptent
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -626,23 +633,25 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
     _non_justified = [Absence.Statut.NON_JUSTIFIEE]
 
-    # 1. Total non-justified absences per inscription (single SQL query)
+    # 1. Total non-justified absences per inscription — past seances only
     total_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=_non_justified,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
         .values_list("id_inscription", "total")
     )
 
-    # 2. Recent 30-day absences per inscription (single SQL query)
+    # 2. Recent 30-day absences per inscription — past seances only
     recent_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=_non_justified,
             id_seance__date_seance__gte=thirty_days_ago,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

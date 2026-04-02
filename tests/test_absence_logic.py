@@ -513,7 +513,7 @@ class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
             id_annee=self.annee,
         )
         seance = Seance.objects.create(
-            date_seance=date(2026, 6, 1),
+            date_seance=date(2026, 1, 5),  # past date so it counts after future-filter fix
             heure_debut=time(8, 0),
             heure_fin=time(12, 0),
             id_cours=small_course,
@@ -589,3 +589,92 @@ class EnAttenteExcludedFromThresholdTest(AbsenceLogicBaseTestCase):
         # Only NON_JUSTIFIEE hours in the sums
         total = sums.get(self.inscription.id_inscription, 0) or 0
         self.assertEqual(float(total), 12.0)
+
+
+class FutureSessionsExcludedTest(TestCase):
+    """
+    Absences linked to future séances must be excluded from ALL
+    absence rate calculations (stats, at-risk, predictions).
+    """
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Faculte F")
+        self.departement = Departement.objects.create(
+            nom_departement="Dep F", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+        self.prof = User.objects.create_user(
+            email="prof-f@test.com", nom="Prof", prenom="F",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-f@test.com", nom="Stu", prenom="F",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.cours = Cours.objects.create(
+            code_cours="FUTUR", nom_cours="Future Test",
+            nombre_total_periodes=40,
+            id_departement=self.departement,
+            professeur=self.prof,
+            id_annee=self.annee, niveau=1,
+        )
+        self.inscription = Inscription.objects.create(
+            id_etudiant=self.student,
+            id_cours=self.cours,
+            id_annee=self.annee,
+        )
+        today = timezone.localdate()
+        self.past_seance = Seance.objects.create(
+            date_seance=today - timedelta(days=5),
+            heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.cours, id_annee=self.annee,
+        )
+        self.future_seance = Seance.objects.create(
+            date_seance=today + timedelta(days=30),
+            heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.cours, id_annee=self.annee,
+        )
+        # Past absence: 2h — should count
+        Absence.objects.create(
+            id_inscription=self.inscription,
+            id_seance=self.past_seance,
+            type_absence=Absence.TypeAbsence.ABSENT,
+            duree_absence=Decimal("2.00"),
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            encodee_par=self.prof,
+        )
+        # Future absence: 2h — must NOT count
+        Absence.objects.bulk_create([
+            Absence(
+                id_inscription=self.inscription,
+                id_seance=self.future_seance,
+                type_absence=Absence.TypeAbsence.ABSENT,
+                duree_absence=Decimal("2.00"),
+                statut=Absence.Statut.NON_JUSTIFIEE,
+                encodee_par=self.prof,
+            )
+        ])
+
+    def test_future_sessions_excluded_from_absence_calculation(self):
+        """calculer_absence_stats excludes absences for future séances."""
+        stats = calculer_absence_stats(self.inscription)
+        # Only the past absence (2h) should count, not both (4h)
+        self.assertEqual(stats["total_absence"], 2.0)
+        self.assertAlmostEqual(stats["taux"], 5.0, places=1)  # 2/40 * 100
+
+    def test_future_sessions_excluded_from_at_risk_count(self):
+        """get_at_risk_count_for_queryset excludes future absences."""
+        qs = Inscription.objects.filter(
+            id_inscription=self.inscription.id_inscription
+        ).select_related("id_cours")
+        _, sums = get_at_risk_count_for_queryset(qs, system_threshold=40)
+        total = float(sums.get(self.inscription.id_inscription, 0) or 0)
+        # Only 2h (past), not 4h (past + future)
+        self.assertEqual(total, 2.0)
+
+    def test_future_sessions_excluded_from_pourcentage(self):
+        """calculer_pourcentage_absence excludes future séances from both sides."""
+        result = calculer_pourcentage_absence(self.student, self.cours)
+        # Only past séance counts: 2h total, 2h absent
+        self.assertEqual(result["total_heures_cours"], 2.0)
+        self.assertEqual(result["total_heures_absence"], 2.0)
