@@ -336,3 +336,84 @@ class PdfExportTests(TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertIn("generation", response.json()["detail"])
+
+
+class StudentApiIsolationTests(TestCase):
+    """Tests that the Student API enforces per-role data isolation."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac STU")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept STU", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+
+        self.admin = User.objects.create_user(
+            email="admin-stu@example.com", nom="Admin", prenom="Stu",
+            password="pass1234", role=User.Role.ADMIN,
+        )
+        self.prof = User.objects.create_user(
+            email="prof-stu@example.com", nom="Prof", prenom="Stu",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.prof2 = User.objects.create_user(
+            email="prof2-stu@example.com", nom="Prof2", prenom="Stu",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student1 = User.objects.create_user(
+            email="stu1-stu@example.com", nom="Stu", prenom="One",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.student2 = User.objects.create_user(
+            email="stu2-stu@example.com", nom="Stu", prenom="Two",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+
+        # Course taught by prof — student1 enrolled
+        self.course = Cours.objects.create(
+            code_cours="STU1", nom_cours="Course Stu",
+            nombre_total_periodes=20, id_departement=self.dept,
+            professeur=self.prof, id_annee=self.annee, niveau=1,
+        )
+        Inscription.objects.create(
+            id_etudiant=self.student1, id_cours=self.course, id_annee=self.annee,
+        )
+
+        self.url = reverse("api:student-list")
+
+    def test_student_cannot_list_other_students(self):
+        """A student hitting the student list endpoint sees only themselves."""
+        self.client.force_login(self.student1)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [s["id_utilisateur"] for s in response.json()["results"]]
+        self.assertEqual(ids, [self.student1.pk])
+        self.assertNotIn(self.student2.pk, ids)
+
+    def test_professor_sees_only_enrolled_students(self):
+        """A professor sees only students enrolled in their courses."""
+        self.client.force_login(self.prof)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [s["id_utilisateur"] for s in response.json()["results"]]
+        self.assertIn(self.student1.pk, ids)
+        self.assertNotIn(self.student2.pk, ids)
+
+    def test_professor_without_students_sees_empty(self):
+        """A professor with no enrolled students gets an empty list."""
+        self.client.force_login(self.prof2)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"], [])
+
+    def test_admin_sees_all_students(self):
+        """Admin sees every student."""
+        self.client.force_login(self.admin)
+        response = self.client.get(self.url, secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [s["id_utilisateur"] for s in response.json()["results"]]
+        self.assertIn(self.student1.pk, ids)
+        self.assertIn(self.student2.pk, ids)

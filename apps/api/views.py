@@ -123,15 +123,17 @@ class StudentViewSet(viewsets.ModelViewSet):
         qs = User.objects.filter(role=User.Role.ETUDIANT)
         user = self.request.user
 
-        if user.role == User.Role.ETUDIANT:
-            return qs.filter(pk=user.pk)
+        if user.role in (User.Role.ADMIN, User.Role.SECRETAIRE):
+            return qs
         if user.role == User.Role.PROFESSEUR:
             student_ids = Inscription.objects.filter(
                 id_cours__professeur=user,
                 status=Inscription.Status.EN_COURS,
             ).values_list("id_etudiant", flat=True)
             return qs.filter(pk__in=student_ids)
-        return qs
+        if user.role == User.Role.ETUDIANT:
+            return qs.filter(pk=user.pk)
+        return qs.none()
 
     def perform_create(self, serializer):
         user = serializer.save(role=User.Role.ETUDIANT)
