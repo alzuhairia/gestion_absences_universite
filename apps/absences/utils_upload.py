@@ -18,6 +18,8 @@ from django.core.exceptions import ValidationError
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 try:
     import magic
 
@@ -139,17 +141,26 @@ def validate_uploaded_file(
     clean_name, suffixes = _validate_filename(uploaded_file.name or "")
     extension = suffixes[-1]
 
-    if uploaded_file.size is None or uploaded_file.size <= 0:
+    try:
+        file_size = uploaded_file.size
+    except AttributeError:
+        raise UploadValidationError("Fichier invalide (taille indisponible).")
+
+    if file_size is None or file_size <= 0:
         raise UploadValidationError("Fichier vide ou invalide.")
 
-    if uploaded_file.size > max_size_bytes:
+    if file_size > max_size_bytes:
         raise UploadValidationError(
             "Le fichier est trop volumineux. Taille maximale autorisee: 5 Mo."
         )
 
     # Lire juste le debut du fichier suffit pour la detection MIME/signature.
-    head = uploaded_file.read(8192)
-    uploaded_file.seek(0)
+    try:
+        head = uploaded_file.read(8192)
+        uploaded_file.seek(0)
+    except (IOError, OSError) as exc:
+        logger.warning("Erreur de lecture du fichier uploadé: %s", exc)
+        raise UploadValidationError("Erreur de lecture du fichier.")
 
     if not head:
         raise UploadValidationError("Fichier vide ou invalide.")

@@ -520,6 +520,70 @@ class UploadValidationTests(BaseAbsenceTestCase):
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
 
 
+class UploadSizeGuardTests(TestCase):
+    """Unit tests for validate_uploaded_file size/IO guards."""
+
+    def test_oversized_file_rejected_before_read(self):
+        """
+        Size check must happen BEFORE read(). A file-like whose read()
+        would raise proves the size guard fires first.
+        """
+        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+
+        class OversizedFile:
+            name = "big.pdf"
+            content_type = "application/pdf"
+            size = 10 * 1024 * 1024  # 10 MB — exceeds 5 MB limit
+
+            def read(self, n=-1):
+                raise AssertionError("read() should not be called for oversized files")
+
+            def seek(self, pos):
+                pass
+
+        with self.assertRaises(UploadValidationError) as ctx:
+            validate_uploaded_file(OversizedFile())
+        self.assertIn("trop volumineux", str(ctx.exception))
+
+    def test_read_io_error_handled_gracefully(self):
+        """IOError during read() raises UploadValidationError, not 500."""
+        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+
+        class BadReadFile:
+            name = "doc.pdf"
+            content_type = "application/pdf"
+            size = 1024  # valid size
+
+            def read(self, n=-1):
+                raise IOError("disk failure")
+
+            def seek(self, pos):
+                pass
+
+        with self.assertRaises(UploadValidationError) as ctx:
+            validate_uploaded_file(BadReadFile())
+        self.assertIn("lecture", str(ctx.exception))
+
+    def test_missing_size_attribute_handled(self):
+        """File object without .size attribute raises UploadValidationError."""
+        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+
+        class FakeFile:
+            name = "doc.pdf"
+            content_type = "application/pdf"
+            # No .size attribute
+
+            def read(self, n=-1):
+                return b"%PDF-1.4"
+
+            def seek(self, pos):
+                pass
+
+        with self.assertRaises(UploadValidationError) as ctx:
+            validate_uploaded_file(FakeFile())
+        self.assertIn("indisponible", str(ctx.exception))
+
+
 class JustificationDeadlineTests(BaseAbsenceTestCase):
     """Tests that justification upload is rejected after the deadline."""
 
