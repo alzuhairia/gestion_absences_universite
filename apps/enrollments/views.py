@@ -51,7 +51,7 @@ API_RATE_LIMIT = "30/5m"
 def enrollment_manager(request):
     facultes = Faculte.objects.all()
     academic_years = AnneeAcademique.objects.all().order_by("-libelle")
-    students = User.objects.filter(role=User.Role.ETUDIANT)
+    students = User.objects.filter(role=User.Role.ETUDIANT, actif=True)
 
     return render(
         request,
