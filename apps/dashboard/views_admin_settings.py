@@ -17,6 +17,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+
+from apps.utils import safe_get_page
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -138,8 +140,7 @@ def admin_audit_logs(request):
 
     # Pagination
     paginator = Paginator(logs, 50)
-    page = request.GET.get("page")
-    logs_page = paginator.get_page(page)
+    logs_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -290,8 +291,7 @@ def admin_qr_scan_logs(request):
     logs = logs.order_by("-timestamp")
 
     paginator = Paginator(logs, 50)
-    page = request.GET.get("page")
-    logs_page = paginator.get_page(page)
+    logs_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

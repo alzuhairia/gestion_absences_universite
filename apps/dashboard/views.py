@@ -16,6 +16,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Q, Sum
+
+from apps.utils import safe_get_page
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
@@ -255,11 +257,8 @@ def secretary_enrollments(request):
     students_list = list(students_enrollments.items())
 
     # Pagination
-    from django.core.paginator import Paginator
-
     paginator = Paginator(students_list, 25)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
 
     # Get filter options
     faculties = Faculte.objects.filter(actif=True).order_by("nom_faculte")
@@ -350,7 +349,7 @@ def secretary_seuils_absence(request):
     exempted_count = sum(1 for item in at_risk_list if item["is_under_exemption"])
 
     paginator = Paginator(at_risk_list, 25)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

@@ -18,6 +18,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
+
+from apps.utils import safe_get_page
 from django.db.models import Count, Q
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -70,8 +72,7 @@ def admin_users(request):
 
     # Pagination
     paginator = Paginator(users, 25)
-    page = request.GET.get("page")
-    users_page = paginator.get_page(page)
+    users_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -230,8 +231,7 @@ def admin_user_audit(request, user_id):
 
     # Pagination
     paginator = Paginator(logs, 50)
-    page = request.GET.get("page")
-    logs_page = paginator.get_page(page)
+    logs_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,

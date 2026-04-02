@@ -15,6 +15,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
+
+from apps.utils import safe_get_page
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -126,8 +128,7 @@ def validation_list(request):
 
     # Pagination
     paginator = Paginator(absences, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -685,8 +686,7 @@ def justified_absences_list(request):
 
         # Pagination
         paginator = Paginator(absences_list, 20)
-        page_number = request.GET.get("page")
-        page_obj = paginator.get_page(page_number)
+        page_obj = safe_get_page(paginator, request.GET.get("page"))
 
         return render(
             request,

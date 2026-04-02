@@ -14,6 +14,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+
+from apps.utils import safe_get_page
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -68,7 +70,7 @@ def secretary_faculties(request):
 
     faculties = Faculte.objects.all().order_by("nom_faculte")
     paginator = Paginator(faculties, 20)
-    faculties_page = paginator.get_page(request.GET.get("page"))
+    faculties_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -283,7 +285,7 @@ def secretary_departments(request):
         .order_by("id_faculte__nom_faculte", "nom_departement")
     )
     paginator = Paginator(departments, 20)
-    departments_page = paginator.get_page(request.GET.get("page"))
+    departments_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -473,8 +475,7 @@ def secretary_courses(request):
 
     # Pagination
     paginator = Paginator(courses, 20)
-    page = request.GET.get("page")
-    courses_page = paginator.get_page(page)
+    courses_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
@@ -853,11 +854,8 @@ def secretary_audit_logs(request):
     logs = logs.order_by("-date_action")
 
     # Pagination
-    from django.core.paginator import Paginator
-
     paginator = Paginator(logs, 50)
-    page = request.GET.get("page")
-    logs_page = paginator.get_page(page)
+    logs_page = safe_get_page(paginator, request.GET.get("page"))
 
     return render(
         request,
