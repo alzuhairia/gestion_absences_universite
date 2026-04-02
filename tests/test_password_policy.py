@@ -167,3 +167,62 @@ class AdminPasswordResetPolicyTests(TestCase):
         self.target.refresh_from_db()
         self.assertTrue(self.target.check_password("StrongPass123!"))
         self.assertTrue(self.target.must_change_password)
+
+
+class PasswordResetTokenTests(TestCase):
+    """Verify password reset token one-time use and inactive-user guard."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="reset@example.com",
+            nom="Reset",
+            prenom="User",
+            password="OldPass123!",
+            role=User.Role.ETUDIANT,
+        )
+
+    def _get_reset_url(self):
+        """Generate a valid password-reset URL for self.user."""
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        return reverse(
+            "accounts:password_reset_confirm",
+            kwargs={"uidb64": uid, "token": token},
+        )
+
+    def test_password_reset_token_cannot_be_reused(self):
+        """After a successful reset, the same token must be invalid."""
+        url = self._get_reset_url()
+        # First visit sets the token in the session and redirects
+        resp1 = self.client.get(url, secure=True, follow=True)
+        self.assertEqual(resp1.status_code, 200)
+        self.assertTrue(resp1.context.get("validlink", False))
+
+        # Submit the new password
+        post_url = resp1.request["PATH_INFO"]
+        resp2 = self.client.post(
+            post_url,
+            {"new_password1": "NewStrong123!", "new_password2": "NewStrong123!"},
+            secure=True,
+        )
+        self.assertEqual(resp2.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NewStrong123!"))
+
+        # Re-using the original token must fail
+        resp3 = self.client.get(url, secure=True, follow=True)
+        self.assertFalse(resp3.context.get("validlink", True))
+
+    def test_inactive_user_cannot_reset_password(self):
+        """A deactivated user with a valid token must be blocked."""
+        url = self._get_reset_url()
+        # Deactivate after token generation
+        self.user.actif = False
+        self.user.save(update_fields=["actif"])
+
+        resp = self.client.get(url, secure=True, follow=True)
+        self.assertFalse(resp.context.get("validlink", True))

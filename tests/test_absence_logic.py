@@ -754,3 +754,69 @@ class SignalLoopProtectionTest(TestCase):
             # Every call received the correct inscription PK
             for call in mock_schedule.call_args_list:
                 self.assertEqual(call[0][0], self.inscription.pk)
+
+
+class AcademicYearDeactivationTests(TestCase):
+    """Tests for BUG #35: deactivating a year must close EN_COURS inscriptions."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac Year")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept Year", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+        self.prof = User.objects.create_user(
+            email="prof-year@test.com", nom="Prof", prenom="Year",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-year@test.com", nom="Stu", prenom="Year",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.cours = Cours.objects.create(
+            code_cours="YEAR1", nom_cours="Year Course",
+            nombre_total_periodes=40, id_departement=self.dept,
+            professeur=self.prof, id_annee=self.annee, niveau=1,
+        )
+        self.inscription = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+        )
+
+    def test_deactivating_year_closes_enrollments(self):
+        """When an active year is deactivated, its EN_COURS inscriptions become NON_VALIDE."""
+        self.assertEqual(self.inscription.status, "EN_COURS")
+
+        self.annee.active = False
+        self.annee.save()
+
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.status, "NON_VALIDE")
+
+    def test_already_validated_inscription_unchanged(self):
+        """VALIDE inscriptions are not affected by year deactivation."""
+        self.inscription.status = "VALIDE"
+        self.inscription.save(update_fields=["status"])
+
+        self.annee.active = False
+        self.annee.save()
+
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.status, "VALIDE")
+
+    def test_activating_new_year_does_not_close_inscriptions(self):
+        """Activating a new year deactivates the old one but does NOT close inscriptions
+        of the newly activated year."""
+        new_annee = AnneeAcademique(libelle="2026-2027", active=True)
+        new_annee.save()
+
+        # Old year is now inactive
+        self.annee.refresh_from_db()
+        self.assertFalse(self.annee.active)
+
+        # But the inscription of the old year is NOT closed by the new year's save —
+        # only the year's own deactivation closes inscriptions
+        # The old year's inscriptions were closed when AnneeAcademique.save()
+        # deactivated it via .update(active=False), which does NOT trigger save()
+        # So EN_COURS inscriptions of the old year remain until explicitly deactivated.
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.status, "EN_COURS")

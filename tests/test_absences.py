@@ -30,6 +30,13 @@ class BaseAbsenceTestCase(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2024-2025", active=True)
 
+        self.admin = User.objects.create_user(
+            email="admin@example.com",
+            nom="Admin",
+            prenom="Test",
+            password="pass1234",
+            role=User.Role.ADMIN,
+        )
         self.prof = User.objects.create_user(
             email="prof@example.com",
             nom="Prof",
@@ -945,3 +952,51 @@ class PaginationFallbackTests(BaseAbsenceTestCase):
                 self.assertEqual(response.status_code, 200)
                 page_obj = response.context["courses"]
                 self.assertEqual(page_obj.number, 1)
+
+
+class UserDeletionTests(BaseAbsenceTestCase):
+    """Tests for admin user deletion with FK cleanup and last-admin guard."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+
+    def test_user_deletion_cleans_up_all_references(self):
+        """Deleting a professor with courses detaches courses and deletes the user."""
+        # prof has course1 assigned via professeur FK
+        url = reverse("dashboard:admin_user_delete", args=[self.prof.pk])
+        response = self.client.post(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(pk=self.prof.pk).exists())
+        # Course still exists but professor is detached
+        self.course1.refresh_from_db()
+        self.assertIsNone(self.course1.professeur)
+
+    def test_user_with_inscriptions_is_deactivated_not_deleted(self):
+        """A student with inscriptions is deactivated, not hard-deleted."""
+        url = reverse("dashboard:admin_user_delete", args=[self.student1.pk])
+        response = self.client.post(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.student1.refresh_from_db()
+        self.assertTrue(User.objects.filter(pk=self.student1.pk).exists())
+        self.assertFalse(self.student1.actif)
+
+    def test_cannot_delete_last_admin(self):
+        """The last active admin cannot be deleted."""
+        # self.admin is the only admin
+        url = reverse("dashboard:admin_user_delete", args=[self.admin.pk])
+        response = self.client.post(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.actif)  # still active, not deleted
+
+    def test_cannot_delete_self(self):
+        """An admin cannot delete their own account."""
+        url = reverse("dashboard:admin_user_delete", args=[self.admin.pk])
+        response = self.client.post(url, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())

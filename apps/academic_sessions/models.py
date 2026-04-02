@@ -11,6 +11,7 @@ DEPENDANCES CLES : academics.Cours, accounts.User (validated_by)
 
 from datetime import datetime, timedelta
 
+from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -72,23 +73,41 @@ class AnneeAcademique(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        """S'assurer qu'une seule année est active"""
+        """S'assurer qu'une seule année est active.
+
+        Side-effects on activation/deactivation:
+        - Activating a year deactivates all others.
+        - Deactivating a year closes its EN_COURS inscriptions (→ NON_VALIDE).
+        """
         with transaction.atomic():
-            if self.active:
-                # Only deactivate others when active is newly set to True:
-                # either the object is new (no pk) or active changed from False.
-                activating = not self.pk
-                if not activating and self.pk:
-                    old_active = (
-                        AnneeAcademique.objects.filter(pk=self.pk)
-                        .values_list("active", flat=True)
-                        .first()
-                    )
-                    activating = not old_active
-                if activating:
-                    # Deactivate others BEFORE full_clean so clean() won't reject
-                    # the activation. Wrapped in atomic() so rolled back on error.
-                    AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+            deactivating = False
+            activating = False
+
+            if self.pk:
+                old_active = (
+                    AnneeAcademique.objects.filter(pk=self.pk)
+                    .values_list("active", flat=True)
+                    .first()
+                )
+                if old_active and not self.active:
+                    deactivating = True
+                elif not old_active and self.active:
+                    activating = True
+            elif self.active:
+                activating = True
+
+            if activating:
+                # Deactivate others BEFORE full_clean so clean() won't reject
+                # the activation. Wrapped in atomic() so rolled back on error.
+                AnneeAcademique.objects.exclude(pk=self.pk).update(active=False)
+
+            if deactivating:
+                # Close all EN_COURS inscriptions for this year
+                Inscription = apps.get_model("enrollments", "Inscription")
+                Inscription.objects.filter(
+                    id_annee=self, status="EN_COURS"
+                ).update(status="NON_VALIDE")
+
             self.full_clean()
             super().save(*args, **kwargs)
 

@@ -446,6 +446,18 @@ def admin_user_delete(request, user_id):
             messages.error(request, "Vous ne pouvez pas supprimer votre propre compte.")
             return redirect("dashboard:admin_users")
 
+        # Verification 2: Ne pas supprimer le dernier admin actif
+        if user.role == User.Role.ADMIN and user.actif:
+            active_admin_count = User.objects.filter(
+                role=User.Role.ADMIN, actif=True
+            ).count()
+            if active_admin_count <= 1:
+                messages.error(
+                    request,
+                    "Impossible de supprimer le dernier administrateur actif.",
+                )
+                return redirect("dashboard:admin_users")
+
         inscriptions_count = Inscription.objects.filter(id_etudiant=user).count()
         absences_encoded_count = Absence.objects.filter(encodee_par=user).count()
         audit_logs_count = LogAudit.objects.filter(id_utilisateur=user).count()
@@ -526,37 +538,51 @@ def admin_user_delete(request, user_id):
         user_role = user.get_role_display()
         user_id_for_log = user.id_utilisateur
 
-        with transaction.atomic():
-            if cours_count > 0:
-                Cours.objects.filter(professeur=user).update(professeur=None)
+        try:
+            with transaction.atomic():
+                if cours_count > 0:
+                    Cours.objects.filter(professeur=user).update(professeur=None)
 
-            try:
                 user.groups.clear()
                 user.user_permissions.clear()
-            except Exception:
-                pass
+                user.delete()
 
-            user.delete()
+                log_action(
+                    request.user,
+                    f"CRITIQUE: Suppression de l'utilisateur '{user_email}' (ID: {user_id_for_log}, Role: {user_role}, Nom: {user_name}) - Gestion des utilisateurs",
+                    request,
+                    niveau="CRITIQUE",
+                    objet_type="USER",
+                    objet_id=user_id_for_log,
+                )
 
-            # CORRECTION BUG CRITIQUE #6 — log_action déplacé dans la transaction atomique
-            # Avant : si log_action échouait après user.delete(), l'audit était perdu
-            # mais la suppression était commitée. Désormais : atomicité ACID garantie
-            # (si le log échoue, toute la transaction rollback, utilisateur non supprimé).
+            messages.success(request, f"Utilisateur '{user_email}' supprime avec succes.")
+
+        except ProtectedError:
+            # Race condition: a PROTECT FK was created after the count checks.
+            # Fall back to deactivation.
+            user.actif = False
+            user.save(update_fields=["actif"])
             log_action(
                 request.user,
-                f"CRITIQUE: Suppression de l'utilisateur '{user_email}' (ID: {user_id_for_log}, Role: {user_role}, Nom: {user_name}) - Gestion des utilisateurs",
+                f"CRITIQUE: Desactivation (fallback) de l'utilisateur '{user_email}' "
+                f"(ID: {user_id_for_log}) - Dependances PROTECT detectees lors de la suppression",
                 request,
                 niveau="CRITIQUE",
                 objet_type="USER",
                 objet_id=user_id_for_log,
             )
+            messages.warning(
+                request,
+                f"Des dépendances bloquantes ont été détectées. "
+                f"Le compte '{user_email}' a été désactivé au lieu d'être supprimé.",
+            )
 
-        messages.success(request, f"Utilisateur '{user_email}' supprime avec succes.")
         return redirect("dashboard:admin_users")
 
     except Exception:
         logger.exception(
-            "Exception lors de la recuperation de l'utilisateur %s", user_id
+            "Exception lors de la suppression de l'utilisateur %s", user_id
         )
         messages.error(
             request,
