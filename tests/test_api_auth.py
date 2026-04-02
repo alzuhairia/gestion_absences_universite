@@ -417,3 +417,81 @@ class StudentApiIsolationTests(TestCase):
         ids = [s["id_utilisateur"] for s in response.json()["results"]]
         self.assertIn(self.student1.pk, ids)
         self.assertIn(self.student2.pk, ids)
+
+
+class ApiAcademicYearIsolationTests(TestCase):
+    """Professor API endpoints must restrict data to the active academic year."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac Year API")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept Year API", id_faculte=self.faculte
+        )
+        self.old_year = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
+        self.current_year = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+
+        self.prof = User.objects.create_user(
+            email="prof-yr@example.com", nom="Prof", prenom="Year",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-yr@example.com", nom="Stu", prenom="Year",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+
+        self.course = Cours.objects.create(
+            code_cours="YR1", nom_cours="Year Course",
+            nombre_total_periodes=40, id_departement=self.dept,
+            professeur=self.prof, id_annee=self.current_year, niveau=1,
+        )
+
+        # Old enrollment (should NOT be visible)
+        self.old_inscription = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=self.course, id_annee=self.old_year,
+            status=Inscription.Status.EN_COURS,
+        )
+        # Current enrollment (should be visible)
+        self.current_inscription = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=self.course, id_annee=self.current_year,
+            status=Inscription.Status.EN_COURS,
+        )
+
+    def test_professor_inscriptions_filtered_by_active_year(self):
+        """InscriptionViewSet for professors must only return current year inscriptions."""
+        self.client.force_login(self.prof)
+        response = self.client.get(reverse("api:enrollment-list"), secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [i["id_inscription"] for i in response.json()["results"]]
+        self.assertIn(self.current_inscription.id_inscription, ids)
+        self.assertNotIn(self.old_inscription.id_inscription, ids)
+
+    def test_professor_absences_filtered_by_active_year(self):
+        """AbsenceViewSet for professors must only return current year absences."""
+        # Create absences for both years
+        old_seance = Seance.objects.create(
+            date_seance=date(2025, 3, 1), heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.course, id_annee=self.old_year,
+        )
+        current_seance = Seance.objects.create(
+            date_seance=date(2026, 3, 1), heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.course, id_annee=self.current_year,
+        )
+        old_absence = Absence.objects.create(
+            id_inscription=self.old_inscription, id_seance=old_seance,
+            type_absence="ABSENT", duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE", encodee_par=self.prof,
+        )
+        current_absence = Absence.objects.create(
+            id_inscription=self.current_inscription, id_seance=current_seance,
+            type_absence="ABSENT", duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE", encodee_par=self.prof,
+        )
+
+        self.client.force_login(self.prof)
+        response = self.client.get(reverse("api:absence-list"), secure=True)
+        self.assertEqual(response.status_code, 200)
+
+        ids = [a["id_absence"] for a in response.json()["results"]]
+        self.assertIn(current_absence.id_absence, ids)
+        self.assertNotIn(old_absence.id_absence, ids)

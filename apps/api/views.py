@@ -265,7 +265,11 @@ class InscriptionViewSet(viewsets.ModelViewSet):
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
-            return qs.filter(id_cours__professeur=user)
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            flt = {"id_cours__professeur": user}
+            if active_year:
+                flt["id_annee"] = active_year
+            return qs.filter(**flt)
         return qs
 
 
@@ -328,10 +332,14 @@ class AbsenceViewSet(viewsets.ModelViewSet):
                 flt["id_inscription__id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
-            return qs.filter(
-                id_inscription__id_cours__professeur=user,
-                id_inscription__status=Inscription.Status.EN_COURS,
-            )
+            active_year = AnneeAcademique.objects.filter(active=True).first()
+            flt = {
+                "id_inscription__id_cours__professeur": user,
+                "id_inscription__status": Inscription.Status.EN_COURS,
+            }
+            if active_year:
+                flt["id_inscription__id_annee"] = active_year
+            return qs.filter(**flt)
         if user.role in (User.Role.ADMIN, User.Role.SECRETAIRE):
             return qs
         # Unknown role — deny access
@@ -564,7 +572,9 @@ def dashboard_analytics(request):
 
     year_filter = Q(id_annee=academic_year) if academic_year else Q()
 
-    total_inscriptions = Inscription.objects.filter(year_filter).count()
+    total_inscriptions = Inscription.objects.filter(
+        year_filter, status=Inscription.Status.EN_COURS
+    ).count()
     total_absences = Absence.objects.filter(
         Q(id_inscription__id_annee=academic_year) if academic_year else Q()
     ).count()
