@@ -54,23 +54,26 @@ logger = logging.getLogger(__name__)
 
 def _send_justification_decision_emails(absence, approved, motif=""):
     """Send decision emails to student + professor. Never raises."""
-    student = absence.id_inscription.id_etudiant
-    course_code = absence.id_seance.id_cours.code_cours
-    date_str = str(absence.id_seance.date_seance)
-    professor = absence.id_seance.id_cours.professeur
+    try:
+        student = absence.id_inscription.id_etudiant
+        course_code = absence.id_seance.id_cours.code_cours
+        date_str = str(absence.id_seance.date_seance)
+        professor = absence.id_seance.id_cours.professeur
 
-    # Email to student
-    subj, body, html_body = build_justification_decision_email(
-        student, course_code, date_str, approved, motif
-    )
-    send_notification_email(student, subj, body, html_body)
-
-    # Email to professor
-    if professor:
-        subj, body, html_body = build_justification_decision_professor_email(
-            professor, student, course_code, date_str, approved
+        # Email to student
+        subj, body, html_body = build_justification_decision_email(
+            student, course_code, date_str, approved, motif
         )
-        send_notification_email(professor, subj, body, html_body)
+        send_notification_email(student, subj, body, html_body)
+
+        # Email to professor
+        if professor:
+            subj, body, html_body = build_justification_decision_professor_email(
+                professor, student, course_code, date_str, approved
+            )
+            send_notification_email(professor, subj, body, html_body)
+    except Exception:
+        logger.exception("Failed to send justification decision emails for absence %s", getattr(absence, "pk", "?"))
 
 
 # ========================================================================== #

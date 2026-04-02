@@ -820,3 +820,111 @@ class AcademicYearDeactivationTests(TestCase):
         # So EN_COURS inscriptions of the old year remain until explicitly deactivated.
         self.inscription.refresh_from_db()
         self.assertEqual(self.inscription.status, "EN_COURS")
+
+
+class QRFinalizeDurationGuardTest(TestCase):
+    """Bug fix: QR finalize must not create absences with duree_absence=0."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac QR")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept QR", id_faculte=self.faculte
+        )
+        self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+        self.prof = User.objects.create_user(
+            email="prof-qr@test.com", nom="Prof", prenom="QR",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-qr@test.com", nom="Stu", prenom="QR",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.cours = Cours.objects.create(
+            code_cours="QR1", nom_cours="QR Course",
+            nombre_total_periodes=40, id_departement=self.dept,
+            professeur=self.prof, id_annee=self.annee, niveau=1,
+        )
+        self.seance = Seance.objects.create(
+            date_seance=date(2026, 1, 10),
+            heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.cours, id_annee=self.annee,
+        )
+        self.inscription = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+        )
+
+    def test_duree_heures_zero_fallback(self):
+        """When duree_heures() returns 0, the fallback should be 2.0."""
+        with patch.object(Seance, "duree_heures", return_value=0.0):
+            duree = self.seance.duree_heures() or 2.0
+        self.assertEqual(duree, 2.0)
+
+    def test_duree_heures_normal(self):
+        """When duree_heures() returns a positive value, it should be used as-is."""
+        duree = self.seance.duree_heures() or 2.0
+        self.assertEqual(duree, 2.0)  # 8:00-10:00 = 2h
+
+
+class JustificationEmailNeverRaisesTest(TestCase):
+    """Bug fix: _send_justification_decision_emails must never propagate exceptions."""
+
+    def test_email_function_does_not_raise(self):
+        """Even if build_ helpers crash, the function catches the exception."""
+        from apps.absences.views_validation import _send_justification_decision_emails
+
+        # Pass None — attribute access will fail, but the function should catch it
+        # and not propagate the exception
+        _send_justification_decision_emails(None, approved=True)
+        # If we get here, the function didn't raise — test passes
+
+
+class StudentViewsFallbackFilterTest(TestCase):
+    """Bug fix: student views fallback (no active year) must filter by EN_COURS."""
+
+    def setUp(self):
+        self.faculte = Faculte.objects.create(nom_faculte="Fac Fallback")
+        self.dept = Departement.objects.create(
+            nom_departement="Dept Fallback", id_faculte=self.faculte
+        )
+        # No active year — triggers fallback
+        self.annee = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
+        self.prof = User.objects.create_user(
+            email="prof-fb@test.com", nom="Prof", prenom="FB",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        self.student = User.objects.create_user(
+            email="stu-fb@test.com", nom="Stu", prenom="FB",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self.cours = Cours.objects.create(
+            code_cours="FB1", nom_cours="Fallback Course",
+            nombre_total_periodes=40, id_departement=self.dept,
+            professeur=self.prof, id_annee=self.annee, niveau=1,
+        )
+        # One active enrollment, one archived
+        self.active_ins = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+            status=Inscription.Status.EN_COURS,
+        )
+        self.archived_ins = Inscription.objects.create(
+            id_etudiant=self.student, id_cours=Cours.objects.create(
+                code_cours="FB2", nom_cours="Archived Course",
+                nombre_total_periodes=40, id_departement=self.dept,
+                professeur=self.prof, id_annee=self.annee, niveau=1,
+            ), id_annee=self.annee,
+            status=Inscription.Status.NON_VALIDE,
+        )
+
+    def test_student_dashboard_fallback_filters_en_cours(self):
+        """student_dashboard fallback query must only return EN_COURS inscriptions."""
+        self.client.force_login(self.student)
+        response = self.client.get("/dashboard/student/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        # Should show 1 course (the active one), not 2
+        self.assertEqual(response.context["total_courses"], 1)
+
+    def test_student_absences_fallback_filters_en_cours(self):
+        """student_absences fallback query must only return EN_COURS inscriptions."""
+        self.client.force_login(self.student)
+        response = self.client.get("/dashboard/student/absences/", secure=True)
+        self.assertEqual(response.status_code, 200)

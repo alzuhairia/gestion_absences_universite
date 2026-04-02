@@ -1510,12 +1510,13 @@ def qr_finalize(request, token):
         absent_count = 0
         for ins in inscriptions:
             if ins.id_inscription not in scanned_ids:
+                duree = seance.duree_heures() or 2.0  # fallback if times missing
                 _absence, created = Absence.objects.get_or_create(
                     id_inscription=ins,
                     id_seance=seance,
                     defaults={
                         "type_absence": Absence.TypeAbsence.ABSENT,
-                        "duree_absence": seance.duree_heures(),
+                        "duree_absence": duree,
                         "statut": Absence.Statut.NON_JUSTIFIEE,
                         "encodee_par": request.user,
                         "note_professeur": "Absent (QR non scanné)",
