@@ -183,60 +183,96 @@ class AbsenceApiIsolationTests(TestCase):
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
 
         self.prof1 = User.objects.create_user(
-            email="prof1-iso@example.com", nom="Prof", prenom="One",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof1-iso@example.com",
+            nom="Prof",
+            prenom="One",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.prof2 = User.objects.create_user(
-            email="prof2-iso@example.com", nom="Prof", prenom="Two",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof2-iso@example.com",
+            nom="Prof",
+            prenom="Two",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student1 = User.objects.create_user(
-            email="stu1-iso@example.com", nom="Stu", prenom="One",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu1-iso@example.com",
+            nom="Stu",
+            prenom="One",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.student2 = User.objects.create_user(
-            email="stu2-iso@example.com", nom="Stu", prenom="Two",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu2-iso@example.com",
+            nom="Stu",
+            prenom="Two",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
 
         # Course 1 → prof1
         self.course1 = Cours.objects.create(
-            code_cours="ISO1", nom_cours="Course One",
-            nombre_total_periodes=20, id_departement=self.dept,
-            professeur=self.prof1, id_annee=self.annee, niveau=1,
+            code_cours="ISO1",
+            nom_cours="Course One",
+            nombre_total_periodes=20,
+            id_departement=self.dept,
+            professeur=self.prof1,
+            id_annee=self.annee,
+            niveau=1,
         )
         # Course 2 → prof2
         self.course2 = Cours.objects.create(
-            code_cours="ISO2", nom_cours="Course Two",
-            nombre_total_periodes=20, id_departement=self.dept,
-            professeur=self.prof2, id_annee=self.annee, niveau=1,
+            code_cours="ISO2",
+            nom_cours="Course Two",
+            nombre_total_periodes=20,
+            id_departement=self.dept,
+            professeur=self.prof2,
+            id_annee=self.annee,
+            niveau=1,
         )
 
         self.ins1 = Inscription.objects.create(
-            id_etudiant=self.student1, id_cours=self.course1, id_annee=self.annee,
+            id_etudiant=self.student1,
+            id_cours=self.course1,
+            id_annee=self.annee,
         )
         self.ins2 = Inscription.objects.create(
-            id_etudiant=self.student2, id_cours=self.course2, id_annee=self.annee,
+            id_etudiant=self.student2,
+            id_cours=self.course2,
+            id_annee=self.annee,
         )
 
         seance1 = Seance.objects.create(
-            date_seance=date(2026, 1, 5), heure_debut=time(8, 0),
-            heure_fin=time(10, 0), id_cours=self.course1, id_annee=self.annee,
+            date_seance=date(2026, 1, 5),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
         )
         seance2 = Seance.objects.create(
-            date_seance=date(2026, 1, 5), heure_debut=time(8, 0),
-            heure_fin=time(10, 0), id_cours=self.course2, id_annee=self.annee,
+            date_seance=date(2026, 1, 5),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course2,
+            id_annee=self.annee,
         )
 
         self.absence1 = Absence.objects.create(
-            id_inscription=self.ins1, id_seance=seance1,
-            type_absence="ABSENT", duree_absence=Decimal("2.0"),
-            statut="NON_JUSTIFIEE", encodee_par=self.prof1,
+            id_inscription=self.ins1,
+            id_seance=seance1,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof1,
         )
         self.absence2 = Absence.objects.create(
-            id_inscription=self.ins2, id_seance=seance2,
-            type_absence="ABSENT", duree_absence=Decimal("2.0"),
-            statut="NON_JUSTIFIEE", encodee_par=self.prof2,
+            id_inscription=self.ins2,
+            id_seance=seance2,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof2,
         )
 
         self.url = reverse("api:absence-list")
@@ -272,24 +308,39 @@ class PdfExportTests(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof-pdf@example.com", nom="Prof", prenom="PDF",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-pdf@example.com",
+            nom="Prof",
+            prenom="PDF",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.secretary = User.objects.create_user(
-            email="sec-pdf@example.com", nom="Sec", prenom="PDF",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec-pdf@example.com",
+            nom="Sec",
+            prenom="PDF",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
         self.student = User.objects.create_user(
-            email="stu-pdf@example.com", nom="Stu", prenom="PDF",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-pdf@example.com",
+            nom="Stu",
+            prenom="PDF",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.course = Cours.objects.create(
-            code_cours="PDF1", nom_cours="PDF Course",
-            nombre_total_periodes=200, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.annee, niveau=1,
+            code_cours="PDF1",
+            nom_cours="PDF Course",
+            nombre_total_periodes=200,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course, id_annee=self.annee,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.annee,
         )
 
     def test_pdf_export_with_large_dataset_does_not_crash(self):
@@ -298,22 +349,32 @@ class PdfExportTests(TestCase):
         Verifies the 500-row cap and page-break logic handle volume.
         """
         # Create 60 seances + absences — enough to span multiple PDF pages
-        seances = Seance.objects.bulk_create([
-            Seance(
-                date_seance=date(2026, 1, 1) + __import__("datetime").timedelta(days=i),
-                heure_debut=time(8, 0), heure_fin=time(10, 0),
-                id_cours=self.course, id_annee=self.annee,
-            )
-            for i in range(60)
-        ])
-        Absence.objects.bulk_create([
-            Absence(
-                id_inscription=self.inscription, id_seance=s,
-                type_absence="ABSENT", duree_absence=Decimal("2.0"),
-                statut="NON_JUSTIFIEE", encodee_par=self.prof,
-            )
-            for s in seances
-        ])
+        seances = Seance.objects.bulk_create(
+            [
+                Seance(
+                    date_seance=date(2026, 1, 1)
+                    + __import__("datetime").timedelta(days=i),
+                    heure_debut=time(8, 0),
+                    heure_fin=time(10, 0),
+                    id_cours=self.course,
+                    id_annee=self.annee,
+                )
+                for i in range(60)
+            ]
+        )
+        Absence.objects.bulk_create(
+            [
+                Absence(
+                    id_inscription=self.inscription,
+                    id_seance=s,
+                    type_absence="ABSENT",
+                    duree_absence=Decimal("2.0"),
+                    statut="NON_JUSTIFIEE",
+                    encodee_par=self.prof,
+                )
+                for s in seances
+            ]
+        )
 
         self.client.force_login(self.secretary)
         url = reverse("api:export-student-pdf", args=[self.student.pk])
@@ -349,34 +410,55 @@ class StudentApiIsolationTests(TestCase):
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
 
         self.admin = User.objects.create_user(
-            email="admin-stu@example.com", nom="Admin", prenom="Stu",
-            password="pass1234", role=User.Role.ADMIN,
+            email="admin-stu@example.com",
+            nom="Admin",
+            prenom="Stu",
+            password="pass1234",
+            role=User.Role.ADMIN,
         )
         self.prof = User.objects.create_user(
-            email="prof-stu@example.com", nom="Prof", prenom="Stu",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-stu@example.com",
+            nom="Prof",
+            prenom="Stu",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.prof2 = User.objects.create_user(
-            email="prof2-stu@example.com", nom="Prof2", prenom="Stu",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof2-stu@example.com",
+            nom="Prof2",
+            prenom="Stu",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student1 = User.objects.create_user(
-            email="stu1-stu@example.com", nom="Stu", prenom="One",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu1-stu@example.com",
+            nom="Stu",
+            prenom="One",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.student2 = User.objects.create_user(
-            email="stu2-stu@example.com", nom="Stu", prenom="Two",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu2-stu@example.com",
+            nom="Stu",
+            prenom="Two",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
 
         # Course taught by prof — student1 enrolled
         self.course = Cours.objects.create(
-            code_cours="STU1", nom_cours="Course Stu",
-            nombre_total_periodes=20, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.annee, niveau=1,
+            code_cours="STU1",
+            nom_cours="Course Stu",
+            nombre_total_periodes=20,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
         )
         Inscription.objects.create(
-            id_etudiant=self.student1, id_cours=self.course, id_annee=self.annee,
+            id_etudiant=self.student1,
+            id_cours=self.course,
+            id_annee=self.annee,
         )
 
         self.url = reverse("api:student-list")
@@ -427,32 +509,50 @@ class ApiAcademicYearIsolationTests(TestCase):
         self.dept = Departement.objects.create(
             nom_departement="Dept Year Isolation", id_faculte=self.faculte
         )
-        self.old_year = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
-        self.current_year = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
+        self.old_year = AnneeAcademique.objects.create(
+            libelle="2024-2025", active=False
+        )
+        self.current_year = AnneeAcademique.objects.create(
+            libelle="2025-2026", active=True
+        )
 
         self.prof = User.objects.create_user(
-            email="prof-yr@example.com", nom="Prof", prenom="Year",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-yr@example.com",
+            nom="Prof",
+            prenom="Year",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-yr@example.com", nom="Stu", prenom="Year",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-yr@example.com",
+            nom="Stu",
+            prenom="Year",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
 
         self.course = Cours.objects.create(
-            code_cours="YR1", nom_cours="Year Course",
-            nombre_total_periodes=40, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.current_year, niveau=1,
+            code_cours="YR1",
+            nom_cours="Year Course",
+            nombre_total_periodes=40,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.current_year,
+            niveau=1,
         )
 
         # Old enrollment (should NOT be visible)
         self.old_inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course, id_annee=self.old_year,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.old_year,
             status=Inscription.Status.EN_COURS,
         )
         # Current enrollment (should be visible)
         self.current_inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course, id_annee=self.current_year,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.current_year,
             status=Inscription.Status.EN_COURS,
         )
 
@@ -470,22 +570,34 @@ class ApiAcademicYearIsolationTests(TestCase):
         """AbsenceViewSet for professors must only return current year absences."""
         # Create absences for both years
         old_seance = Seance.objects.create(
-            date_seance=date(2025, 3, 1), heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.course, id_annee=self.old_year,
+            date_seance=date(2025, 3, 1),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course,
+            id_annee=self.old_year,
         )
         current_seance = Seance.objects.create(
-            date_seance=date(2026, 3, 1), heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.course, id_annee=self.current_year,
+            date_seance=date(2026, 3, 1),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course,
+            id_annee=self.current_year,
         )
         old_absence = Absence.objects.create(
-            id_inscription=self.old_inscription, id_seance=old_seance,
-            type_absence="ABSENT", duree_absence=Decimal("2.0"),
-            statut="NON_JUSTIFIEE", encodee_par=self.prof,
+            id_inscription=self.old_inscription,
+            id_seance=old_seance,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof,
         )
         current_absence = Absence.objects.create(
-            id_inscription=self.current_inscription, id_seance=current_seance,
-            type_absence="ABSENT", duree_absence=Decimal("2.0"),
-            statut="NON_JUSTIFIEE", encodee_par=self.prof,
+            id_inscription=self.current_inscription,
+            id_seance=current_seance,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.0"),
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.prof,
         )
 
         self.client.force_login(self.prof)
