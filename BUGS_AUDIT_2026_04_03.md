@@ -166,4 +166,62 @@ Supprimer un etudiant ou une inscription detruit les enregistrements de presence
 | BUG-10 | BAS | [x] Corrige |
 | BUG-11 | BAS | [x] Corrige |
 
-**Tous les 159 tests passent apres corrections.**
+**Tous les 159 tests passent apres corrections (Batch 1).**
+
+---
+
+## Batch 2 — 2e passe d'audit approfondie (2026-04-03)
+
+### BUG-12 : Audit log manquant pour la creation du premier admin [HAUT]
+
+**Probleme :** `initial_setup()` cree le premier compte admin sans aucune trace dans les logs d'audit.
+C'est l'operation la plus critique du systeme et elle etait invisible.
+
+**Fichier :** `apps/accounts/views_setup.py` ligne 94-99
+
+**Correction :** Ajout de `log_action()` apres creation du superuser avec niveau CRITIQUE.
+
+---
+
+### BUG-13 : Year activation — log hors transaction + select_for_update manquant [MOYEN]
+
+**Probleme :** `admin_academic_year_set_active()` faisait un `update(active=False)` redondant
+(le model save() gere deja la desactivation des autres annees). Le `log_action()` etait hors
+du `transaction.atomic()`, et `select_for_update()` manquait sur l'annee cible.
+
+**Fichier :** `apps/dashboard/views_admin_courses.py` lignes 727-741
+
+**Correction :** select_for_update() sur l'annee, suppression du update() redondant,
+log_action() deplace a l'interieur de la transaction.
+
+---
+
+### BUG-14 : RoleMiddleware utilise startswith au lieu du match exact [MOYEN]
+
+**Probleme :** `RoleMiddleware.process_view()` utilisait `path.startswith(excluded)` pour
+verifier les chemins exclus du redirect "must change password". Un chemin comme
+`/accounts/login/../../admin/` pourrait theoriquement bypasser la verification.
+
+**Fichier :** `apps/accounts/middleware.py` ligne 92
+
+**Correction :** Remplace `startswith` par `path in excluded_paths` (match exact).
+
+---
+
+### BUG-15 : Formulaire setup — champs mot de passe sans max_length [MOYEN]
+
+**Probleme :** `InitialAdminForm` n'avait pas de `max_length` sur les champs password,
+meme vecteur DoS que BUG-07.
+
+**Fichier :** `apps/accounts/views_setup.py` lignes 46-58
+
+**Correction :** Ajout de `max_length=128` sur les deux champs.
+
+---
+
+| Bug | Severite | Statut |
+|-----|----------|--------|
+| BUG-12 | HAUT | [x] Corrige |
+| BUG-13 | MOYEN | [x] Corrige |
+| BUG-14 | MOYEN | [x] Corrige |
+| BUG-15 | MOYEN | [x] Corrige |

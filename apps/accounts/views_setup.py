@@ -14,6 +14,8 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from apps.audits.utils import log_action
+
 from .models import User
 
 
@@ -45,6 +47,7 @@ class InitialAdminForm(forms.Form):
     )
     password = forms.CharField(
         min_length=8,
+        max_length=128,
         label="Mot de passe",
         widget=forms.PasswordInput(
             attrs={"class": "form-control", "placeholder": "Minimum 8 caractères"}
@@ -52,6 +55,7 @@ class InitialAdminForm(forms.Form):
     )
     password_confirm = forms.CharField(
         min_length=8,
+        max_length=128,
         label="Confirmer le mot de passe",
         widget=forms.PasswordInput(
             attrs={"class": "form-control", "placeholder": "Retapez le mot de passe"}
@@ -91,11 +95,19 @@ def initial_setup(request):
                 if User.objects.select_for_update().filter(role=User.Role.ADMIN).exists():
                     raise Http404
 
-                User.objects.create_superuser(
+                admin = User.objects.create_superuser(
                     email=form.cleaned_data["email"],
                     nom=form.cleaned_data["nom"],
                     prenom=form.cleaned_data["prenom"],
                     password=form.cleaned_data["password"],
+                )
+                log_action(
+                    admin,
+                    f"CRITIQUE: Compte administrateur initial cree via setup ({admin.email})",
+                    request,
+                    niveau="CRITIQUE",
+                    objet_type="USER",
+                    objet_id=admin.id_utilisateur,
                 )
             return redirect("setup_complete")
     else:
