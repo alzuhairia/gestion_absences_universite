@@ -89,7 +89,7 @@ class RoleMiddleware:
 
             # Vérifier si l'utilisateur doit changer son mot de passe
             excluded_paths = _resolve_excluded_paths()
-            is_excluded = any(path.startswith(excluded) for excluded in excluded_paths)
+            is_excluded = path in excluded_paths
 
             if (
                 not is_excluded

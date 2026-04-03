@@ -724,21 +724,21 @@ def admin_academic_years(request):
 def admin_academic_year_set_active(request, year_id):
     """Définir une année académique comme active"""
 
-    year = get_object_or_404(AnneeAcademique, id_annee=year_id)
-
     with transaction.atomic():
-        AnneeAcademique.objects.update(active=False)
+        year = get_object_or_404(
+            AnneeAcademique.objects.select_for_update(), id_annee=year_id
+        )
         year.active = True
         year.save()
 
-    log_action(
-        request.user,
-        f"CRITIQUE: Année académique '{year.libelle}' définie comme active (Configuration système - Changement d'année académique)",
-        request,
-        niveau="CRITIQUE",
-        objet_type="AUTRE",
-        objet_id=year.id_annee,
-    )
+        log_action(
+            request.user,
+            f"CRITIQUE: Année académique '{year.libelle}' définie comme active (Configuration système - Changement d'année académique)",
+            request,
+            niveau="CRITIQUE",
+            objet_type="AUTRE",
+            objet_id=year.id_annee,
+        )
     messages.success(
         request, f"Année académique '{year.libelle}' définie comme active."
     )
