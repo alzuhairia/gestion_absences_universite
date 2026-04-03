@@ -118,7 +118,7 @@ def admin_audit_logs(request):
     if date_from:
         try:
             date_type.fromisoformat(date_from)
-            logs = logs.filter(date_action__gte=date_from)
+            logs = logs.filter(date_action__date__gte=date_from)
         except ValueError:
             pass
     if date_to:
@@ -194,7 +194,7 @@ def admin_export_audit_csv(request):
     if date_from:
         try:
             date_type.fromisoformat(date_from)
-            logs = logs.filter(date_action__gte=date_from)
+            logs = logs.filter(date_action__date__gte=date_from)
         except ValueError:
             pass
     if date_to:
@@ -228,7 +228,7 @@ def admin_export_audit_csv(request):
                 _sanitize_csv(user_email),
                 _sanitize_csv(user_role),
                 _sanitize_csv(log.action),
-                log.adresse_ip,
+                _sanitize_csv(log.adresse_ip),
             ]
         )
 
