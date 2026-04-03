@@ -42,6 +42,7 @@ class StudentCreationForm(forms.Form):
     )
     password_confirm = forms.CharField(
         label="Confirmation du mot de passe",
+        max_length=128,
         widget=forms.PasswordInput(attrs={"class": "form-control"}),
     )
 

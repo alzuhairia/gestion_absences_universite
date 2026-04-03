@@ -341,13 +341,17 @@ class QRScanRecord(models.Model):
     )
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="qr_scans",
+        null=True,
+        blank=True,
     )
     inscription = models.ForeignKey(
         "enrollments.Inscription",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="qr_scans",
+        null=True,
+        blank=True,
     )
     scanned_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -391,12 +395,14 @@ class QRScanLog(models.Model):
 
     etudiant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="qr_scan_logs",
+        null=True,
+        blank=True,
     )
     seance = models.ForeignKey(
         "academic_sessions.Seance",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="qr_scan_logs",
         null=True,
         blank=True,

@@ -220,11 +220,13 @@ class CoursForm(forms.ModelForm):
 class UserForm(forms.ModelForm):
     password = forms.CharField(
         required=False,
+        max_length=128,
         widget=forms.PasswordInput(attrs={"class": "form-control"}),
         help_text="Laissez vide pour ne pas modifier le mot de passe",
     )
     password_confirm = forms.CharField(
         required=False,
+        max_length=128,
         widget=forms.PasswordInput(attrs={"class": "form-control"}),
         label="Confirmer le mot de passe",
         help_text="",

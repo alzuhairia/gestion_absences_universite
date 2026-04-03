@@ -19,6 +19,8 @@ from openpyxl import Workbook
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+from django.utils import timezone
+
 from apps.absences.models import Absence
 from apps.accounts.models import User
 from apps.audits.utils import log_action
@@ -97,11 +99,12 @@ def export_student_pdf(request, student_id=None):
     inscriptions = Inscription.objects.filter(**insc_filter).select_related("id_cours")
     inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
 
-    # Cohérence avec la page rapports : EN_ATTENTE + NON_JUSTIFIEE
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -141,7 +144,8 @@ def export_student_pdf(request, student_id=None):
     absences = (
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .select_related("id_seance", "id_seance__id_cours")
         .order_by("id_seance__date_seance")
@@ -225,10 +229,12 @@ def export_at_risk_excel(request):
         all_inscriptions = all_inscriptions.filter(id_annee=active_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     system_threshold = get_system_threshold()
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

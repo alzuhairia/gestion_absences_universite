@@ -380,11 +380,14 @@ def recalculer_eligibilite(inscription):
                 else:
                     msg = f"ALERTE : Seuil de {seuil}% dépassé pour {cours.nom_cours}. Examen bloqué."
 
-                Notification.objects.create(
-                    id_utilisateur=inscription.id_etudiant,
-                    message=msg,
-                    type="ALERTE",
-                )
+                try:
+                    Notification.objects.create(
+                        id_utilisateur=inscription.id_etudiant,
+                        message=msg,
+                        type="ALERTE",
+                    )
+                except Exception:
+                    logger.exception("Failed to create blocking notification for %s", cours.nom_cours)
 
                 # Email to student + professor (deferred after commit)
                 student = inscription.id_etudiant
@@ -394,19 +397,21 @@ def recalculer_eligibilite(inscription):
                     student, professor, course_name, taux, seuil_effectif
                 ))
 
-                # Log d'Audit
-                LogAudit.objects.create(
-                    id_utilisateur=inscription.id_etudiant,
-                    action=(
-                        f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} "
-                        f"(Taux: {taux:.1f}%, Seuil effectif: {seuil_effectif}%"
-                        f"{', exempté' if inscription.exemption_40 else ''})"
-                    ),
-                    adresse_ip="0.0.0.0",  # nosec B104
-                    niveau="CRITIQUE",
-                    objet_type="INSCRIPTION",
-                    objet_id=inscription.id_inscription,
-                )
+                try:
+                    LogAudit.objects.create(
+                        id_utilisateur=inscription.id_etudiant,
+                        action=(
+                            f"CRITIQUE: Blocage automatique examen - {cours.nom_cours} "
+                            f"(Taux: {taux:.1f}%, Seuil effectif: {seuil_effectif}%"
+                            f"{', exempté' if inscription.exemption_40 else ''})"
+                        ),
+                        adresse_ip="0.0.0.0",  # nosec B104
+                        niveau="CRITIQUE",
+                        objet_type="INSCRIPTION",
+                        objet_id=inscription.id_inscription,
+                    )
+                except Exception:
+                    logger.exception("Failed to create audit log for blocking %s", cours.nom_cours)
     else:
         # Étudiant est sous le seuil effectif → éligible
         if not inscription.eligible_examen:
@@ -414,11 +419,14 @@ def recalculer_eligibilite(inscription):
                 inscription.eligible_examen = True
                 inscription.save(update_fields=["eligible_examen"])
 
-                Notification.objects.create(
-                    id_utilisateur=inscription.id_etudiant,
-                    message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
-                    type="INFO",
-                )
+                try:
+                    Notification.objects.create(
+                        id_utilisateur=inscription.id_etudiant,
+                        message=f"Information : Vous êtes à nouveau éligible à l'examen pour {cours.nom_cours}.",
+                        type="INFO",
+                    )
+                except Exception:
+                    logger.exception("Failed to create unblocking notification for %s", cours.nom_cours)
 
                 student = inscription.id_etudiant
                 course_name = cours.nom_cours

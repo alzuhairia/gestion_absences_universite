@@ -127,6 +127,10 @@ class Inscription(models.Model):
                 condition=models.Q(type_inscription__in=["NORMALE", "A_PART"]),
                 name="inscription_type_valid_values",
             ),
+            models.CheckConstraint(
+                condition=models.Q(exemption_margin__gte=0, exemption_margin__lte=100),
+                name="inscription_exemption_margin_range",
+            ),
         ]
 
     def clean(self):

@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Q, Sum
+from django.utils import timezone
 
 from apps.utils import safe_get_page
 from django.shortcuts import redirect, render
@@ -114,11 +115,12 @@ def secretary_dashboard(request):
         all_inscriptions_qs = all_inscriptions_qs.filter(id_annee=academic_year)
     all_inscriptions = list(all_inscriptions_qs)
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -304,10 +306,12 @@ def secretary_seuils_absence(request):
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
 
     inscription_ids = list(inscriptions_qs.values_list("id_inscription", flat=True))
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -388,11 +392,12 @@ def secretary_exports(request):
 
     active_inscriptions_list = list(active_inscriptions)
     inscription_ids = [ins.id_inscription for ins in active_inscriptions_list]
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -540,8 +545,8 @@ def active_courses(request):
         courses_with_sessions = set(session_bounds.keys())
 
     # Get filter options
-    faculties = Faculte.objects.all().order_by("nom_faculte")
-    departments = Departement.objects.all().order_by("nom_departement")
+    faculties = Faculte.objects.filter(actif=True).order_by("nom_faculte")
+    departments = Departement.objects.filter(actif=True).order_by("nom_departement")
     if faculty_filter:
         departments = departments.filter(id_faculte_id=faculty_filter)
     professors = User.objects.filter(role=User.Role.PROFESSEUR).order_by(
