@@ -260,13 +260,13 @@ class InscriptionViewSet(viewsets.ModelViewSet):
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {"id_etudiant": user}
+            flt = {"id_etudiant": user, "status": Inscription.Status.EN_COURS}
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {"id_cours__professeur": user}
+            flt = {"id_cours__professeur": user, "status": Inscription.Status.EN_COURS}
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
@@ -589,13 +589,12 @@ def dashboard_analytics(request):
     inscription_ids = list(
         all_inscriptions.values_list("id_inscription", flat=True)
     )
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[
-                Absence.Statut.NON_JUSTIFIEE,
-                Absence.Statut.EN_ATTENTE,
-            ],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -792,13 +791,12 @@ def export_student_pdf_api(request, student_id):
         inscriptions.values_list("id_inscription", flat=True)
     )
 
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[
-                Absence.Statut.NON_JUSTIFIEE,
-                Absence.Statut.EN_ATTENTE,
-            ],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -808,10 +806,8 @@ def export_student_pdf_api(request, student_id):
     absences = (
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[
-                Absence.Statut.NON_JUSTIFIEE,
-                Absence.Statut.EN_ATTENTE,
-            ],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .select_related("id_seance", "id_seance__id_cours")
         .order_by("id_seance__date_seance")[:500]
@@ -939,13 +935,12 @@ def export_at_risk_excel_api(request):
     inscription_ids = list(
         all_inscriptions.values_list("id_inscription", flat=True)
     )
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[
-                Absence.Statut.NON_JUSTIFIEE,
-                Absence.Statut.EN_ATTENTE,
-            ],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

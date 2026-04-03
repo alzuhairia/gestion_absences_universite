@@ -29,6 +29,7 @@ class CustomAuthenticationForm(AuthenticationForm):
     )
     password = forms.CharField(
         label="Mot de passe",
+        max_length=128,
         widget=forms.PasswordInput(attrs={"class": "form-control"}),
     )
 

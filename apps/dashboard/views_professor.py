@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum
+from django.utils import timezone
 
 from apps.utils import safe_get_page
 from django.shortcuts import get_object_or_404, redirect, render
@@ -49,9 +50,7 @@ def instructor_dashboard(request):
     if not academic_year:
         academic_year = AnneeAcademique.objects.order_by("-id_annee").first()
 
-    from django.utils import timezone
-
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # --- KPI 1: Active Courses (assigned to professor, marked as active)
     active_courses = Cours.objects.filter(professeur=request.user, actif=True)
@@ -95,11 +94,12 @@ def instructor_dashboard(request):
 
     all_inscriptions = list(all_inscriptions_qs)
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -206,11 +206,12 @@ def instructor_course_detail(request, course_id):
     # Evaluate once: extract IDs from Python objects instead of an extra query.
     inscriptions = list(inscriptions)
     inscription_ids = [ins.id_inscription for ins in inscriptions]
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -384,13 +385,14 @@ def instructor_courses(request):
         all_course_inscriptions = all_course_inscriptions.filter(
             id_annee=academic_year
         )
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=all_course_inscriptions.values_list(
                 "id_inscription", flat=True
             ),
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -524,11 +526,12 @@ def instructor_statistics(request):
         ).select_related("id_cours"))
 
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            # CORRECTION BUG CRITIQUE #3b — EN_ATTENTE compte comme NON_JUSTIFIEE (loophole fermé)
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))

@@ -195,18 +195,19 @@ def admin_user_reset_password(request, user_id):
             messages.error(request, error)
         return redirect("dashboard:admin_user_edit", user_id=user_id)
 
-    user.set_password(new_password)
-    # Forcer l'utilisateur à changer son mot de passe à la prochaine connexion
-    user.must_change_password = True
-    user.save(update_fields=["password", "must_change_password"])
-    log_action(
-        request.user,
-        f"CRITIQUE: Réinitialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sécurité)",
-        request,
-        niveau="CRITIQUE",
-        objet_type="USER",
-        objet_id=user.id_utilisateur,
-    )
+    with transaction.atomic():
+        user.set_password(new_password)
+        # Forcer l'utilisateur à changer son mot de passe à la prochaine connexion
+        user.must_change_password = True
+        user.save(update_fields=["password", "must_change_password"])
+        log_action(
+            request.user,
+            f"CRITIQUE: Réinitialisation du mot de passe pour '{user.email}' (Gestion des utilisateurs - Action de sécurité)",
+            request,
+            niveau="CRITIQUE",
+            objet_type="USER",
+            objet_id=user.id_utilisateur,
+        )
     messages.success(
         request,
         f"Mot de passe réinitialisé pour '{user.email}'. L'utilisateur devra le changer lors de sa prochaine connexion.",
