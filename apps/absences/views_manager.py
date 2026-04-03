@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.models import User
@@ -167,10 +168,16 @@ def edit_absence(request, pk):
                     if justification:
                         if new_statut == Absence.Statut.JUSTIFIEE:
                             justification.state = Justification.State.ACCEPTEE
+                            justification.validee_par = request.user
+                            justification.date_validation = timezone.now()
                         elif new_statut == Absence.Statut.NON_JUSTIFIEE:
                             justification.state = Justification.State.REFUSEE
+                            justification.validee_par = request.user
+                            justification.date_validation = timezone.now()
                         elif new_statut == Absence.Statut.EN_ATTENTE:
                             justification.state = Justification.State.EN_ATTENTE
+                            justification.validee_par = None
+                            justification.date_validation = None
                         justification.save()
 
                 log_action(

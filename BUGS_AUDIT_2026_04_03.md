@@ -225,3 +225,59 @@ meme vecteur DoS que BUG-07.
 | BUG-13 | MOYEN | [x] Corrige |
 | BUG-14 | MOYEN | [x] Corrige |
 | BUG-15 | MOYEN | [x] Corrige |
+
+---
+
+## Batch 3 — 3e passe d'audit approfondie (2026-04-03)
+
+### BUG-16 : Filtrage date_action inconsistant dans les logs d'audit [HAUT]
+
+**Probleme :** `admin_audit_logs()` et `admin_export_audit_csv()` utilisaient `date_action__gte`
+(comparaison string sur un DateTime) pour date_from et `date_action__date__lte` pour date_to.
+La comparaison `__gte` avec une string date sur un champ DateTime donne des resultats incorrects
+(coerce a minuit, ignore le fuseau horaire de facon inconsistante avec `__date__lte`).
+
+**Impact :** Les filtres de date dans les journaux d'audit retournent des enregistrements incorrects.
+
+**Fichier :** `apps/dashboard/views_admin_settings.py` lignes 121, 197
+
+**Correction :** Remplacer `date_action__gte` par `date_action__date__gte` dans les deux fonctions.
+
+---
+
+### BUG-17 : Justification sync manquant validee_par/date_validation dans edit_absence [MOYEN]
+
+**Probleme :** `edit_absence()` synchronise `Justification.state` avec `Absence.statut` mais
+ne met pas a jour `validee_par` et `date_validation`. Une justification marquee ACCEPTEE
+n'a ni valideur ni date de validation, violant l'invariant de donnees.
+
+**Impact :** Donnees de validation inconsistantes. Rapports et templates affichant validee_par
+montrent NULL pour des justifications acceptees via edit_absence.
+
+**Fichier :** `apps/absences/views_manager.py` lignes 161-174
+
+**Correction :** Ajouter `validee_par=request.user` et `date_validation=timezone.now()` pour
+ACCEPTEE et REFUSEE, et remettre a None pour EN_ATTENTE.
+
+---
+
+### BUG-18 : Protection injection CSV manquante sur adresse_ip [BAS]
+
+**Probleme :** L'export CSV des logs d'audit sanitise tous les champs avec `_sanitize_csv()`
+sauf `adresse_ip`. Un attaquant pourrait injecter une formule Excel via une adresse IP forgee.
+
+**Impact :** Injection de formule Excel potentielle via l'ouverture du CSV dans un tableur.
+
+**Fichier :** `apps/dashboard/views_admin_settings.py` ligne 231
+
+**Correction :** Appliquer `_sanitize_csv()` sur `log.adresse_ip`.
+
+---
+
+| Bug | Severite | Statut |
+|-----|----------|--------|
+| BUG-16 | HAUT | [x] Corrige |
+| BUG-17 | MOYEN | [x] Corrige |
+| BUG-18 | BAS | [x] Corrige |
+
+**Tous les 159 tests passent apres corrections (Batch 3).**
