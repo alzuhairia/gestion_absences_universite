@@ -2,6 +2,177 @@
 
 {% block title %}Statistiques — Administration{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ── KPI Cards ── */
+    .stat-card {
+        border: none;
+        border-radius: 16px;
+        padding: 1.5rem;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    .stat-card .stat-icon {
+        position: absolute;
+        right: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 2.5rem;
+        opacity: 0.2;
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .stat-card .stat-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.85;
+        margin-top: 0.25rem;
+    }
+    .bg-gradient-primary   { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .bg-gradient-success   { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .bg-gradient-warning   { background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); }
+    .bg-gradient-danger    { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
+
+    /* ── Chart Cards ── */
+    .chart-card {
+        border: none;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        transition: box-shadow 0.2s;
+    }
+    .chart-card:hover {
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    .chart-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 1rem 1.25rem;
+        border-radius: 16px 16px 0 0;
+    }
+    .chart-card .card-header h6 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #344767;
+        margin: 0;
+    }
+    .chart-card .card-header h6 i {
+        margin-right: 0.5rem;
+        opacity: 0.7;
+    }
+    .chart-card .card-body {
+        padding: 1.25rem;
+    }
+
+    /* ── Chart containers ── */
+    .chart-container {
+        position: relative;
+        width: 100%;
+    }
+    .chart-container-line   { height: 280px; }
+    .chart-container-bar    { height: 260px; }
+    .chart-container-doughnut { height: 240px; }
+
+    /* ── Ranking table ── */
+    .ranking-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8392ab;
+        border-bottom: 2px solid #f0f0f0;
+        padding: 0.6rem 0.75rem;
+    }
+    .ranking-table td {
+        padding: 0.65rem 0.75rem;
+        font-size: 0.875rem;
+        color: #344767;
+        border-bottom: 1px solid #f8f9fa;
+        vertical-align: middle;
+    }
+    .ranking-table tbody tr:hover {
+        background-color: #f8f9fe;
+    }
+    .rank-badge {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    .rank-1 { background: linear-gradient(135deg, #f5af19, #f12711); }
+    .rank-2 { background: linear-gradient(135deg, #8e9eab, #667eea); }
+    .rank-3 { background: linear-gradient(135deg, #c97c4b, #b06a3b); }
+    .rank-other { background: #e9ecef; color: #6c757d; }
+
+    /* ── Page header ── */
+    .page-header {
+        margin-bottom: 1.75rem;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #344767;
+    }
+    .page-header p {
+        color: #8392ab;
+        font-size: 0.9rem;
+    }
+    .year-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.5rem 1.25rem;
+        border-radius: 50px;
+    }
+
+    /* ── Section titles ── */
+    .section-divider {
+        display: flex;
+        align-items: center;
+        margin: 1.75rem 0 1rem;
+    }
+    .section-divider h5 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #344767;
+        margin: 0;
+        white-space: nowrap;
+    }
+    .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e9ecef;
+        margin-left: 1rem;
+    }
+
+    /* ── Progress bars for ranking ── */
+    .progress-thin {
+        height: 6px;
+        border-radius: 3px;
+        background: #f0f0f0;
+    }
+    .progress-thin .progress-bar {
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <li class="breadcrumb-item"><a href="{% url 'dashboard:admin_dashboard' %}">Tableau de Bord</a></li>
 <li class="breadcrumb-item active" aria-current="page">Statistiques</li>
@@ -9,121 +180,137 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+
+    <!-- ══════ Header ══════ -->
+    <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
-            <h1 class="h3 mb-0 text-gray-800">
-                <i class="fas fa-chart-bar me-2"></i>Statistiques Avancées
-            </h1>
-            <p class="text-muted mb-0">Analyse détaillée des absences pour l'année académique en cours</p>
+            <h1><i class="fas fa-chart-pie me-2" style="opacity:0.7"></i>Statistiques Avancees</h1>
+            <p class="mb-0">Vue analytique des absences pour l'annee academique en cours</p>
         </div>
         {% if academic_year %}
-        <span class="badge bg-primary fs-6 py-2 px-3">{{ academic_year.libelle }}</span>
+        <span class="year-badge"><i class="fas fa-calendar-alt me-1"></i> {{ academic_year.libelle }}</span>
         {% endif %}
     </div>
 
-    <!-- Row 1: Evolution mensuelle (full width) -->
-    <div class="row mb-4">
+    <!-- ══════ KPI Cards ══════ -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card bg-gradient-primary">
+                <i class="fas fa-clipboard-list stat-icon"></i>
+                <div class="stat-value">{{ total_absences }}</div>
+                <div class="stat-label">Total Absences</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card bg-gradient-danger">
+                <i class="fas fa-times-circle stat-icon"></i>
+                <div class="stat-value">{{ kpi_unjustified }}</div>
+                <div class="stat-label">Non Justifiees</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card bg-gradient-warning">
+                <i class="fas fa-hourglass-half stat-icon"></i>
+                <div class="stat-value">{{ kpi_pending }}</div>
+                <div class="stat-label">En Attente</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card bg-gradient-success">
+                <i class="fas fa-check-double stat-icon"></i>
+                <div class="stat-value">{{ kpi_justified_pct }}%</div>
+                <div class="stat-label">Taux Justification</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════ Monthly Evolution (full width) ══════ -->
+    <div class="row g-3 mb-3">
         <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-chart-area me-2"></i>Evolution Mensuelle des Absences
-                    </h6>
+            <div class="chart-card card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6><i class="fas fa-chart-area"></i>Evolution Mensuelle des Absences</h6>
                 </div>
                 <div class="card-body">
-                    <canvas id="monthlyChart" height="80"></canvas>
+                    <div class="chart-container chart-container-line">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Row 2: Top Professeurs + Top Cours -->
-    <div class="row mb-4">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-danger">
-                        <i class="fas fa-user-tie me-2"></i>Top 5 Professeurs — Plus d'Absences
-                    </h6>
+    <!-- ══════ Section: Repartitions ══════ -->
+    <div class="section-divider">
+        <h5><i class="fas fa-chart-pie me-2" style="opacity:0.5"></i>Repartitions</h5>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <!-- Statut -->
+        <div class="col-lg-4">
+            <div class="chart-card card h-100">
+                <div class="card-header">
+                    <h6><i class="fas fa-check-circle"></i>Par Statut</h6>
                 </div>
-                <div class="card-body">
-                    <canvas id="topProfessorsChart" height="200"></canvas>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div class="chart-container chart-container-doughnut">
+                        <canvas id="statusChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-warning">
-                        <i class="fas fa-book me-2"></i>Top 5 Cours — Plus d'Absences
-                    </h6>
+        <!-- Departement -->
+        <div class="col-lg-4">
+            <div class="chart-card card h-100">
+                <div class="card-header">
+                    <h6><i class="fas fa-sitemap"></i>Par Departement</h6>
                 </div>
-                <div class="card-body">
-                    <canvas id="topCoursesChart" height="200"></canvas>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div class="chart-container chart-container-doughnut">
+                        <canvas id="deptChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Niveau -->
+        <div class="col-lg-4">
+            <div class="chart-card card h-100">
+                <div class="card-header">
+                    <h6><i class="fas fa-layer-group"></i>Par Niveau</h6>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div class="chart-container chart-container-doughnut">
+                        <canvas id="levelChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Row 3: Repartition par Departement + Statut + Niveau -->
-    <div class="row mb-4">
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-info">
-                        <i class="fas fa-sitemap me-2"></i>Absences par Departement
-                    </h6>
-                </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
-                    <canvas id="deptChart" height="220"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-success">
-                        <i class="fas fa-check-circle me-2"></i>Repartition par Statut
-                    </h6>
-                </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
-                    <canvas id="statusChart" height="220"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-secondary">
-                        <i class="fas fa-layer-group me-2"></i>Absences par Niveau
-                    </h6>
-                </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
-                    <canvas id="levelChart" height="220"></canvas>
-                </div>
-            </div>
-        </div>
+    <!-- ══════ Section: Classements ══════ -->
+    <div class="section-divider">
+        <h5><i class="fas fa-trophy me-2" style="opacity:0.5"></i>Classements</h5>
     </div>
 
-    <!-- Row 4: Tableaux recapitulatifs -->
-    <div class="row mb-4">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-danger">
-                        <i class="fas fa-trophy me-2"></i>Classement Professeurs (absences dans leurs cours)
-                    </h6>
+    <div class="row g-3 mb-3">
+        <!-- Top Professeurs: chart + table -->
+        <div class="col-lg-6">
+            <div class="chart-card card h-100">
+                <div class="card-header">
+                    <h6><i class="fas fa-user-tie"></i>Top 5 Professeurs — Absences dans leurs cours</h6>
                 </div>
                 <div class="card-body">
+                    <div class="chart-container chart-container-bar mb-3">
+                        <canvas id="topProfessorsChart"></canvas>
+                    </div>
                     {% if top_professors %}
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
+                        <table class="table ranking-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>#</th>
+                                    <th style="width:50px">#</th>
                                     <th>Professeur</th>
-                                    <th class="text-end">Absences</th>
+                                    <th class="text-end" style="width:90px">Absences</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -131,18 +318,12 @@
                                 {% if prof.prof_nom %}
                                 <tr>
                                     <td>
-                                        {% if forloop.counter == 1 %}
-                                        <span class="badge bg-danger">1er</span>
-                                        {% elif forloop.counter == 2 %}
-                                        <span class="badge bg-warning text-dark">2e</span>
-                                        {% elif forloop.counter == 3 %}
-                                        <span class="badge bg-info">3e</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">{{ forloop.counter }}e</span>
-                                        {% endif %}
+                                        <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-other{% endif %}">
+                                            {{ forloop.counter }}
+                                        </span>
                                     </td>
-                                    <td>{{ prof.prof_prenom }} {{ prof.prof_nom }}</td>
-                                    <td class="text-end"><strong>{{ prof.total }}</strong></td>
+                                    <td class="fw-medium">{{ prof.prof_prenom }} {{ prof.prof_nom }}</td>
+                                    <td class="text-end fw-bold">{{ prof.total }}</td>
                                 </tr>
                                 {% endif %}
                                 {% endfor %}
@@ -150,57 +331,55 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted text-center py-3">Aucune donnee disponible</p>
+                    <p class="text-muted text-center mb-0">Aucune donnee disponible</p>
                     {% endif %}
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 bg-white">
-                    <h6 class="m-0 font-weight-bold text-warning">
-                        <i class="fas fa-sort-amount-down me-2"></i>Classement Cours (nombre d'absences)
-                    </h6>
+
+        <!-- Top Cours: chart + table -->
+        <div class="col-lg-6">
+            <div class="chart-card card h-100">
+                <div class="card-header">
+                    <h6><i class="fas fa-book"></i>Top 5 Cours — Nombre d'absences</h6>
                 </div>
                 <div class="card-body">
+                    <div class="chart-container chart-container-bar mb-3">
+                        <canvas id="topCoursesChart"></canvas>
+                    </div>
                     {% if top_courses %}
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
+                        <table class="table ranking-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>#</th>
+                                    <th style="width:50px">#</th>
                                     <th>Cours</th>
-                                    <th class="text-end">Absences</th>
+                                    <th class="text-end" style="width:90px">Absences</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for course in top_courses %}
                                 <tr>
                                     <td>
-                                        {% if forloop.counter == 1 %}
-                                        <span class="badge bg-danger">1er</span>
-                                        {% elif forloop.counter == 2 %}
-                                        <span class="badge bg-warning text-dark">2e</span>
-                                        {% elif forloop.counter == 3 %}
-                                        <span class="badge bg-info">3e</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">{{ forloop.counter }}e</span>
-                                        {% endif %}
+                                        <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-other{% endif %}">
+                                            {{ forloop.counter }}
+                                        </span>
                                     </td>
-                                    <td>{{ course.cours_nom }}</td>
-                                    <td class="text-end"><strong>{{ course.total }}</strong></td>
+                                    <td class="fw-medium">{{ course.cours_nom }}</td>
+                                    <td class="text-end fw-bold">{{ course.total }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted text-center py-3">Aucune donnee disponible</p>
+                    <p class="text-muted text-center mb-0">Aucune donnee disponible</p>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
@@ -210,213 +389,190 @@
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const _cd = JSON.parse(document.getElementById('chart-data').textContent);
-    const colors = {
-        primary: 'rgba(13, 110, 253, 0.8)',
-        primaryBg: 'rgba(13, 110, 253, 0.1)',
-        danger: 'rgba(220, 53, 69, 0.8)',
-        warning: 'rgba(255, 193, 7, 0.8)',
-        success: 'rgba(25, 135, 84, 0.8)',
-        info: 'rgba(13, 202, 240, 0.8)',
-        secondary: 'rgba(108, 117, 125, 0.8)',
-        purple: 'rgba(111, 66, 193, 0.8)',
-        orange: 'rgba(253, 126, 20, 0.8)',
-        teal: 'rgba(32, 201, 151, 0.8)',
-    };
-    const pieColors = [colors.danger, colors.warning, colors.success, colors.info, colors.purple, colors.orange, colors.teal, colors.primary];
 
-    const defaultOptions = {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: { labels: { font: { size: 12 } } }
-        }
+    /* ── Palette ── */
+    const palette = {
+        indigo:  { solid: '#667eea', bg: 'rgba(102,126,234,0.12)' },
+        purple:  { solid: '#764ba2', bg: 'rgba(118,75,162,0.12)' },
+        rose:    { solid: '#eb3349', bg: 'rgba(235,51,73,0.12)' },
+        orange:  { solid: '#f2994a', bg: 'rgba(242,153,74,0.12)' },
+        amber:   { solid: '#f2c94c', bg: 'rgba(242,201,76,0.12)' },
+        green:   { solid: '#38ef7d', bg: 'rgba(56,239,125,0.12)' },
+        teal:    { solid: '#11998e', bg: 'rgba(17,153,142,0.12)' },
+        cyan:    { solid: '#0dcaf0', bg: 'rgba(13,202,240,0.12)' },
     };
+    const ringColors = [palette.indigo.solid, palette.rose.solid, palette.orange.solid, palette.teal.solid, palette.purple.solid, palette.cyan.solid, palette.amber.solid, palette.green.solid];
+    const barGradients = [palette.rose.solid, palette.orange.solid, palette.cyan.solid, palette.teal.solid, palette.purple.solid];
 
-    // 1. Evolution mensuelle (Line/Area chart)
-    const monthlyLabels = _cd.monthly_labels;
-    const monthlyData = _cd.monthly_data;
-    if (monthlyLabels.length > 0) {
-        new Chart(document.getElementById('monthlyChart'), {
+    const noData = '<p class="text-muted text-center py-4 mb-0" style="font-size:0.85rem">Aucune donnee disponible</p>';
+
+    /* ── Shared defaults ── */
+    Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
+    Chart.defaults.color = '#8392ab';
+
+    /* ── 1. Monthly evolution (gradient area) ── */
+    if (_cd.monthly_labels.length > 0) {
+        const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+        const grad = ctx1.createLinearGradient(0, 0, 0, 280);
+        grad.addColorStop(0, 'rgba(102,126,234,0.3)');
+        grad.addColorStop(1, 'rgba(102,126,234,0.01)');
+        new Chart(ctx1, {
             type: 'line',
             data: {
-                labels: monthlyLabels,
+                labels: _cd.monthly_labels,
                 datasets: [{
-                    label: 'Nombre d\'absences',
-                    data: monthlyData,
-                    borderColor: colors.primary,
-                    backgroundColor: colors.primaryBg,
+                    label: 'Absences',
+                    data: _cd.monthly_data,
+                    borderColor: palette.indigo.solid,
+                    backgroundColor: grad,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
                     pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: colors.primary,
-                    borderWidth: 2,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: palette.indigo.solid,
+                    pointBorderWidth: 2.5,
+                    borderWidth: 2.5,
                 }]
             },
             options: {
-                ...defaultOptions,
-                scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } },
-                    x: { grid: { display: false } }
-                },
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    ...defaultOptions.plugins,
                     legend: { display: false },
                     tooltip: {
-                        callbacks: {
-                            label: function(ctx) {
-                                return ctx.parsed.y + ' absence(s)';
-                            }
-                        }
+                        backgroundColor: '#344767',
+                        titleFont: { weight: '600' },
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: { label: ctx => ctx.parsed.y + ' absence(s)' }
                     }
-                }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { grid: { display: false } }
+                },
+                interaction: { intersect: false, mode: 'index' }
             }
         });
     } else {
-        document.getElementById('monthlyChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible pour ce graphique</p>';
+        document.getElementById('monthlyChart').closest('.chart-container').innerHTML = noData;
     }
 
-    // 2. Top Professeurs (Horizontal Bar)
-    const profLabels = _cd.top_professors_labels;
-    const profData = _cd.top_professors_data;
-    if (profLabels.length > 0) {
+    /* ── 2. Top Professors (horizontal bar) ── */
+    if (_cd.top_professors_labels.length > 0) {
         new Chart(document.getElementById('topProfessorsChart'), {
             type: 'bar',
             data: {
-                labels: profLabels,
+                labels: _cd.top_professors_labels,
                 datasets: [{
-                    label: 'Absences',
-                    data: profData,
-                    backgroundColor: [colors.danger, colors.warning, colors.info, colors.success, colors.purple],
+                    data: _cd.top_professors_data,
+                    backgroundColor: barGradients.slice(0, _cd.top_professors_labels.length),
                     borderRadius: 6,
-                    barThickness: 25,
+                    barThickness: 22,
+                    maxBarThickness: 28,
                 }]
             },
             options: {
-                ...defaultOptions,
+                responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y',
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#344767', cornerRadius: 8, padding: 10 } },
                 scales: {
-                    x: { beginAtZero: true, ticks: { precision: 0 } },
-                    y: { grid: { display: false } }
-                },
-                plugins: { ...defaultOptions.plugins, legend: { display: false } }
+                    x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { grid: { display: false }, ticks: { font: { size: 12 } } }
+                }
             }
         });
     } else {
-        document.getElementById('topProfessorsChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible</p>';
+        document.getElementById('topProfessorsChart').closest('.chart-container').innerHTML = noData;
     }
 
-    // 3. Top Cours (Horizontal Bar)
-    const courseLabels = _cd.top_courses_labels;
-    const courseData = _cd.top_courses_data;
-    if (courseLabels.length > 0) {
+    /* ── 3. Top Courses (horizontal bar) ── */
+    if (_cd.top_courses_labels.length > 0) {
         new Chart(document.getElementById('topCoursesChart'), {
             type: 'bar',
             data: {
-                labels: courseLabels,
+                labels: _cd.top_courses_labels,
                 datasets: [{
-                    label: 'Absences',
-                    data: courseData,
-                    backgroundColor: [colors.warning, colors.orange, colors.danger, colors.info, colors.teal],
+                    data: _cd.top_courses_data,
+                    backgroundColor: [palette.orange.solid, palette.amber.solid, palette.rose.solid, palette.cyan.solid, palette.teal.solid],
                     borderRadius: 6,
-                    barThickness: 25,
+                    barThickness: 22,
+                    maxBarThickness: 28,
                 }]
             },
             options: {
-                ...defaultOptions,
+                responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y',
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#344767', cornerRadius: 8, padding: 10 } },
                 scales: {
-                    x: { beginAtZero: true, ticks: { precision: 0 } },
-                    y: { grid: { display: false } }
-                },
-                plugins: { ...defaultOptions.plugins, legend: { display: false } }
+                    x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { grid: { display: false }, ticks: { font: { size: 12 } } }
+                }
             }
         });
     } else {
-        document.getElementById('topCoursesChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible</p>';
+        document.getElementById('topCoursesChart').closest('.chart-container').innerHTML = noData;
     }
 
-    // 4. Repartition par Departement (Doughnut)
-    const deptLabels = _cd.dept_labels;
-    const deptData = _cd.dept_data;
-    if (deptLabels.length > 0) {
+    /* ── 4. Department doughnut ── */
+    if (_cd.dept_labels.length > 0) {
         new Chart(document.getElementById('deptChart'), {
             type: 'doughnut',
             data: {
-                labels: deptLabels,
-                datasets: [{
-                    data: deptData,
-                    backgroundColor: pieColors.slice(0, deptLabels.length),
-                    borderWidth: 2,
-                    borderColor: '#fff',
-                }]
+                labels: _cd.dept_labels,
+                datasets: [{ data: _cd.dept_data, backgroundColor: ringColors.slice(0, _cd.dept_labels.length), borderWidth: 0, hoverOffset: 8 }]
             },
             options: {
-                ...defaultOptions,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }
-                }
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } }, tooltip: { backgroundColor: '#344767', cornerRadius: 8, padding: 10 } }
             }
         });
     } else {
-        document.getElementById('deptChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible</p>';
+        document.getElementById('deptChart').closest('.chart-container').innerHTML = noData;
     }
 
-    // 5. Repartition par Statut (Doughnut)
-    const statusLabels = _cd.status_labels;
-    const statusData = _cd.status_data;
-    const statusColors = {
-        'Non justifiée': colors.danger,
-        'En attente': colors.warning,
-        'Justifiée': colors.success,
-    };
-    if (statusLabels.length > 0) {
+    /* ── 5. Status doughnut ── */
+    const statusColorMap = { 'Non justifiee': palette.rose.solid, 'Non justifi\u00e9e': palette.rose.solid, 'En attente': palette.orange.solid, 'Justifiee': palette.teal.solid, 'Justifi\u00e9e': palette.teal.solid };
+    if (_cd.status_labels.length > 0) {
         new Chart(document.getElementById('statusChart'), {
             type: 'doughnut',
             data: {
-                labels: statusLabels,
-                datasets: [{
-                    data: statusData,
-                    backgroundColor: statusLabels.map(l => statusColors[l] || colors.secondary),
-                    borderWidth: 2,
-                    borderColor: '#fff',
-                }]
+                labels: _cd.status_labels,
+                datasets: [{ data: _cd.status_data, backgroundColor: _cd.status_labels.map(l => statusColorMap[l] || palette.purple.solid), borderWidth: 0, hoverOffset: 8 }]
             },
             options: {
-                ...defaultOptions,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }
-                }
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } }, tooltip: { backgroundColor: '#344767', cornerRadius: 8, padding: 10 } }
             }
         });
     } else {
-        document.getElementById('statusChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible</p>';
+        document.getElementById('statusChart').closest('.chart-container').innerHTML = noData;
     }
 
-    // 6. Repartition par Niveau (Doughnut)
-    const levelLabels = _cd.level_labels;
-    const levelData = _cd.level_data;
-    if (levelLabels.length > 0) {
+    /* ── 6. Level doughnut ── */
+    if (_cd.level_labels.length > 0) {
         new Chart(document.getElementById('levelChart'), {
             type: 'doughnut',
             data: {
-                labels: levelLabels,
-                datasets: [{
-                    data: levelData,
-                    backgroundColor: [colors.primary, colors.warning, colors.success],
-                    borderWidth: 2,
-                    borderColor: '#fff',
-                }]
+                labels: _cd.level_labels,
+                datasets: [{ data: _cd.level_data, backgroundColor: [palette.indigo.solid, palette.orange.solid, palette.teal.solid, palette.rose.solid, palette.purple.solid], borderWidth: 0, hoverOffset: 8 }]
             },
             options: {
-                ...defaultOptions,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }
-                }
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } }, tooltip: { backgroundColor: '#344767', cornerRadius: 8, padding: 10 } }
             }
         });
     } else {
-        document.getElementById('levelChart').parentElement.innerHTML = '<p class="text-muted text-center py-5">Aucune donnee disponible</p>';
+        document.getElementById('levelChart').closest('.chart-container').innerHTML = noData;
     }
 });
 </script>

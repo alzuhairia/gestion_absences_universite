@@ -275,6 +275,14 @@ def admin_statistics(request):
     ]
     level_data = [l["total"] for l in level_absences if l["niveau"]]
 
+    # 7. KPI summary stats
+    total_absences = Absence.objects.filter(year_filter).count()
+    status_dict = {s["statut"]: s["total"] for s in status_absences}
+    kpi_justified = status_dict.get(Absence.Statut.JUSTIFIEE, 0)
+    kpi_pending = status_dict.get(Absence.Statut.EN_ATTENTE, 0)
+    kpi_unjustified = status_dict.get(Absence.Statut.NON_JUSTIFIEE, 0)
+    kpi_justified_pct = round((kpi_justified / total_absences) * 100, 1) if total_absences else 0
+
     # Combine chart data into a single dict for safe JSON serialization via |json_script
     chart_data = {
         "monthly_labels": monthly_labels,
@@ -296,6 +304,11 @@ def admin_statistics(request):
         "chart_data": chart_data,
         "top_professors": top_professors,
         "top_courses": top_courses,
+        "total_absences": total_absences,
+        "kpi_justified": kpi_justified,
+        "kpi_pending": kpi_pending,
+        "kpi_unjustified": kpi_unjustified,
+        "kpi_justified_pct": kpi_justified_pct,
     }
 
     return render(request, "dashboard/admin_statistics.html", context)
