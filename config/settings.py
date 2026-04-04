@@ -196,6 +196,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/hour",
         "user": "500/hour",
+        "absence_write": "60/hour",
+        "justification_upload": "20/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

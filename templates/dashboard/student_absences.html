@@ -85,6 +85,11 @@
                                         <span class="badge bg-danger">
                                             <i class="fas fa-times me-1"></i>Refusé
                                         </span>
+                                        {% if item.justification.commentaire_gestion %}
+                                        <br><small class="text-danger mt-1 d-inline-block">
+                                            <i class="fas fa-comment-dots me-1"></i>{{ item.justification.commentaire_gestion }}
+                                        </small>
+                                        {% endif %}
                                     {% else %}
                                         <span class="badge bg-warning">
                                             <i class="fas fa-clock me-1"></i>En attente

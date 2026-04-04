@@ -10,6 +10,7 @@ DEPENDANCES CLES : absences.services.recalculer_eligibilite
 
 import logging
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
@@ -18,6 +19,8 @@ from .models import Absence
 from .services import recalculer_eligibilite
 
 logger = logging.getLogger("django")
+
+CACHE_KEY_AT_RISK = "admin_dashboard:at_risk_count"
 
 
 def _schedule_eligibility_recalc(inscription_pk):
@@ -52,6 +55,7 @@ def absence_post_save(sender, instance, **kwargs):
     """
     if instance.id_inscription_id:
         _schedule_eligibility_recalc(instance.id_inscription_id)
+        cache.delete(CACHE_KEY_AT_RISK)
 
 
 @receiver(post_delete, sender=Absence)
@@ -65,3 +69,4 @@ def absence_post_delete(sender, instance, **kwargs):
     """
     if instance.id_inscription_id:
         _schedule_eligibility_recalc(instance.id_inscription_id)
+        cache.delete(CACHE_KEY_AT_RISK)

@@ -9,12 +9,17 @@ DEPENDANCES CLES : absences.services, enrollments.models
 
 from datetime import timedelta
 
+import logging
+
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
+
+logger = logging.getLogger(__name__)
 
 from apps.absences.models import Absence
 from apps.academic_sessions.models import AnneeAcademique
@@ -37,6 +42,57 @@ def is_admin(user):
     IMPORTANT: Séparé de is_secretary() pour éviter la confusion des rôles.
     """
     return user.is_authenticated and user.role == User.Role.ADMIN
+
+
+CACHE_KEY_AT_RISK = "admin_dashboard:at_risk_count"
+CACHE_TTL_AT_RISK = 300  # 5 minutes
+
+
+def _get_at_risk_count_cached(academic_year):
+    """Calcule le nombre d'etudiants a risque avec cache Redis (5 min)."""
+    cached = cache.get(CACHE_KEY_AT_RISK)
+    if cached is not None:
+        return cached
+
+    at_risk_count = 0
+    all_inscriptions = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours", "id_etudiant")
+    if academic_year:
+        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
+    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
+    today = timezone.localdate()
+    absence_sums = dict(
+        Absence.objects.filter(
+            id_inscription__in=inscription_ids,
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
+        )
+        .values("id_inscription")
+        .annotate(total=Sum("duree_absence"))
+        .values_list("id_inscription", "total")
+    )
+    from apps.absences.services import get_system_threshold
+
+    system_threshold = get_system_threshold()
+    for ins in all_inscriptions:
+        cours = ins.id_cours
+        if cours.nombre_total_periodes > 0:
+            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
+            rate = (total_abs / cours.nombre_total_periodes) * 100
+            seuil = (
+                cours.seuil_absence
+                if cours.seuil_absence is not None
+                else system_threshold
+            )
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
+            if rate >= seuil_effectif:
+                at_risk_count += 1
+
+    cache.set(CACHE_KEY_AT_RISK, at_risk_count, CACHE_TTL_AT_RISK)
+    return at_risk_count
 
 
 # ---------------------------------------------------------------------------
@@ -98,40 +154,8 @@ def admin_dashboard_main(request):
         active_courses_with_activity = 0
 
     # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
-    at_risk_count = 0
-    all_inscriptions = Inscription.objects.filter(
-        status=Inscription.Status.EN_COURS
-    ).select_related("id_cours", "id_etudiant")
-    if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
-    today = timezone.localdate()
-    absence_sums = dict(
-        Absence.objects.filter(
-            id_inscription__in=inscription_ids,
-            statut=Absence.Statut.NON_JUSTIFIEE,
-            id_seance__date_seance__lte=today,
-        )
-        .values("id_inscription")
-        .annotate(total=Sum("duree_absence"))
-        .values_list("id_inscription", "total")
-    )
-    from apps.absences.services import get_system_threshold
-
-    system_threshold = get_system_threshold()
-    for ins in all_inscriptions:
-        cours = ins.id_cours
-        if cours.nombre_total_periodes > 0:
-            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
-            rate = (total_abs / cours.nombre_total_periodes) * 100
-            seuil = (
-                cours.seuil_absence
-                if cours.seuil_absence is not None
-                else system_threshold
-            )
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
-            if rate >= seuil_effectif:
-                at_risk_count += 1
+    # Calcul lourd -> cache 5 minutes
+    at_risk_count = _get_at_risk_count_cached(academic_year)
 
     # KPI 6: Nombre d'actions critiques (journaux d'audit des 7 derniers jours)
     seven_days_ago = timezone.now() - timedelta(days=7)
