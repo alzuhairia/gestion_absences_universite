@@ -122,6 +122,10 @@
                 {% endif %}
             </div>
             <div class="card-body p-0">
+                <div class="px-3 pt-3 pb-2">
+                    <input type="text" id="student-search" class="form-control form-control-sm"
+                        placeholder="Rechercher un etudiant..." autocomplete="off">
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead class="bg-light">
@@ -305,6 +309,18 @@
             } else if (target.classList.contains('js-duration-toggle')) {
                 toggleDuration(target.dataset.inscription);
             }
+        });
+    }
+
+    /* --- Student search filter --- */
+    var searchInput = document.getElementById('student-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            var query = this.value.toLowerCase().trim();
+            document.querySelectorAll('#student-tbody .student-row').forEach(function(row) {
+                var name = (row.querySelector('td:first-child') || row.cells[0]).textContent.toLowerCase();
+                row.style.display = name.indexOf(query) !== -1 ? '' : 'none';
+            });
         });
     }
 </script>

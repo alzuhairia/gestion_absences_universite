@@ -294,6 +294,13 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     """
 
     pagination_class = StandardPagination
+
+    def get_throttles(self):
+        if self.action in ("create", "update", "partial_update"):
+            from apps.api.throttles import AbsenceWriteThrottle
+
+            return [AbsenceWriteThrottle()]
+        return super().get_throttles()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = AbsenceFilter
     search_fields = [
@@ -379,6 +386,13 @@ class JustificationViewSet(
     filterset_class = JustificationFilter
     ordering_fields = ["date_soumission", "state"]
     ordering = ["-date_soumission"]
+
+    def get_throttles(self):
+        if self.action == "create":
+            from apps.api.throttles import JustificationUploadThrottle
+
+            return [JustificationUploadThrottle()]
+        return super().get_throttles()
 
     def get_permissions(self):
         if self.action == "create":

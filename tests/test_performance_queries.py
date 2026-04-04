@@ -217,3 +217,23 @@ class QueryBudgetTests(TestCase):
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_admin_dashboard_query_budget(self):
+        self.client.force_login(self.admin)
+        response = self.assert_max_queries(
+            15,
+            self.client.get,
+            reverse("dashboard:admin_dashboard"),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_statistics_query_budget(self):
+        self.client.force_login(self.admin)
+        response = self.assert_max_queries(
+            12,
+            self.client.get,
+            reverse("dashboard:admin_statistics"),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
