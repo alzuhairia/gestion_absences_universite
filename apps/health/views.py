@@ -11,6 +11,7 @@ DEPENDANCES CLES : settings.HEALTHCHECK_TOKEN, audits.ip_utils
 import hmac
 import ipaddress
 import logging
+from functools import lru_cache
 
 from django.conf import settings
 from django.db import connection
@@ -27,16 +28,30 @@ def _health_rate_limit(group, request) -> str:
     return settings.HEALTHCHECK_RATE_LIMIT
 
 
-def _health_allowlist_networks():
+@lru_cache(maxsize=1)
+def _health_allowlist_networks_cached(cidrs_tuple):
+    """
+    Parse the configured CIDR allowlist into ``ip_network`` objects.
+
+    Cached on the immutable settings tuple so the parsing only happens once
+    per process. The cache key changes automatically if HEALTHCHECK_ALLOWLIST_CIDRS
+    is reloaded with a different list (e.g. on settings reload in tests).
+    """
     networks = []
-    for cidr in settings.HEALTHCHECK_ALLOWLIST_CIDRS:
+    for cidr in cidrs_tuple:
         try:
             networks.append(ipaddress.ip_network(cidr, strict=False))
         except ValueError:
             logger.warning(
                 "Ignoring invalid HEALTHCHECK_ALLOWLIST_CIDRS entry: %s", cidr
             )
-    return networks
+    return tuple(networks)
+
+
+def _health_allowlist_networks():
+    return _health_allowlist_networks_cached(
+        tuple(settings.HEALTHCHECK_ALLOWLIST_CIDRS)
+    )
 
 
 def _is_health_client_allowed(client_ip: str) -> bool:

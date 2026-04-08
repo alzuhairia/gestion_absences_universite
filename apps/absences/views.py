@@ -44,6 +44,7 @@ from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import (
     professor_required,
+    roles_required,
     secretary_required,
     student_required,
 )
@@ -379,24 +380,23 @@ def review_justification(request, absence_id):
 
 
 @login_required
+@roles_required(User.Role.SECRETAIRE, User.Role.ADMIN, User.Role.ETUDIANT)
 @require_GET
 def download_justification(request, justification_id):
     """
     Telecharger un justificatif avec controle d'acces.
     - Secretaire/Admin: acces autorise
     - Etudiant: seulement ses propres justificatifs
-    - Professeur: refuse
+    - Professeur: refuse (filtre par le decorateur roles_required)
     """
     justification = get_object_or_404(Justification, id_justification=justification_id)
     absence = justification.id_absence
 
-    if request.user.role in [User.Role.SECRETAIRE, User.Role.ADMIN]:
-        pass
-    elif request.user.role == User.Role.ETUDIANT:
+    # Le décorateur a déjà filtré les rôles. Vérification de propriété pour
+    # les étudiants : ils ne peuvent télécharger que leurs propres justificatifs.
+    if request.user.role == User.Role.ETUDIANT:
         if absence.id_inscription.id_etudiant != request.user:
             raise PermissionDenied("Acces non autorise")
-    else:
-        raise PermissionDenied("Acces non autorise")
 
     if not justification.document or not justification.document.name:
         raise Http404("Aucun document")
@@ -1547,9 +1547,25 @@ def qr_finalize(request, token):
     return redirect("dashboard:instructor_course_detail", course.id_cours)
 
 
+def _hash_qr_token(raw_token):
+    """
+    Return ``sha256:<hex>`` digest of a QR token, or ``""`` if no token.
+
+    The audit log must never store the raw token: a database read would let
+    an attacker replay the QR scan endpoint with a valid token. We persist
+    a one-way digest so investigators can still correlate scan attempts
+    referring to the same QR while keeping the token unrecoverable from the log.
+    """
+    if not raw_token:
+        return ""
+    import hashlib
+    digest = hashlib.sha256(str(raw_token).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
 def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
                       latitude=None, longitude=None, distance=None):
-    """Log every QR scan attempt for audit."""
+    """Log every QR scan attempt for audit. Token is hashed (SHA-256) before storage."""
     QRScanLog.objects.create(
         etudiant=request.user,
         seance=seance,
@@ -1559,7 +1575,7 @@ def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
         distance_meters=round(distance, 1) if distance is not None else None,
         gps_status=gps_status,
         scan_result=scan_result,
-        qr_token_used=str(qr_token.token) if qr_token else "",
+        qr_token_used=_hash_qr_token(qr_token.token if qr_token else None),
         user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
     )
 

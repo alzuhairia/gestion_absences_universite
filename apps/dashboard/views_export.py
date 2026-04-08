@@ -10,7 +10,6 @@ DEPENDANCES CLES : absences.utils, absences.services, openpyxl
 import datetime
 
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
@@ -24,7 +23,7 @@ from django.utils import timezone
 from apps.absences.models import Absence
 from apps.accounts.models import User
 from apps.audits.utils import log_action
-from apps.dashboard.decorators import secretary_required
+from apps.dashboard.decorators import roles_required, secretary_required
 from apps.enrollments.models import Inscription
 
 
@@ -34,26 +33,28 @@ from apps.enrollments.models import Inscription
 
 
 @login_required
+@roles_required(User.Role.ETUDIANT, User.Role.ADMIN, User.Role.SECRETAIRE)
 @require_GET
 def export_student_pdf(request, student_id=None):
     """
     Generate a PDF report of absences for a specific student.
     STRICT: Students can only export their own reports.
     Filtre par année académique active et inclut EN_ATTENTE + NON_JUSTIFIEE.
+
+    Accès filtré par @roles_required (PROFESSEUR exclu). Les contrôles fins
+    (un étudiant ne peut accéder qu'à son propre rapport) restent en vue.
     """
     from apps.academic_sessions.models import AnneeAcademique
 
     # STRICT: Students can only export their own reports
     if request.user.role == User.Role.ETUDIANT:
         student = request.user
-    elif request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
-        # student_id can come from URL parameter or GET query string
+    else:
+        # ADMIN ou SECRETAIRE — student_id peut venir de l'URL ou de la query
         effective_student_id = student_id or request.GET.get("student_id")
         if not effective_student_id:
             return HttpResponseBadRequest("student_id requis")
         student = get_object_or_404(User, pk=effective_student_id, role=User.Role.ETUDIANT)
-    else:
-        raise PermissionDenied("Acces non autorise")
 
     # Filtrer par année académique active
     academic_year = AnneeAcademique.objects.filter(active=True).first()

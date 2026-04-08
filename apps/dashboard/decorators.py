@@ -250,6 +250,39 @@ def professor_required(view_func):
     return wrapper
 
 
+def roles_required(*allowed_roles):
+    """
+    Décorateur qui n'autorise que les utilisateurs portant l'un des rôles fournis.
+
+    À utiliser quand plusieurs rôles distincts doivent partager la même vue
+    (ex. téléchargement d'un justificatif accessible au secrétariat, à l'admin
+    et à l'étudiant propriétaire). Les vérifications de propriété fines
+    (« cet étudiant est bien le destinataire ») restent à la charge de la vue.
+
+    Usage::
+
+        @login_required
+        @roles_required(User.Role.SECRETAIRE, User.Role.ADMIN)
+        def my_view(request): ...
+    """
+    allowed = set(allowed_roles)
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            user = request.user
+            if not user.is_authenticated:
+                return redirect("accounts:login")
+            if user.role not in allowed:
+                messages.error(request, "Accès non autorisé.")
+                return redirect("dashboard:index")
+            return view_func(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def student_required(view_func):
     """
     Décorateur qui vérifie que l'utilisateur est un étudiant.

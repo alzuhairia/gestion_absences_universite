@@ -21,12 +21,24 @@ Emails never raise — failures are logged silently.
 
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+# Bounded thread pool for fire-and-forget async email sending.
+# Prevents thread explosion when bulk operations (e.g. mark_absence on 200 students)
+# trigger many emails at once. Daemon=True so workers don't block process shutdown.
+_EMAIL_EXECUTOR = ThreadPoolExecutor(
+    max_workers=getattr(settings, "EMAIL_ASYNC_MAX_WORKERS", 5),
+    thread_name_prefix="email-async",
+)
 
 
 # ─── Core send functions ────────────────────────────────────────────────────
@@ -86,13 +98,20 @@ def send_notification_email_bulk(recipient_users, subject, body, html_body=None)
 
 def send_email_async(recipient_user, subject, body, html_body=None):
     """
-    Send an email in a background thread. Fire-and-forget.
+    Send an email via a bounded background thread pool. Fire-and-forget.
     Useful for non-critical notifications where blocking the request is undesirable.
+
+    Uses a shared ThreadPoolExecutor (see ``_EMAIL_EXECUTOR``) so that bulk
+    operations cannot exhaust process resources. Submissions beyond the pool's
+    capacity queue inside the executor instead of spawning unbounded threads.
     """
     if not recipient_user or not getattr(recipient_user, "email", None):
         return
     if not getattr(recipient_user, "actif", True):
         return
+
+    recipient_email = recipient_user.email
+    recipient_pk = getattr(recipient_user, "pk", "?")
 
     def _send():
         try:
@@ -100,19 +119,23 @@ def send_email_async(recipient_user, subject, body, html_body=None):
                 subject=subject,
                 message=body,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_user.email],
+                recipient_list=[recipient_email],
                 html_message=html_body,
                 fail_silently=False,
             )
         except Exception:
             logger.exception(
                 "Async email failed for %s (user_id=%s)",
-                recipient_user.email,
-                getattr(recipient_user, "pk", "?"),
+                recipient_email,
+                recipient_pk,
             )
 
-    thread = threading.Thread(target=_send, daemon=True)
-    thread.start()
+    try:
+        _EMAIL_EXECUTOR.submit(_send)
+    except RuntimeError:
+        # Executor was shut down (e.g. during process teardown). Fall back to
+        # a one-shot daemon thread so we don't drop the email entirely.
+        threading.Thread(target=_send, daemon=True).start()
 
 
 def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_key,
@@ -120,6 +143,10 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
     """
     Send an email only if the same (recipient, event_type, event_key) was NOT
     already sent within the cooldown window.  Records the send in EmailLog.
+
+    Race-free: the EmailLog row is claimed *before* sending, inside an atomic
+    block, so two concurrent callers cannot both pass the check and both send.
+    Only the caller that successfully claims the row reaches send_mail.
 
     Returns True if sent, False if skipped or failed.
     """
@@ -129,16 +156,62 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
     if not email:
         return False
 
-    if EmailLog.already_sent(email, event_type, event_key, cooldown_hours):
-        logger.debug(
-            "Dedup: skipping %s email to %s (key=%s)", event_type, email, event_key
+    digest = EmailLog.make_digest(email, event_type, event_key)
+    cutoff = timezone.now() - timezone.timedelta(hours=cooldown_hours)
+
+    # Try to atomically claim the dedup slot for this (email, event, key) digest.
+    # Three possible outcomes:
+    #   1. No row exists  -> create one (we own the send).
+    #   2. Row exists, still inside cooldown -> skip (another caller already sent).
+    #   3. Row exists, outside cooldown -> conditionally bump created_at; the
+    #      WHERE clause includes the previous timestamp so only one concurrent
+    #      caller wins the update.
+    try:
+        with transaction.atomic():
+            existing = EmailLog.objects.filter(digest=digest).first()
+            if existing is None:
+                try:
+                    EmailLog.objects.create(
+                        digest=digest,
+                        recipient_email=email,
+                        event_type=event_type,
+                    )
+                except IntegrityError:
+                    # Lost the race to another worker — they will send.
+                    logger.debug(
+                        "Dedup race: another worker claimed %s email to %s (key=%s)",
+                        event_type, email, event_key,
+                    )
+                    return False
+            elif existing.created_at >= cutoff:
+                logger.debug(
+                    "Dedup: skipping %s email to %s (key=%s)",
+                    event_type, email, event_key,
+                )
+                return False
+            else:
+                # Outside cooldown window — try to claim by bumping created_at.
+                # Conditional update: only succeeds if no other worker has bumped
+                # the row since we read it.
+                claimed = EmailLog.objects.filter(
+                    digest=digest, created_at=existing.created_at
+                ).update(created_at=timezone.now())
+                if not claimed:
+                    logger.debug(
+                        "Dedup race: another worker refreshed %s email to %s (key=%s)",
+                        event_type, email, event_key,
+                    )
+                    return False
+    except Exception:
+        logger.exception(
+            "Failed to claim dedup slot for %s email to %s", event_type, email
         )
         return False
 
-    sent = send_notification_email(recipient_user, subject, body, html_body)
-    if sent:
-        EmailLog.record(email, event_type, event_key)
-    return sent
+    # Slot claimed — perform the actual send. If SMTP fails the log row stays,
+    # which is the safer side of the trade-off (no duplicate sends on retry
+    # within the cooldown window).
+    return send_notification_email(recipient_user, subject, body, html_body)
 
 
 # ─── HTML template rendering helper ─────────────────────────────────────────
