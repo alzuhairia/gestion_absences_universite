@@ -128,13 +128,22 @@ class EmailLog(models.Model):
 
     @classmethod
     def record(cls, email, event_type, event_key):
-        """Record that an email was sent (upsert by digest)."""
+        """
+        Record that an email was sent.
+
+        On collision the existing row is preserved as-is — we deliberately do
+        NOT reset ``created_at``, otherwise a duplicate send would silently
+        push the cooldown window forward and hide the incident.
+
+        Note: this method is retained for backwards compatibility. The
+        race-free path is ``send_with_dedup`` in ``apps.notifications.email``,
+        which claims the slot via INSERT-or-conditional-UPDATE before sending.
+        """
         digest = cls.make_digest(email, event_type, event_key)
-        cls.objects.update_or_create(
+        cls.objects.get_or_create(
             digest=digest,
             defaults={
                 "recipient_email": email,
                 "event_type": event_type,
-                "created_at": timezone.now(),
             },
         )

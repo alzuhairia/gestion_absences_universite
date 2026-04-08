@@ -16,7 +16,7 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
@@ -104,10 +104,11 @@ class RateLimitedLoginView(auth_views.LoginView):
                 to_evict = list(active_sessions[UserSession.MAX_SESSIONS_PER_USER:])
                 if to_evict:
                     evict_pks = [pk for pk, _ in to_evict]
-                    evict_keys = [key for _, key in to_evict]
-                    # Delete Django session data
-                    for key in evict_keys:
-                        SessionStore(session_key=key).delete()
+                    evict_keys = [key for _, key in to_evict if key]
+                    # Bulk delete Django session rows in a single SQL DELETE
+                    # (was N individual SessionStore.delete() round trips).
+                    if evict_keys:
+                        Session.objects.filter(session_key__in=evict_keys).delete()
                     # Delete tracking rows
                     UserSession.objects.filter(pk__in=evict_pks).delete()
         except Exception:

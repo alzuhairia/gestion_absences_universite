@@ -15,6 +15,7 @@ from django.db import transaction
 from apps.utils import safe_get_page
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.absences.models import Absence
@@ -47,12 +48,17 @@ def rules_management(request):
     # Evaluate once: extract IDs from Python objects instead of an extra query.
     inscriptions_list = list(inscriptions_qs)
     inscription_ids = [ins.id_inscription for ins in inscriptions_list]
-    # EN_ATTENTE counts as non-justified (loophole closed — consistent with
-    # all other views: services.py, views_professor.py, views_student.py).
+    # Only NON_JUSTIFIEE absences for past séances count — strictly aligned with
+    # apps.absences.services.calculer_absence_stats and every dashboard view
+    # (admin/professor/student). Including EN_ATTENTE here would penalise
+    # students whose justificatif is still under review and would surface a
+    # "BLOQUÉ" badge that disagrees with their actual eligible_examen flag.
+    today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
-            statut__in=[Absence.Statut.NON_JUSTIFIEE, Absence.Statut.EN_ATTENTE],
+            statut=Absence.Statut.NON_JUSTIFIEE,
+            id_seance__date_seance__lte=today,
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
