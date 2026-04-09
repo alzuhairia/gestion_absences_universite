@@ -1,0 +1,60 @@
+{% extends 'base_auth.html' %}
+
+{% block title %}Vérification 2FA - UniAbsences{% endblock %}
+
+{% block auth_title %}Vérification en deux étapes{% endblock %}
+
+{% block auth_subtitle %}Saisissez le code généré par votre application d'authentification{% endblock %}
+
+{% block content %}
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+    <i class="fas fa-info-circle me-2"></i>{{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="info-message">
+    <i class="fas fa-shield-alt"></i>
+    <strong>Sécurité renforcée :</strong> Ouvrez votre application TOTP (Google Authenticator, Authy...)
+    et saisissez le code à 6 chiffres affiché pour <strong>UniAbsences</strong>.
+</div>
+
+<form method="post" action="{% url 'accounts:verify_2fa' %}" id="verifyForm">
+    {% csrf_token %}
+
+    <div class="mb-4">
+        <label for="id_token" class="form-label">
+            <i class="fas fa-key me-2"></i>Code à 6 chiffres
+        </label>
+        <input
+            type="text"
+            name="token"
+            id="id_token"
+            class="form-control form-control-lg text-center"
+            placeholder="000000"
+            inputmode="numeric"
+            pattern="[0-9]{6}"
+            maxlength="6"
+            autocomplete="one-time-code"
+            required
+            autofocus
+            style="letter-spacing: 0.5em; font-size: 1.5rem;"
+        />
+        <small class="form-text text-muted">
+            Le code change toutes les 30 secondes. Vérifiez l'heure de votre téléphone si la vérification échoue.
+        </small>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg w-100">
+        <i class="fas fa-check me-2"></i>Vérifier
+    </button>
+</form>
+
+<div class="mt-4 text-center">
+    <a href="{% url 'accounts:logout' %}" class="text-muted small">
+        <i class="fas fa-sign-out-alt me-1"></i>Annuler et se déconnecter
+    </a>
+</div>
+{% endblock %}

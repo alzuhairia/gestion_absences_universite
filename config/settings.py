@@ -271,6 +271,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "apps.accounts.middleware.SessionInactivityMiddleware",
+    "apps.accounts.middleware_2fa.TwoFactorMiddleware",
     "apps.accounts.middleware.RoleMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "csp.middleware.CSPMiddleware",

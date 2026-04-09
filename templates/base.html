@@ -139,12 +139,6 @@
             </li>
             <hr class="sidebar-divider my-2">
             <li>
-                <a href="{% url 'accounts:settings' %}"
-                    class="nav-link {% if request.resolver_match.view_name == 'accounts:settings' %}active{% endif %}">
-                    <i class="fas fa-cog"></i> Paramètres
-                </a>
-            </li>
-            <li>
                 <form action="{% url 'accounts:logout' %}" method="post" id="logout-form" class="d-none">
                     {% csrf_token %}
                 </form>

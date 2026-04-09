@@ -1,0 +1,67 @@
+{% extends base_template|default:'base.html' %}
+
+{% block title %}Désactiver la 2FA{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'accounts:profile' %}">Mon Profil</a></li>
+<li class="breadcrumb-item active" aria-current="page">Désactiver la 2FA</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-shield-alt me-2"></i>Désactiver l'authentification à deux facteurs
+        </h1>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+
+            <div class="card shadow mb-4 border-danger">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 font-weight-bold text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Confirmation requise
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong>Attention :</strong> en désactivant la double authentification, votre compte
+                        sera moins protégé. Toute personne disposant de votre mot de passe pourra y accéder.
+                    </div>
+
+                    <p class="text-muted">
+                        Pour confirmer la désactivation, saisissez votre mot de passe actuel.
+                    </p>
+
+                    <form method="post" action="{% url 'accounts:disable_2fa' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label fw-bold">Mot de passe actuel</label>
+                            <input type="password"
+                                   name="password"
+                                   id="id_password"
+                                   class="form-control form-control-lg"
+                                   placeholder="••••••••"
+                                   autocomplete="current-password"
+                                   required
+                                   autofocus>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-shield-alt me-1"></i>Désactiver la 2FA
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
