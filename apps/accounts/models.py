@@ -182,6 +182,35 @@ class User(AbstractBaseUser, PermissionsMixin):
     # au premier login (middleware RoleMiddleware)
 
     # ============================================
+    # AUTHENTIFICATION À DEUX FACTEURS (TOTP)
+    # ============================================
+
+    two_factor_secret = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        db_column="two_factor_secret",
+        verbose_name=_("Secret TOTP 2FA"),
+        help_text=_(
+            "Clé secrète Base32 partagée avec l'application d'authentification "
+            "(Google Authenticator, Authy, etc.). Vide tant que la 2FA n'est pas activée."
+        ),
+    )
+    # Stocké en clair en DB par contrainte du protocole TOTP. Hashé serait inutile :
+    # le serveur doit pouvoir recalculer le code à chaque vérification. Protégez la DB.
+
+    two_factor_enabled = models.BooleanField(
+        default=False,
+        db_column="two_factor_enabled",
+        verbose_name=_("2FA activée"),
+        db_index=True,
+        help_text=_("Indique si l'utilisateur a activé l'authentification à deux facteurs."),
+    )
+    # Chaque user décide individuellement d'activer/désactiver la 2FA depuis ses
+    # paramètres. Le middleware TwoFactorMiddleware redirige vers verify_2fa
+    # tant que la session n'a pas validé le code TOTP.
+
+    # ============================================
     # NIVEAU ACADÉMIQUE (UNIQUEMENT POUR ÉTUDIANTS)
     # ============================================
 

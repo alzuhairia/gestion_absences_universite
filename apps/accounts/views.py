@@ -114,6 +114,14 @@ class RateLimitedLoginView(auth_views.LoginView):
         except Exception:
             logger.exception("Failed to enforce session limit for user %s", user.pk)
 
+        # 2FA gate : si la 2FA est activee sur le compte, on force le passage par
+        # la page de verification AVANT toute autre redirection (dashboard, next, ...).
+        # Le middleware TwoFactorMiddleware re-bloquera l'utilisateur tant que la
+        # session n'a pas le flag VERIFIED_SESSION_KEY.
+        if getattr(user, "two_factor_enabled", False):
+            self.request.session.pop("2fa_verified", None)
+            return redirect("accounts:verify_2fa")
+
         return response
 
 
@@ -122,13 +130,19 @@ class RateLimitedLoginView(auth_views.LoginView):
 def profile_view(request):
     """
     Vue de profil qui utilise le bon template selon le rôle de l'utilisateur.
+
+    Centralise tout ce qui est lié au compte utilisateur :
+      - Informations personnelles (lecture seule)
+      - Sécurité : mot de passe + 2FA (boutons vers les vues dédiées)
     """
     user = request.user
+
     context = {
         "user": user,
+        "two_factor_enabled": bool(getattr(user, "two_factor_enabled", False)),
     }
 
-    # Déterminer le template de base selon le rôle
+    # Déterminer le template selon le rôle
     if user.role == user.Role.ADMIN:
         template = "accounts/profile_admin.html"
     elif user.role == user.Role.SECRETAIRE:
@@ -139,38 +153,6 @@ def profile_view(request):
         template = "accounts/profile_student.html"
 
     return render(request, template, context)
-
-
-@login_required
-@require_http_methods(["GET", "POST"])
-def settings_view(request):
-    """
-    Page de paramètres pour l'étudiant.
-    """
-    user = request.user
-
-    # Mock context for UI demonstration
-    context = {
-        "language": request.session.get("django_language", "fr"),  # Default to FR
-        "two_factor_enabled": False,  # Mock status
-    }
-
-    if request.method == "POST":
-        # Handle Language Switch (Session based)
-        if "language" in request.POST:
-            request.session["django_language"] = request.POST.get("language")
-            messages.success(request, "Préférence de langue mise à jour (Session).")
-
-        # Handle 2FA Toggle (Mock)
-        elif "toggle_2fa" in request.POST:
-            # In a real app, this would update a user field
-            messages.info(
-                request, "L'authentification à deux facteurs sera bientôt disponible."
-            )
-
-        return redirect("accounts:settings")
-
-    return render(request, "accounts/settings.html", context)
 
 
 @login_required

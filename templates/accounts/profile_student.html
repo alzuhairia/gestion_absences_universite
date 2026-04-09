@@ -71,12 +71,55 @@
                         </div>
                     </div>
 
-                    <div class="d-grid gap-2 mt-4">
+                    <!-- Sécurité -->
+                    <h5 class="mt-5 mb-4 text-muted border-bottom pb-2">
+                        <i class="fas fa-shield-alt me-2"></i>Sécurité
+                    </h5>
+
+                    <div class="row align-items-center mb-3">
+                        <div class="col-sm-8">
+                            <div class="fw-bold text-dark">Mot de passe</div>
+                            <p class="text-muted small mb-0">Modifiez votre mot de passe régulièrement.</p>
+                        </div>
+                        <div class="col-sm-4 text-sm-end mt-2 mt-sm-0">
+                            <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-key me-1"></i> Modifier
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row align-items-center">
+                        <div class="col-sm-8">
+                            <div class="fw-bold text-dark">
+                                Double Authentification (2FA)
+                                {% if two_factor_enabled %}
+                                <span class="badge bg-success ms-2" style="font-size: 0.7em;">Activée</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">Désactivée</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-muted small mb-0">
+                                Code à 6 chiffres généré par une application (Google Authenticator, Authy, ...).
+                            </p>
+                        </div>
+                        <div class="col-sm-4 text-sm-end mt-2 mt-sm-0">
+                            {% if two_factor_enabled %}
+                            <a href="{% url 'accounts:disable_2fa' %}" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-shield-alt me-1"></i> Désactiver
+                            </a>
+                            {% else %}
+                            <a href="{% url 'accounts:setup_2fa' %}" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-shield-alt me-1"></i> Activer
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-5">
                         <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-outline-success">
                             <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
-                        </a>
-                        <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-primary">
-                            <i class="fas fa-key me-2"></i> Changer mon mot de passe
                         </a>
                     </div>
                 </div>
