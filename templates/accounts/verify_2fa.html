@@ -4,57 +4,147 @@
 
 {% block auth_title %}Vérification en deux étapes{% endblock %}
 
-{% block auth_subtitle %}Saisissez le code généré par votre application d'authentification{% endblock %}
+{% block auth_subtitle %}Saisissez le code à 6 chiffres généré par votre application d'authentification.{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* OTP-style code input — purely visual, single underlying field */
+    .otp-input {
+        width: 100%;
+        height: 72px;
+        text-align: center;
+        font-family: 'Manrope', monospace;
+        font-size: 1.85rem;
+        font-weight: 700;
+        letter-spacing: 0.55em;
+        text-indent: 0.55em; /* compensate letter-spacing centering */
+        color: var(--sn-text);
+        background: #fff;
+        border: 1.5px solid var(--sn-border);
+        border-radius: var(--sn-radius-md);
+        box-shadow: var(--sn-shadow-sm);
+        transition: border-color 0.25s var(--sn-ease),
+                    box-shadow 0.25s var(--sn-ease);
+    }
+
+    .otp-input::placeholder {
+        color: #CBD5E1;
+        font-weight: 600;
+    }
+
+    .otp-input:focus {
+        outline: none;
+        border-color: var(--sn-primary);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.16);
+    }
+
+    .otp-help {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+        font-size: 0.85rem;
+        color: var(--sn-text-muted);
+    }
+
+    .otp-help .otp-timer {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(99, 102, 241, 0.10);
+        color: var(--sn-primary);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-{% if messages %}
-{% for message in messages %}
-<div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
-    <i class="fas fa-info-circle me-2"></i>{{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <div class="info-message">
-    <i class="fas fa-shield-alt"></i>
-    <strong>Sécurité renforcée :</strong> Ouvrez votre application TOTP (Google Authenticator, Authy...)
-    et saisissez le code à 6 chiffres affiché pour <strong>UniAbsences</strong>.
+    <i class="fas fa-shield-halved"></i>
+    <div>
+        <strong>Sécurité renforcée.</strong>
+        Ouvrez votre application TOTP (Google Authenticator, Authy, 1Password…)
+        et saisissez le code à&nbsp;6&nbsp;chiffres affiché pour <strong>UniAbsences</strong>.
+    </div>
 </div>
 
-<form method="post" action="{% url 'accounts:verify_2fa' %}" id="verifyForm">
+<form method="post" action="{% url 'accounts:verify_2fa' %}" id="verifyForm" novalidate>
     {% csrf_token %}
 
-    <div class="mb-4">
-        <label for="id_token" class="form-label">
-            <i class="fas fa-key me-2"></i>Code à 6 chiffres
-        </label>
+    <div class="mb-3">
+        <label for="id_token" class="visually-hidden-focusable">Code à 6 chiffres</label>
         <input
             type="text"
             name="token"
             id="id_token"
-            class="form-control form-control-lg text-center"
-            placeholder="000000"
+            class="otp-input"
+            placeholder="••••••"
             inputmode="numeric"
             pattern="[0-9]{6}"
             maxlength="6"
             autocomplete="one-time-code"
             required
             autofocus
-            style="letter-spacing: 0.5em; font-size: 1.5rem;"
+            aria-describedby="otp-hint"
         />
-        <small class="form-text text-muted">
-            Le code change toutes les 30 secondes. Vérifiez l'heure de votre téléphone si la vérification échoue.
-        </small>
+        <p class="otp-help" id="otp-hint">
+            <span class="otp-timer">
+                <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                30&nbsp;s
+            </span>
+            Le code change automatiquement toutes les&nbsp;30&nbsp;secondes.
+        </p>
     </div>
 
-    <button type="submit" class="btn btn-primary btn-lg w-100">
-        <i class="fas fa-check me-2"></i>Vérifier
+    <button type="submit" class="btn-sn-primary" id="verifyBtn">
+        <span id="verifyLabel">
+            <i class="fas fa-check me-1"></i>
+            Vérifier le code
+        </span>
     </button>
 </form>
 
-<div class="mt-4 text-center">
-    <a href="{% url 'accounts:logout' %}" class="text-muted small">
-        <i class="fas fa-sign-out-alt me-1"></i>Annuler et se déconnecter
+<div class="text-center mt-4">
+    <a href="{% url 'accounts:logout' %}" class="btn-sn-ghost">
+        <i class="fas fa-arrow-left-long"></i>
+        Annuler et se déconnecter
     </a>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ request.csp_nonce }}">
+    (function () {
+        var input = document.getElementById('id_token');
+        var form = document.getElementById('verifyForm');
+        var btn = document.getElementById('verifyBtn');
+        var label = document.getElementById('verifyLabel');
+
+        // Numeric-only filter + auto-submit when 6 digits typed
+        if (input) {
+            input.addEventListener('input', function () {
+                var clean = input.value.replace(/\D+/g, '').slice(0, 6);
+                if (clean !== input.value) {
+                    input.value = clean;
+                }
+                if (clean.length === 6 && form) {
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                }
+            });
+        }
+
+        // Loading state on submit
+        if (form && btn && label) {
+            form.addEventListener('submit', function () {
+                btn.disabled = true;
+                label.innerHTML =
+                    '<span class="spinner-ring" aria-hidden="true"></span>' +
+                    '<span class="ms-2">Vérification…</span>';
+            });
+        }
+    })();
+</script>
 {% endblock %}
