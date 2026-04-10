@@ -1,133 +1,116 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration initiale — UniAbsences</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" integrity="sha384-3B6NwesSXE7YJlcLI9RpRqGf2p/EgVH8BgoKTaUrmKNDkHPStTQ3EyoYjCGXaOTS" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <style>
-        body {
-            background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 50%, #0d6efd 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .setup-card {
-            max-width: 520px;
-            width: 100%;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            border: none;
-        }
-        .setup-header {
-            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
-            color: white;
-            border-radius: 16px 16px 0 0;
-            padding: 2rem;
-            text-align: center;
-        }
-        .setup-header h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .setup-header p { opacity: 0.85; margin-bottom: 0; font-size: 0.9rem; }
-        .setup-icon {
-            width: 70px; height: 70px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1rem;
-            font-size: 1.8rem;
-        }
-        .setup-body { padding: 2rem; }
-        .badge-setup {
-            background: #fff3cd;
-            color: #856404;
-            font-size: 0.8rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            display: block;
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="card setup-card">
-        <div class="setup-header">
-            <div class="setup-icon">
-                <i class="fas fa-cog"></i>
-            </div>
-            <h1>Configuration initiale</h1>
-            <p>Bienvenue dans UniAbsences. Configurez votre compte administrateur.</p>
-        </div>
-        <div class="setup-body">
-            <div class="badge-setup">
-                <i class="fas fa-lock me-1"></i>
-                Cette page n'est accessible qu'une seule fois, au premier lancement.
-            </div>
+{% extends 'base_auth.html' %}
 
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {% for error in form.non_field_errors %}
-                <p class="mb-0">{{ error }}</p>
-                {% endfor %}
+{% block title %}Configuration initiale — UniAbsences{% endblock %}
+
+{% block auth_title %}Configuration initiale{% endblock %}
+
+{% block auth_subtitle %}Bienvenue dans UniAbsences. Créez votre compte administrateur pour démarrer.{% endblock %}
+
+{% block content %}
+<div style="
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: var(--sn-radius-md);
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #92400E;
+    text-align: center;
+    margin-bottom: 24px;
+">
+    <i class="fas fa-lock me-1"></i>
+    Cette page n'est accessible qu'une seule fois, au premier lancement.
+</div>
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger" role="alert" style="border-radius: var(--sn-radius-md); font-size: 0.88rem;">
+    <i class="fas fa-triangle-exclamation"></i>
+    <div>
+        {% for error in form.non_field_errors %}
+        <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+        <div>
+            <div class="field-icon-wrap">
+                <span class="field-icon"><i class="fas fa-user"></i></span>
+                <div class="form-floating">
+                    {{ form.prenom }}
+                    <label for="id_prenom">Prénom</label>
+                </div>
             </div>
+            {% if form.prenom.errors %}
+            <div style="font-size: 0.78rem; color: #EF4444; margin-top: 4px; padding-left: 4px;">{{ form.prenom.errors.0 }}</div>
             {% endif %}
-
-            <form method="post" novalidate>
-                {% csrf_token %}
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="id_prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
-                        {{ form.prenom }}
-                        {% if form.prenom.errors %}
-                        <div class="text-danger small mt-1">{{ form.prenom.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="id_nom" class="form-label">Nom <span class="text-danger">*</span></label>
-                        {{ form.nom }}
-                        {% if form.nom.errors %}
-                        <div class="text-danger small mt-1">{{ form.nom.errors.0 }}</div>
-                        {% endif %}
-                    </div>
+        </div>
+        <div>
+            <div class="field-icon-wrap">
+                <span class="field-icon"><i class="fas fa-user"></i></span>
+                <div class="form-floating">
+                    {{ form.nom }}
+                    <label for="id_nom">Nom</label>
                 </div>
-
-                <div class="mb-3">
-                    <label for="id_email" class="form-label">Adresse email <span class="text-danger">*</span></label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                    <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
-                    {% endif %}
-                    <small class="form-text text-muted">Cet email sera utilisé pour se connecter.</small>
-                </div>
-
-                <div class="mb-3">
-                    <label for="id_password" class="form-label">Mot de passe <span class="text-danger">*</span></label>
-                    {{ form.password }}
-                    {% if form.password.errors %}
-                    <div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="mb-4">
-                    <label for="id_password_confirm" class="form-label">Confirmer le mot de passe <span class="text-danger">*</span></label>
-                    {{ form.password_confirm }}
-                    {% if form.password_confirm.errors %}
-                    <div class="text-danger small mt-1">{{ form.password_confirm.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100 py-2">
-                    <i class="fas fa-user-shield me-2"></i>Créer le compte administrateur
-                </button>
-            </form>
+            </div>
+            {% if form.nom.errors %}
+            <div style="font-size: 0.78rem; color: #EF4444; margin-top: 4px; padding-left: 4px;">{{ form.nom.errors.0 }}</div>
+            {% endif %}
         </div>
     </div>
 
-    <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
-</body>
-</html>
+    <div style="margin-bottom: 14px;">
+        <div class="field-icon-wrap">
+            <span class="field-icon"><i class="fas fa-envelope"></i></span>
+            <div class="form-floating">
+                {{ form.email }}
+                <label for="id_email">Adresse email</label>
+            </div>
+        </div>
+        {% if form.email.errors %}
+        <div style="font-size: 0.78rem; color: #EF4444; margin-top: 4px; padding-left: 4px;">{{ form.email.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <div style="margin-bottom: 14px;">
+        <div class="field-icon-wrap">
+            <span class="field-icon"><i class="fas fa-lock"></i></span>
+            <div class="form-floating">
+                {{ form.password }}
+                <label for="id_password">Mot de passe</label>
+            </div>
+        </div>
+        {% if form.password.errors %}
+        <div style="font-size: 0.78rem; color: #EF4444; margin-top: 4px; padding-left: 4px;">{{ form.password.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <div style="margin-bottom: 22px;">
+        <div class="field-icon-wrap">
+            <span class="field-icon"><i class="fas fa-lock"></i></span>
+            <div class="form-floating">
+                {{ form.password_confirm }}
+                <label for="id_password_confirm">Confirmer le mot de passe</label>
+            </div>
+        </div>
+        {% if form.password_confirm.errors %}
+        <div style="font-size: 0.78rem; color: #EF4444; margin-top: 4px; padding-left: 4px;">{{ form.password_confirm.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn-auth-submit">
+        <span class="btn-auth-submit__text">
+            <i class="fas fa-user-shield me-2"></i>Créer le compte administrateur
+        </span>
+    </button>
+</form>
+{% endblock %}
+
+{% block auth_footer %}
+<i class="fas fa-shield-halved me-1"></i>
+Configuration sécurisée — accès unique au premier démarrage
+{% endblock %}
