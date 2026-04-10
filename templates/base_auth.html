@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Connexion - Gestion des Absences{% endblock %}</title>
+    <meta name="description" content="UniAbsences — Gestion intelligente des présences académiques pour l'enseignement supérieur.">
+    <meta name="theme-color" content="#1E1B4B">
+    <title>{% block title %}Connexion - UniAbsences{% endblock %}</title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
@@ -12,44 +14,503 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" integrity="sha384-3B6NwesSXE7YJlcLI9RpRqGf2p/EgVH8BgoKTaUrmKNDkHPStTQ3EyoYjCGXaOTS" crossorigin="anonymous" referrerpolicy="no-referrer">
 
     <style>
-        :root {
-            --primary-color: #0d6efd;
-            --secondary-color: #6c757d;
-            --success-color: #198754;
-            --institutional-blue: #003366;
-            --institutional-light: #f8f9fa;
+        /* ─────────────────────────────────────────────
+           Scholar Nexus — Design System
+           Manrope (self-served via @fontsource on jsDelivr)
+           ───────────────────────────────────────────── */
+        @font-face {
+            font-family: 'Manrope';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url('https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.1.1/files/manrope-latin-400-normal.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Manrope';
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+            src: url('https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.1.1/files/manrope-latin-500-normal.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Manrope';
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+            src: url('https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.1.1/files/manrope-latin-600-normal.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Manrope';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: url('https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.1.1/files/manrope-latin-700-normal.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Manrope';
+            font-style: normal;
+            font-weight: 800;
+            font-display: swap;
+            src: url('https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.1.1/files/manrope-latin-800-normal.woff2') format('woff2');
         }
 
-        * {
-            margin: 0;
-            padding: 0;
+        :root {
+            /* Brand palette */
+            --sn-primary: #6366F1;
+            --sn-primary-600: #4F46E5;
+            --sn-primary-700: #4338CA;
+            --sn-secondary: #8B5CF6;
+            --sn-accent: #22C55E;
+
+            /* Surfaces */
+            --sn-bg-0: #0B1020;
+            --sn-bg-1: #1E1B4B;
+            --sn-bg-2: #312E81;
+            --sn-surface: #FFFFFF;
+            --sn-surface-soft: #F8FAFC;
+
+            /* Text */
+            --sn-text: #0F172A;
+            --sn-text-soft: #334155;
+            --sn-text-muted: #64748B;
+            --sn-text-on-dark: #E2E8F0;
+            --sn-text-on-dark-soft: #94A3B8;
+
+            /* Borders */
+            --sn-border: #E2E8F0;
+            --sn-border-strong: #CBD5E1;
+
+            /* Glass */
+            --sn-glass-bg: rgba(255, 255, 255, 0.78);
+            --sn-glass-border: rgba(255, 255, 255, 0.55);
+
+            /* Radii */
+            --sn-radius-sm: 10px;
+            --sn-radius-md: 14px;
+            --sn-radius-lg: 20px;
+            --sn-radius-xl: 28px;
+
+            /* Shadows */
+            --sn-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+            --sn-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+            --sn-shadow-lg: 0 30px 80px -20px rgba(15, 23, 42, 0.35);
+            --sn-glow-primary: 0 18px 40px -12px rgba(99, 102, 241, 0.55);
+            --sn-glow-primary-strong: 0 22px 50px -10px rgba(99, 102, 241, 0.7);
+
+            /* Motion */
+            --sn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        *,
+        *::before,
+        *::after {
             box-sizing: border-box;
         }
 
+        html,
         body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+        }
+
+        body {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-feature-settings: "ss01", "cv11";
+            color: var(--sn-text);
+            background: var(--sn-surface-soft);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ─────────────────────────────────────────────
+           Layout — split shell
+           ───────────────────────────────────────────── */
+        .auth-shell {
+            display: flex;
             min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 100%;
+        }
+
+        .auth-brand-pane {
+            position: relative;
+            flex: 1.05 1 0%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 56px 64px;
+            color: var(--sn-text-on-dark);
+            background: radial-gradient(120% 100% at 0% 0%, #312E81 0%, #1E1B4B 45%, #0B1020 100%);
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        .auth-form-pane {
+            flex: 1 1 0%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            padding: 20px;
+            padding: 48px 32px;
+            background:
+                radial-gradient(80% 60% at 100% 0%, rgba(139, 92, 246, 0.10), transparent 60%),
+                radial-gradient(60% 50% at 0% 100%, rgba(99, 102, 241, 0.08), transparent 60%),
+                var(--sn-surface-soft);
         }
 
-        .auth-container {
+        /* ─────────────────────────────────────────────
+           Brand pane — animated background
+           ───────────────────────────────────────────── */
+        .brand-grid {
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+            mask-image: radial-gradient(ellipse at 30% 30%, #000 35%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse at 30% 30%, #000 35%, transparent 75%);
+            z-index: -2;
+            opacity: 0.6;
+        }
+
+        .brand-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.55;
+            z-index: -1;
+            will-change: transform;
+        }
+
+        .brand-orb--a {
+            width: 420px;
+            height: 420px;
+            top: -100px;
+            left: -120px;
+            background: radial-gradient(circle at 30% 30%, #6366F1, transparent 70%);
+            animation: orb-float-a 18s var(--sn-ease) infinite;
+        }
+
+        .brand-orb--b {
+            width: 360px;
+            height: 360px;
+            bottom: -100px;
+            right: -80px;
+            background: radial-gradient(circle at 30% 30%, #8B5CF6, transparent 70%);
+            animation: orb-float-b 22s var(--sn-ease) infinite;
+        }
+
+        .brand-orb--c {
+            width: 260px;
+            height: 260px;
+            top: 40%;
+            left: 55%;
+            background: radial-gradient(circle at 30% 30%, #22C55E, transparent 70%);
+            opacity: 0.35;
+            animation: orb-float-c 26s var(--sn-ease) infinite;
+        }
+
+        @keyframes orb-float-a {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50%      { transform: translate3d(40px, 60px, 0) scale(1.08); }
+        }
+        @keyframes orb-float-b {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50%      { transform: translate3d(-50px, -40px, 0) scale(1.05); }
+        }
+        @keyframes orb-float-c {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50%      { transform: translate3d(-30px, 30px, 0) scale(0.95); }
+        }
+
+        /* Product preview illustration (student-themed) */
+        .brand-illustration {
+            position: absolute;
+            top: 50%;
+            right: 3%;
+            width: 60%;
+            max-width: 580px;
+            transform: translateY(-50%);
+            z-index: -1;
+            opacity: 1;
+            pointer-events: none;
+        }
+
+        /* Float animations applied to <g> wrappers.
+           transform-box: fill-box keeps the float local to each group's
+           bounding box so child SVG transform="" attributes are preserved. */
+        .brand-illustration .ill-float {
+            transform-box: fill-box;
+            animation: ill-float 7s var(--sn-ease) infinite;
+        }
+        .brand-illustration .ill-float-slow {
+            transform-box: fill-box;
+            animation: ill-float 9s var(--sn-ease) infinite;
+            animation-delay: -3s;
+        }
+        .brand-illustration .ill-float-fast {
+            transform-box: fill-box;
+            animation: ill-float 5.5s var(--sn-ease) infinite;
+            animation-delay: -1.5s;
+        }
+
+        @keyframes ill-float {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+
+        /* ─────────────────────────────────────────────
+           Brand pane — content
+           ───────────────────────────────────────────── */
+        .brand-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            font-weight: 800;
+            font-size: 1.35rem;
+            letter-spacing: -0.01em;
+            color: #fff;
+        }
+
+        .brand-mark__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            box-shadow: 0 10px 24px -8px rgba(99, 102, 241, 0.65);
+            color: #fff;
+            font-size: 1.15rem;
+        }
+
+        .brand-mark__name span {
+            color: #C7D2FE;
+            font-weight: 600;
+        }
+
+        .brand-content {
+            position: relative;
+            max-width: 540px;
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+
+        .brand-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #C7D2FE;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+        }
+
+        .brand-eyebrow .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22C55E;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+            animation: pulse-dot 2.4s ease-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+            70%  { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        .brand-headline {
+            font-family: 'Manrope', sans-serif;
+            font-size: clamp(2rem, 3.4vw, 3rem);
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #fff;
+            margin: 0 0 18px;
+        }
+
+        .brand-headline .accent {
+            background: linear-gradient(120deg, #C7D2FE 0%, #A5F3FC 50%, #BBF7D0 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .brand-sub {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: var(--sn-text-on-dark-soft);
+            margin: 0 0 32px;
+            max-width: 460px;
+        }
+
+        .brand-features {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            max-width: 460px;
+        }
+
+        .brand-feature {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border-radius: var(--sn-radius-md);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: transform 0.4s var(--sn-ease), background 0.4s var(--sn-ease);
+        }
+
+        .brand-feature:hover {
+            transform: translateX(4px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-feature__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+            border: 1px solid rgba(199, 210, 254, 0.25);
+            color: #C7D2FE;
+            flex-shrink: 0;
+        }
+
+        .brand-feature__text {
+            font-size: 0.92rem;
+            color: #E2E8F0;
+            font-weight: 500;
+        }
+
+        .brand-footer {
+            position: relative;
+            font-size: 0.8rem;
+            color: var(--sn-text-on-dark-soft);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .brand-footer a {
+            color: var(--sn-text-on-dark-soft);
+            text-decoration: none;
+            transition: color 0.3s var(--sn-ease);
+        }
+
+        .brand-footer a:hover {
+            color: #fff;
+        }
+
+        /* ─────────────────────────────────────────────
+           Glass auth card
+           ───────────────────────────────────────────── */
+        .auth-card {
             width: 100%;
-            max-width: 450px;
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-            animation: fadeInUp 0.5s ease-out;
+            max-width: 460px;
+            background: var(--sn-glass-bg);
+            backdrop-filter: blur(22px) saturate(140%);
+            -webkit-backdrop-filter: blur(22px) saturate(140%);
+            border: 1px solid var(--sn-glass-border);
+            border-radius: var(--sn-radius-xl);
+            box-shadow: var(--sn-shadow-lg);
+            padding: 44px 40px 36px;
+            animation: card-in 0.7s var(--sn-ease) both;
         }
 
-        @keyframes fadeInUp {
+        @keyframes card-in {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(20px) scale(0.985);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .auth-card-header {
+            text-align: left;
+            margin-bottom: 28px;
+            animation: fade-up 0.7s var(--sn-ease) both;
+            animation-delay: 0.1s;
+        }
+
+        .auth-brand-inline {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+
+        .auth-brand-inline .brand-mark__icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        .auth-brand-inline .brand-mark__name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--sn-text);
+        }
+
+        .auth-brand-inline .brand-mark__name span {
+            color: var(--sn-primary);
+        }
+
+        .auth-card-header h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--sn-text);
+            margin: 0 0 8px;
+        }
+
+        .auth-card-header p {
+            font-size: 0.95rem;
+            color: var(--sn-text-muted);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .auth-card-body {
+            animation: fade-up 0.7s var(--sn-ease) both;
+            animation-delay: 0.2s;
+        }
+
+        .auth-card-footer {
+            margin-top: 28px;
+            padding-top: 22px;
+            border-top: 1px solid var(--sn-border);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--sn-text-muted);
+            animation: fade-up 0.7s var(--sn-ease) both;
+            animation-delay: 0.3s;
+        }
+
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
             }
             to {
                 opacity: 1;
@@ -57,182 +518,952 @@
             }
         }
 
-        .auth-header {
-            background: linear-gradient(135deg, var(--institutional-blue) 0%, #004080 100%);
-            color: #ffffff;
-            padding: 2.5rem 2rem;
-            text-align: center;
+        /* ─────────────────────────────────────────────
+           Forms — floating labels & inputs
+           ───────────────────────────────────────────── */
+        .form-floating > .form-control,
+        .form-floating > .form-control-plaintext {
+            min-height: 60px;
+            height: 60px;
+            padding: 1rem 1rem 0.25rem 2.85rem;
+            font-size: 0.98rem;
+            color: var(--sn-text);
+            background: #fff;
+            border: 1.5px solid var(--sn-border);
+            border-radius: var(--sn-radius-md);
+            box-shadow: var(--sn-shadow-sm);
+            transition: border-color 0.25s var(--sn-ease),
+                        box-shadow 0.25s var(--sn-ease),
+                        background 0.25s var(--sn-ease);
+            font-family: inherit;
         }
 
-        .auth-header .logo {
-            font-size: 2.5rem;
-            margin-bottom: 0.75rem;
-            display: block;
+        .form-floating > .form-control::placeholder {
+            color: transparent;
         }
 
-        .auth-header h1 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            letter-spacing: 0.5px;
+        .form-floating > .form-control:focus {
+            border-color: var(--sn-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
+            background: #fff;
         }
 
-        .auth-header .subtitle {
-            font-size: 0.95rem;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-
-        .auth-body {
-            padding: 2.5rem 2rem;
-        }
-
-        .auth-footer {
-            background-color: var(--institutional-light);
-            padding: 1.5rem 2rem;
-            text-align: center;
-            border-top: 1px solid #e9ecef;
-        }
-
-        .auth-footer p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: var(--secondary-color);
-        }
-
-        .form-label {
+        .form-floating > label {
+            padding: 1rem 1rem 1rem 2.85rem;
+            color: var(--sn-text-muted);
             font-weight: 500;
-            color: #495057;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
+            font-size: 0.98rem;
+            transform-origin: 0 0;
         }
 
-        .form-control {
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
+        .form-floating > .form-control:focus ~ label,
+        .form-floating > .form-control:not(:placeholder-shown) ~ label {
+            color: var(--sn-primary);
+            transform: scale(0.78) translateY(-0.55rem) translateX(0.18rem);
+        }
+
+        /* Field with leading icon */
+        .field-icon-wrap {
+            position: relative;
+        }
+
+        .field-icon-wrap .field-icon {
+            position: absolute;
+            top: 50%;
+            left: 1.05rem;
+            transform: translateY(-50%);
+            color: var(--sn-text-muted);
             font-size: 0.95rem;
-            transition: all 0.3s ease;
+            pointer-events: none;
+            transition: color 0.25s var(--sn-ease);
+            z-index: 4;
         }
 
-        .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        .field-icon-wrap:focus-within .field-icon {
+            color: var(--sn-primary);
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%);
+        /* Password show/hide button */
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 0.6rem;
+            transform: translateY(-50%);
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             border: none;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
+            background: transparent;
+            color: var(--sn-text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s var(--sn-ease), color 0.2s var(--sn-ease);
+            z-index: 5;
+        }
+
+        .password-toggle:hover,
+        .password-toggle:focus-visible {
+            background: rgba(99, 102, 241, 0.10);
+            color: var(--sn-primary);
+            outline: none;
+        }
+
+        .form-floating > .form-control.has-toggle {
+            padding-right: 3.25rem;
+        }
+
+        /* Remember me + forgot row */
+        .form-row-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 8px 0 22px;
+            flex-wrap: wrap;
+        }
+
+        .form-check-modern {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .form-check-modern input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1.5px solid var(--sn-border-strong);
+            border-radius: 6px;
+            background: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s var(--sn-ease);
+            position: relative;
+        }
+
+        .form-check-modern input[type="checkbox"]:hover {
+            border-color: var(--sn-primary);
+        }
+
+        .form-check-modern input[type="checkbox"]:checked {
+            background: linear-gradient(135deg, var(--sn-primary), var(--sn-secondary));
+            border-color: transparent;
+        }
+
+        .form-check-modern input[type="checkbox"]:checked::after {
+            content: "";
+            width: 5px;
+            height: 9px;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            transform: rotate(45deg) translateY(-1px);
+        }
+
+        .form-check-modern input[type="checkbox"]:focus-visible {
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+            outline: none;
+        }
+
+        .form-check-modern .label-text {
+            font-size: 0.9rem;
+            color: var(--sn-text-soft);
+            font-weight: 500;
+        }
+
+        .link-forgot {
+            font-size: 0.9rem;
             font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            color: var(--sn-primary);
+            text-decoration: none;
+            transition: color 0.2s var(--sn-ease);
+        }
+
+        .link-forgot:hover {
+            color: var(--sn-primary-700);
+            text-decoration: underline;
+        }
+
+        /* ─────────────────────────────────────────────
+           Submit button — gradient, halo, motion
+           ───────────────────────────────────────────── */
+        .btn-sn-primary {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             width: 100%;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
-        }
-
-        .alert {
-            border-radius: 8px;
+            min-height: 56px;
+            padding: 0.85rem 1.4rem;
             border: none;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
+            border-radius: var(--sn-radius-md);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            color: #fff;
+            background: linear-gradient(135deg, #6366F1 0%, #7C3AED 50%, #8B5CF6 100%);
+            background-size: 180% 180%;
+            background-position: 0% 50%;
+            box-shadow: var(--sn-glow-primary);
+            cursor: pointer;
+            overflow: hidden;
+            isolation: isolate;
+            transition:
+                transform 0.35s var(--sn-ease),
+                box-shadow 0.35s var(--sn-ease),
+                background-position 0.6s var(--sn-ease);
+        }
+
+        .btn-sn-primary::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            border-radius: inherit;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6, #22C55E);
+            filter: blur(18px);
+            opacity: 0.45;
+            z-index: -1;
+            transition: opacity 0.35s var(--sn-ease);
+        }
+
+        .btn-sn-primary::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -120%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.7s var(--sn-ease);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .btn-sn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--sn-glow-primary-strong);
+            background-position: 100% 50%;
+        }
+
+        .btn-sn-primary:hover::before {
+            opacity: 0.7;
+        }
+
+        .btn-sn-primary:hover::after {
+            left: 130%;
+        }
+
+        .btn-sn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-sn-primary:focus-visible {
+            outline: none;
+            box-shadow: var(--sn-glow-primary-strong), 0 0 0 4px rgba(99, 102, 241, 0.25);
+        }
+
+        .btn-sn-primary:disabled {
+            cursor: not-allowed;
+            opacity: 0.75;
+            transform: none;
+        }
+
+        .btn-sn-primary span,
+        .btn-sn-primary i {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Loading spinner */
+        .btn-sn-primary .spinner-ring {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Secondary muted button */
+        .btn-sn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.55rem 0.9rem;
+            border-radius: 10px;
+            color: var(--sn-text-muted);
+            background: transparent;
+            border: none;
+            font-weight: 500;
+            font-size: 0.88rem;
+            text-decoration: none;
+            transition: all 0.2s var(--sn-ease);
+        }
+
+        .btn-sn-ghost:hover {
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--sn-primary);
+        }
+
+        /* ─────────────────────────────────────────────
+           Alerts — soft, modern
+           ───────────────────────────────────────────── */
+        .alert {
+            border: 1px solid transparent;
+            border-radius: var(--sn-radius-md);
+            padding: 0.95rem 1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            line-height: 1.45;
+        }
+
+        .alert i {
+            flex-shrink: 0;
+            margin-top: 2px;
         }
 
         .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
+            background: #FEF2F2;
+            border-color: #FECACA;
+            color: #991B1B;
         }
 
         .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
+            background: #EFF6FF;
+            border-color: #BFDBFE;
+            color: #1E40AF;
         }
 
+        .alert-success {
+            background: #F0FDF4;
+            border-color: #BBF7D0;
+            color: #166534;
+        }
+
+        .alert-warning {
+            background: #FFFBEB;
+            border-color: #FDE68A;
+            color: #92400E;
+        }
+
+        /* ─────────────────────────────────────────────
+           Bootstrap form overrides — applied to all
+           auth pages that extend base_auth (password
+           reset, password change, etc.) so they inherit
+           the Scholar Nexus look without local edits.
+           ───────────────────────────────────────────── */
+        .form-label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--sn-text-soft);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.005em;
+        }
+
+        /* Base .form-control look (non-floating).
+           .form-floating > .form-control and .otp-input override
+           via higher specificity. */
+        .form-control {
+            min-height: 52px;
+            padding: 0.8rem 1rem;
+            font-size: 0.96rem;
+            color: var(--sn-text);
+            background: #fff;
+            border: 1.5px solid var(--sn-border);
+            border-radius: var(--sn-radius-md);
+            box-shadow: var(--sn-shadow-sm);
+            transition: border-color 0.25s var(--sn-ease),
+                        box-shadow 0.25s var(--sn-ease);
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            border-color: var(--sn-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
+        }
+
+        .form-text {
+            font-size: 0.82rem;
+            color: var(--sn-text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Map .btn.btn-primary (used by password_reset, password_change…)
+           onto the Scholar Nexus gradient button so all pages stay consistent. */
+        .btn.btn-primary {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 52px;
+            padding: 0.8rem 1.4rem;
+            border: none;
+            border-radius: var(--sn-radius-md);
+            font-family: inherit;
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #6366F1 0%, #7C3AED 50%, #8B5CF6 100%);
+            box-shadow: var(--sn-glow-primary);
+            transition: transform 0.3s var(--sn-ease),
+                        box-shadow 0.3s var(--sn-ease);
+        }
+
+        .btn.btn-primary:hover,
+        .btn.btn-primary:focus {
+            background: linear-gradient(135deg, #4F46E5 0%, #6D28D9 50%, #7C3AED 100%);
+            transform: translateY(-2px);
+            box-shadow: var(--sn-glow-primary-strong);
+            color: #fff;
+        }
+
+        .btn.btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn.btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.btn-outline-secondary {
+            min-height: 52px;
+            padding: 0.8rem 1.4rem;
+            border: 1.5px solid var(--sn-border-strong);
+            border-radius: var(--sn-radius-md);
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--sn-text-soft);
+            background: #fff;
+            transition: all 0.25s var(--sn-ease);
+        }
+
+        .btn.btn-outline-secondary:hover {
+            background: var(--sn-surface-soft);
+            border-color: var(--sn-primary);
+            color: var(--sn-primary);
+        }
+
+        /* Generic info note */
         .info-message {
-            background-color: #e7f3ff;
-            border-left: 4px solid var(--primary-color);
-            padding: 1rem;
-            border-radius: 6px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.06));
+            border: 1px solid rgba(99, 102, 241, 0.18);
+            border-radius: var(--sn-radius-md);
+            padding: 0.95rem 1rem;
             margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-            color: #004085;
+            font-size: 0.88rem;
+            color: var(--sn-text-soft);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            line-height: 1.5;
         }
 
         .info-message i {
-            margin-right: 0.5rem;
-            color: var(--primary-color);
+            color: var(--sn-primary);
+            margin-top: 2px;
+            flex-shrink: 0;
         }
 
-        /* Responsive */
-        @media (max-width: 576px) {
-            .auth-container {
-                max-width: 100%;
-                border-radius: 12px;
+        /* ─────────────────────────────────────────────
+           Responsive
+           ───────────────────────────────────────────── */
+        @media (max-width: 1100px) {
+            .auth-brand-pane {
+                padding: 48px 48px;
             }
-
-            .auth-header {
-                padding: 2rem 1.5rem;
-            }
-
-            .auth-header h1 {
-                font-size: 1.5rem;
-            }
-
-            .auth-body {
-                padding: 2rem 1.5rem;
-            }
-
-            .auth-footer {
-                padding: 1.25rem 1.5rem;
+            .brand-illustration {
+                width: 54%;
+                opacity: 0.85;
             }
         }
 
-        /* Loading state */
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+        @media (max-width: 992px) {
+            .auth-shell {
+                flex-direction: column;
+            }
+            .auth-brand-pane {
+                flex: 0 0 auto;
+                min-height: 280px;
+                padding: 36px 36px 28px;
+            }
+            .auth-brand-pane .brand-features,
+            .auth-brand-pane .brand-footer {
+                display: none;
+            }
+            .brand-content {
+                margin: 18px 0 0;
+            }
+            .brand-headline {
+                font-size: clamp(1.6rem, 4vw, 2.2rem);
+            }
+            .brand-sub {
+                font-size: 0.95rem;
+                margin-bottom: 0;
+            }
+            .brand-illustration {
+                width: 220px;
+                right: -30px;
+                top: 30%;
+            }
+            .auth-form-pane {
+                padding: 32px 24px 56px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .auth-brand-pane {
+                min-height: 200px;
+                padding: 28px 24px 24px;
+            }
+            .auth-brand-pane .brand-eyebrow,
+            .auth-brand-pane .brand-headline,
+            .auth-brand-pane .brand-sub {
+                display: none;
+            }
+            .auth-brand-pane .brand-illustration {
+                display: none;
+            }
+            .auth-card {
+                padding: 32px 24px 28px;
+                border-radius: var(--sn-radius-lg);
+            }
+            .auth-card-header h2 {
+                font-size: 1.45rem;
+            }
+            .auth-brand-inline {
+                display: inline-flex;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
+        /* Accessibility: visible focus */
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible {
+            outline: none;
+        }
+
+        .visually-hidden-focusable:not(:focus):not(:focus-within) {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+
+        /* Skip link */
+        .skip-link {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 100;
+            padding: 10px 14px;
+            background: #fff;
+            color: var(--sn-primary);
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: var(--sn-shadow-md);
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 
 <body>
-    <div class="auth-container">
-        <!-- Header -->
-        <div class="auth-header">
-            <i class="fas fa-graduation-cap logo"></i>
-            <h1>{% block auth_title %}UniAbsences{% endblock %}</h1>
-            <p class="subtitle">{% block auth_subtitle %}Système de Gestion des Absences{% endblock %}</p>
-        </div>
+    <a href="#auth-main" class="skip-link visually-hidden-focusable">Aller au contenu principal</a>
 
-        <!-- Body -->
-        <div class="auth-body">
-            {% if messages %}
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+    <div class="auth-shell">
+        <!-- ───────────────────── LEFT — Brand pane ───────────────────── -->
+        <aside class="auth-brand-pane" aria-hidden="false">
+            <div class="brand-grid" aria-hidden="true"></div>
+            <div class="brand-orb brand-orb--a" aria-hidden="true"></div>
+            <div class="brand-orb brand-orb--b" aria-hidden="true"></div>
+            <div class="brand-orb brand-orb--c" aria-hidden="true"></div>
+
+            <!-- Student-themed product preview illustration -->
+            <svg class="brand-illustration" viewBox="0 0 560 540" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                    <!-- Soft drop shadow for floating cards -->
+                    <filter id="sn-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+                        <feOffset dx="0" dy="6" result="off"/>
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.28"/>
+                        </feComponentTransfer>
+                        <feMerge>
+                            <feMergeNode/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+
+                    <!-- Header gradients -->
+                    <linearGradient id="sn-header-grad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="#6366F1"/>
+                        <stop offset="100%" stop-color="#8B5CF6"/>
+                    </linearGradient>
+                    <linearGradient id="sn-cal-grad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="#8B5CF6"/>
+                        <stop offset="100%" stop-color="#A78BFA"/>
+                    </linearGradient>
+                    <linearGradient id="sn-cap-grad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#4F46E5"/>
+                        <stop offset="100%" stop-color="#312E81"/>
+                    </linearGradient>
+
+                    <!-- Avatar gradients -->
+                    <linearGradient id="sn-av1" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#C7D2FE"/>
+                        <stop offset="100%" stop-color="#A5B4FC"/>
+                    </linearGradient>
+                    <linearGradient id="sn-av2" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#FDE68A"/>
+                        <stop offset="100%" stop-color="#FBBF24"/>
+                    </linearGradient>
+                    <linearGradient id="sn-av3" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#86EFAC"/>
+                        <stop offset="100%" stop-color="#4ADE80"/>
+                    </linearGradient>
+                    <linearGradient id="sn-av4" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#FBA5C5"/>
+                        <stop offset="100%" stop-color="#F472B6"/>
+                    </linearGradient>
+                </defs>
+
+                <!-- Background dashed connector curves -->
+                <g opacity="0.28" stroke="#A5B4FC" stroke-width="1.2" stroke-dasharray="3 6" fill="none">
+                    <path d="M 60 110 Q 280 30, 510 130"/>
+                    <path d="M 70 460 Q 280 530, 510 450"/>
+                </g>
+
+                <!-- Stack of books (top-left) -->
+                <g class="ill-float-fast">
+                    <g transform="translate(40, 80)">
+                        <rect x="0" y="32" width="84" height="14" rx="3" fill="#A5B4FC"/>
+                        <rect x="0" y="32" width="6"  height="14"          fill="#6366F1"/>
+                        <rect x="74" y="36" width="4" height="6" rx="1" fill="#fff" opacity="0.6"/>
+                        <rect x="8" y="16" width="80" height="14" rx="3" fill="#8B5CF6"/>
+                        <rect x="8" y="16" width="6"  height="14"          fill="#4F46E5"/>
+                        <rect x="78" y="20" width="4" height="6" rx="1" fill="#fff" opacity="0.6"/>
+                        <rect x="2" y="0"  width="78" height="14" rx="3" fill="#C7D2FE"/>
+                        <rect x="2" y="0"  width="6"  height="14"          fill="#A78BFA"/>
+                        <rect x="70" y="4" width="4" height="6" rx="1" fill="#fff" opacity="0.7"/>
+                    </g>
+                </g>
+
+                <!-- Graduation cap (top-right) -->
+                <g class="ill-float-slow">
+                    <g transform="translate(425, 50)">
+                        <!-- Mortarboard top -->
+                        <polygon points="0,22 60,4 120,22 60,40" fill="url(#sn-cap-grad)"/>
+                        <polygon points="0,22 60,4 120,22 60,40" fill="#fff" opacity="0.08"/>
+                        <!-- Cap base -->
+                        <path d="M 22 30 Q 22 56, 60 56 Q 98 56, 98 30 L 92 33 Q 92 50, 60 50 Q 28 50, 28 33 Z"
+                              fill="url(#sn-cap-grad)"/>
+                        <!-- Tassel string -->
+                        <path d="M 110 24 Q 116 36, 112 54" stroke="#FBBF24" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                        <!-- Tassel knot + ball -->
+                        <circle cx="112" cy="56" r="4" fill="#F59E0B"/>
+                        <rect x="108" y="50" width="8" height="3" rx="1" fill="#FBBF24"/>
+                    </g>
+                </g>
+
+                <!-- Main attendance dashboard card -->
+                <g class="ill-float">
+                    <g transform="translate(85, 145)">
+                        <!-- Card body -->
+                        <rect x="0" y="0" width="380" height="290" rx="22" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
+                        <rect x="0" y="0" width="380" height="290" rx="22" fill="none" stroke="rgba(99,102,241,0.18)" stroke-width="1"/>
+
+                        <!-- Header band (only top corners rounded) -->
+                        <path d="M 0 22 Q 0 0, 22 0 L 358 0 Q 380 0, 380 22 L 380 60 L 0 60 Z" fill="url(#sn-header-grad)"/>
+
+                        <!-- Header: course icon + title bars -->
+                        <circle cx="30" cy="30" r="11" fill="#fff" opacity="0.22"/>
+                        <text x="30" y="34" fill="#fff" font-size="11" font-weight="800" text-anchor="middle"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif">UA</text>
+                        <rect x="50" y="22" width="135" height="7" rx="3.5" fill="#fff" opacity="0.9"/>
+                        <rect x="50" y="35" width="92" height="5" rx="2.5" fill="#fff" opacity="0.55"/>
+
+                        <!-- Header right pill: "EN COURS" -->
+                        <rect x="280" y="20" width="84" height="22" rx="11" fill="rgba(255,255,255,0.22)"/>
+                        <circle cx="294" cy="31" r="3" fill="#86EFAC">
+                            <animate attributeName="opacity" values="0.5;1;0.5" dur="2.4s" repeatCount="indefinite"/>
+                        </circle>
+                        <text x="324" y="35" fill="#fff" font-size="9.5" font-weight="800" text-anchor="middle"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif">EN COURS</text>
+
+                        <!-- Subtle divider under header -->
+                        <line x1="22" y1="80" x2="358" y2="80" stroke="#F1F5F9" stroke-width="1"/>
+                        <text x="22" y="98" fill="#94A3B8" font-size="9" font-weight="700"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif" letter-spacing="1">LISTE DE PRÉSENCES · 09/04</text>
+
+                        <!-- Row 1 — present -->
+                        <g transform="translate(0, 130)">
+                            <circle cx="38" cy="0" r="17" fill="url(#sn-av1)"/>
+                            <text x="38" y="4" fill="#3730A3" font-size="11" font-weight="800" text-anchor="middle"
+                                  font-family="Manrope, ui-sans-serif, system-ui, sans-serif">SM</text>
+                            <rect x="64" y="-9" width="170" height="7" rx="3.5" fill="#E2E8F0"/>
+                            <rect x="64" y="3" width="110" height="5" rx="2.5" fill="#F1F5F9"/>
+                            <circle cx="338" cy="0" r="15" fill="#22C55E" opacity="0.15"/>
+                            <path d="M 330 0 l 6 6 l 10 -11" stroke="#22C55E" stroke-width="2.6" fill="none"
+                                  stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+
+                        <!-- Row 2 — present -->
+                        <g transform="translate(0, 172)">
+                            <circle cx="38" cy="0" r="17" fill="url(#sn-av2)"/>
+                            <text x="38" y="4" fill="#92400E" font-size="11" font-weight="800" text-anchor="middle"
+                                  font-family="Manrope, ui-sans-serif, system-ui, sans-serif">LK</text>
+                            <rect x="64" y="-9" width="155" height="7" rx="3.5" fill="#E2E8F0"/>
+                            <rect x="64" y="3" width="92" height="5" rx="2.5" fill="#F1F5F9"/>
+                            <circle cx="338" cy="0" r="15" fill="#22C55E" opacity="0.15"/>
+                            <path d="M 330 0 l 6 6 l 10 -11" stroke="#22C55E" stroke-width="2.6" fill="none"
+                                  stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+
+                        <!-- Row 3 — pending (justification under review) -->
+                        <g transform="translate(0, 214)">
+                            <circle cx="38" cy="0" r="17" fill="url(#sn-av3)"/>
+                            <text x="38" y="4" fill="#166534" font-size="11" font-weight="800" text-anchor="middle"
+                                  font-family="Manrope, ui-sans-serif, system-ui, sans-serif">RT</text>
+                            <rect x="64" y="-9" width="180" height="7" rx="3.5" fill="#E2E8F0"/>
+                            <rect x="64" y="3" width="120" height="5" rx="2.5" fill="#F1F5F9"/>
+                            <circle cx="338" cy="0" r="15" fill="#F59E0B" opacity="0.15"/>
+                            <path d="M 333 -5 v 5 l 4 3" stroke="#F59E0B" stroke-width="2.4" fill="none"
+                                  stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="338" cy="0" r="9" fill="none" stroke="#F59E0B" stroke-width="2"/>
+                        </g>
+
+                        <!-- Row 4 — present -->
+                        <g transform="translate(0, 256)">
+                            <circle cx="38" cy="0" r="17" fill="url(#sn-av4)"/>
+                            <text x="38" y="4" fill="#9D174D" font-size="11" font-weight="800" text-anchor="middle"
+                                  font-family="Manrope, ui-sans-serif, system-ui, sans-serif">AB</text>
+                            <rect x="64" y="-9" width="160" height="7" rx="3.5" fill="#E2E8F0"/>
+                            <rect x="64" y="3" width="100" height="5" rx="2.5" fill="#F1F5F9"/>
+                            <circle cx="338" cy="0" r="15" fill="#22C55E" opacity="0.15"/>
+                            <path d="M 330 0 l 6 6 l 10 -11" stroke="#22C55E" stroke-width="2.6" fill="none"
+                                  stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                    </g>
+                </g>
+
+                <!-- Floating mini-calendar (overlaps top-right of main card) -->
+                <g class="ill-float-slow">
+                    <g transform="translate(370, 95)">
+                        <rect x="0" y="0" width="160" height="148" rx="16" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
+                        <rect x="0" y="0" width="160" height="148" rx="16" fill="none" stroke="rgba(139,92,246,0.20)" stroke-width="1"/>
+
+                        <!-- Header -->
+                        <path d="M 0 16 Q 0 0, 16 0 L 144 0 Q 160 0, 160 16 L 160 40 L 0 40 Z" fill="url(#sn-cal-grad)"/>
+                        <text x="80" y="26" fill="#fff" font-size="11" font-weight="800" text-anchor="middle"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif" letter-spacing="0.5">MARS 2026</text>
+
+                        <!-- Day labels -->
+                        <g fill="#94A3B8" font-size="8" font-weight="700" text-anchor="middle"
+                           font-family="Manrope, ui-sans-serif, system-ui, sans-serif">
+                            <text x="22" y="58">L</text>
+                            <text x="42" y="58">M</text>
+                            <text x="62" y="58">M</text>
+                            <text x="82" y="58">J</text>
+                            <text x="102" y="58">V</text>
+                            <text x="122" y="58">S</text>
+                            <text x="142" y="58">D</text>
+                        </g>
+
+                        <!-- Calendar dots: 4 rows × 7 cols, mostly green = present, one purple = today -->
+                        <g>
+                            <!-- Row 1 -->
+                            <circle cx="22"  cy="74" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="42"  cy="74" r="3.5" fill="#22C55E"/>
+                            <circle cx="62"  cy="74" r="3.5" fill="#22C55E"/>
+                            <circle cx="82"  cy="74" r="3.5" fill="#22C55E"/>
+                            <circle cx="102" cy="74" r="3.5" fill="#22C55E"/>
+                            <circle cx="122" cy="74" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="142" cy="74" r="3.5" fill="#E2E8F0"/>
+                            <!-- Row 2 -->
+                            <circle cx="22"  cy="92" r="3.5" fill="#22C55E"/>
+                            <circle cx="42"  cy="92" r="3.5" fill="#F59E0B"/>
+                            <circle cx="62"  cy="92" r="3.5" fill="#22C55E"/>
+                            <circle cx="82"  cy="92" r="3.5" fill="#22C55E"/>
+                            <circle cx="102" cy="92" r="3.5" fill="#22C55E"/>
+                            <circle cx="122" cy="92" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="142" cy="92" r="3.5" fill="#E2E8F0"/>
+                            <!-- Row 3 — TODAY highlighted -->
+                            <circle cx="22"  cy="110" r="3.5" fill="#22C55E"/>
+                            <circle cx="42"  cy="110" r="3.5" fill="#22C55E"/>
+                            <circle cx="62"  cy="110" r="8"   fill="#8B5CF6"/>
+                            <text   x="62"  y="113.5" fill="#fff" font-size="8" font-weight="800" text-anchor="middle"
+                                    font-family="Manrope, ui-sans-serif, system-ui, sans-serif">9</text>
+                            <circle cx="82"  cy="110" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="102" cy="110" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="122" cy="110" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="142" cy="110" r="3.5" fill="#E2E8F0"/>
+                            <!-- Row 4 -->
+                            <circle cx="22"  cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="42"  cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="62"  cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="82"  cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="102" cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="122" cy="128" r="3.5" fill="#E2E8F0"/>
+                            <circle cx="142" cy="128" r="3.5" fill="#E2E8F0"/>
+                        </g>
+                    </g>
+                </g>
+
+                <!-- Floating circular progress badge "94 % Présence" (bottom-left) -->
+                <g class="ill-float-fast">
+                    <g transform="translate(25, 380)">
+                        <circle cx="60" cy="60" r="58" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
+                        <!-- Progress track -->
+                        <circle cx="60" cy="60" r="46" fill="none" stroke="#E2E8F0" stroke-width="8"/>
+                        <!-- Progress arc — 94% of full circle (~272°) -->
+                        <circle cx="60" cy="60" r="46" fill="none" stroke="#22C55E" stroke-width="8"
+                                stroke-dasharray="272 290" stroke-linecap="round"
+                                transform="rotate(-90 60 60)"/>
+                        <!-- Center text -->
+                        <text x="60" y="60" fill="#0F172A" font-size="22" font-weight="800" text-anchor="middle"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif">94%</text>
+                        <text x="60" y="78" fill="#64748B" font-size="9" font-weight="700" text-anchor="middle"
+                              font-family="Manrope, ui-sans-serif, system-ui, sans-serif" letter-spacing="1.2">PRÉSENCE</text>
+                    </g>
+                </g>
+
+                <!-- Decorative animated dots -->
+                <g>
+                    <circle cx="510" cy="280" r="5" fill="#22C55E">
+                        <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="40"  cy="240" r="4" fill="#A5F3FC">
+                        <animate attributeName="opacity" values="0.4;1;0.4" dur="4s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="500" cy="450" r="4" fill="#FCD34D">
+                        <animate attributeName="opacity" values="0.4;1;0.4" dur="3.5s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="180" cy="60"  r="3" fill="#C7D2FE">
+                        <animate attributeName="opacity" values="0.4;1;0.4" dur="4.5s" repeatCount="indefinite"/>
+                    </circle>
+                </g>
+            </svg>
+
+            <!-- Brand mark -->
+            <div class="brand-mark">
+                <span class="brand-mark__icon" aria-hidden="true">
+                    <i class="fas fa-graduation-cap"></i>
+                </span>
+                <span class="brand-mark__name">Uni<span>Absences</span></span>
             </div>
-            {% endfor %}
-            {% endif %}
 
-            {% block content %}{% endblock %}
-        </div>
+            <!-- Headline + features -->
+            <div class="brand-content">
+                <span class="brand-eyebrow">
+                    <span class="pulse-dot" aria-hidden="true"></span>
+                    Scholar Nexus · Plateforme académique
+                </span>
+                <h1 class="brand-headline">
+                    Gestion intelligente <br>
+                    des <span class="accent">présences académiques</span>
+                </h1>
+                <p class="brand-sub">
+                    Une plateforme unifiée pour suivre, justifier et analyser les absences à l'université —
+                    pensée pour les étudiants, les professeurs et l'administration.
+                </p>
 
-        <!-- Footer -->
-        <div class="auth-footer">
-            {% block auth_footer %}
-            <p>
-                <i class="fas fa-shield-alt me-1"></i>
-                Accès réservé au personnel académique et aux étudiants
-            </p>
-            {% endblock %}
-        </div>
+                <div class="brand-features">
+                    <div class="brand-feature">
+                        <span class="brand-feature__icon"><i class="fas fa-shield-halved"></i></span>
+                        <span class="brand-feature__text">Authentification sécurisée à deux facteurs</span>
+                    </div>
+                    <div class="brand-feature">
+                        <span class="brand-feature__icon"><i class="fas fa-chart-line"></i></span>
+                        <span class="brand-feature__text">Tableaux de bord temps réel et alertes ciblées</span>
+                    </div>
+                    <div class="brand-feature">
+                        <span class="brand-feature__icon"><i class="fas fa-qrcode"></i></span>
+                        <span class="brand-feature__text">Pointage QR code et justificatifs en ligne</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="brand-footer">
+                <span>&copy; {% now "Y" %} UniAbsences · Scholar Nexus</span>
+                <span>
+                    <i class="fas fa-lock me-1"></i> Connexion chiffrée
+                </span>
+            </div>
+        </aside>
+
+        <!-- ───────────────────── RIGHT — Form pane ───────────────────── -->
+        <main class="auth-form-pane" id="auth-main">
+            <section class="auth-card" role="region" aria-label="Formulaire d'authentification">
+
+                <!-- Compact brand mark for small screens -->
+                <div class="auth-brand-inline">
+                    <span class="brand-mark__icon" aria-hidden="true">
+                        <i class="fas fa-graduation-cap"></i>
+                    </span>
+                    <span class="brand-mark__name">Uni<span>Absences</span></span>
+                </div>
+
+                <header class="auth-card-header">
+                    <h2>{% block auth_title %}Bienvenue{% endblock %}</h2>
+                    <p>{% block auth_subtitle %}Connectez-vous à votre espace UniAbsences{% endblock %}</p>
+                </header>
+
+                <div class="auth-card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+                                <i class="fas fa-circle-info"></i>
+                                <div>{{ message }}</div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% block content %}{% endblock %}
+                </div>
+
+                <footer class="auth-card-footer">
+                    {% block auth_footer %}
+                        <i class="fas fa-shield-halved me-1"></i>
+                        Accès réservé au personnel académique et aux étudiants
+                    {% endblock %}
+                </footer>
+            </section>
+        </main>
     </div>
 
     <!-- Bootstrap Bundle with Popper -->
@@ -241,4 +1472,3 @@
 </body>
 
 </html>
-
