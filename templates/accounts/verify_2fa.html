@@ -108,10 +108,13 @@
 </form>
 
 <div class="text-center mt-4">
-    <a href="{% url 'accounts:logout' %}" class="btn-sn-ghost">
-        <i class="fas fa-arrow-left-long"></i>
-        Annuler et se déconnecter
-    </a>
+    <form method="post" action="{% url 'accounts:logout' %}" id="logout-form-2fa">
+        {% csrf_token %}
+        <button type="submit" class="btn-sn-ghost" style="border: none; cursor: pointer;">
+            <i class="fas fa-arrow-left-long"></i>
+            Annuler et se déconnecter
+        </button>
+    </form>
 </div>
 {% endblock %}
 
