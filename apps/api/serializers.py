@@ -280,6 +280,16 @@ class AbsenceWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"duree_absence": "La durée est obligatoire pour une absence partielle."}
             )
+
+        # P3-01/P8-01 FIX: validate duree_absence <= session duration
+        seance = data.get("id_seance")
+        if seance and duree is not None and duree > 0:
+            duree_seance = seance.duree_heures() if hasattr(seance, "duree_heures") else None
+            if duree_seance and float(duree) > duree_seance:
+                raise serializers.ValidationError(
+                    {"duree_absence": f"La durée ({duree}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
+                )
+
         return data
 
 
