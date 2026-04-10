@@ -23,6 +23,44 @@ logger = logging.getLogger("django")
 CACHE_KEY_AT_RISK = "admin_dashboard:at_risk_count"
 
 
+# ── P3-02 FIX: Recalculate eligibility when course threshold changes ────────
+
+
+@receiver(post_save, sender="academics.Cours")
+def cours_seuil_changed(sender, instance, **kwargs):
+    """
+    When a course's seuil_absence is modified, recalculate eligible_examen
+    for all active inscriptions of that course.
+    """
+    # Only act if seuil_absence could have changed (update_fields hint)
+    update_fields = kwargs.get("update_fields")
+    if update_fields is not None and "seuil_absence" not in update_fields:
+        return
+
+    from apps.enrollments.models import Inscription
+
+    inscriptions = Inscription.objects.filter(
+        id_cours=instance,
+        status=Inscription.Status.EN_COURS,
+    ).select_related("id_cours")
+
+    if not inscriptions.exists():
+        return
+
+    def _recalculate_all():
+        for ins in inscriptions:
+            try:
+                recalculer_eligibilite(ins)
+            except Exception:
+                logger.exception(
+                    "Failed to recalculate eligibility for inscription %s after seuil change",
+                    ins.id_inscription,
+                )
+        cache.delete(CACHE_KEY_AT_RISK)
+
+    transaction.on_commit(_recalculate_all)
+
+
 def _schedule_eligibility_recalc(inscription_pk):
     """Defer eligibility recalculation to after the current transaction commits."""
 
