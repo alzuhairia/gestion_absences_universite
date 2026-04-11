@@ -32,6 +32,7 @@ UniAbsences automatise le suivi des presences et absences dans un contexte unive
 - Marquage en temps reel via HTMX (sans rechargement de page)
 - Workflow complet de justificatifs (soumission, validation, refus)
 - Blocage automatique au seuil d'absences configurable (avec exemptions)
+- Authentification a deux facteurs (TOTP) avec 8 codes de secours a usage unique et reinitialisation admin en cas de perte du telephone
 - API REST complete (DRF + documentation Swagger/OpenAPI)
 - Notifications par email (HTML templates, envoi asynchrone, resume hebdomadaire)
 - Reinitialisation de mot de passe avec rate limiting
@@ -196,4 +197,4 @@ Ce projet est distribue sous licence [MIT](LICENSE).
 
 ---
 
-<sub>Derniere mise a jour : Mars 2026</sub>
+<sub>Derniere mise a jour : Avril 2026</sub>
