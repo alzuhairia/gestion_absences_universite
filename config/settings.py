@@ -547,7 +547,7 @@ CONTENT_SECURITY_POLICY = {
         ],
         "font-src": ["'self'", "cdnjs.cloudflare.com", "cdn.jsdelivr.net"],
         "img-src": ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'"],
+        "connect-src": ["'self'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
         "object-src": ["'none'"],
         "base-uri": ["'self'"],
         "form-action": ["'self'"],
