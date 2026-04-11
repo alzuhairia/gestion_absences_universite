@@ -126,6 +126,11 @@ urlpatterns = [
         name="admin_user_reset_password",
     ),
     path(
+        "admin/users/<int:user_id>/reset-2fa/",
+        views_admin.admin_user_reset_2fa,
+        name="admin_user_reset_2fa",
+    ),
+    path(
         "admin/users/<int:user_id>/audit/",
         views_admin.admin_user_audit,
         name="admin_user_audit",

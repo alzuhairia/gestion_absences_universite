@@ -370,3 +370,59 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f"Session {self.session_key[:8]}… — {self.user}"
+
+
+class TwoFactorBackupCode(models.Model):
+    """
+    Code de secours à usage unique pour la 2FA.
+
+    Généré par lot de 8 lors de l'activation de la 2FA (et lors d'une
+    régénération). Le code en clair est affiché à l'utilisateur UNE SEULE
+    FOIS — seul son hash est stocké en base. Lorsque l'utilisateur perd son
+    téléphone TOTP, il peut saisir un de ces codes sur verify_2fa à la place
+    du code TOTP. Un code ne peut servir qu'une fois.
+    """
+
+    CODES_PER_BATCH = 8
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="backup_codes",
+        verbose_name=_("Utilisateur"),
+    )
+    code_hash = models.CharField(
+        max_length=255,
+        verbose_name=_("Hash du code"),
+        help_text=_(
+            "Hash Django (make_password). Le code en clair n'est jamais stocké."
+        ),
+    )
+    used = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name=_("Utilisé"),
+    )
+    used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'utilisation"),
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name=_("Date de création"),
+    )
+
+    class Meta:
+        db_table = "two_factor_backup_code"
+        app_label = "accounts"
+        verbose_name = _("Code de secours 2FA")
+        verbose_name_plural = _("Codes de secours 2FA")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "used"], name="tfbc_user_used_idx"),
+        ]
+
+    def __str__(self):
+        state = "utilisé" if self.used else "actif"
+        return f"BackupCode {self.user.email} ({state})"

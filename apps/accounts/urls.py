@@ -17,6 +17,12 @@ urlpatterns = [
     path("2fa/setup/", views_2fa.setup_2fa, name="setup_2fa"),
     path("2fa/verify/", views_2fa.verify_2fa, name="verify_2fa"),
     path("2fa/disable/", views_2fa.disable_2fa, name="disable_2fa"),
+    path("2fa/backup-codes/", views_2fa.backup_codes_view, name="backup_codes"),
+    path(
+        "2fa/backup-codes/regenerate/",
+        views_2fa.regenerate_backup_codes,
+        name="regenerate_backup_codes",
+    ),
     # Password Change
     path(
         "password_change/",

@@ -1,0 +1,66 @@
+{% extends base_template|default:'base.html' %}
+
+{% block title %}Régénérer les codes de secours{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'accounts:profile' %}">Mon Profil</a></li>
+<li class="breadcrumb-item active" aria-current="page">Régénérer les codes de secours</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-sync-alt me-2"></i>Régénérer les codes de secours 2FA
+        </h1>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow border-warning">
+                <div class="card-header py-3 bg-white">
+                    <h6 class="m-0 fw-bold text-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Confirmation requise
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong>Attention :</strong> la génération de nouveaux codes
+                        invalidera immédiatement tous vos codes de secours actuels,
+                        qu'ils aient été utilisés ou non.
+                    </div>
+
+                    <p class="text-muted">
+                        Pour confirmer, saisissez votre mot de passe actuel.
+                    </p>
+
+                    <form method="post" action="{% url 'accounts:regenerate_backup_codes' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label fw-bold">Mot de passe actuel</label>
+                            <input type="password"
+                                   name="password"
+                                   id="id_password"
+                                   class="form-control form-control-lg"
+                                   placeholder="••••••••"
+                                   autocomplete="current-password"
+                                   required
+                                   autofocus>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-sync-alt me-1"></i>Générer de nouveaux codes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

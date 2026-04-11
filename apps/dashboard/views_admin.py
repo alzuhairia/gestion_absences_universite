@@ -33,6 +33,7 @@ from apps.dashboard.views_admin_users import (  # noqa: F401
     admin_user_create,
     admin_user_delete,
     admin_user_edit,
+    admin_user_reset_2fa,
     admin_user_reset_password,
     admin_users,
     admin_users_delete_multiple,
