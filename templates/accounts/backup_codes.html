@@ -1,0 +1,93 @@
+{% extends base_template|default:'base.html' %}
+
+{% block title %}Codes de secours 2FA{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item"><a href="{% url 'accounts:profile' %}">Mon Profil</a></li>
+<li class="breadcrumb-item active" aria-current="page">Codes de secours</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-key me-2"></i>Codes de secours 2FA
+        </h1>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            <div class="card shadow border-warning">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 fw-bold">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Enregistrez ces codes maintenant
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <strong>Ces codes ne seront plus jamais affichés.</strong>
+                        Imprimez-les ou conservez-les dans un gestionnaire de mots de
+                        passe. Chaque code ne peut être utilisé qu'<strong>une seule fois</strong>
+                        pour vous connecter si vous perdez votre téléphone.
+                    </div>
+
+                    <div class="bg-light border rounded p-4 mb-3" id="codes-block">
+                        <div class="row g-2" style="font-family: 'Courier New', monospace;">
+                            {% for code in codes %}
+                            <div class="col-md-6">
+                                <div class="py-2 px-3 bg-white border rounded text-center fs-5 fw-bold">
+                                    {{ code }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end flex-wrap">
+                        <button type="button" class="btn btn-outline-secondary" id="printBtn">
+                            <i class="fas fa-print me-1"></i>Imprimer
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="copyBtn">
+                            <i class="fas fa-copy me-1"></i>Copier
+                        </button>
+                        <a href="{% url 'accounts:profile' %}" class="btn btn-success">
+                            <i class="fas fa-check me-1"></i>J'ai sauvegardé mes codes
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ request.csp_nonce }}">
+    (function () {
+        var printBtn = document.getElementById('printBtn');
+        if (printBtn) {
+            printBtn.addEventListener('click', function () {
+                window.print();
+            });
+        }
+        var btn = document.getElementById('copyBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            // Build plain-text list from rendered DOM (avoids escaping issues)
+            var nodes = document.querySelectorAll('#codes-block .fw-bold');
+            var lines = [];
+            nodes.forEach(function (n) { lines.push(n.textContent.trim()); });
+            var payload = lines.join('\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(payload).then(function () {
+                    btn.innerHTML = '<i class="fas fa-check me-1"></i>Copié';
+                });
+            }
+        });
+    })();
+</script>
+{% endblock %}

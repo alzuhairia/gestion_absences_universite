@@ -112,13 +112,38 @@
                     <form method="post" action="{% url 'dashboard:admin_user_reset_password' editing_user.id_utilisateur %}">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <input type="password" name="new_password" class="form-control" 
+                            <input type="password" name="new_password" class="form-control"
                                    placeholder="Nouveau mot de passe" required>
                         </div>
                         <button type="submit" class="btn btn-warning">
                             <i class="fas fa-key me-1"></i> Réinitialiser le mot de passe
                         </button>
                     </form>
+
+                    <hr>
+                    <h6 class="mb-2">Authentification à deux facteurs</h6>
+                    {% if editing_user.two_factor_enabled %}
+                        <p class="small text-muted mb-2">
+                            <i class="fas fa-shield-halved text-success me-1"></i>
+                            2FA activée. Si l'utilisateur a perdu son téléphone et
+                            n'a plus accès à ses codes de secours, réinitialisez-la
+                            ci-dessous — il pourra se connecter avec son seul mot
+                            de passe.
+                        </p>
+                        <form method="post"
+                              action="{% url 'dashboard:admin_user_reset_2fa' editing_user.id_utilisateur %}"
+                              onsubmit="return confirm('Confirmer la réinitialisation de la 2FA pour {{ editing_user.email|escapejs }} ? Cette action est journalisée.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="fas fa-shield-alt me-1"></i> Réinitialiser la 2FA
+                            </button>
+                        </form>
+                    {% else %}
+                        <p class="small text-muted mb-0">
+                            <i class="fas fa-shield-halved text-muted me-1"></i>
+                            2FA non activée — aucune action requise.
+                        </p>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>

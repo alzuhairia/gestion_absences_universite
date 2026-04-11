@@ -74,7 +74,7 @@
 <form method="post" action="{% url 'accounts:verify_2fa' %}" id="verifyForm" novalidate>
     {% csrf_token %}
 
-    <div class="mb-3">
+    <div class="mb-3" id="totpFieldWrapper">
         <label for="id_token" class="visually-hidden-focusable">Code à 6 chiffres</label>
         <input
             type="text"
@@ -83,7 +83,6 @@
             class="otp-input"
             placeholder="••••••"
             inputmode="numeric"
-            pattern="[0-9]{6}"
             maxlength="6"
             autocomplete="one-time-code"
             required
@@ -99,6 +98,25 @@
         </p>
     </div>
 
+    <div class="mb-3 d-none" id="backupFieldWrapper">
+        <label for="id_backup_token" class="visually-hidden-focusable">Code de secours</label>
+        <input
+            type="text"
+            name="token"
+            id="id_backup_token"
+            class="otp-input"
+            placeholder="XXXXX-XXXXX"
+            maxlength="11"
+            autocomplete="off"
+            disabled
+            style="letter-spacing: 0.2em; text-indent: 0.2em; font-size: 1.3rem;"
+        />
+        <p class="otp-help">
+            Saisissez un des 8 codes de secours générés lors de l'activation.
+            Chaque code ne peut servir qu'une fois.
+        </p>
+    </div>
+
     <button type="submit" class="btn-sn-primary" id="verifyBtn">
         <span id="verifyLabel">
             <i class="fas fa-check me-1"></i>
@@ -107,7 +125,14 @@
     </button>
 </form>
 
-<div class="text-center mt-4">
+<div class="text-center mt-3">
+    <button type="button" id="toggleMode" class="btn-sn-ghost" style="border: none; cursor: pointer; background: none;">
+        <i class="fas fa-key"></i>
+        <span id="toggleLabel">Utiliser un code de secours</span>
+    </button>
+</div>
+
+<div class="text-center mt-3">
     <form method="post" action="{% url 'accounts:logout' %}" id="logout-form-2fa">
         {% csrf_token %}
         <button type="submit" class="btn-sn-ghost" style="border: none; cursor: pointer;">
@@ -122,11 +147,17 @@
 <script nonce="{{ request.csp_nonce }}">
     (function () {
         var input = document.getElementById('id_token');
+        var backupInput = document.getElementById('id_backup_token');
+        var totpWrap = document.getElementById('totpFieldWrapper');
+        var backupWrap = document.getElementById('backupFieldWrapper');
+        var toggleBtn = document.getElementById('toggleMode');
+        var toggleLabel = document.getElementById('toggleLabel');
         var form = document.getElementById('verifyForm');
         var btn = document.getElementById('verifyBtn');
         var label = document.getElementById('verifyLabel');
+        var mode = 'totp';
 
-        // Numeric-only filter + auto-submit when 6 digits typed
+        // Numeric-only filter + auto-submit when 6 digits typed (TOTP mode)
         if (input) {
             input.addEventListener('input', function () {
                 var clean = input.value.replace(/\D+/g, '').slice(0, 6);
@@ -135,6 +166,41 @@
                 }
                 if (clean.length === 6 && form) {
                     form.requestSubmit ? form.requestSubmit() : form.submit();
+                }
+            });
+        }
+
+        // Backup code formatting: insert a dash between the two 5-char groups
+        if (backupInput) {
+            backupInput.addEventListener('input', function () {
+                var raw = backupInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                if (raw.length > 5) {
+                    backupInput.value = raw.slice(0, 5) + '-' + raw.slice(5);
+                } else {
+                    backupInput.value = raw;
+                }
+            });
+        }
+
+        // Toggle between TOTP and backup code mode.
+        // We use `disabled` on the hidden field so only ONE value is posted
+        // for the shared name="token".
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function () {
+                if (mode === 'totp') {
+                    mode = 'backup';
+                    totpWrap.classList.add('d-none');
+                    backupWrap.classList.remove('d-none');
+                    if (input) { input.disabled = true; input.required = false; input.value = ''; }
+                    if (backupInput) { backupInput.disabled = false; backupInput.required = true; backupInput.focus(); }
+                    toggleLabel.textContent = 'Revenir au code TOTP';
+                } else {
+                    mode = 'totp';
+                    totpWrap.classList.remove('d-none');
+                    backupWrap.classList.add('d-none');
+                    if (backupInput) { backupInput.disabled = true; backupInput.required = false; backupInput.value = ''; }
+                    if (input) { input.disabled = false; input.required = true; input.focus(); }
+                    toggleLabel.textContent = 'Utiliser un code de secours';
                 }
             });
         }
