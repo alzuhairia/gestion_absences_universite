@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-04-11
+
+### Added
+- TOTP 2FA (Google Authenticator / Authy) with QR provisioning and 6-digit verification
+- 8 single-use backup codes generated at setup, hashed at rest, one-shot display page
+- Backup-code login fallback when the authenticator device is lost
+- Admin "Réinitialiser la 2FA" action on user form (audited as CRITIQUE) for lost-device recovery
+- Password-gated backup code regeneration from the profile page
+- Management commands `seed_demo` and `seed_at_risk` for reproducible demo datasets
+
+### Changed
+- Login page: removed non-functional "Se souvenir de moi" checkbox
+- Auth shell rebranded (Scholar Nexus mentions removed in favour of UniAbsences)
+- Print button on backup codes page uses a nonce'd handler to remain CSP-compliant
+
+### Fixed
+- `recalculer_eligibilite()` wrapped in `transaction.atomic()` for notification + audit atomicity
+- Missing `select_for_update()` on `toggle_exemption` and `process_justification` race paths
+
 ## [1.1.0] - 2026-03-19
 
 ### Added
