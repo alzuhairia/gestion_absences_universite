@@ -141,3 +141,12 @@ class CustomPasswordChangeForm(PasswordChangeForm):
                 "autocomplete": "new-password",
             }
         )
+
+    def clean_new_password1(self):
+        old_password = self.cleaned_data.get("old_password")
+        new_password1 = self.cleaned_data.get("new_password1")
+        if old_password and new_password1 and old_password == new_password1:
+            raise forms.ValidationError(
+                "Le nouveau mot de passe doit être différent de l'ancien."
+            )
+        return new_password1
