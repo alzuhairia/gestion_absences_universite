@@ -15,7 +15,7 @@
 
     <style>
         /* ─────────────────────────────────────────────
-           Scholar Nexus — Design System
+           UniAbsences — Design System
            Manrope (self-served via @fontsource on jsDelivr)
            ───────────────────────────────────────────── */
         @font-face {
@@ -614,67 +614,12 @@
             padding-right: 3.25rem;
         }
 
-        /* Remember me + forgot row */
+        /* Forgot password row */
         .form-row-meta {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            justify-content: flex-end;
             margin: 8px 0 22px;
-            flex-wrap: wrap;
-        }
-
-        .form-check-modern {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .form-check-modern input[type="checkbox"] {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border: 1.5px solid var(--sn-border-strong);
-            border-radius: 6px;
-            background: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s var(--sn-ease);
-            position: relative;
-        }
-
-        .form-check-modern input[type="checkbox"]:hover {
-            border-color: var(--sn-primary);
-        }
-
-        .form-check-modern input[type="checkbox"]:checked {
-            background: linear-gradient(135deg, var(--sn-primary), var(--sn-secondary));
-            border-color: transparent;
-        }
-
-        .form-check-modern input[type="checkbox"]:checked::after {
-            content: "";
-            width: 5px;
-            height: 9px;
-            border-right: 2px solid #fff;
-            border-bottom: 2px solid #fff;
-            transform: rotate(45deg) translateY(-1px);
-        }
-
-        .form-check-modern input[type="checkbox"]:focus-visible {
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
-            outline: none;
-        }
-
-        .form-check-modern .label-text {
-            font-size: 0.9rem;
-            color: var(--sn-text-soft);
-            font-weight: 500;
         }
 
         .link-forgot {
@@ -866,7 +811,7 @@
            Bootstrap form overrides — applied to all
            auth pages that extend base_auth (password
            reset, password change, etc.) so they inherit
-           the Scholar Nexus look without local edits.
+           the same look without local edits.
            ───────────────────────────────────────────── */
         .form-label {
             font-weight: 600;
@@ -905,7 +850,7 @@
         }
 
         /* Map .btn.btn-primary (used by password_reset, password_change…)
-           onto the Scholar Nexus gradient button so all pages stay consistent. */
+           onto the gradient button so all pages stay consistent. */
         .btn.btn-primary {
             position: relative;
             display: inline-flex;
@@ -1391,7 +1336,7 @@
             <div class="brand-content">
                 <span class="brand-eyebrow">
                     <span class="pulse-dot" aria-hidden="true"></span>
-                    Scholar Nexus · Plateforme académique
+                    Plateforme académique
                 </span>
                 <h1 class="brand-headline">
                     Gestion intelligente <br>
@@ -1419,7 +1364,7 @@
             </div>
 
             <div class="brand-footer">
-                <span>&copy; {% now "Y" %} UniAbsences · Scholar Nexus</span>
+                <span>&copy; {% now "Y" %} UniAbsences</span>
                 <span>
                     <i class="fas fa-lock me-1"></i> Connexion chiffrée
                 </span>
