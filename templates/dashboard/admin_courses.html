@@ -64,7 +64,7 @@
                         <div class="mb-3">
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Année académique :</strong> 
+                                <strong>Année académique :</strong>
                                 <span id="academic-year-display">
                                     {% if form.id_annee.value %}
                                         {{ form.id_annee.value }}
@@ -124,62 +124,87 @@
         <!-- List -->
         <div class="col-lg-8">
             <div class="card shadow">
-                <div class="card-header py-3 bg-white">
+                <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Liste des Cours</h6>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">
+                            <i class="fas fa-check-square me-1"></i>Tout sélectionner
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">
+                            <i class="fas fa-square me-1"></i>Tout désélectionner
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" id="deleteSelectedBtn" disabled>
+                            <i class="fas fa-trash me-1"></i>Supprimer sélectionnés (<span id="selectedCount">0</span>)
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     {% if courses %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Code</th>
-                                    <th>Nom</th>
-                                    <th>Département</th>
-                                    <th>Professeur</th>
-                                    <th>Statut</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for course in courses %}
-                                <tr>
-                                    <td><strong>{{ course.code_cours }}</strong></td>
-                                    <td>{{ course.nom_cours }}</td>
-                                    <td>{{ course.id_departement.nom_departement }}</td>
-                                    <td>
-                                        {% if course.professeur %}
-                                        {{ course.professeur.get_full_name }}
-                                        {% else %}
-                                        <span class="text-muted">Non assigné</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if course.actif %}
-                                        <span class="badge bg-success">Actif</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">Inactif</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'dashboard:admin_course_edit' course.id_cours %}" 
-                                           class="btn btn-sm btn-primary">
-                                            <i class="fas fa-edit"></i> Modifier
-                                        </a>
-                                        <button type="button" 
-                                                class="btn btn-sm btn-danger" 
-                                                title="Supprimer"
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteCourseModal{{ course.id_cours }}">
-                                            <i class="fas fa-trash"></i> Supprimer
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
+                    <form id="deleteMultipleCoursesForm" method="post" action="{% url 'dashboard:admin_courses_delete_multiple' %}">
+                        {% csrf_token %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="selectAllCheckbox" title="Sélectionner tout" aria-label="Sélectionner tous les cours">
+                                        </th>
+                                        <th>Code</th>
+                                        <th>Nom</th>
+                                        <th>Département</th>
+                                        <th>Professeur</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for course in courses %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox"
+                                                   name="course_ids"
+                                                   value="{{ course.id_cours }}"
+                                                   class="course-checkbox"
+                                                   data-course-code="{{ course.code_cours }}"
+                                                   data-course-name="{{ course.nom_cours }}">
+                                        </td>
+                                        <td><strong>{{ course.code_cours }}</strong></td>
+                                        <td>{{ course.nom_cours }}</td>
+                                        <td>{{ course.id_departement.nom_departement }}</td>
+                                        <td>
+                                            {% if course.professeur %}
+                                            {{ course.professeur.get_full_name }}
+                                            {% else %}
+                                            <span class="text-muted">Non assigné</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if course.actif %}
+                                            <span class="badge bg-success">Actif</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'dashboard:admin_course_edit' course.id_cours %}"
+                                               class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i> Modifier
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-danger"
+                                                    title="Supprimer"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteCourseModal{{ course.id_cours }}">
+                                                <i class="fas fa-trash"></i> Supprimer
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+
                     <!-- Pagination -->
                     {% if courses.has_other_pages %}
                     <nav aria-label="Navigation des pages">
@@ -209,7 +234,43 @@
     </div>
 </div>
 
-<!-- Modals de confirmation de suppression -->
+<!-- Modal de confirmation de suppression multiple -->
+<div class="modal fade" id="deleteMultipleCoursesModal" tabindex="-1" aria-labelledby="deleteMultipleCoursesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteMultipleCoursesModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmation de suppression multiple
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Attention :</strong> Cette action est irréversible.
+                </div>
+                <p>Êtes-vous sûr de vouloir supprimer définitivement les <strong id="modalCourseCount">0</strong> cours sélectionné(s) ?</p>
+                <div id="selectedCoursesList" class="mb-3" style="max-height: 200px; overflow-y: auto;">
+                    <!-- Liste des cours sélectionnés -->
+                </div>
+                <div class="alert alert-danger mb-0" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Important :</strong> Toutes les données associées (inscriptions, absences, justifications, séances) seront également supprimées. Cette action sera enregistrée dans le journal d'audit.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="submit" form="deleteMultipleCoursesForm" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i>Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals de confirmation de suppression unitaire -->
 {% for course in courses %}
 <div class="modal fade" id="deleteCourseModal{{ course.id_cours }}" tabindex="-1" aria-labelledby="deleteCourseModalLabel{{ course.id_cours }}" aria-hidden="true">
     <div class="modal-dialog">
@@ -230,14 +291,14 @@
                     <li><strong>Code :</strong> {{ course.code_cours }}</li>
                     <li><strong>Nom :</strong> {{ course.nom_cours }}</li>
                     <li><strong>Département :</strong> {{ course.id_departement.nom_departement }}</li>
-                    <li><strong>Professeur :</strong> 
+                    <li><strong>Professeur :</strong>
                         {% if course.professeur %}
                         {{ course.professeur.get_full_name }}
                         {% else %}
                         <span class="text-muted">Non assigné</span>
                         {% endif %}
                     </li>
-                    <li><strong>Statut :</strong> 
+                    <li><strong>Statut :</strong>
                         {% if course.actif %}
                         <span class="badge bg-success">Actif</span>
                         {% else %}
@@ -271,3 +332,90 @@
 {% endfor %}
 {% endblock %}
 
+{% block extra_js %}
+<script nonce="{{ request.csp_nonce }}">
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const courseCheckboxes = document.querySelectorAll('.course-checkbox');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const deleteMultipleCoursesModal = new bootstrap.Modal(document.getElementById('deleteMultipleCoursesModal'));
+
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.course-checkbox:checked');
+        const count = selected.length;
+        selectedCountSpan.textContent = count;
+        deleteSelectedBtn.disabled = count === 0;
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = count > 0 && count === courseCheckboxes.length;
+            selectAllCheckbox.indeterminate = count > 0 && count < courseCheckboxes.length;
+        }
+    }
+
+    courseCheckboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            courseCheckboxes.forEach(function(checkbox) {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateSelectedCount();
+        });
+    }
+
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            courseCheckboxes.forEach(function(checkbox) { checkbox.checked = true; });
+            if (selectAllCheckbox) selectAllCheckbox.checked = true;
+            updateSelectedCount();
+        });
+    }
+
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', function() {
+            courseCheckboxes.forEach(function(checkbox) { checkbox.checked = false; });
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            updateSelectedCount();
+        });
+    }
+
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', function() {
+            const selected = document.querySelectorAll('.course-checkbox:checked');
+            if (selected.length === 0) return;
+
+            document.getElementById('modalCourseCount').textContent = selected.length;
+            const coursesList = document.getElementById('selectedCoursesList');
+            coursesList.replaceChildren();
+
+            const list = document.createElement('ul');
+            list.className = 'list-unstyled';
+            selected.forEach(function(checkbox) {
+                var code = checkbox.dataset.courseCode || '';
+                var name = checkbox.dataset.courseName || '';
+
+                var item = document.createElement('li');
+                var icon = document.createElement('i');
+                icon.className = 'fas fa-book me-2';
+                item.appendChild(icon);
+
+                var strong = document.createElement('strong');
+                strong.textContent = code;
+                item.appendChild(strong);
+                item.appendChild(document.createTextNode(' — ' + name));
+
+                list.appendChild(item);
+            });
+            coursesList.appendChild(list);
+
+            deleteMultipleCoursesModal.show();
+        });
+    }
+
+    updateSelectedCount();
+</script>
+{% endblock extra_js %}

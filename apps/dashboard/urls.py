@@ -100,6 +100,11 @@ urlpatterns = [
         views_admin.admin_course_delete,
         name="admin_course_delete",
     ),
+    path(
+        "admin/courses/delete-multiple/",
+        views_admin.admin_courses_delete_multiple,
+        name="admin_courses_delete_multiple",
+    ),
     # User Management
     path("admin/users/", views_admin.admin_users, name="admin_users"),
     path(
