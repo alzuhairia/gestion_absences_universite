@@ -89,9 +89,13 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'dashboard:admin_department_edit' dept.id_departement %}" 
+                                        <a href="{% url 'dashboard:admin_department_edit' dept.id_departement %}"
                                            class="btn btn-sm btn-primary">
                                             <i class="fas fa-edit"></i> Modifier
+                                        </a>
+                                        <a href="{% url 'dashboard:admin_department_delete' dept.id_departement %}"
+                                           class="btn btn-sm btn-danger">
+                                            <i class="fas fa-trash"></i> Supprimer
                                         </a>
                                     </td>
                                 </tr>
