@@ -233,6 +233,12 @@
                             </small>
                         </div>
 
+                        <!-- Alerte de validation -->
+                        <div id="enrollValidationAlert" class="alert alert-danger alert-dismissible fade d-none mt-3" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i><span id="enrollValidationMsg"></span>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                        </div>
+
                         <!-- Boutons -->
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
@@ -620,12 +626,22 @@ function buildRecapHtml(data, levelCourses) {
     return html;
 }
 
+function showValidationError(msg) {
+    var alertEl = document.getElementById('enrollValidationAlert');
+    var msgEl = document.getElementById('enrollValidationMsg');
+    if (!alertEl || !msgEl) return;
+    msgEl.textContent = msg;
+    alertEl.classList.remove('d-none');
+    alertEl.classList.add('show');
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 async function showRecap() {
     const data = getRecapData();
 
     // Validation rapide avant d'ouvrir le récap
     if (data.enrollmentType === 'COURSE' && data.selectedCourses.length === 0) {
-        alert('Veuillez sélectionner au moins un cours.');
+        showValidationError('Veuillez sélectionner au moins un cours.');
         return;
     }
 
@@ -638,7 +654,7 @@ async function showRecap() {
         const niveau = document.getElementById('{{ enrollment_form.niveau.id_for_label }}').value;
 
         if (!deptId || !niveau || !yearId) {
-            alert('Veuillez sélectionner un département, un niveau et une année académique.');
+            showValidationError('Veuillez sélectionner un département, un niveau et une année académique.');
             return;
         }
 
