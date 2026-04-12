@@ -25,7 +25,7 @@ from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from apps.absences.models import Absence
+from apps.absences.models import Absence, Justification
 from apps.academics.models import Cours
 from apps.accounts.models import TwoFactorBackupCode, User
 from apps.audits.models import LogAudit
@@ -316,7 +316,7 @@ def admin_users_delete_multiple(request):
         raw_user_ids = request.POST.getlist("user_ids")
 
         if not raw_user_ids:
-            messages.error(request, "Aucun utilisateur selectionne.")
+            messages.error(request, "Aucun utilisateur sélectionné.")
             return redirect("dashboard:admin_users")
 
         user_ids = []
@@ -329,69 +329,20 @@ def admin_users_delete_multiple(request):
         user_ids = list(dict.fromkeys(user_ids))
 
         if not user_ids:
-            messages.error(request, "Aucun identifiant utilisateur valide recu.")
+            messages.error(request, "Aucun identifiant utilisateur valide reçu.")
             return redirect("dashboard:admin_users")
 
+        force_delete = request.POST.get("force_delete") == "1"
+
         deleted_count = 0
-        deactivated_count = 0
         failed_count = 0
         errors = []
 
         with transaction.atomic():
-            # Lock targeted users to prevent concurrent create/delete races on FK references.
             locked_users = list(
                 User.objects.select_for_update().filter(id_utilisateur__in=user_ids)
             )
             users_by_id = {user.id_utilisateur: user for user in locked_users}
-
-            selected_user_ids = [
-                uid for uid in users_by_id.keys() if uid != request.user.id_utilisateur
-            ]
-
-            inscriptions_count_map = {}
-            absences_encoded_count_map = {}
-            audit_logs_count_map = {}
-            cours_count_map = {}
-
-            if selected_user_ids:
-                inscriptions_count_map = dict(
-                    Inscription.objects.filter(id_etudiant_id__in=selected_user_ids)
-                    .values("id_etudiant_id")
-                    .annotate(total=Count("id_inscription"))
-                    .values_list("id_etudiant_id", "total")
-                )
-                absences_encoded_count_map = dict(
-                    Absence.objects.filter(encodee_par_id__in=selected_user_ids)
-                    .values("encodee_par_id")
-                    .annotate(total=Count("id_absence"))
-                    .values_list("encodee_par_id", "total")
-                )
-                audit_logs_count_map = dict(
-                    LogAudit.objects.filter(id_utilisateur_id__in=selected_user_ids)
-                    .values("id_utilisateur_id")
-                    .annotate(total=Count("id_log"))
-                    .values_list("id_utilisateur_id", "total")
-                )
-                cours_count_map = dict(
-                    Cours.objects.filter(professeur_id__in=selected_user_ids)
-                    .values("professeur_id")
-                    .annotate(total=Count("id_cours"))
-                    .values_list("professeur_id", "total")
-                )
-
-            to_deactivate_ids = {
-                uid
-                for uid in selected_user_ids
-                if (
-                    inscriptions_count_map.get(uid, 0) > 0
-                    or absences_encoded_count_map.get(uid, 0) > 0
-                    or audit_logs_count_map.get(uid, 0) > 0
-                )
-            }
-            if to_deactivate_ids:
-                User.objects.filter(id_utilisateur__in=to_deactivate_ids).update(
-                    actif=False
-                )
 
             for user_id in user_ids:
                 try:
@@ -408,32 +359,21 @@ def admin_users_delete_multiple(request):
                         failed_count += 1
                         continue
 
-                    if user.id_utilisateur in to_deactivate_ids:
-                        log_action(
-                            request.user,
-                            f"CRITIQUE: Desactivation de l'utilisateur '{user.email}' (ID: {user.id_utilisateur}) - Dependances detectees (suppression multiple)",
-                            request,
-                            niveau="CRITIQUE",
-                            objet_type="USER",
-                            objet_id=user.id_utilisateur,
-                        )
-                        deactivated_count += 1
-                        continue
-
-                    cours_count = cours_count_map.get(user.id_utilisateur, 0)
-                    if cours_count > 0:
-                        Cours.objects.filter(professeur=user).update(professeur=None)
-
                     user_email = user.email
                     user_name = user.get_full_name()
                     user_role = user.get_role_display()
                     user_id_for_log = user.id_utilisateur
 
+                    if force_delete:
+                        _cascade_delete_user_data(user, request.user)
+
+                    Cours.objects.filter(professeur=user).update(professeur=None)
+
                     try:
                         user.delete()
                         log_action(
                             request.user,
-                            f"CRITIQUE: Suppression de l'utilisateur '{user_email}' (ID: {user_id_for_log}, Role: {user_role}, Nom: {user_name}) - Suppression multiple",
+                            f"CRITIQUE: Suppression de l'utilisateur '{user_email}' (ID: {user_id_for_log}, Rôle: {user_role}, Nom: {user_name}) - Suppression multiple{' forcée' if force_delete else ''}",
                             request,
                             niveau="CRITIQUE",
                             objet_type="USER",
@@ -441,19 +381,10 @@ def admin_users_delete_multiple(request):
                         )
                         deleted_count += 1
                     except ProtectedError:
-                        # Safety net against edge cases during concurrent write loads.
-                        User.objects.filter(id_utilisateur=user_id_for_log).update(
-                            actif=False
+                        errors.append(
+                            f"'{user_email}' possède des données liées et n'a pas pu être supprimé"
                         )
-                        log_action(
-                            request.user,
-                            f"CRITIQUE: Desactivation de l'utilisateur '{user_email}' (ID: {user_id_for_log}) - Dependances detectees pendant suppression",
-                            request,
-                            niveau="CRITIQUE",
-                            objet_type="USER",
-                            objet_id=user_id_for_log,
-                        )
-                        deactivated_count += 1
+                        failed_count += 1
                 except Exception:
                     logger.exception(
                         "Erreur lors de la suppression de l'utilisateur %s", user_id
@@ -465,17 +396,12 @@ def admin_users_delete_multiple(request):
 
         if deleted_count > 0:
             messages.success(
-                request, f"{deleted_count} utilisateur(s) supprime(s) avec succes."
-            )
-        if deactivated_count > 0:
-            messages.warning(
-                request,
-                f"{deactivated_count} utilisateur(s) desactive(s) (dependances detectees).",
+                request, f"{deleted_count} utilisateur(s) supprimé(s) définitivement avec succès."
             )
         if failed_count > 0:
-            error_msg = f"{failed_count} utilisateur(s) n'ont pas pu etre supprime(s)."
+            error_msg = f"{failed_count} utilisateur(s) n'ont pas pu être supprimé(s)."
             if errors:
-                error_msg += " Details : " + " ; ".join(errors[:5])
+                error_msg += " Détails : " + " ; ".join(errors[:5])
             messages.error(request, error_msg)
 
         return redirect("dashboard:admin_users")
@@ -485,9 +411,31 @@ def admin_users_delete_multiple(request):
         messages.error(
             request,
             "Erreur interne lors de la suppression multiple. "
-            "Veuillez verifier les dependances ou contacter l'administrateur systeme.",
+            "Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
         return redirect("dashboard:admin_users")
+
+
+def _cascade_delete_user_data(user, performed_by):
+    """
+    Supprime en cascade les données liées à un utilisateur avant sa suppression.
+
+    Ordre : Justifications → Absences (de ses inscriptions) → Inscriptions,
+    puis réassigne les absences encodées par cet utilisateur à l'admin qui supprime.
+
+    Doit être appelée à l'intérieur d'un transaction.atomic().
+    """
+    # 1. Absences liées aux inscriptions de cet utilisateur (étudiant)
+    student_absences = Absence.objects.filter(id_inscription__id_etudiant=user)
+    # 1a. Supprimer les justifications de ces absences
+    Justification.objects.filter(id_absence__in=student_absences).delete()
+    # 1b. Supprimer les absences
+    student_absences.delete()
+    # 2. Supprimer les inscriptions
+    Inscription.objects.filter(id_etudiant=user).delete()
+    # 3. Réassigner les absences encodées par cet utilisateur (prof/secrétaire)
+    #    à l'admin qui effectue la suppression (champ non-nullable PROTECT)
+    Absence.objects.filter(encodee_par=user).update(encodee_par=performed_by)
 
 
 @login_required
@@ -521,110 +469,92 @@ def admin_user_delete(request, user_id):
         audit_logs_count = LogAudit.objects.filter(id_utilisateur=user).count()
         cours_count = Cours.objects.filter(professeur=user).count()
 
-        # FIX VERT #19 — Page de confirmation avant suppression définitive
+        has_dependencies = (
+            inscriptions_count > 0
+            or absences_encoded_count > 0
+            or audit_logs_count > 0
+        )
+
+        # --- GET : page de confirmation ---
         if request.method == "GET":
-            if (
-                inscriptions_count > 0
-                or absences_encoded_count > 0
-                or audit_logs_count > 0
-            ):
-                # Pas de page de confirmation : on sait déjà que ce sera une désactivation
-                cascade_items = [
-                    item
-                    for item in [
-                        {"count": inscriptions_count, "label": "inscription(s)"},
-                        {
-                            "count": absences_encoded_count,
-                            "label": "absence(s) encodée(s)",
-                        },
-                        {"count": audit_logs_count, "label": "entrée(s) d'audit"},
-                    ]
-                    if item["count"] > 0
+            cascade_items = [
+                item
+                for item in [
+                    {"count": inscriptions_count, "label": "inscription(s)"},
+                    {"count": absences_encoded_count, "label": "absence(s) encodée(s)"},
+                    {"count": audit_logs_count, "label": "entrée(s) d'audit"},
+                    {"count": cours_count, "label": "cours (sera détaché du professeur)"},
                 ]
-                return render(
-                    request,
-                    "dashboard/admin_confirm_delete.html",
-                    {
-                        "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
-                        "cascade_items": cascade_items,
-                        "extra_warning": "Des dépendances ont été détectées. Le compte sera DÉSACTIVÉ (pas supprimé).",
-                        "cancel_url": "/dashboard/admin/users/",
-                        "cancel_label": "Utilisateurs",
-                    },
-                )
-            else:
-                cascade_items = [
-                    item
-                    for item in [
-                        {
-                            "count": cours_count,
-                            "label": "cours (sera détaché du professeur)",
-                        },
-                    ]
-                    if item["count"] > 0
-                ]
-                return render(
-                    request,
-                    "dashboard/admin_confirm_delete.html",
-                    {
-                        "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
-                        "cascade_items": cascade_items,
-                        "cancel_url": "/dashboard/admin/users/",
-                        "cancel_label": "Utilisateurs",
-                    },
-                )
-
-        if inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0:
-            user.actif = False
-            user.save(update_fields=["actif"])
-            log_action(
-                request.user,
-                f"CRITIQUE: Desactivation de l'utilisateur '{user.email}' (ID: {user.id_utilisateur}) - Dependances detectees",
+                if item["count"] > 0
+            ]
+            return render(
                 request,
-                niveau="CRITIQUE",
-                objet_type="USER",
-                objet_id=user.id_utilisateur,
+                "dashboard/admin_confirm_delete.html",
+                {
+                    "object_label": f"Utilisateur « {user.get_full_name()} » ({user.email})",
+                    "cascade_items": cascade_items,
+                    "has_dependencies": has_dependencies,
+                    "cancel_url": "/dashboard/admin/users/",
+                    "cancel_label": "Utilisateurs",
+                },
             )
-            messages.warning(
-                request,
-                "Suppression bloquee: l'utilisateur a des dependances. Le compte a ete desactive.",
-            )
-            return redirect("dashboard:admin_users")
 
+        # --- POST : traitement ---
+        action = request.POST.get("action", "")
         user_email = user.email
         user_name = user.get_full_name()
         user_role = user.get_role_display()
         user_id_for_log = user.id_utilisateur
 
+        # Option 1 : désactiver seulement
+        if action == "deactivate":
+            user.actif = False
+            user.save(update_fields=["actif"])
+            log_action(
+                request.user,
+                f"CRITIQUE: Désactivation de l'utilisateur '{user_email}' (ID: {user_id_for_log}) - Choix admin",
+                request,
+                niveau="CRITIQUE",
+                objet_type="USER",
+                objet_id=user_id_for_log,
+            )
+            messages.success(
+                request,
+                f"Le compte '{user_email}' a été désactivé. Les données liées sont conservées.",
+            )
+            return redirect("dashboard:admin_users")
+
+        # Option 2 : suppression définitive (avec cascade si nécessaire)
         try:
             with transaction.atomic():
+                if has_dependencies and action == "force_delete":
+                    _cascade_delete_user_data(user, request.user)
+
                 if cours_count > 0:
                     Cours.objects.filter(professeur=user).update(professeur=None)
 
-                user.groups.clear()
-                user.user_permissions.clear()
                 user.delete()
 
                 log_action(
                     request.user,
-                    f"CRITIQUE: Suppression de l'utilisateur '{user_email}' (ID: {user_id_for_log}, Role: {user_role}, Nom: {user_name}) - Gestion des utilisateurs",
+                    f"CRITIQUE: Suppression de l'utilisateur '{user_email}' "
+                    f"(ID: {user_id_for_log}, Rôle: {user_role}, Nom: {user_name}) - "
+                    f"{'Suppression forcée avec données' if action == 'force_delete' else 'Gestion des utilisateurs'}",
                     request,
                     niveau="CRITIQUE",
                     objet_type="USER",
                     objet_id=user_id_for_log,
                 )
 
-            messages.success(request, f"Utilisateur '{user_email}' supprime avec succes.")
+            messages.success(request, f"Utilisateur '{user_email}' supprimé définitivement avec succès.")
 
         except ProtectedError:
-            # Race condition: a PROTECT FK was created after the count checks.
-            # Fall back to deactivation.
             user.actif = False
             user.save(update_fields=["actif"])
             log_action(
                 request.user,
-                f"CRITIQUE: Desactivation (fallback) de l'utilisateur '{user_email}' "
-                f"(ID: {user_id_for_log}) - Dependances PROTECT detectees lors de la suppression",
+                f"CRITIQUE: Désactivation (fallback) de l'utilisateur '{user_email}' "
+                f"(ID: {user_id_for_log}) - Dépendances PROTECT détectées lors de la suppression",
                 request,
                 niveau="CRITIQUE",
                 objet_type="USER",
@@ -632,7 +562,7 @@ def admin_user_delete(request, user_id):
             )
             messages.warning(
                 request,
-                f"Des dépendances bloquantes ont été détectées. "
+                f"Des données liées ont été détectées. "
                 f"Le compte '{user_email}' a été désactivé au lieu d'être supprimé.",
             )
 
@@ -645,6 +575,6 @@ def admin_user_delete(request, user_id):
         messages.error(
             request,
             "Erreur interne lors de la suppression de l'utilisateur. "
-            "Veuillez verifier les dependances ou contacter l'administrateur systeme.",
+            "Veuillez vérifier les dépendances ou contacter l'administrateur système.",
         )
         return redirect("dashboard:admin_users")

@@ -32,13 +32,13 @@
                     <div class="card mb-3 border-warning">
                         <div class="card-header bg-warning text-dark py-2">
                             <i class="fas fa-sitemap me-1"></i>
-                            <strong>Suppression en cascade — données associées</strong>
+                            <strong>Données associées</strong>
                         </div>
                         <div class="card-body py-2">
                             <ul class="mb-0">
                                 {% for item in cascade_items %}
                                 <li>
-                                    <i class="fas fa-trash-alt text-danger me-1"></i>
+                                    <i class="fas fa-database text-warning me-1"></i>
                                     <strong>{{ item.count }}</strong> {{ item.label }}
                                 </li>
                                 {% endfor %}
@@ -46,6 +46,41 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    {% if has_dependencies %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Cet utilisateur possède des données liées dans le système.
+                        Vous pouvez choisir de <strong>supprimer définitivement</strong> l'utilisateur
+                        et toutes ses données, ou de simplement <strong>désactiver</strong> le compte
+                        (les données seront conservées).
+                    </div>
+
+                    <p class="text-muted small">
+                        Cette action sera journalisée dans le journal d'audit avec votre identifiant.
+                    </p>
+
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="force_delete">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Supprimer définitivement avec toutes les données
+                            </button>
+                        </form>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="deactivate">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-ban me-1"></i> Désactiver le compte uniquement
+                            </button>
+                        </form>
+                        <a href="{{ cancel_url }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Annuler
+                        </a>
+                    </div>
+
+                    {% else %}
 
                     {% if extra_warning %}
                     <div class="alert alert-warning">
@@ -68,6 +103,8 @@
                             <i class="fas fa-arrow-left me-1"></i> Annuler
                         </a>
                     </div>
+
+                    {% endif %}
 
                 </div>
             </div>
