@@ -19,6 +19,7 @@ from apps.dashboard.views_admin_courses import (  # noqa: F401
     admin_course_delete,
     admin_course_edit,
     admin_courses,
+    admin_courses_delete_multiple,
     admin_department_delete,
     admin_department_edit,
     admin_departments,

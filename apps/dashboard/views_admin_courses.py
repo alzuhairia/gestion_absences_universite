@@ -676,6 +676,114 @@ def admin_course_delete(request, course_id):
     return redirect("dashboard:admin_courses")
 
 
+@login_required
+@admin_required
+@require_http_methods(["POST"])
+def admin_courses_delete_multiple(request):
+    """Suppression multiple de cours avec cascade (inscriptions, absences, etc.)"""
+
+    raw_ids = request.POST.getlist("course_ids")
+    if not raw_ids:
+        messages.error(request, "Aucun cours sélectionné.")
+        return redirect("dashboard:admin_courses")
+
+    course_ids = []
+    for raw_id in raw_ids:
+        try:
+            course_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+    course_ids = list(dict.fromkeys(course_ids))
+
+    if not course_ids:
+        messages.error(request, "Aucun identifiant de cours valide reçu.")
+        return redirect("dashboard:admin_courses")
+
+    deleted_count = 0
+    failed_names = []
+
+    try:
+        with transaction.atomic():
+            courses_qs = Cours.objects.select_for_update().filter(
+                id_cours__in=course_ids
+            )
+            courses_list = list(courses_qs)
+
+            for cours in courses_list:
+                try:
+                    inscriptions = Inscription.objects.filter(id_cours=cours)
+                    absences = Absence.objects.filter(id_inscription__in=inscriptions)
+                    justifications = Justification.objects.filter(
+                        id_absence__in=absences
+                    )
+                    seances = Seance.objects.filter(id_cours=cours)
+
+                    cascade_parts = []
+                    jc = justifications.count()
+                    ac = absences.count()
+                    ic = inscriptions.count()
+                    sc = seances.count()
+
+                    justifications.delete()
+                    absences.delete()
+                    inscriptions.delete()
+                    seances.delete()
+
+                    if sc:
+                        cascade_parts.append(f"{sc} séance(s)")
+                    if ic:
+                        cascade_parts.append(f"{ic} inscription(s)")
+                    if ac:
+                        cascade_parts.append(f"{ac} absence(s)")
+                    if jc:
+                        cascade_parts.append(f"{jc} justification(s)")
+
+                    cascade_msg = (
+                        f" (cascade: {', '.join(cascade_parts)})"
+                        if cascade_parts
+                        else ""
+                    )
+
+                    log_action(
+                        request.user,
+                        f"CRITIQUE: Suppression du cours '{cours.code_cours} - {cours.nom_cours}' "
+                        f"(Département: {cours.id_departement.nom_departement}, ID: {cours.id_cours})"
+                        f"{cascade_msg} - Suppression multiple",
+                        request,
+                        niveau="CRITIQUE",
+                        objet_type="COURS",
+                        objet_id=cours.id_cours,
+                    )
+                    cours.delete()
+                    deleted_count += 1
+
+                except Exception:
+                    logger.exception(
+                        "Erreur suppression cours %s", cours.code_cours
+                    )
+                    failed_names.append(cours.code_cours)
+
+    except Exception:
+        logger.exception("Erreur lors de la suppression multiple de cours")
+        messages.error(
+            request, "Erreur lors de la suppression multiple. Veuillez réessayer."
+        )
+        return redirect("dashboard:admin_courses")
+
+    if deleted_count:
+        messages.success(
+            request, f"{deleted_count} cours supprimé(s) avec succès."
+        )
+    if failed_names:
+        messages.error(
+            request,
+            f"Impossible de supprimer : {', '.join(failed_names)}. "
+            f"Vérifiez les dépendances.",
+        )
+
+    return redirect("dashboard:admin_courses")
+
+
 # ---------------------------------------------------------------------------
 # CRUD Annees academiques
 # ---------------------------------------------------------------------------
