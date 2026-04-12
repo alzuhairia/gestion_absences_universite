@@ -255,10 +255,6 @@
                        class="nav-link {% if 'admin_audit_logs' in request.resolver_match.view_name %}active{% endif %}">
                         <i class="fas fa-history"></i> Journaux d'Audit
                     </a>
-                    <a href="{% url 'dashboard:admin_export_audit_csv' %}"
-                       class="nav-link {% if 'admin_export_audit_csv' in request.resolver_match.view_name %}active{% endif %}">
-                        <i class="fas fa-file-csv"></i> Exporter Audit (CSV)
-                    </a>
                     <a href="{% url 'dashboard:admin_qr_scan_logs' %}"
                        class="nav-link {% if 'admin_qr_scan_logs' in request.resolver_match.view_name %}active{% endif %}">
                         <i class="fas fa-qrcode"></i> Logs QR Scans
