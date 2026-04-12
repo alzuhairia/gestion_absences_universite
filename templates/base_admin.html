@@ -334,6 +334,29 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- Modal de confirmation générique -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" id="confirmModalHeader">
+                    <h5 class="modal-title" id="confirmModalLabel">
+                        <i class="fas fa-exclamation-triangle me-2"></i><span id="confirmModalTitleText">Confirmation</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="button" class="btn" id="confirmModalBtn">
+                        <i class="fas fa-check me-1"></i>Confirmer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Bundle with Popper -->
     <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 
@@ -341,40 +364,59 @@
         // Toggle Admin Sidebar on Mobile
         const sidebarToggle = document.getElementById('adminSidebarToggle');
         const adminSidebar = document.getElementById('adminSidebar');
-        
+
         if (sidebarToggle && adminSidebar) {
             sidebarToggle.addEventListener('click', function () {
                 adminSidebar.classList.toggle('active');
             });
         }
-        
-        // Confirmation pour actions critiques
-        function confirmAction(message) {
+
+        // --- Modal de confirmation réutilisable ---
+        const _confirmModalEl = document.getElementById('confirmModal');
+        const _confirmModal = _confirmModalEl ? new bootstrap.Modal(_confirmModalEl) : null;
+
+        function showConfirmModal(options) {
+            // options: { title, body (HTML), headerClass, btnClass, btnLabel, onConfirm }
+            const header = document.getElementById('confirmModalHeader');
+            const titleText = document.getElementById('confirmModalTitleText');
+            const body = document.getElementById('confirmModalBody');
+            const btn = document.getElementById('confirmModalBtn');
+
+            header.className = 'modal-header ' + (options.headerClass || 'bg-warning text-white');
+            titleText.textContent = options.title || 'Confirmation';
+            body.innerHTML = options.body || '';
+            btn.className = 'btn ' + (options.btnClass || 'btn-warning');
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>' + (options.btnLabel || 'Confirmer');
+
+            // Nettoyer les anciens listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.addEventListener('click', function () {
+                _confirmModal.hide();
+                if (options.onConfirm) options.onConfirm();
+            });
+
+            _confirmModal.show();
+        }
+
+        // Confirmation pour actions critiques (API publique pour les pages enfants)
+        function confirmAction(message, callback) {
+            if (typeof callback === 'function') {
+                showConfirmModal({
+                    title: 'Confirmation',
+                    body: '<p>' + message + '</p>',
+                    headerClass: 'bg-warning text-white',
+                    btnClass: 'btn-warning',
+                    btnLabel: 'Confirmer',
+                    onConfirm: callback,
+                });
+                return; // async — pas de return true/false
+            }
+            // Fallback sync si pas de callback (compatibilité)
             return confirm(message || 'Êtes-vous sûr de vouloir effectuer cette action ?');
         }
-        
-        // Confirmation pour désactivation
-        function confirmDeactivation(itemName, impact) {
-            return confirm(
-                `⚠️ ATTENTION : Désactivation de "${itemName}"\n\n` +
-                `Impact : ${impact}\n\n` +
-                `Cette action est réversible mais peut affecter le fonctionnement du système.\n\n` +
-                `Voulez-vous continuer ?`
-            );
-        }
-        
-        // Confirmation pour modification de seuil
-        function confirmThresholdChange(oldValue, newValue) {
-            return confirm(
-                `⚠️ MODIFICATION CRITIQUE DU SEUIL D'ABSENCE\n\n` +
-                `Ancien seuil : ${oldValue}%\n` +
-                `Nouveau seuil : ${newValue}%\n\n` +
-                `Cette modification affectera TOUS les cours qui utilisent le seuil par défaut.\n` +
-                `L'action sera enregistrée dans le journal d'audit.\n\n` +
-                `Confirmer la modification ?`
-            );
-        }
-        
+
         // Logout handler
         document.getElementById('logout-link').addEventListener('click', function(e) {
             e.preventDefault();
@@ -388,7 +430,7 @@
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
-            
+
             // Détecter les changements de seuil d'absence
             const thresholdInput = document.querySelector('input[name="default_absence_threshold"]');
             if (thresholdInput) {
@@ -396,32 +438,58 @@
                 const form = thresholdInput.closest('form');
                 if (form) {
                     form.addEventListener('submit', function(e) {
-                        if (thresholdInput.value !== initialValue) {
-                            if (!confirmThresholdChange(initialValue, thresholdInput.value)) {
-                                e.preventDefault();
-                                return false;
-                            }
+                        if (thresholdInput.value !== initialValue && !form.dataset.confirmed) {
+                            e.preventDefault();
+                            showConfirmModal({
+                                title: 'Modification du seuil',
+                                headerClass: 'bg-danger text-white',
+                                btnClass: 'btn-danger',
+                                btnLabel: 'Confirmer la modification',
+                                body:
+                                    '<div class="alert alert-danger" role="alert">' +
+                                        '<i class="fas fa-exclamation-triangle me-2"></i>' +
+                                        '<strong>Modification critique du seuil d\'absence</strong>' +
+                                    '</div>' +
+                                    '<p><strong>Ancien seuil :</strong> ' + initialValue + '%</p>' +
+                                    '<p><strong>Nouveau seuil :</strong> ' + thresholdInput.value + '%</p>' +
+                                    '<p class="text-muted mb-0">Cette modification affectera <strong>tous les cours</strong> qui utilisent le seuil par défaut. L\'action sera enregistrée dans le journal d\'audit.</p>',
+                                onConfirm: function () {
+                                    form.dataset.confirmed = 'true';
+                                    form.requestSubmit();
+                                },
+                            });
                         }
                     });
                 }
             }
-            
-            // Détecter les changements de statut actif/inactif dans les formulaires d'édition
+
+            // Détecter les changements de statut actif/inactif dans les formulaires
             const editForms = document.querySelectorAll('form[method="post"]');
             editForms.forEach(function(form) {
                 const activeCheckbox = form.querySelector('input[type="checkbox"][name="actif"], input[type="checkbox"][name="active"]');
                 if (activeCheckbox) {
                     const initialValue = activeCheckbox.checked;
                     form.addEventListener('submit', function(e) {
-                        if (!activeCheckbox.checked && initialValue) {
-                            // Désactivation
+                        if (!activeCheckbox.checked && initialValue && !form.dataset.confirmed) {
+                            e.preventDefault();
                             const itemName = form.querySelector('input[name*="nom"], input[name*="libelle"], input[name*="code_cours"]')?.value || 'cet élément';
-                            const impact = 'Cet élément sera masqué mais pas supprimé. Les données associées seront conservées.';
-                            if (!confirmDeactivation(itemName, impact)) {
-                                e.preventDefault();
-                                activeCheckbox.checked = true;
-                                return false;
-                            }
+                            showConfirmModal({
+                                title: 'Désactivation',
+                                headerClass: 'bg-warning text-dark',
+                                btnClass: 'btn-warning',
+                                btnLabel: 'Désactiver',
+                                body:
+                                    '<div class="alert alert-warning" role="alert">' +
+                                        '<i class="fas fa-exclamation-triangle me-2"></i>' +
+                                        '<strong>Attention :</strong> Vous allez désactiver <strong>' + itemName.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</strong>.' +
+                                    '</div>' +
+                                    '<p>Cet élément sera masqué mais pas supprimé. Les données associées seront conservées.</p>' +
+                                    '<p class="text-muted mb-0">Cette action est réversible — vous pourrez réactiver cet élément ultérieurement.</p>',
+                                onConfirm: function () {
+                                    form.dataset.confirmed = 'true';
+                                    form.requestSubmit();
+                                },
+                            });
                         }
                     });
                 }
