@@ -527,6 +527,38 @@ def enroll_student(request):
                     f"année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})"
                 )
 
+            # Vérifier que l'étudiant n'est pas déjà inscrit à un autre niveau
+            # dans la même année académique (on ne peut pas faire Année 1 et Année 2 la même année)
+            existing_other_level = (
+                Inscription.objects.filter(
+                    id_etudiant=student,
+                    id_annee=year,
+                    status=Inscription.Status.EN_COURS,
+                )
+                .exclude(id_cours__niveau=niveau)
+                .select_related("id_cours")
+            )
+            if existing_other_level.exists():
+                other_niveaux = sorted(
+                    existing_other_level.values_list("id_cours__niveau", flat=True).distinct()
+                )
+                niveaux_str = ", ".join(f"Année {n}" for n in other_niveaux)
+                messages.error(
+                    request,
+                    f"{student.get_full_name()} est déjà inscrit(e) en {niveaux_str} "
+                    f"pour l'année académique {year.libelle}. "
+                    f"Un étudiant ne peut pas suivre deux niveaux différents la même année. "
+                    f"Veuillez créer une nouvelle année académique pour inscrire cet étudiant en Année {niveau}.",
+                )
+                return render(
+                    request,
+                    "enrollments/enrollment_form.html",
+                    {
+                        "enrollment_form": enrollment_form,
+                        "student_form": student_form,
+                    },
+                )
+
             if not level_courses.exists():
                 # Diagnostic détaillé
                 courses_without_year = Cours.objects.filter(
@@ -647,36 +679,48 @@ def enroll_student(request):
             if enrolled_count > 0:
                 messages.success(
                     request,
-                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours(s) "
+                    f"L'étudiant {student.get_full_name()} a été inscrit à {enrolled_count} cours "
                     f"de l'Année {niveau} — {departement.nom_departement} "
                     f"pour l'année académique {year.libelle}.",
                 )
-            else:
-                # Si aucune inscription n'a été créée, donner plus de détails
                 if skipped_count > 0:
+                    existing_codes = ", ".join(
+                        c.code_cours
+                        for c in level_courses
+                        if Inscription.objects.filter(
+                            id_etudiant=student, id_cours=c, id_annee=year
+                        ).exists()
+                    )
                     messages.warning(
                         request,
-                        f"Aucune nouvelle inscription créée. {skipped_count} cours(s) déjà existant(s) pour cet étudiant.",
+                        f"{skipped_count} cours ignoré(s) (déjà inscrit) : {existing_codes}.",
                     )
-                if errors:
-                    for error in errors[:5]:
-                        messages.error(request, error)
-                    if len(errors) > 5:
-                        messages.error(
-                            request, f"... et {len(errors) - 5} autre(s) erreur(s)."
-                        )
-                else:
-                    messages.error(
-                        request,
-                        f"ERREUR: Aucune inscription n'a été créée pour l'étudiant {student.get_full_name()}. "
-                        f"Vérifiez que les cours de niveau {niveau} existent pour l'année académique {year.libelle} "
-                        f"(trouvé {level_courses.count()} cours).",
-                    )
-
-            if skipped_count > 0 and enrolled_count > 0:
-                messages.warning(
+            elif skipped_count > 0:
+                existing_codes = ", ".join(
+                    c.code_cours
+                    for c in level_courses
+                    if Inscription.objects.filter(
+                        id_etudiant=student, id_cours=c, id_annee=year
+                    ).exists()
+                )
+                messages.info(
                     request,
-                    f"{skipped_count} cours(s) déjà existant(s) pour cet étudiant.",
+                    f"{student.get_full_name()} est déjà inscrit(e) à tous les {skipped_count} cours "
+                    f"de l'Année {niveau} — {departement.nom_departement} "
+                    f"pour {year.libelle} : {existing_codes}.",
+                )
+            elif errors:
+                for error in errors[:5]:
+                    messages.error(request, error)
+                if len(errors) > 5:
+                    messages.error(
+                        request, f"... et {len(errors) - 5} autre(s) erreur(s)."
+                    )
+            else:
+                messages.error(
+                    request,
+                    f"Aucune inscription n'a été créée pour {student.get_full_name()}. "
+                    f"Vérifiez que les cours de niveau {niveau} existent pour l'année académique {year.libelle}.",
                 )
 
             # Toujours rediriger vers la page des inscriptions pour voir les résultats
