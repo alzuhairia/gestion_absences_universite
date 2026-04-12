@@ -79,6 +79,7 @@
             {% if users %}
             <form id="deleteMultipleForm" method="post" action="{% url 'dashboard:admin_users_delete_multiple' %}">
                 {% csrf_token %}
+                <input type="hidden" name="force_delete" id="forceDeleteInput" value="0">
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -200,17 +201,21 @@
                 <div id="selectedUsersList" class="mb-3" style="max-height: 200px; overflow-y: auto;">
                     <!-- Liste des utilisateurs sélectionnés -->
                 </div>
-                <p class="text-danger mb-0">
+                <div class="alert alert-info mb-0">
                     <i class="fas fa-info-circle me-1"></i>
-                    Cette action sera enregistrée dans le journal d'audit pour chaque utilisateur supprimé.
-                </p>
+                    <strong>Suppression simple :</strong> seuls les utilisateurs sans données liées seront supprimés, les autres seront ignorés.<br>
+                    <strong>Suppression forcée :</strong> tous les utilisateurs seront supprimés avec toutes leurs données (inscriptions, absences, etc.).
+                </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer flex-wrap gap-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i>Annuler
                 </button>
-                <button type="submit" form="deleteMultipleForm" class="btn btn-danger">
-                    <i class="fas fa-trash me-1"></i>Supprimer définitivement
+                <button type="submit" form="deleteMultipleForm" class="btn btn-outline-danger">
+                    <i class="fas fa-trash me-1"></i>Suppression simple
+                </button>
+                <button type="button" class="btn btn-danger" id="forceDeleteBtn">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Suppression forcée (avec données)
                 </button>
             </div>
         </div>
@@ -381,6 +386,22 @@
         });
     }
     
+    // Bouton "Suppression forcée"
+    const forceDeleteBtn = document.getElementById('forceDeleteBtn');
+    const forceDeleteInput = document.getElementById('forceDeleteInput');
+    if (forceDeleteBtn && forceDeleteInput && deleteMultipleForm) {
+        forceDeleteBtn.addEventListener('click', function() {
+            forceDeleteInput.value = '1';
+            deleteMultipleForm.submit();
+        });
+        // Reset à 0 pour la suppression simple
+        deleteMultipleForm.addEventListener('submit', function() {
+            if (forceDeleteInput.value !== '1') {
+                forceDeleteInput.value = '0';
+            }
+        });
+    }
+
     // Initialiser le compteur
     updateSelectedCount();
 </script>
