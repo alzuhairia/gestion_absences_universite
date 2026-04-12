@@ -221,6 +221,11 @@ urlpatterns = [
         name="secretary_course_delete",
     ),
     path(
+        "secretary/courses/delete-multiple/",
+        views_secretary.secretary_courses_delete_multiple,
+        name="secretary_courses_delete_multiple",
+    ),
+    path(
         "secretary/academic-years/",
         views_secretary.secretary_academic_years,
         name="secretary_academic_years",
