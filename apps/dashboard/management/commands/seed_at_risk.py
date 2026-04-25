@@ -5,13 +5,13 @@ appear in the "at risk / ineligible" screens.
 Usage:
     python manage.py seed_at_risk              # default: 10 students, 3 courses each
     python manage.py seed_at_risk --students 5 --courses 4
+    python manage.py seed_at_risk --year-label 2025-2026
 
 For each targeted student, the command picks --courses of their active
 inscriptions and creates enough NON_JUSTIFIEE absences (on existing seances)
 to push their absence rate strictly above the course's seuil.
 """
 
-import math
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
@@ -30,18 +30,28 @@ class Command(BaseCommand):
         parser.add_argument("--students", type=int, default=10)
         parser.add_argument("--courses", type=int, default=3,
                             help="How many courses per student to push over the threshold.")
+        parser.add_argument(
+            "--year-label", type=str, default=None,
+            help="Label of the academic year to use (e.g. 2025-2026). "
+                 "If omitted, uses the active year or computes one from today.",
+        )
 
     def handle(self, *args, **opts):
         nb_students = opts["students"]
         nb_courses = opts["courses"]
 
-        year = AnneeAcademique.objects.filter(active=True).first()
+        year = self._resolve_academic_year(opts.get("year_label"))
         if year is None:
-            raise CommandError("No active academic year found.")
+            raise CommandError(
+                "No active academic year found. Run 'python manage.py seed_demo' first."
+            )
 
         encoder = User.objects.filter(role__in=["ADMIN", "SECRETAIRE"]).first()
         if encoder is None:
-            raise CommandError("No ADMIN/SECRETAIRE user to own encoded absences.")
+            raise CommandError(
+                "No ADMIN/SECRETAIRE user to own encoded absences. "
+                "Run 'python manage.py createsuperadmin' first."
+            )
 
         students = list(
             User.objects.filter(
@@ -97,6 +107,20 @@ class Command(BaseCommand):
             f"  Inscriptions now ineligible: {ineligible_courses}\n"
             f"  Distinct at-risk demo students: {at_risk_students}\n"
         ))
+
+    # -------------------------------------------------------- #
+    def _resolve_academic_year(self, label=None):
+        """Return the matching AnneeAcademique without creating one."""
+        if label:
+            year = AnneeAcademique.objects.filter(libelle=label).first()
+            if year:
+                self.stdout.write(f"Academic year: using {year.libelle}")
+            return year
+
+        year = AnneeAcademique.objects.filter(active=True).first()
+        if year:
+            self.stdout.write(f"Academic year: using active {year.libelle}")
+        return year
 
     # -------------------------------------------------------- #
     def _push_over_threshold(self, inscription, encoder):
