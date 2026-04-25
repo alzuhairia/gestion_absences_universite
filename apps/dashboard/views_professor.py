@@ -284,6 +284,36 @@ def instructor_course_detail(request, course_id):
             "-date_seance", "-heure_debut"
         )
 
+    # Reprise QR: attacher pour chaque seance le token actif (s'il existe)
+    sessions = list(sessions)
+    from apps.absences.models import QRAttendanceToken
+
+    seance_ids = [s.id_seance for s in sessions]
+    active_tokens_by_seance = {}
+    if seance_ids:
+        active_tokens_by_seance = {
+            t.seance_id: t
+            for t in QRAttendanceToken.objects.filter(
+                seance_id__in=seance_ids,
+                is_active=True,
+                expires_at__gt=timezone.now(),
+            ).order_by("seance_id", "-created_at")
+        }
+    course_active_qr = None
+    course_active_manual = None
+    today_local = timezone.localdate()
+    for s in sessions:
+        s.active_qr_token = active_tokens_by_seance.get(s.id_seance)
+        if s.active_qr_token and not course_active_qr:
+            course_active_qr = s.active_qr_token
+        if (
+            course_active_manual is None
+            and s.active_qr_token is None
+            and not s.validated
+            and s.date_seance == today_local
+        ):
+            course_active_manual = s
+
     # Tab 3: Statistics
     total_students = len(students_data)
     at_risk_students = sum(1 for s in students_data if s["is_at_risk"])
@@ -315,6 +345,8 @@ def instructor_course_detail(request, course_id):
             "overall_rate": round(overall_rate, 1),
             "early_warnings_count": early_warnings_count,
             "course_threshold": course_threshold,
+            "course_active_qr": course_active_qr,
+            "course_active_manual": course_active_manual,
         },
     )
 

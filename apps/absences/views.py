@@ -494,6 +494,23 @@ def session_create(request, course_id):
 
         # --- Redirect based on mode ---
         if mode == "qr":
+            # Reprise: si un QR actif existe deja pour cette seance, y revenir
+            existing_token = (
+                QRAttendanceToken.objects.filter(
+                    seance=seance,
+                    is_active=True,
+                    expires_at__gt=timezone.now(),
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if existing_token:
+                messages.info(
+                    request,
+                    "Un QR de présence est déjà actif pour cette séance — reprise en cours.",
+                )
+                return redirect("absences:qr_dashboard", token=existing_token.token)
+
             # Create QR token and redirect to dashboard
             from apps.dashboard.models import SystemSettings
             sys_settings = SystemSettings.get_settings()
@@ -1296,6 +1313,23 @@ def qr_generate(request, course_id):
         if seance.validated:
             messages.error(request, "Cette séance est déjà validée et verrouillée.")
             return redirect("dashboard:instructor_course_detail", course_id)
+
+        # Reprise: si un QR actif existe deja pour cette seance, y revenir
+        existing_token = (
+            QRAttendanceToken.objects.filter(
+                seance=seance,
+                is_active=True,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing_token:
+            messages.info(
+                request,
+                "Un QR de présence est déjà actif pour cette séance — reprise en cours.",
+            )
+            return redirect("absences:qr_dashboard", token=existing_token.token)
 
         # GPS anti-fraud: professor's location (optional, sent by JS)
         prof_lat = request.POST.get("latitude")
