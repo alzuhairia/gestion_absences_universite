@@ -295,6 +295,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.messaging.context_processors.unread_messages_count",
+                "apps.absences.context_processors.active_qr_session",
             ],
         },
     },

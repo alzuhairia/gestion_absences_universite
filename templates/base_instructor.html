@@ -185,9 +185,25 @@
         </div>
         
         <div class="flex-grow-1 d-flex flex-column" style="overflow-y: auto;">
+            {% if active_qr_token %}
+            <a href="{{ active_qr_url }}"
+               class="nav-link mx-3 mt-3 mb-2 px-3 py-2 rounded text-white text-center fw-semibold"
+               style="background: linear-gradient(90deg,#1cc88a 0%,#17a673 100%); border-left: none;"
+               title="Reprendre le QR de présence en cours">
+                <i class="fas fa-qrcode me-2"></i>QR actif &mdash; Reprendre
+            </a>
+            {% endif %}
+            {% if active_manual_seance %}
+            <a href="{{ active_manual_url }}"
+               class="nav-link mx-3 {% if not active_qr_token %}mt-3{% endif %} mb-3 px-3 py-2 rounded text-white text-center fw-semibold"
+               style="background: linear-gradient(90deg,#f6c23e 0%,#dda20a 100%); border-left: none;"
+               title="Reprendre l'appel manuel en cours">
+                <i class="fas fa-clipboard-check me-2"></i>Appel en cours &mdash; Reprendre
+            </a>
+            {% endif %}
             <ul class="nav flex-column mb-auto">
                 <li class="nav-item">
-                    <a href="{% url 'dashboard:instructor_dashboard' %}" 
+                    <a href="{% url 'dashboard:instructor_dashboard' %}"
                        class="nav-link {% if request.resolver_match.view_name == 'dashboard:instructor_dashboard' %}active{% endif %}">
                         <i class="fas fa-home"></i> Tableau de Bord
                     </a>
