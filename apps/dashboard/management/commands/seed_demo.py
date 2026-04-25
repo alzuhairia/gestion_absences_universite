@@ -6,9 +6,10 @@ Usage:
     python manage.py seed_demo --reset   # wipe previously-seeded demo_* users/courses first
 
 Creates (prefixed with "demo_"/"DEMO_" so they can be identified and removed):
+    - Faculties + departments + active academic year (only if none exist)
     - 20 professors
     - 30 students (distributed across niveaux 1/2/3)
-    - 30 courses (distributed across the 4 existing departments and 3 niveaux)
+    - 30 courses (distributed across the existing departments and 3 niveaux)
     - Enrollments: every student is enrolled in every course of their own niveau
     - ~10 seances per course over the last 10 weeks
     - Random absences (~25% rate) across past seances
@@ -26,7 +27,7 @@ from django.utils import timezone
 
 from apps.absences.models import Absence
 from apps.academic_sessions.models import AnneeAcademique, Seance
-from apps.academics.models import Cours, Departement
+from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
 
@@ -47,6 +48,21 @@ LAST_NAMES = [
     "Chraibi", "Amrani", "Lahlou", "Zerhouni", "Belmahi", "Ouazzani", "Sebti",
     "Kadiri", "Rami", "Harti", "Mansouri", "Hajji", "Lakhdar", "Saidi", "Daoudi",
     "Benjelloun", "Zouhair", "Kabbaj", "Slimani", "Bourkia", "Ennaji", "Filali",
+]
+
+DEFAULT_FACULTIES = [
+    ("Faculte des Sciences et Techniques", [
+        "Informatique",
+        "Mathematiques",
+        "Physique",
+    ]),
+    ("Faculte des Sciences Economiques et Gestion", [
+        "Gestion",
+        "Economie",
+    ]),
+    ("Faculte des Lettres et Sciences Humaines", [
+        "Langues",
+    ]),
 ]
 
 COURSE_TOPICS_BY_NIVEAU = {
@@ -118,6 +134,11 @@ class Command(BaseCommand):
             "--absence-rate", type=float, default=0.25,
             help="Probability that a student is absent in a seance (default: 0.25).",
         )
+        parser.add_argument(
+            "--year-label", type=str, default=None,
+            help="Label of the academic year to create/use (e.g. 2025-2026). "
+                 "If omitted, uses the active year or computes one from today.",
+        )
 
     def handle(self, *args, **options):
         random.seed(42)
@@ -128,22 +149,23 @@ class Command(BaseCommand):
         nb_seances = options["nb_seances"]
         absence_rate = options["absence_rate"]
 
-        year = AnneeAcademique.objects.filter(active=True).first()
-        if year is None:
-            raise CommandError("No active academic year found. Activate one first.")
-
-        departements = list(Departement.objects.filter(actif=True))
-        if not departements:
-            raise CommandError("No active departements found.")
-
-        encoder = User.objects.filter(role__in=["ADMIN", "SECRETAIRE"]).first()
-        if encoder is None:
-            raise CommandError("No ADMIN/SECRETAIRE user to own encoded absences.")
-
         if options["reset"]:
             self._reset_demo_data()
 
         with transaction.atomic():
+            year = self._ensure_academic_year(options.get("year_label"))
+            self._ensure_faculties_and_departments()
+            departements = list(Departement.objects.filter(actif=True))
+            if not departements:
+                raise CommandError("Failed to provision active departements.")
+
+            encoder = User.objects.filter(role__in=["ADMIN", "SECRETAIRE"]).first()
+            if encoder is None:
+                raise CommandError(
+                    "No ADMIN/SECRETAIRE user to own encoded absences. "
+                    "Run 'python manage.py createsuperadmin' first."
+                )
+
             profs = self._create_professors(nb_profs, departements)
             students = self._create_students(nb_students)
             courses = self._create_courses(nb_courses, departements, profs, year)
@@ -163,6 +185,69 @@ class Command(BaseCommand):
             f"  Prof:    {profs[0].email}\n"
             f"  Student: {students[0].email}\n"
         ))
+
+    # ------------------------------------------------------------------ #
+    #  Academic year                                                     #
+    # ------------------------------------------------------------------ #
+    def _ensure_academic_year(self, label=None):
+        """Return an active AnneeAcademique, creating one if needed."""
+        if label:
+            year, created = AnneeAcademique.objects.get_or_create(
+                libelle=label,
+                defaults={"active": True},
+            )
+            if not year.active and not AnneeAcademique.objects.filter(active=True).exists():
+                year.active = True
+                year.save()
+            self.stdout.write(
+                f"Academic year: {year.libelle} ({'created' if created else 'reused'}, active={year.active})"
+            )
+            return year
+
+        existing_active = AnneeAcademique.objects.filter(active=True).first()
+        if existing_active:
+            self.stdout.write(f"Academic year: reusing active {existing_active.libelle}")
+            return existing_active
+
+        today = date.today()
+        start_year = today.year if today.month >= 9 else today.year - 1
+        computed_label = f"{start_year}-{start_year + 1}"
+        year, created = AnneeAcademique.objects.get_or_create(
+            libelle=computed_label,
+            defaults={"active": True},
+        )
+        if not year.active:
+            year.active = True
+            year.save()
+        self.stdout.write(
+            f"Academic year: {year.libelle} ({'created' if created else 'activated'})"
+        )
+        return year
+
+    # ------------------------------------------------------------------ #
+    #  Faculties + departments                                           #
+    # ------------------------------------------------------------------ #
+    def _ensure_faculties_and_departments(self):
+        """Create default faculties+departments if none exist."""
+        if Departement.objects.filter(actif=True).exists():
+            self.stdout.write("Faculties/departments: existing setup detected, skipping.")
+            return
+
+        self.stdout.write("Creating default faculties and departments...")
+        for fac_name, dept_names in DEFAULT_FACULTIES:
+            faculte, _ = Faculte.objects.get_or_create(
+                nom_faculte=fac_name,
+                defaults={"actif": True},
+            )
+            for dept_name in dept_names:
+                Departement.objects.get_or_create(
+                    nom_departement=dept_name,
+                    id_faculte=faculte,
+                    defaults={"actif": True},
+                )
+        nb_fac = Faculte.objects.count()
+        nb_dept = Departement.objects.count()
+        self.stdout.write(f"  -> {nb_fac} faculties / {nb_dept} departments ready.")
 
     # ------------------------------------------------------------------ #
     #  Reset                                                             #
