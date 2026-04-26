@@ -28,12 +28,18 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--students", type=int, default=10)
-        parser.add_argument("--courses", type=int, default=3,
-                            help="How many courses per student to push over the threshold.")
         parser.add_argument(
-            "--year-label", type=str, default=None,
+            "--courses",
+            type=int,
+            default=3,
+            help="How many courses per student to push over the threshold.",
+        )
+        parser.add_argument(
+            "--year-label",
+            type=str,
+            default=None,
             help="Label of the academic year to use (e.g. 2025-2026). "
-                 "If omitted, uses the active year or computes one from today.",
+            "If omitted, uses the active year or computes one from today.",
         )
 
     def handle(self, *args, **opts):
@@ -94,19 +100,25 @@ class Command(BaseCommand):
             )
 
         # Report
-        at_risk_students = User.objects.filter(
-            role="ETUDIANT",
-            email__startswith="demo_etu",
-            inscriptions__eligible_examen=False,
-            inscriptions__id_annee=year,
-        ).distinct().count()
+        at_risk_students = (
+            User.objects.filter(
+                role="ETUDIANT",
+                email__startswith="demo_etu",
+                inscriptions__eligible_examen=False,
+                inscriptions__id_annee=year,
+            )
+            .distinct()
+            .count()
+        )
 
-        self.stdout.write(self.style.SUCCESS(
-            f"\nDone.\n"
-            f"  Absences created : {total_absences_created}\n"
-            f"  Inscriptions now ineligible: {ineligible_courses}\n"
-            f"  Distinct at-risk demo students: {at_risk_students}\n"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\nDone.\n"
+                f"  Absences created : {total_absences_created}\n"
+                f"  Inscriptions now ineligible: {ineligible_courses}\n"
+                f"  Distinct at-risk demo students: {at_risk_students}\n"
+            )
+        )
 
     # -------------------------------------------------------- #
     def _resolve_academic_year(self, label=None):
@@ -149,7 +161,8 @@ class Command(BaseCommand):
 
         # Walk seances in chronological order; create missing absences
         seances = Seance.objects.filter(
-            id_cours=cours, id_annee=inscription.id_annee,
+            id_cours=cours,
+            id_annee=inscription.id_annee,
         ).order_by("date_seance", "heure_debut")
 
         created = 0
@@ -159,7 +172,8 @@ class Command(BaseCommand):
                     break
                 # Skip seances already having an absence for this inscription
                 existing = Absence.objects.filter(
-                    id_inscription=inscription, id_seance=seance,
+                    id_inscription=inscription,
+                    id_seance=seance,
                 ).first()
                 if existing is not None:
                     if existing.statut != Absence.Statut.NON_JUSTIFIEE:
