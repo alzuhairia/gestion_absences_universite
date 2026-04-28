@@ -12,9 +12,11 @@ Non-interactive mode (for CI/scripts):
         --nom Admin --prenom Super --password SecurePass123!
 """
 
+from typing import cast
+
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.accounts.models import User
+from apps.accounts.models import User, UserManager
 
 
 class Command(BaseCommand):
@@ -80,6 +82,8 @@ class Command(BaseCommand):
         if len(password) < 8:
             raise CommandError("Le mot de passe doit contenir au moins 8 caractères.")
 
+        user_manager = cast(UserManager, User.objects)
+
         from django.contrib.auth.password_validation import validate_password
         from django.core.exceptions import ValidationError
 
@@ -92,7 +96,7 @@ class Command(BaseCommand):
                 + "\n".join(e.messages)
             )
 
-        user = User.objects.create_superuser(
+        user = user_manager.create_superuser(
             email=email,
             nom=nom,
             prenom=prenom,

@@ -5,7 +5,7 @@ FONCTIONNALITES PRINCIPALES :
   - Bloque l'acces aux pages protegees tant que la session n'a pas valide
     le code TOTP de l'utilisateur (si la 2FA est activee sur le compte)
   - Whitelist : login, logout, verify_2fa, statiques, healthcheck
-DEPENDANCES CLES : apps.accounts.views_2fa.VERIFIED_SESSION_KEY
+DEPENDANCES CLES : apps.accounts.mfa.mfa_service.VERIFIED_SESSION_KEY
 """
 
 from functools import lru_cache
@@ -14,7 +14,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
 
-from apps.accounts.views_2fa import VERIFIED_SESSION_KEY
+from apps.accounts.mfa.mfa_service import VERIFIED_SESSION_KEY
 
 
 @lru_cache(maxsize=1)

@@ -5,7 +5,14 @@ RESPONSABILITE : Routes URL pour l'authentification et les profils
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views, views_2fa
+from . import views
+from .mfa.mfa_views import (
+    backup_codes_view,
+    disable_2fa,
+    regenerate_backup_codes,
+    setup_2fa,
+    verify_2fa,
+)
 
 app_name = "accounts"
 
@@ -13,14 +20,14 @@ urlpatterns = [
     path("login/", views.RateLimitedLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("profile/", views.profile_view, name="profile"),
-    # 2FA TOTP
-    path("2fa/setup/", views_2fa.setup_2fa, name="setup_2fa"),
-    path("2fa/verify/", views_2fa.verify_2fa, name="verify_2fa"),
-    path("2fa/disable/", views_2fa.disable_2fa, name="disable_2fa"),
-    path("2fa/backup-codes/", views_2fa.backup_codes_view, name="backup_codes"),
+    # 2FA TOTP — logique dans apps/accounts/mfa/
+    path("2fa/setup/", setup_2fa, name="setup_2fa"),
+    path("2fa/verify/", verify_2fa, name="verify_2fa"),
+    path("2fa/disable/", disable_2fa, name="disable_2fa"),
+    path("2fa/backup-codes/", backup_codes_view, name="backup_codes"),
     path(
         "2fa/backup-codes/regenerate/",
-        views_2fa.regenerate_backup_codes,
+        regenerate_backup_codes,
         name="regenerate_backup_codes",
     ),
     # Password Change

@@ -4,7 +4,7 @@ RESPONSABILITE : Routes URL pour la gestion des absences et QR code
 """
 from django.urls import path
 
-from . import views, views_manager, views_validation
+from . import views
 
 app_name = "absences"
 
@@ -14,29 +14,29 @@ urlpatterns = [
     # Upload d'un justificatif (Action Étudiant)
     path("upload/<int:absence_id>/", views.upload_justification, name="upload"),
     # --- Actions Secrétariat / Admin ---
-    path("validation/", views_validation.validation_list, name="validation_list"),
+    path("validation/", views.validation_list, name="validation_list"),
     path(
         "process/<int:pk>/",
-        views_validation.process_justification,
+        views.process_justification,
         name="process_justification",
     ),
     path(
         "create-justified/",
-        views_validation.create_justified_absence,
+        views.create_justified_absence,
         name="create_justified_absence",
     ),
     path(
         "justified-list/",
-        views_validation.justified_absences_list,
+        views.justified_absences_list,
         name="justified_absences_list",
     ),
     path(
         "api/student-history/",
-        views_validation.student_absence_history_api,
+        views.student_absence_history_api,
         name="student_absence_history_api",
     ),
     # Edit/Override Absence
-    path("edit/<int:pk>/", views_manager.edit_absence, name="edit_absence"),
+    path("edit/<int:pk>/", views.edit_absence, name="edit_absence"),
     # Telecharger un justificatif (acces controle)
     path(
         "justification/<int:justification_id>/download/",

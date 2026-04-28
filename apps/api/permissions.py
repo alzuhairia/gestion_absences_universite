@@ -13,19 +13,21 @@ DEPENDANCES CLES : rest_framework.permissions, apps.accounts.models
 """
 
 from rest_framework.permissions import BasePermission
+from rest_framework.request import Request
+from rest_framework.views import APIView
 
 from apps.accounts.models import User
 
 
 class IsAdmin(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return (
             request.user.is_authenticated and request.user.role == User.Role.ADMIN
         )
 
 
 class IsSecretary(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return (
             request.user.is_authenticated
             and request.user.role == User.Role.SECRETAIRE
@@ -33,7 +35,7 @@ class IsSecretary(BasePermission):
 
 
 class IsProfessor(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return (
             request.user.is_authenticated
             and request.user.role == User.Role.PROFESSEUR
@@ -41,7 +43,7 @@ class IsProfessor(BasePermission):
 
 
 class IsStudent(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return (
             request.user.is_authenticated
             and request.user.role == User.Role.ETUDIANT
@@ -49,7 +51,7 @@ class IsStudent(BasePermission):
 
 
 class IsAdminOrSecretary(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return request.user.is_authenticated and request.user.role in (
             User.Role.ADMIN,
             User.Role.SECRETAIRE,
@@ -57,7 +59,7 @@ class IsAdminOrSecretary(BasePermission):
 
 
 class IsAdminOrSecretaryOrProfessor(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         return request.user.is_authenticated and request.user.role in (
             User.Role.ADMIN,
             User.Role.SECRETAIRE,
@@ -68,7 +70,7 @@ class IsAdminOrSecretaryOrProfessor(BasePermission):
 class IsStaffOrReadOnly(BasePermission):
     """Admin/Secretary: full access. Professor/Student: read-only."""
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:  # type: ignore[override]
         if not request.user.is_authenticated:
             return False
         if request.method in ("GET", "HEAD", "OPTIONS"):

@@ -6,6 +6,8 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : apps.absences.models, apps.accounts.models, apps.academics.models, apps.academic_sessions.models
 """
 
+from typing import cast
+
 from django import forms
 
 from apps.absences.models import Absence
@@ -99,13 +101,13 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         # Filtrer les cours par année académique active
         annee_active = AnneeAcademique.objects.filter(active=True).first()
         if annee_active:
-            self.fields["cours"].queryset = (
+            cast(forms.ModelMultipleChoiceField, self.fields["cours"]).queryset = (
                 Cours.objects.filter(id_annee=annee_active)
                 .select_related("id_departement", "id_departement__id_faculte")
                 .order_by("code_cours")
             )
         else:
-            self.fields["cours"].queryset = Cours.objects.none()
+            cast(forms.ModelMultipleChoiceField, self.fields["cours"]).queryset = Cours.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()

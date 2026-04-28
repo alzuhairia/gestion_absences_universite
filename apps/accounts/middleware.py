@@ -91,11 +91,9 @@ class RoleMiddleware:
             excluded_paths = _resolve_excluded_paths()
             is_excluded = path in excluded_paths
 
-            if (
-                not is_excluded
-                and hasattr(user, "must_change_password")
-                and user.must_change_password
-            ):
+            from apps.accounts.models import User
+
+            if not is_excluded and isinstance(user, User) and user.must_change_password:
                 messages.warning(
                     request, "Vous devez changer votre mot de passe avant de continuer."
                 )

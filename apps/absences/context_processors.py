@@ -53,7 +53,7 @@ def active_qr_session(request):
         .first()
     )
 
-    excluded_seance_id = token.seance_id if token else None
+    excluded_seance_id = token.seance.pk if token else None
 
     today = timezone.localdate()
     manual_qs = Seance.objects.filter(
@@ -76,7 +76,7 @@ def active_qr_session(request):
         result["active_manual_url"] = (
             reverse(
                 "absences:mark_absence",
-                kwargs={"course_id": manual_seance.id_cours_id},
+                kwargs={"course_id": manual_seance.id_cours.pk},
             )
             + f"?date={manual_seance.date_seance.isoformat()}"
         )

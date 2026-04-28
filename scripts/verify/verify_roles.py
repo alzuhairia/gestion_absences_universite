@@ -18,7 +18,7 @@ from apps.absences.models import Absence, Justification
 from apps.academics.models import Cours
 from apps.academic_sessions.models import Seance
 from apps.enrollments.models import Inscription
-from apps.absences.views_validation import process_justification
+from apps.absences.views.secretary_views import process_justification
 from apps.absences.views import review_justification
 from django.urls import reverse
 

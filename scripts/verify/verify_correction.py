@@ -14,7 +14,7 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from apps.accounts.models import User
 from apps.absences.models import Absence, Justification
 from apps.audits.models import LogAudit
-from apps.absences.views_manager import edit_absence
+from apps.absences.views.admin_views import edit_absence
 
 def verify():
     print("Verifying Absence Correction & Audit...")

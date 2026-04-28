@@ -1,212 +1,23 @@
 """
 FICHIER : apps/dashboard/views_admin_stats.py
-RESPONSABILITE : Dashboard principal admin et statistiques avancees
-FONCTIONNALITES PRINCIPALES :
-  - Dashboard admin : KPIs globaux, vue d'ensemble
-  - Statistiques avancees avec graphiques et analyses
-DEPENDANCES CLES : absences.services, enrollments.models
-"""
+RESPONSABILITE : Statistiques avancées des absences (graphiques, top N, répartitions)
 
-from datetime import timedelta
+Note : Le tableau de bord principal admin (KPIs) est dans views_admin_dashboard.py
+"""
 
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Count, F, Q
 from django.db.models.functions import TruncMonth
 from django.shortcuts import render
-from django.utils import timezone
 from django.views.decorators.http import require_GET
-
-logger = logging.getLogger(__name__)
 
 from apps.absences.models import Absence
 from apps.academic_sessions.models import AnneeAcademique
-from apps.academics.models import Cours
-from apps.accounts.models import User
-from apps.audits.models import LogAudit
 from apps.dashboard.decorators import admin_required
-from apps.dashboard.models import SystemSettings
-from apps.enrollments.models import Inscription
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def is_admin(user):
-    """
-    Vérifie si l'utilisateur est un administrateur.
-    IMPORTANT: Séparé de is_secretary() pour éviter la confusion des rôles.
-    """
-    return user.is_authenticated and user.role == User.Role.ADMIN
-
-
-CACHE_KEY_AT_RISK = "admin_dashboard:at_risk_count"
-CACHE_TTL_AT_RISK = 300  # 5 minutes
-
-
-def _get_at_risk_count_cached(academic_year):
-    """Calcule le nombre d'etudiants a risque avec cache Redis (5 min)."""
-    cached = cache.get(CACHE_KEY_AT_RISK)
-    if cached is not None:
-        return cached
-
-    at_risk_count = 0
-    all_inscriptions = Inscription.objects.filter(
-        status=Inscription.Status.EN_COURS
-    ).select_related("id_cours", "id_etudiant")
-    if academic_year:
-        all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
-    today = timezone.localdate()
-    absence_sums = dict(
-        Absence.objects.filter(
-            id_inscription__in=inscription_ids,
-            statut=Absence.Statut.NON_JUSTIFIEE,
-            id_seance__date_seance__lte=today,
-        )
-        .values("id_inscription")
-        .annotate(total=Sum("duree_absence"))
-        .values_list("id_inscription", "total")
-    )
-    from apps.absences.services import get_system_threshold
-
-    system_threshold = get_system_threshold()
-    for ins in all_inscriptions:
-        cours = ins.id_cours
-        if cours.nombre_total_periodes > 0:
-            total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
-            rate = (total_abs / cours.nombre_total_periodes) * 100
-            seuil = (
-                cours.seuil_absence
-                if cours.seuil_absence is not None
-                else system_threshold
-            )
-            seuil_effectif = (
-                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
-            )
-            if rate >= seuil_effectif:
-                at_risk_count += 1
-
-    cache.set(CACHE_KEY_AT_RISK, at_risk_count, CACHE_TTL_AT_RISK)
-    return at_risk_count
-
-
-# ---------------------------------------------------------------------------
-# Dashboard admin - KPIs et vue d'ensemble
-# ---------------------------------------------------------------------------
-
-
-@login_required
-@admin_required
-@require_GET
-def admin_dashboard_main(request):
-    """
-    Tableau de bord principal de l'administrateur avec KPIs et vue d'ensemble.
-    IMPORTANT: L'administrateur configure et audite, il ne gère PAS les opérations quotidiennes.
-    """
-
-    # Récupérer l'année académique active
-    academic_year = AnneeAcademique.objects.filter(active=True).first()
-
-    # KPI 1: Nombre total d'étudiants
-    total_students = User.objects.filter(role=User.Role.ETUDIANT, actif=True).count()
-
-    # KPI 2: Nombre total de professeurs
-    total_professors = User.objects.filter(
-        role=User.Role.PROFESSEUR, actif=True
-    ).count()
-
-    # KPI 3: Nombre de secrétaires
-    total_secretaries = User.objects.filter(
-        role=User.Role.SECRETAIRE, actif=True
-    ).count()
-
-    # KPI 4: Nombre de cours actifs
-    # Pour le dashboard admin, on compte tous les cours actifs (configurés et prêts à être utilisés)
-    # Un cours est considéré comme "actif" s'il est marqué comme actif dans le système
-    active_courses = Cours.objects.filter(actif=True).count()
-
-    # Optionnel : Compter aussi les cours avec professeur assigné ET utilisés dans l'année active
-    # (pour avoir une vue plus détaillée)
-    if academic_year:
-        active_courses_with_activity = (
-            Cours.objects.filter(actif=True, professeur__isnull=False)
-            .filter(
-                Q(
-                    id_cours__in=Inscription.objects.filter(
-                        id_annee=academic_year
-                    ).values_list("id_cours", flat=True)
-                )
-                | Q(
-                    id_cours__in=academic_year.seances.values_list(
-                        "id_cours", flat=True
-                    )
-                )
-            )
-            .distinct()
-            .count()
-        )
-    else:
-        active_courses_with_activity = 0
-
-    # KPI 5: Nombre d'alertes système (étudiants à risque) — filtré par année active
-    # Calcul lourd -> cache 5 minutes
-    at_risk_count = _get_at_risk_count_cached(academic_year)
-
-    # KPI 6: Nombre d'actions critiques (journaux d'audit des 7 derniers jours)
-    seven_days_ago = timezone.now() - timedelta(days=7)
-    critical_actions = LogAudit.objects.filter(
-        date_action__gte=seven_days_ago, niveau="CRITIQUE"
-    ).count()
-
-    # KPI 7: Total d'inscriptions actives
-    if academic_year:
-        total_inscriptions = Inscription.objects.filter(
-            id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).count()
-    else:
-        total_inscriptions = 0
-
-    # KPI 8: Total d'absences enregistrées (année active)
-    if academic_year:
-        total_absences = Absence.objects.filter(
-            id_inscription__id_annee=academic_year
-        ).count()
-    else:
-        total_absences = 0
-
-    # Journaux d'audit récents
-    recent_audits = LogAudit.objects.select_related("id_utilisateur").order_by(
-        "-date_action"
-    )[:10]
-
-    # Paramètres système
-    settings = SystemSettings.get_settings()
-
-    context = {
-        "total_students": total_students,
-        "total_professors": total_professors,
-        "total_secretaries": total_secretaries,
-        "active_courses": active_courses,
-        "system_alerts": at_risk_count,
-        "critical_actions": critical_actions,
-        "total_inscriptions": total_inscriptions,
-        "total_absences": total_absences,
-        "recent_audits": recent_audits,
-        "academic_year": academic_year,
-        "settings": settings,
-    }
-
-    return render(request, "dashboard/admin_dashboard.html", context)
-
-
-# ---------------------------------------------------------------------------
-# Statistiques avancees avec graphiques
-# ---------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -294,9 +105,7 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("niveau")
     )
-    level_labels = [
-        f"Année {l['niveau']}" for l in level_absences if l["niveau"]
-    ]
+    level_labels = [f"Année {l['niveau']}" for l in level_absences if l["niveau"]]
     level_data = [l["total"] for l in level_absences if l["niveau"]]
 
     # 7. KPI summary stats
@@ -305,9 +114,10 @@ def admin_statistics(request):
     kpi_justified = status_dict.get(Absence.Statut.JUSTIFIEE, 0)
     kpi_pending = status_dict.get(Absence.Statut.EN_ATTENTE, 0)
     kpi_unjustified = status_dict.get(Absence.Statut.NON_JUSTIFIEE, 0)
-    kpi_justified_pct = round((kpi_justified / total_absences) * 100, 1) if total_absences else 0
+    kpi_justified_pct = (
+        round((kpi_justified / total_absences) * 100, 1) if total_absences else 0
+    )
 
-    # Combine chart data into a single dict for safe JSON serialization via |json_script
     chart_data = {
         "monthly_labels": monthly_labels,
         "monthly_data": monthly_data,

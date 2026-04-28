@@ -13,7 +13,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.accounts.models import User
-from apps.accounts.views_2fa import (
+from apps.accounts.mfa.mfa_service import (
     ATTEMPTS_SESSION_KEY,
     MAX_VERIFY_ATTEMPTS,
     SETUP_SECRET_SESSION_KEY,

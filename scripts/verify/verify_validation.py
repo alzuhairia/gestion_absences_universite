@@ -14,7 +14,7 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from apps.accounts.models import User
 from apps.absences.models import Absence, Justification
 from apps.notifications.models import Notification
-from apps.absences.views_validation import process_justification
+from apps.absences.views.secretary_views import process_justification
 
 def verify():
     print("Verifying Justification Workflow...")

@@ -1,4 +1,5 @@
 import re
+from typing import cast
 
 from django.apps import apps as django_apps
 from django.core.exceptions import FieldDoesNotExist
@@ -6,6 +7,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.db import connection, transaction
+from django.db.models import Field, Model
 
 
 class Command(BaseCommand):
@@ -32,14 +34,14 @@ class Command(BaseCommand):
         except Exception as exc:
             raise ValueError(f"Invalid model label: {model_label}") from exc
 
-    def _resolve_column(self, model, name, label):
+    def _resolve_column(self, model: type[Model], name: str, label: str) -> str:
         if not name:
             raise ValueError(f"Missing {label}")
         try:
-            field = model._meta.get_field(name)
-            return field.column
+            field = cast(Field, model._meta.get_field(name))
         except FieldDoesNotExist:
             return name
+        return field.column
 
     def _assert_column_exists(self, table, column):
         with connection.cursor() as cursor:
@@ -72,7 +74,9 @@ class Command(BaseCommand):
         if not table:
             table = model._meta.db_table
         if not pk_col:
-            pk_col = model._meta.pk.column
+            pk_field = model._meta.pk
+            assert pk_field is not None
+            pk_col = pk_field.column
 
         source_col = self._resolve_column(model, source_col, "source column/field")
         target_col = self._resolve_column(model, target_col, "target column/field")

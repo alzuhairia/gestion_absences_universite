@@ -1,31 +1,54 @@
 """
 FICHIER : apps/dashboard/views_admin.py
-RESPONSABILITE : Re-export des vues admin depuis les sous-modules
+RESPONSABILITE : Re-export centralisé de toutes les vues admin.
+
+Structure des sous-modules admin :
+  views_admin_dashboard.py      — Dashboard principal (KPIs, at-risk cache)
+  views_admin_stats.py          — Statistiques avancées (graphiques, top N)
+  views_admin_courses.py        — CRUD cours
+  views_admin_faculties.py      — CRUD facultés
+  views_admin_departments.py    — CRUD départements
+  views_admin_academic_years.py — CRUD années académiques
+  views_admin_prerequisites.py  — API prérequis par niveau (AJAX)
+  views_admin_users.py          — Gestion utilisateurs (CRUD, reset mdp, 2FA)
+  views_admin_settings.py       — Paramètres système, audit logs, QR scan logs
 """
 
-# Re-export all admin views from sub-modules for backward compatibility.
-# New code should import from the specific sub-module directly.
+# Re-export all admin views so urls.py can do `from . import views_admin`.
+# New code should import directly from the specific sub-module.
 
-from apps.dashboard.views_admin_stats import (  # noqa: F401
+from apps.dashboard.views_admin_dashboard import (  # noqa: F401
     admin_dashboard_main,
-    admin_statistics,
     is_admin,
+)
+from apps.dashboard.views_admin_stats import admin_statistics  # noqa: F401
+
+from apps.dashboard.views_admin_faculties import (  # noqa: F401
+    admin_faculties,
+    admin_faculty_edit,
+    admin_faculty_delete,
+)
+
+from apps.dashboard.views_admin_departments import (  # noqa: F401
+    admin_departments,
+    admin_department_edit,
+    admin_department_delete,
 )
 
 from apps.dashboard.views_admin_courses import (  # noqa: F401
-    admin_academic_year_delete,
-    admin_academic_year_set_active,
-    admin_academic_years,
-    admin_course_delete,
-    admin_course_edit,
     admin_courses,
+    admin_course_edit,
+    admin_course_delete,
     admin_courses_delete_multiple,
-    admin_department_delete,
-    admin_department_edit,
-    admin_departments,
-    admin_faculties,
-    admin_faculty_delete,
-    admin_faculty_edit,
+)
+
+from apps.dashboard.views_admin_academic_years import (  # noqa: F401
+    admin_academic_years,
+    admin_academic_year_set_active,
+    admin_academic_year_delete,
+)
+
+from apps.dashboard.views_admin_prerequisites import (  # noqa: F401
     get_prerequisites_by_level,
 )
 

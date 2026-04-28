@@ -22,19 +22,19 @@ from apps.accounts.models import User
 from .forms import MessageForm
 from .models import Message
 
+_ROLE_MESSAGING_CONTEXT = {
+    User.Role.ADMIN: ("base_admin.html", "dashboard:admin_dashboard"),
+    User.Role.SECRETAIRE: ("base_secretary.html", "dashboard:secretary_dashboard"),
+    User.Role.PROFESSEUR: ("base_instructor.html", "dashboard:instructor_dashboard"),
+    User.Role.ETUDIANT: ("base_student.html", "dashboard:student_dashboard"),
+}
 
-def get_messaging_template(user, template_name):
-    """
-    Détermine le template de messagerie selon le rôle de l'utilisateur.
-    """
-    if user.role == user.Role.ADMIN:
-        return f"messaging/admin_{template_name}.html"
-    elif user.role == user.Role.SECRETAIRE:
-        return f"messaging/secretary_{template_name}.html"
-    elif user.role == user.Role.PROFESSEUR:
-        return f"messaging/instructor_{template_name}.html"
-    else:  # ETUDIANT
-        return f"messaging/student_{template_name}.html"
+
+def _messaging_base_ctx(user):
+    base_template, dashboard_url = _ROLE_MESSAGING_CONTEXT.get(
+        user.role, ("base_student.html", "dashboard:student_dashboard")
+    )
+    return {"base_template": base_template, "dashboard_url": dashboard_url}
 
 
 @login_required
@@ -48,11 +48,11 @@ def inbox(request):
     ).select_related("expediteur").order_by("-date_envoi")
     paginator = Paginator(messages_list, 20)
     page_obj = safe_get_page(paginator, request.GET.get("page"))
-    template = get_messaging_template(request.user, "inbox")
     return render(
         request,
-        template,
+        "messaging/inbox.html",
         {
+            **_messaging_base_ctx(request.user),
             "message_list": page_obj,
             "page_obj": page_obj,
             "active_tab": "inbox",
@@ -71,11 +71,11 @@ def sent_box(request):
     ).select_related("destinataire").order_by("-date_envoi")
     paginator = Paginator(messages_list, 20)
     page_obj = safe_get_page(paginator, request.GET.get("page"))
-    template = get_messaging_template(request.user, "sent_box")
     return render(
         request,
-        template,
+        "messaging/sent_box.html",
         {
+            **_messaging_base_ctx(request.user),
             "message_list": page_obj,
             "page_obj": page_obj,
             "active_tab": "sent",
@@ -102,8 +102,10 @@ def compose(request):
                 messages.error(
                     request, "Vous ne pouvez pas vous envoyer un message à vous-même."
                 )
-                template = get_messaging_template(request.user, "compose")
-                return render(request, template, {"form": form})
+                return render(request, "messaging/compose.html", {
+                    **_messaging_base_ctx(request.user),
+                    "form": form,
+                })
             # Server-side role check: students can only message professors/secretaries
             if request.user.role == User.Role.ETUDIANT:
                 dest = message.destinataire
@@ -112,19 +114,21 @@ def compose(request):
                         request,
                         "Vous ne pouvez envoyer des messages qu'aux professeurs et secrétaires.",
                     )
-                    template = get_messaging_template(request.user, "compose")
-                    return render(request, template, {"form": form})
+                    return render(request, "messaging/compose.html", {
+                        **_messaging_base_ctx(request.user),
+                        "form": form,
+                    })
             message.save()
             messages.success(request, "Message envoyé avec succès !")
             return redirect("messaging:sent")
     else:
         form = MessageForm(user=request.user)
 
-    template = get_messaging_template(request.user, "compose")
     return render(
         request,
-        template,
+        "messaging/compose.html",
         {
+            **_messaging_base_ctx(request.user),
             "form": form,
         },
     )
@@ -154,11 +158,11 @@ def message_detail(request, message_id):
     if is_recipient and not msg.lu:
         msg.mark_as_read()
 
-    template = get_messaging_template(request.user, "detail")
     return render(
         request,
-        template,
+        "messaging/detail.html",
         {
+            **_messaging_base_ctx(request.user),
             "message": msg,
         },
     )
