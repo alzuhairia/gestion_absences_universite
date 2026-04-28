@@ -17,6 +17,7 @@ from apps.absences.models import Absence
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
+from apps.utils import excel_safe_cell
 
 
 @login_required
@@ -69,12 +70,6 @@ def export_at_risk_excel(request):
         .values_list("id_inscription", "total")
     )
 
-    def _safe(val):
-        s = str(val) if val is not None else ""
-        if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
-            return "'" + s
-        return s
-
     for ins in all_inscriptions:
         cours = ins.id_cours
         if cours.nombre_total_periodes > 0:
@@ -93,10 +88,10 @@ def export_at_risk_excel(request):
                     statut = "BLOQUÉ"
 
                 ws.append([
-                    _safe(ins.id_etudiant.nom),
-                    _safe(ins.id_etudiant.prenom),
-                    _safe(ins.id_etudiant.email),
-                    _safe(f"{cours.nom_cours} ({cours.code_cours})"),
+                    excel_safe_cell(ins.id_etudiant.nom),
+                    excel_safe_cell(ins.id_etudiant.prenom),
+                    excel_safe_cell(ins.id_etudiant.email),
+                    excel_safe_cell(f"{cours.nom_cours} ({cours.code_cours})"),
                     total_abs,
                     round(rate, 2),
                     statut,

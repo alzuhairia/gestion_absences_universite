@@ -46,7 +46,7 @@ def dashboard_redirect(request):
         return secretary_dashboard(request)
     else:
         messages.error(request, "Rôle non reconnu ou accès non autorisé.")
-        return render(request, "dashboard/error.html")
+        return redirect("accounts:login")
 
 
 @login_required

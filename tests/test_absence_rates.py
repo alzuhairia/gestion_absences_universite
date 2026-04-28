@@ -3,7 +3,7 @@ Tests — calcul du taux d'absence et alertes étudiants.
   - CalculerPourcentageAbsenceTest : calculer_pourcentage_absence()
   - EtudiantsEnAlerteTest          : etudiants_en_alerte()
 """
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 from decimal import Decimal
 
 from django.utils import timezone

@@ -20,6 +20,7 @@ from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import roles_required
 from apps.enrollments.models import Inscription
+from apps.utils import pdf_check_page_break
 
 
 @login_required
@@ -62,12 +63,8 @@ def export_student_pdf(request, student_id=None):
     p = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    def check_page_break(y, margin=80):
-        """Crée une nouvelle page si nécessaire."""
-        if y < margin:
-            p.showPage()
-            return height - 50
-        return y
+    def _page_break(y, margin=80):
+        return pdf_check_page_break(p, height, y, margin)
 
     # --- HEADER ---
     p.setFont("Helvetica-Bold", 16)
@@ -124,10 +121,10 @@ def export_student_pdf(request, student_id=None):
             )
             p.drawString(60, y_position, text)
             y_position -= 15
-            y_position = check_page_break(y_position)
+            y_position = _page_break(y_position)
 
     # --- DETAILED LIST ---
-    y_position = check_page_break(y_position - 10)
+    y_position = _page_break(y_position - 10)
     p.setFont("Helvetica-Bold", 14)
     p.drawString(50, y_position, "Detail des Absences Non Justifiees")
     y_position -= 20
@@ -157,7 +154,7 @@ def export_student_pdf(request, student_id=None):
             )
             p.drawString(60, y_position, line)
             y_position -= 15
-            y_position = check_page_break(y_position)
+            y_position = _page_break(y_position)
 
     p.showPage()
     p.save()

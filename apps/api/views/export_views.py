@@ -6,6 +6,7 @@ RESPONSABILITE : Endpoints d'export — rapport PDF etudiant et Excel etudiants 
 """
 import datetime
 import io
+import logging
 from typing import cast
 
 from django.db.models import Sum
@@ -27,10 +28,9 @@ from apps.absences.services import get_system_threshold
 from apps.academic_sessions.models import AnneeAcademique
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
+from apps.utils import excel_safe_cell, pdf_check_page_break
 
 from ..permissions import IsAdminOrSecretary
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -108,11 +108,8 @@ def _build_student_pdf(student, academic_year, inscriptions, absence_sums, absen
     p = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
 
-    def check_page_break(y, margin=80):
-        if y < margin:
-            p.showPage()
-            return height - 50
-        return y
+    def _page_break(y, margin=80):
+        return pdf_check_page_break(p, height, y, margin)
 
     p.setFont("Helvetica-Bold", 16)
     p.drawString(50, height - 50, "Universite - Rapport d'Absences")
@@ -141,9 +138,9 @@ def _build_student_pdf(student, academic_year, inscriptions, absence_sums, absen
             f"- {cours.nom_cours} ({cours.code_cours}): {total_abs}h non justifiees",
         )
         y -= 15
-        y = check_page_break(y)
+        y = _page_break(y)
 
-    y = check_page_break(y - 10)
+    y = _page_break(y - 10)
     p.setFont("Helvetica-Bold", 14)
     p.drawString(50, y, "Detail des Absences Non Justifiees")
     y -= 20
@@ -159,7 +156,7 @@ def _build_student_pdf(student, academic_year, inscriptions, absence_sums, absen
         )
         p.drawString(60, y, line)
         y -= 15
-        y = check_page_break(y)
+        y = _page_break(y)
 
     p.showPage()
     p.save()
@@ -240,17 +237,11 @@ def export_at_risk_excel_api(request):
                 else system_threshold
             )
             if rate >= seuil:
-                def _safe(val):
-                    s = str(val) if val is not None else ""
-                    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
-                        return "'" + s
-                    return s
-
                 ws.append([
-                    _safe(ins.id_etudiant.nom),
-                    _safe(ins.id_etudiant.prenom),
-                    _safe(ins.id_etudiant.email),
-                    _safe(f"{cours.nom_cours} ({cours.code_cours})"),
+                    excel_safe_cell(ins.id_etudiant.nom),
+                    excel_safe_cell(ins.id_etudiant.prenom),
+                    excel_safe_cell(ins.id_etudiant.email),
+                    excel_safe_cell(f"{cours.nom_cours} ({cours.code_cours})"),
                     total_abs,
                     round(rate, 2),
                     _export_status(ins, rate, seuil),

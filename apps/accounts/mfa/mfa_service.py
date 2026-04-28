@@ -4,15 +4,14 @@ RESPONSABILITE : Logique metier MFA — constantes TOTP, generation/verification
                  des codes de secours, generation du QR code de provisioning.
                  Aucune dependance HTTP : utilisable independamment des vues.
 """
-import base64
-import io
 import logging
 import secrets
 
-import qrcode
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
+
+from apps.utils import generate_qr_data_uri as _generate_qr_data_uri  # noqa: F401
 
 from ..models import TwoFactorBackupCode
 
@@ -44,23 +43,6 @@ BACKUP_CODE_LENGTH = 10
 
 
 # ─── QR / TOTP helpers ──────────────────────────────────────────────────────
-
-
-def _generate_qr_data_uri(uri: str) -> str:
-    """
-    Encode un URI de provisioning TOTP en PNG QR code, retourne un data-URI base64.
-
-    Le QR n'est jamais ecrit sur le disque : tout se fait en memoire pour eviter
-    les fuites de secrets via le filesystem.
-    """
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(uri)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    buf.seek(0)
-    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
 
 def _normalize_token(raw: str) -> str:

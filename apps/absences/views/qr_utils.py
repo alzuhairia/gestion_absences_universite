@@ -9,14 +9,11 @@ Fonctions :
 
 Ces helpers sont importés par qr_professor.py et qr_student.py.
 """
-import base64
 import hashlib
-import io
 import math
 
-import qrcode
-
 from apps.audits.utils import get_client_ip
+from apps.utils import generate_qr_data_uri as _generate_qr_data_uri  # noqa: F401
 
 from ..models import QRScanLog
 
@@ -49,21 +46,6 @@ def _get_establishment_gps():
     from apps.dashboard.models import SystemSettings
     s = SystemSettings.get_settings()
     return s.gps_latitude, s.gps_longitude, s.gps_radius_meters
-
-
-# ── QR ───────────────────────────────────────────────────────────────────────
-
-
-def _generate_qr_data_uri(url):
-    """Génère un QR code PNG encodé en data-URI base64 (pas de fichier disque)."""
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    buf.seek(0)
-    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
 
 def _hash_qr_token(raw_token):

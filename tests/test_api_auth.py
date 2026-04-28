@@ -3,10 +3,8 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Faculte
 from apps.accounts.models import User
-from apps.enrollments.models import Inscription
 
 
 class ApiAuthContractTests(TestCase):
