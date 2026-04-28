@@ -7,6 +7,8 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : apps.accounts.models, apps.academics.models, apps.academic_sessions.models, apps.enrollments.models
 """
 
+from typing import Any, cast
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -72,7 +74,7 @@ class StudentCreationForm(forms.Form):
             try:
                 validate_password(password, user=tentative_user)
             except ValidationError as exc:
-                raise ValidationError({"password": exc.messages})
+                raise ValidationError({"password": cast(Any, exc.messages)})
 
         return cleaned_data
 

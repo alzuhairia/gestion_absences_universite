@@ -44,7 +44,7 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
                 hx-post="{% url 'absences:mark_absence_htmx' course.id_cours %}"
                 hx-target="#row-{{ ins.id_inscription }}"
                 hx-swap="outerHTML"
-                hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
+                hx-include="closest tr"
                 hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "PRESENT"}'
 >
             <label class="btn btn-outline-success btn-sm"
@@ -57,7 +57,7 @@ Context: ins (Inscription with .absence_data attached), is_validated, course, se
                 hx-post="{% url 'absences:mark_absence_htmx' course.id_cours %}"
                 hx-target="#row-{{ ins.id_inscription }}"
                 hx-swap="outerHTML"
-                hx-include="[name='date_seance'], [name='heure_debut'], [name='heure_fin'], [name='type_{{ ins.id_inscription }}'], [name='duree_{{ ins.id_inscription }}'], [name='note_{{ ins.id_inscription }}']"
+                hx-include="closest tr"
                 hx-vals='{"inscription_id": "{{ ins.id_inscription }}", "status": "ABSENT"}'
 >
             <label class="btn btn-outline-danger btn-sm"

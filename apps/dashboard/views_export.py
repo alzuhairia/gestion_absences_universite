@@ -8,6 +8,8 @@ DEPENDANCES CLES : absences.utils, absences.services, openpyxl
 """
 
 import datetime
+import io
+from typing import cast
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -15,6 +17,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
 from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
@@ -68,7 +71,8 @@ def export_student_pdf(request, student_id=None):
         f'attachment; filename="rapport_absences_{safe_email}.pdf"'
     )
 
-    p = canvas.Canvas(response, pagesize=A4)
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
     def check_page_break(y, margin=80):
@@ -171,6 +175,9 @@ def export_student_pdf(request, student_id=None):
     p.showPage()
     p.save()
 
+    buffer.seek(0)
+    response.write(buffer.read())
+
     # Traçabilité : journaliser l'export quand un admin/secrétaire accède aux données d'un étudiant
     if request.user.role in [User.Role.ADMIN, User.Role.SECRETAIRE]:
         log_action(
@@ -203,7 +210,7 @@ def export_at_risk_excel(request):
     response["Content-Disposition"] = 'attachment; filename="etudiants_a_risque.xlsx"'
 
     wb = Workbook()
-    ws = wb.active
+    ws = cast(Worksheet, wb.active)
     ws.title = "Étudiants à Risque"
 
     # Headers

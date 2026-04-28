@@ -14,11 +14,19 @@
 </div>
 <div class="stat-row">
     <span class="stat-label">Nouveaux blocages</span>
-    <span class="stat-value" style="color: {% if new_blocked > 0 %}#dc3545{% else %}#198754{% endif %};">{{ new_blocked }}</span>
+    {% if new_blocked > 0 %}
+        <span class="stat-value" style="color: #dc3545;">{{ new_blocked }}</span>
+    {% else %}
+        <span class="stat-value" style="color: #198754;">{{ new_blocked }}</span>
+    {% endif %}
 </div>
 <div class="stat-row">
     <span class="stat-label">Justificatifs en attente</span>
-    <span class="stat-value" style="color: {% if pending_justifications > 0 %}#ffc107{% else %}#198754{% endif %};">{{ pending_justifications }}</span>
+    {% if pending_justifications > 0 %}
+        <span class="stat-value" style="color: #ffc107;">{{ pending_justifications }}</span>
+    {% else %}
+        <span class="stat-value" style="color: #198754;">{{ pending_justifications }}</span>
+    {% endif %}
 </div>
 
 {% if courses_at_risk %}

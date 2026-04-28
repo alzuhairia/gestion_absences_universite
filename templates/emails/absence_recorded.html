@@ -21,7 +21,11 @@
 </div>
 <div class="stat-row">
     <span class="stat-label">Taux d'absence actuel</span>
-    <span class="stat-value" style="color: {% if taux|floatformat:0|add:0 >= 30 %}#dc3545{% else %}#333333{% endif %};">{{ taux }}%</span>
+    {% if taux|floatformat:0|add:0 >= 30 %}
+        <span class="stat-value" style="color: #dc3545;">{{ taux }}%</span>
+    {% else %}
+        <span class="stat-value" style="color: #333333;">{{ taux }}%</span>
+    {% endif %}
 </div>
 
 <p style="margin-top: 20px;">

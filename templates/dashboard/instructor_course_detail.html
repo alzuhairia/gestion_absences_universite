@@ -274,8 +274,8 @@
                                     {% endif %}
                                     <div class="projected-bar flex-grow-1" title="Seuil : {{ item.seuil|default:course_threshold }}%">
                                         <div class="projected-bar-fill {% if item.risk_level == 'HIGH' %}bg-danger{% elif item.risk_level == 'MEDIUM' %}bg-warning{% elif item.risk_level == 'LOW' %}bg-info{% else %}bg-success{% endif %}"
-                                             style="width: {% widthratio item.projected_rate 100 100 %}%;"></div>
-                                        <div class="projected-bar-threshold" style="left: {{ course_threshold }}%;"></div>
+                                             data-width="{{ item.projected_rate|default:0|floatformat:0 }}"></div>
+                                        <div class="projected-bar-threshold" data-left="{{ course_threshold|default:0|floatformat:0 }}"></div>
                                     </div>
                                 </div>
                                 <div class="small text-muted mt-1">
@@ -492,6 +492,16 @@
             url.searchParams.set('tab', tabName);
             window.history.pushState({}, '', url);
         });
+    });
+
+    // Apply dynamic projected bar width/threshold values without inline template CSS.
+    document.querySelectorAll('.projected-bar-fill').forEach(el => {
+        const width = Number(el.dataset.width) || 0;
+        el.style.width = `${width}%`;
+    });
+    document.querySelectorAll('.projected-bar-threshold').forEach(el => {
+        const left = Number(el.dataset.left) || 0;
+        el.style.left = `${left}%`;
     });
 </script>
 {% endblock %}

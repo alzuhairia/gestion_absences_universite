@@ -385,6 +385,8 @@
 </div>
 {% endblock %}
 
+{{ form.cours.value|default:'[]'|json_script:'selected-course-ids' }}
+
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function () {
@@ -447,11 +449,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const historyApiUrl = '{% url "absences:student_absence_history_api" %}';
 
     const initialStudentId = '{{ form.etudiant.value|default_if_none:""|escapejs }}';
-    const preselectedCourseIds = new Set([
-        {% for value in form.cours.value %}
-        '{{ value|escapejs }}',
-        {% endfor %}
-    ]);
+    const preselectedCourseIds = new Set(JSON.parse(document.getElementById('selected-course-ids').textContent || '[]'));
     let applyInitialCourseSelection = preselectedCourseIds.size > 0;
 
     function normalizeText(value) {

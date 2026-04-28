@@ -2,6 +2,8 @@
 FICHIER : apps/api/views/notification_viewset.py
 RESPONSABILITE : ViewSet pour les notifications utilisateur (generees par le systeme).
 """
+from typing import cast
+
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -28,7 +30,7 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardPagination
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         if getattr(self, "swagger_fake_view", False):
             return Notification.objects.none()
         return Notification.objects.filter(

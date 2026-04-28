@@ -5,6 +5,8 @@ RESPONSABILITE : ViewSet CRUD pour les etudiants.
   - Professeur : lecture seule (etudiants de ses cours)
   - Etudiant : lecture de son propre profil uniquement
 """
+from typing import Type, Union
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
@@ -49,7 +51,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             return [IsAdminOrSecretary()]
         return [IsAuthenticated()]
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> Union[Type[UserListSerializer], Type[StudentSerializer]]:  # type: ignore[override]
         if self.action == "list":
             return UserListSerializer
         return StudentSerializer

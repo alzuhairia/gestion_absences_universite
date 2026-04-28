@@ -5,6 +5,8 @@ RESPONSABILITE : ViewSet pour la gestion des justificatifs.
   - Admin/Secretaire : lister tous, approuver/rejeter via l'action 'process'
   - Professeur : lecture seule sur ses cours
 """
+from typing import Type, Union, cast, Dict, Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
@@ -73,14 +75,14 @@ class JustificationViewSet(
             return [IsAdminOrSecretary()]
         return [IsAuthenticated()]
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> Union[Type[JustificationCreateSerializer], Type[JustificationProcessSerializer], Type[JustificationListSerializer]]:  # type: ignore[override]
         if self.action == "create":
             return JustificationCreateSerializer
         if self.action == "process":
             return JustificationProcessSerializer
         return JustificationListSerializer
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         if getattr(self, "swagger_fake_view", False):
             return Justification.objects.none()
         qs = Justification.objects.select_related(
@@ -88,7 +90,7 @@ class JustificationViewSet(
             "id_absence__id_inscription__id_cours",
             "validee_par",
         )
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             return qs.filter(
@@ -131,8 +133,9 @@ class JustificationViewSet(
         serializer = JustificationProcessSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        action_value = serializer.validated_data["action"]
-        comment = serializer.validated_data.get("commentaire_gestion", "")
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        action_value = validated_data["action"]
+        comment = validated_data.get("commentaire_gestion", "")
 
         with transaction.atomic():
             justification = Justification.objects.select_for_update().get(

@@ -3,6 +3,8 @@ FICHIER : apps/dashboard/forms_admin_users.py
 RESPONSABILITE : Formulaire admin pour la création et modification d'utilisateurs
 """
 
+from typing import Any, cast
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -114,7 +116,9 @@ class UserForm(forms.ModelForm):
             try:
                 validate_password(password, user=validation_user)
             except DjangoValidationError as exc:
-                raise forms.ValidationError({"password": exc.messages})
+                raise forms.ValidationError(
+                    {"password": cast(Any, exc.messages)}
+                )
 
         return cleaned_data
 

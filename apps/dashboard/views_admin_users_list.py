@@ -113,7 +113,10 @@ def admin_user_edit(request, user_id):
             user = form.save()
 
             if old_role != user.role:
-                old_role_display = dict(User.Role.choices).get(old_role, old_role)
+                try:
+                    old_role_display = User.Role(old_role).label
+                except ValueError:
+                    old_role_display = old_role
                 log_action(
                     request.user,
                     f"CRITIQUE: Modification du rôle de '{user.email}' de {old_role_display} à {user.get_role_display()} - Gestion des utilisateurs",

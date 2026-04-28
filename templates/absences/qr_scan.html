@@ -124,7 +124,7 @@
 
 <script nonce="{{ request.csp_nonce }}">
 (function() {
-    var gpsRequired = {{ gps_required|yesno:"true,false" }};
+    var gpsRequired = {{ gps_required|yesno:"true,false"|default:"false" }};
     var gpsStatus = document.getElementById('gps-status');
     var gpsBlocked = document.getElementById('gps-blocked');
     var gpsBlockedTitle = document.getElementById('gps-blocked-title');

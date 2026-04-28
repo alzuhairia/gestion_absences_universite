@@ -1,0 +1,10 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "include": ["apps", "config", "tests", "scripts"],
+  "exclude": [".venv", "**/__pycache__", "**/migrations"],
+  "typeCheckingMode": "basic",
+  "reportIncompatibleMethodOverride": "none",
+  "reportAttributeAccessIssue": "none"
+}
