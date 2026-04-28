@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.absences.models import QRAttendanceToken
-from apps.absences.views import _haversine
+from apps.absences.views.qr_utils import _haversine
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User

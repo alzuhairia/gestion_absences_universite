@@ -20,7 +20,6 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.absences.models import Absence
 from apps.absences.services import get_system_threshold, recalculer_eligibilite
-from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription

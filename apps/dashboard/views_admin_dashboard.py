@@ -13,7 +13,7 @@ from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.db.models import Q, Sum
+from django.db.models import Sum
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
@@ -104,27 +104,6 @@ def admin_dashboard_main(request):
     total_secretaries = User.objects.filter(role=User.Role.SECRETAIRE, actif=True).count()
 
     active_courses = Cours.objects.filter(actif=True).count()
-
-    if academic_year:
-        active_courses_with_activity = (
-            Cours.objects.filter(actif=True, professeur__isnull=False)
-            .filter(
-                Q(
-                    id_cours__in=Inscription.objects.filter(
-                        id_annee=academic_year
-                    ).values_list("id_cours", flat=True)
-                )
-                | Q(
-                    id_cours__in=academic_year.seances.values_list(
-                        "id_cours", flat=True
-                    )
-                )
-            )
-            .distinct()
-            .count()
-        )
-    else:
-        active_courses_with_activity = 0
 
     at_risk_count = _get_at_risk_count_cached(academic_year)
 

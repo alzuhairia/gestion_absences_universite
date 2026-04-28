@@ -2,7 +2,6 @@
 FICHIER : apps/api/views/notification_viewset.py
 RESPONSABILITE : ViewSet pour les notifications utilisateur (generees par le systeme).
 """
-from typing import cast
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets

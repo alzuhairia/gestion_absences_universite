@@ -7,7 +7,7 @@ import os
 
 from django.contrib.messages import constants as message_constants
 
-from .env import BASE_DIR, DEBUG, env_bool, env_int
+from .env import BASE_DIR, DEBUG, env_int
 
 # ─────────────────────────────────────────────────────────────────────────── #
 #  APPLICATIONS INSTALLÉES                                                    #

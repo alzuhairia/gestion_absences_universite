@@ -9,7 +9,6 @@ import io
 import logging
 import secrets
 
-import pyotp
 import qrcode
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction

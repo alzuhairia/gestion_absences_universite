@@ -5,7 +5,6 @@ RESPONSABILITE : Export PDF rapport d'assiduité par étudiant
 
 import datetime
 import io
-from typing import cast
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum

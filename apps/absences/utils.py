@@ -10,7 +10,7 @@ import datetime
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
@@ -49,7 +49,6 @@ def generate_absence_report(buffer, student, academic_year, course_data):
     # Rows
     for course in course_data:
         status_text = "Admissible" if course["status"] else "BLOQUÉ"
-        # Optional: color text in table style later if needed, but text is fine
 
         row = [
             course["nom"],
@@ -80,9 +79,6 @@ def generate_absence_report(buffer, student, academic_year, course_data):
             ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ]
     )
-
-    # Conditional formatting for "BLOQUÉ" rows could be added here loop-wise,
-    # but keeping it simple for now standard striped table.
 
     table.setStyle(style)
     elements.append(table)

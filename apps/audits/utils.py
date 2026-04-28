@@ -9,8 +9,6 @@ DEPENDANCES CLES : audits.models.LogAudit, audits.ip_utils
 
 import re
 
-from apps.accounts.models import User
-
 from .ip_utils import extract_client_ip
 from .models import LogAudit
 

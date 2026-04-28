@@ -18,7 +18,6 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -42,9 +41,7 @@ from apps.enrollments.models import Inscription
 from apps.notifications.email import (
     build_justification_submitted_professor_email,
     send_notification_email,
-    send_with_dedup,
 )
-from apps.notifications.email import build_absence_recorded_email
 
 logger = logging.getLogger(__name__)
 

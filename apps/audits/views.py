@@ -14,7 +14,6 @@ from django.db.models import Q
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
-from apps.accounts.models import User
 from apps.dashboard.decorators import secretary_required
 
 from .models import LogAudit

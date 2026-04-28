@@ -17,8 +17,6 @@ from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Cours, Departement
 from apps.accounts.models import User
 
-from .models import Inscription
-
 
 class StudentCreationForm(forms.Form):
     """Formulaire pour créer un étudiant lors de l'inscription"""

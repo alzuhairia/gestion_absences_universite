@@ -2,18 +2,14 @@
 FICHIER : apps/dashboard/views_secretary_main.py
 RESPONSABILITE : Dashboard principal du secrétariat + vue cours actifs
 """
-from collections import defaultdict
 
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
-from apps.utils import safe_get_page
 from apps.absences.models import Absence
-from apps.absences.services import get_system_threshold
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User

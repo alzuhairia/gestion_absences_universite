@@ -30,7 +30,6 @@ from .enrollment_handlers import (  # noqa: F401
     _handle_course_enrollment,
 )
 from .forms import EnrollmentForm, StudentCreationForm
-from .models import Inscription
 
 logger = logging.getLogger(__name__)
 
