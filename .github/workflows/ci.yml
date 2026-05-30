@@ -356,6 +356,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      - name: Compute apt cache-bust date
+        id: apt_date
+        run: echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Build Docker image (no push)
         uses: docker/build-push-action@v7
         with:
@@ -367,6 +371,8 @@ jobs:
           tags: unabsences-ci:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            APT_BUILD_DATE=${{ steps.apt_date.outputs.date }}
 
       - name: Trivy image scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@0.35.0

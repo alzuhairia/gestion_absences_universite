@@ -15,7 +15,14 @@ ENV PYTHONUNBUFFERED=1 \
 # System deps needed at runtime.
 # Keep this list minimal to reduce OS-level CVE surface in image scans.
 # psycopg2-binary bundles PostgreSQL client libs, so no postgresql-client/libpq-dev.
-RUN apt-get update \
+#
+# APT_BUILD_DATE busts the GHA layer cache once per UTC day so security patches
+# released by Debian are picked up by `apt-get upgrade`. Without this, the cached
+# layer would keep serving stale package versions even when a newer base image
+# is pulled.
+ARG APT_BUILD_DATE=unspecified
+RUN echo "apt layer cache key: ${APT_BUILD_DATE}" \
+    && apt-get update \
     && apt-get -y upgrade \
     && apt-get install -y --no-install-recommends \
         curl \
