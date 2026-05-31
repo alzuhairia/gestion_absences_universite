@@ -1,2 +1,0 @@
-# Scripts de vérification
-

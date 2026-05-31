@@ -114,21 +114,7 @@ isort --profile black --check-only .
 ruff check .
 ```
 
-## 9. One-Time Local Setup (Recommended)
-
-Run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/setup/setup_git_workflow.ps1
-```
-
-This configures:
-
-- local commit template (`.githooks/gitmessage.txt`)
-- local Git hook path (`.githooks`)
-- commit message validation hook (`.githooks/commit-msg`)
-
-## 10. Practical Summary
+## 9. Practical Summary
 
 - Stash if needed -> Pull -> Pop stash
 - One branch per feature/fix
