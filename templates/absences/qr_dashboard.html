@@ -170,8 +170,6 @@
     var refreshUrl = refreshForm.action;
     var refreshing = false;  /* protection contre les fetchs concurrents */
 
-    console.log('[QR] Timer started:', totalDuration, 'seconds, expires:', new Date(expires).toLocaleTimeString(), 'refreshUrl:', refreshUrl);
-
     /* --- Tic du compte à rebours — s'exécute chaque seconde, ne s'arrête jamais --- */
     setInterval(function() {
         var now = Date.now();
@@ -188,7 +186,6 @@
             countdownEl.classList.add('expired');
             countdownEl.classList.remove('text-success');
             countdownLabel.textContent = 'Auto-refresh en cours...';
-            console.log('[QR] Timer expired, refreshing QR...');
             doAutoRefresh();
         }
     }, 1000);
@@ -242,7 +239,6 @@
             countdownLabel.textContent = 'Nouveau QR dans...';
             refreshBar.style.width = '100%';
             refreshing = false;
-            console.log('[QR] QR refreshed successfully, new expiry:', new Date(expires).toLocaleTimeString());
         })
         .catch(function(err) {
             console.error('[QR] QR refresh failed:', err);
