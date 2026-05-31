@@ -1,10 +1,32 @@
 """
-Gestion CRUD des années académiques (rôle secrétaire).
+Vues CRUD des années académiques pour le tableau de bord secrétaire UniAbsences.
 
-Fonctionnalités :
-  - Liste et création d'années académiques
-  - Définir une année comme active (unique)
-  - Suppression avec cascade
+Ce module fournit au secrétaire la capacité de gérer les années académiques :
+les lister, en créer de nouvelles, en désigner une comme active et supprimer les
+années non actives avec toutes leurs données dépendantes.
+
+Vues
+-----
+``secretary_academic_years``
+    GET  — affiche la liste des années académiques avec un formulaire de création.
+    POST — valide et enregistre une nouvelle ``AnneeAcademique`` ; journalise une
+           entrée d'audit CRITIQUE en cas de succès.
+
+``secretary_academic_year_set_active``
+    POST — efface atomiquement le drapeau ``active`` sur toutes les années et le définit sur
+           l'année choisie. Journalisé comme CRITIQUE.
+
+``secretary_academic_year_delete``
+    POST — supprime une année académique non active et supprime en cascade tous les
+           enregistrements ``Inscription``, ``Absence``, ``Justification`` et ``Seance``
+           liés dans une seule transaction de base de données. Bloqué lorsque
+           l'année cible est actuellement active. Journalise à la fois les détails du cascade et
+           la suppression elle-même comme CRITIQUE.
+
+Toutes les vues sont réservées aux utilisateurs administrateurs/secrétaires authentifiés via
+``@secretary_required``.
+
+Fait partie du tableau de bord UniAbsences.
 """
 
 import logging
@@ -30,8 +52,28 @@ logger = logging.getLogger(__name__)
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def secretary_academic_years(request):
-    """Liste et gestion des années académiques"""
+    """
+    Liste toutes les années académiques et gère la création d'une nouvelle.
 
+    GET
+        Affiche la liste des années académiques avec un ``AnneeAcademiqueForm`` vide.
+
+    POST
+        Valide le formulaire soumis. En cas de succès, enregistre la nouvelle année, écrit une
+        entrée d'audit CRITIQUE, affiche un message flash de succès et redirige vers
+        la même page. En cas d'échec, réaffiche le formulaire avec les erreurs de validation.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        GET ou POST d'un utilisateur secrétaire/administrateur authentifié.
+
+    Retourne
+    -------
+    HttpResponse
+        Affiche ``dashboard/secretary_academic_years.html`` avec ``years``
+        (ordonné par libellé décroissant) et ``form``.
+    """
     if request.method == "POST":
         form = AnneeAcademiqueForm(request.POST)
         if form.is_valid():
@@ -62,11 +104,28 @@ def secretary_academic_years(request):
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_academic_year_set_active(request, year_id):
-    """Définir une année académique comme active"""
+    """
+    Désigne atomiquement une année académique spécifique comme année active.
 
+    Toutes les autres années sont désactivées dans la même transaction de base de données afin
+    qu'exactement une année soit toujours active. L'opération est journalisée comme CRITIQUE.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        POST d'un utilisateur secrétaire/administrateur authentifié.
+    year_id : int
+        Clé primaire de l'``AnneeAcademique`` à activer.
+
+    Retourne
+    -------
+    HttpResponseRedirect
+        Redirige vers ``dashboard:secretary_academic_years``.
+    """
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
 
     with transaction.atomic():
+        # Désactiver toutes les années d'abord, puis activer l'année sélectionnée.
         AnneeAcademique.objects.update(active=False)
         year.active = True
         year.save()
@@ -88,15 +147,51 @@ def secretary_academic_year_set_active(request, year_id):
 @secretary_required
 @require_http_methods(["POST"])
 def secretary_academic_year_delete(request, year_id):
-    """Suppression d'une année académique avec suppression en cascade"""
+    """
+    Supprime une année académique non active et tous ses enregistrements dépendants.
 
+    La suppression est effectuée dans un seul bloc ``transaction.atomic``.
+    Les enregistrements dépendants sont supprimés explicitement dans l'ordre des dépendances pour éviter
+    les violations de contrainte d'intégrité :
+        1. Justifications  (référencent Absences)
+        2. Absences        (référencent Inscriptions)
+        3. Inscriptions    (référencent AnneeAcademique)
+        4. Seances         (référencent AnneeAcademique)
+        5. AnneeAcademique
+
+    Cas bloqués
+    -----------
+    - L'année cible est actuellement marquée ``active`` : un message d'erreur est affiché
+      et l'utilisateur est redirigé sans suppression.
+
+    Gestion des erreurs
+    -------------------
+    - ``ProtectedError`` — un ou plusieurs objets liés sont protégés par la contrainte
+      de suppression ``PROTECT`` de Django ; un message d'erreur descriptif est affiché.
+    - Toute autre exception — journalisée au niveau ERROR ; un message d'erreur générique est
+      affiché à l'utilisateur.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        POST d'un utilisateur secrétaire/administrateur authentifié.
+    year_id : int
+        Clé primaire de l'``AnneeAcademique`` à supprimer.
+
+    Retourne
+    -------
+    HttpResponseRedirect
+        Redirige vers ``dashboard:secretary_academic_years`` dans tous les cas.
+    """
     year = get_object_or_404(AnneeAcademique, id_annee=year_id)
     year_libelle = year.libelle
 
     try:
         with transaction.atomic():
+            # Verrouiller la ligne pour empêcher les modifications concurrentes pendant la suppression.
             year = AnneeAcademique.objects.select_for_update().get(id_annee=year_id)
 
+            # Garde-fou : refuser la suppression de l'année active pour éviter la perte de données.
             if year.active:
                 messages.error(
                     request,
@@ -105,6 +200,7 @@ def secretary_academic_year_delete(request, year_id):
                 )
                 return redirect("dashboard:secretary_academic_years")
 
+            # Collecter les comptes du cascade avant suppression pour le message de succès.
             inscriptions = Inscription.objects.filter(id_annee=year)
             inscriptions_count = inscriptions.count()
             absences = Absence.objects.filter(id_inscription__in=inscriptions)
@@ -114,12 +210,14 @@ def secretary_academic_year_delete(request, year_id):
             seances = Seance.objects.filter(id_annee=year)
             seances_count = seances.count()
 
+            # Supprimer dans l'ordre des dépendances pour satisfaire les contraintes de clé étrangère.
             justifications.delete()
             absences.delete()
             inscriptions.delete()
             seances.delete()
             year.delete()
 
+        # Construire un résumé lisible de ce qui a été supprimé en cascade.
         cascade_info = []
         if inscriptions_count > 0:
             cascade_info.append(f"{inscriptions_count} inscription(s)")
@@ -144,6 +242,7 @@ def secretary_academic_year_delete(request, year_id):
         messages.success(request, success_msg)
 
     except ProtectedError as e:
+        # Django lève ProtectedError lorsqu'un objet lié utilise on_delete=PROTECT.
         protected_objects = [str(obj) for obj in e.protected_objects]
         logger.error(f"ProtectedError lors de la suppression de l'année académique {year_libelle}: {e}")
         messages.error(

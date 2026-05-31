@@ -1,6 +1,20 @@
 """
-FICHIER : apps/absences/urls.py
-RESPONSABILITE : Routes URL pour la gestion des absences et QR code
+Configuration des URL du système d'absences UniAbsences.
+
+Tous les motifs d'URL de ce fichier sont montés sous le préfixe ``absences/``
+défini dans le ``config/urls.py`` racine.  L'espace de noms
+``app_name = "absences"`` permet aux autres parties du projet de résoudre
+ces URL en utilisant le préfixe ``absences:``.
+
+Regroupés par rôle :
+  - Étudiant   : page de détails d'absence, upload/téléchargement de justificatif.
+  - Professeur : création de séance, marquage manuel de présence (formulaire + HTMX).
+  - Système QR : génération QR, tableau de bord, rafraîchissement du jeton, finalisation, scan étudiant.
+  - Secrétaire : examen des justificatifs, traitement (approbation/rejet), liste encodée,
+                 API d'historique des absences, encodage direct d'absence.
+  - Admin/Sec  : modification directe d'absence.
+
+Fait partie du système d'absences UniAbsences.
 """
 from django.urls import path
 
@@ -35,7 +49,7 @@ urlpatterns = [
         views.student_absence_history_api,
         name="student_absence_history_api",
     ),
-    # Edit/Override Absence
+    # Modification/Surcharge d'absence
     path("edit/<int:pk>/", views.edit_absence, name="edit_absence"),
     # Telecharger un justificatif (acces controle)
     path(
@@ -57,7 +71,7 @@ urlpatterns = [
         views.validate_session,
         name="validate_session",
     ),
-    # --- QR Code Attendance ---
+    # --- Présence par QR Code ---
     path("qr/generate/<int:course_id>/", views.qr_generate, name="qr_generate"),
     path("qr/dashboard/<uuid:token>/", views.qr_dashboard, name="qr_dashboard"),
     path("qr/refresh/<uuid:token>/", views.qr_refresh_token, name="qr_refresh_token"),

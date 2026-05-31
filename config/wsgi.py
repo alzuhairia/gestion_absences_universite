@@ -1,16 +1,21 @@
 """
-WSGI config for config project.
+Point d'entrée WSGI pour le projet UniAbsences.
 
-It exposes the WSGI callable as a module-level variable named ``application``.
+Expose le callable WSGI sous forme de variable ``application`` au niveau du
+module, recherchée par les serveurs compatibles WSGI (Gunicorn, uWSGI,
+mod_wsgi) lors du démarrage de l'application en mode synchrone.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
+Fait partie de la configuration de déploiement de UniAbsences.
+
+Voir : https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 """
 
 import os
 
 from django.core.wsgi import get_wsgi_application
 
+# Garantit que Django utilise le bon package settings avant le chargement du registre d'applications.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
+# Callable WSGI consommé par le serveur applicatif au démarrage.
 application = get_wsgi_application()

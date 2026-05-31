@@ -4,7 +4,7 @@
 
 {% block extra_css %}
 <style>
-    /* ── KPI Cards ── */
+    /* ── Cartes KPI ── */
     .stat-card {
         border: none;
         border-radius: 16px;
@@ -43,7 +43,7 @@
     .bg-gradient-warning   { background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); }
     .bg-gradient-danger    { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
 
-    /* ── Chart Cards ── */
+    /* ── Cartes de graphiques ── */
     .chart-card {
         border: none;
         border-radius: 16px;
@@ -74,7 +74,7 @@
         padding: 1.25rem;
     }
 
-    /* ── Chart containers ── */
+    /* ── Conteneurs de graphiques ── */
     .chart-container {
         position: relative;
         width: 100%;
@@ -83,7 +83,7 @@
     .chart-container-bar    { height: 260px; }
     .chart-container-doughnut { height: 240px; }
 
-    /* ── Ranking table ── */
+    /* ── Tableau de classement ── */
     .ranking-table th {
         font-size: 0.75rem;
         text-transform: uppercase;
@@ -118,7 +118,7 @@
     .rank-3 { background: linear-gradient(135deg, #c97c4b, #b06a3b); }
     .rank-other { background: #e9ecef; color: #6c757d; }
 
-    /* ── Page header ── */
+    /* ── En-tête de page ── */
     .page-header {
         margin-bottom: 1.75rem;
     }
@@ -140,7 +140,7 @@
         border-radius: 50px;
     }
 
-    /* ── Section titles ── */
+    /* ── Titres de sections ── */
     .section-divider {
         display: flex;
         align-items: center;
@@ -161,7 +161,7 @@
         margin-left: 1rem;
     }
 
-    /* ── Progress bars for ranking ── */
+    /* ── Barres de progression pour le classement ── */
     .progress-thin {
         height: 6px;
         border-radius: 3px;
@@ -181,7 +181,7 @@
 {% block content %}
 <div class="container-fluid">
 
-    <!-- ══════ Header ══════ -->
+    <!-- ══════ En-tête ══════ -->
     <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
             <h1><i class="fas fa-chart-pie me-2" style="opacity:0.7"></i>Statistiques Avancees</h1>
@@ -192,7 +192,7 @@
         {% endif %}
     </div>
 
-    <!-- ══════ KPI Cards ══════ -->
+    <!-- ══════ Cartes KPI ══════ -->
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="stat-card bg-gradient-primary">
@@ -224,7 +224,7 @@
         </div>
     </div>
 
-    <!-- ══════ Monthly Evolution (full width) ══════ -->
+    <!-- ══════ Évolution mensuelle (pleine largeur) ══════ -->
     <div class="row g-3 mb-3">
         <div class="col-12">
             <div class="chart-card card">
@@ -240,7 +240,7 @@
         </div>
     </div>
 
-    <!-- ══════ Section: Repartitions ══════ -->
+    <!-- ══════ Section : Répartitions ══════ -->
     <div class="section-divider">
         <h5><i class="fas fa-chart-pie me-2" style="opacity:0.5"></i>Repartitions</h5>
     </div>
@@ -259,7 +259,7 @@
                 </div>
             </div>
         </div>
-        <!-- Departement -->
+        <!-- Département -->
         <div class="col-lg-4">
             <div class="chart-card card h-100">
                 <div class="card-header">
@@ -287,13 +287,13 @@
         </div>
     </div>
 
-    <!-- ══════ Section: Classements ══════ -->
+    <!-- ══════ Section : Classements ══════ -->
     <div class="section-divider">
         <h5><i class="fas fa-trophy me-2" style="opacity:0.5"></i>Classements</h5>
     </div>
 
     <div class="row g-3 mb-3">
-        <!-- Top Professeurs: chart + table -->
+        <!-- Top Professeurs : graphique + tableau -->
         <div class="col-lg-6">
             <div class="chart-card card h-100">
                 <div class="card-header">
@@ -337,7 +337,7 @@
             </div>
         </div>
 
-        <!-- Top Cours: chart + table -->
+        <!-- Top Cours : graphique + tableau -->
         <div class="col-lg-6">
             <div class="chart-card card h-100">
                 <div class="card-header">
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const noData = '<p class="text-muted text-center py-4 mb-0" style="font-size:0.85rem">Aucune donnee disponible</p>';
 
-    /* ── Shared defaults ── */
+    /* ── Paramètres par défaut partagés ── */
     Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
     Chart.defaults.color = '#8392ab';
 

@@ -1,10 +1,21 @@
 """
-FICHIER : apps/enrollments/views_rules.py
-RESPONSABILITE : Gestion des regles d'absence et exemptions (secretaire)
-FONCTIONNALITES PRINCIPALES :
-  - Liste des etudiants en infraction de seuil
-  - Attribution/revocation des exemptions avec motif
-DEPENDANCES CLES : enrollments.models, absences.services, audits.utils
+Views for absence threshold rules and enrollment exemption management.
+
+This module gives the secretariat two capabilities:
+
+1. ``rules_management`` — displays a paginated list of enrollments where
+   the student's unjustified absence rate meets or exceeds the course (or
+   system) threshold.  Each row shows whether the student is blocked from
+   the exam or is currently protected by an active exemption.
+
+2. ``toggle_exemption`` — grants or revokes the 40% exemption on a specific
+   enrollment. Granting requires a written justification (motif). When an
+   exemption is granted, the student receives an email notification and the
+   action is recorded in the audit log.
+
+Security: both views require ``@secretary_required``.
+
+Belongs to: UniAbsences — enrollments app.
 """
 
 from django.contrib import messages
@@ -31,33 +42,64 @@ from apps.notifications.email import send_with_dedup
 @require_GET
 def rules_management(request):
     """
-    List students violating the absence threshold rule (per-course or system default).
+    Display enrollments where students are at or over the absence threshold.
+
+    Only enrollments with status ``EN_COURS`` for the currently active
+    academic year are evaluated. For each such enrollment the view computes:
+
+    - Total unjustified, past-session absence hours (NON_JUSTIFIEE only —
+      absences with status EN_ATTENTE are excluded so that pending
+      justifications do not incorrectly flag a student as blocked).
+    - The absence rate as a percentage of the course's total period count.
+    - The effective threshold (course-level ``seuil_absence`` if set,
+      otherwise the system default returned by ``get_system_threshold()``).
+    - Whether an exemption is active and its effective margin.
+
+    Enrollments are included in the ``at_risk_list`` only when the raw rate
+    equals or exceeds the base threshold (even if an exemption raises the
+    effective blocking threshold above the current rate).
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Must be authenticated as a secretary (GET only).
+
+    Returns
+    -------
+    HttpResponse
+        Renders ``enrollments/rules_list.html`` with context:
+          - ``at_risk_list``    — paginated list of risk-assessment dicts
+          - ``page_obj``        — pagination object
+          - ``blocked_count``   — number of students fully blocked from exams
+          - ``exempted_count``  — number of students whose exemption is keeping
+                                  them below the effective blocking threshold
     """
     from apps.academic_sessions.models import AnneeAcademique
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
     system_threshold = get_system_threshold()
 
+    # Fetch all active-year, in-progress enrollments with course and student data.
     inscriptions_qs = Inscription.objects.filter(
         status=Inscription.Status.EN_COURS,
     ).select_related("id_cours", "id_etudiant")
     if active_year:
         inscriptions_qs = inscriptions_qs.filter(id_annee=active_year)
 
-    # Evaluate once: extract IDs from Python objects instead of an extra query.
+    # Materialise into a list once so we can iterate twice (IDs + loop) without
+    # hitting the database twice.
     inscriptions_list = list(inscriptions_qs)
     inscription_ids = [ins.id_inscription for ins in inscriptions_list]
-    # Only NON_JUSTIFIEE absences for past séances count — strictly aligned with
-    # apps.absences.services.calculer_absence_stats and every dashboard view
-    # (admin/professor/student). Including EN_ATTENTE here would penalise
-    # students whose justificatif is still under review and would surface a
-    # "BLOQUÉ" badge that disagrees with their actual eligible_examen flag.
+
+    # Aggregate unjustified absence hours per enrollment in a single query.
+    # Strictly NON_JUSTIFIEE only — excluding EN_ATTENTE ensures that a student
+    # whose justification is still under review is not incorrectly penalised.
     today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
-            id_seance__date_seance__lte=today,
+            id_seance__date_seance__lte=today,  # Only past sessions count.
         )
         .values("id_inscription")
         .annotate(total=Sum("duree_absence"))
@@ -70,17 +112,24 @@ def rules_management(request):
         if cours.nombre_total_periodes > 0:
             total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
 
+            # Compute the raw absence rate for this enrollment.
             rate = (total_abs / cours.nombre_total_periodes) * 100
+
+            # Use the course-specific threshold if defined; fall back to system default.
             seuil = (
                 cours.seuil_absence
                 if cours.seuil_absence is not None
                 else system_threshold
             )
 
+            # The effective threshold is raised by exemption_margin when exemption
+            # is active, capped at 100% to avoid nonsensical values.
             seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
 
+            # Include the enrollment only when the raw rate reaches the base threshold.
             if rate >= seuil:
                 is_blocked = rate >= seuil_effectif
+                # Under exemption = rate exceeds base seuil but not the raised effective seuil.
                 is_under_exemption = ins.exemption_40 and not is_blocked
                 at_risk_list.append(
                     {
@@ -98,11 +147,11 @@ def rules_management(request):
                     }
                 )
 
-    # Calculate statistics
+    # Summary statistics for the page header badges.
     blocked_count = sum(1 for item in at_risk_list if item["is_blocked"])
     exempted_count = sum(1 for item in at_risk_list if item["is_under_exemption"])
 
-    # Pagination
+    # Paginate at 25 rows per page.
     paginator = Paginator(at_risk_list, 25)
     page_obj = safe_get_page(paginator, request.GET.get("page"))
 
@@ -123,15 +172,47 @@ def rules_management(request):
 @require_POST
 def toggle_exemption(request, pk):
     """
-    Grant or Revoke absence threshold exemption.
+    Grant or revoke the absence threshold exemption for an enrollment.
+
+    The ``action`` POST parameter drives the operation:
+      - ``"grant"`` — sets ``exemption_40=True`` with the provided motif and
+        margin, recalculates exam eligibility, sends an email to the student,
+        and logs the action at WARNING audit level.
+      - ``"revoke"`` — clears the exemption, recalculates exam eligibility,
+        and logs the action at WARNING audit level.
+
+    The enrollment record is locked with ``select_for_update()`` inside an
+    atomic transaction to prevent race conditions when two secretaries act on
+    the same enrollment simultaneously.
+
+    The student email is dispatched via ``send_with_dedup`` registered as an
+    ``on_commit`` callback so the email is only sent if the transaction commits
+    successfully.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        POST parameters:
+          - ``action``           (str) — ``"grant"`` or ``"revoke"``
+          - ``motif``            (str) — required when action is ``"grant"``
+          - ``exemption_margin`` (int, optional) — additional threshold
+            percentage points (default 10, clamped to [1, 100])
+    pk : int
+        Primary key of the ``Inscription`` to modify.
+
+    Returns
+    -------
+    HttpResponseRedirect
+        Always redirects to ``dashboard:secretary_seuils_absence``.
     """
-    # Verify existence (404 if not found) before proceeding
+    # Verify the enrollment exists before acquiring any locks.
     get_object_or_404(Inscription, pk=pk)
 
-    action = request.POST.get("action")  # 'grant' or 'revoke'
+    action = request.POST.get("action")  # Expected: 'grant' or 'revoke'
     motif = request.POST.get("motif", "").strip()
 
     if action == "grant":
+        # A written justification is mandatory for audit and legal traceability.
         if not motif:
             messages.error(request, "Un motif est requis pour accorder une exemption.")
             return redirect("dashboard:secretary_seuils_absence")
@@ -139,7 +220,7 @@ def toggle_exemption(request, pk):
             messages.error(request, "Le motif ne peut pas dépasser 2000 caractères.")
             return redirect("dashboard:secretary_seuils_absence")
 
-        # Parse margin (default 10, clamped 1-100)
+        # Parse the margin; default to 10 percentage points, clamp to [1, 100].
         try:
             margin = int(request.POST.get("exemption_margin", 10))
         except (ValueError, TypeError):
@@ -147,7 +228,7 @@ def toggle_exemption(request, pk):
         margin = max(1, min(margin, 100))
 
         with transaction.atomic():
-            # select_related prefetches FK chains used in log_action/messages below
+            # Lock the row to prevent a concurrent revoke/grant from another session.
             inscription = (
                 Inscription.objects
                 .select_related("id_etudiant", "id_cours")
@@ -158,7 +239,10 @@ def toggle_exemption(request, pk):
             inscription.motif_exemption = motif
             inscription.exemption_margin = margin
             inscription.save()
+
+            # Recalculate the eligible_examen flag with the new effective threshold.
             recalculer_eligibilite(inscription)
+
             log_action(
                 request.user,
                 f"Secrétaire a accordé une EXEMPTION à {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}. Motif: {motif[:200]}",
@@ -168,7 +252,8 @@ def toggle_exemption(request, pk):
                 objet_id=inscription.id_inscription,
             )
 
-            # Email notification to student (deferred until transaction commits)
+            # Build the notification email parameters while still inside the
+            # transaction so the FK data is still locked and consistent.
             student = inscription.id_etudiant
             course_name = inscription.id_cours.nom_cours
             insc_pk = inscription.id_inscription
@@ -181,6 +266,8 @@ def toggle_exemption(request, pk):
                 f"dépassement du seuil d'absence.\n\n"
                 f"— UniAbsences Notification System"
             )
+            # Defer the email send until after the transaction commits to avoid
+            # sending a notification for a transaction that may roll back.
             transaction.on_commit(lambda: send_with_dedup(
                 student, subject, body, None,
                 event_type="exemption_granted",
@@ -194,6 +281,7 @@ def toggle_exemption(request, pk):
         )
 
     elif action != "revoke":
+        # Any action other than 'grant' or 'revoke' is invalid.
         messages.error(request, "Action invalide.")
         return redirect("dashboard:secretary_seuils_absence")
 
@@ -208,7 +296,11 @@ def toggle_exemption(request, pk):
             inscription.exemption_40 = False
             inscription.motif_exemption = None
             inscription.save()
+
+            # Recalculate eligibility with the exemption removed — the student
+            # may now fall below the exam eligibility threshold.
             recalculer_eligibilite(inscription)
+
             log_action(
                 request.user,
                 f"Secrétaire a RÉVOQUÉ l'exemption de {inscription.id_etudiant.get_full_name()} pour le cours {inscription.id_cours.code_cours}",

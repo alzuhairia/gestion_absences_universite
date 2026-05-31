@@ -1,3 +1,15 @@
+{# ============================================================
+   Template : student_courses.html
+   Rôle    : Liste de tous les cours auxquels l'étudiant
+             connecté est inscrit pour l'année académique
+             active. Une carte par cours, montrant 4 chiffres
+             (séances, absences, taux %, programme total) et
+             un badge de statut global :
+               - OK (vert)
+               - À RISQUE (orange) : approche du seuil
+               - SOUS EXEMPTION (bleu) : exemption accordée
+               - BLOQUÉ (rouge) : seuil dépassé
+   ============================================================ #}
 {% extends 'base_student.html' %}
 
 {% block title %}Mes Cours{% endblock %}

@@ -77,7 +77,7 @@
         var btn = document.getElementById('copyBtn');
         if (!btn) return;
         btn.addEventListener('click', function () {
-            // Build plain-text list from rendered DOM (avoids escaping issues)
+            // Construit une liste en texte brut depuis le DOM rendu (évite les problèmes d'échappement)
             var nodes = document.querySelectorAll('#codes-block .fw-bold');
             var lines = [];
             nodes.forEach(function (n) { lines.push(n.textContent.trim()); });

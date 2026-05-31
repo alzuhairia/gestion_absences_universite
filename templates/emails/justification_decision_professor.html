@@ -1,3 +1,21 @@
+{# ============================================================
+   Email : justification_decision_professor.html
+   Déclencheur : Le secrétariat statue (accepte ou refuse) sur un justificatif
+                 concernant un cours du professeur — construit par
+                 build_justification_decision_professor_email().
+   Destinataire : Professeur du cours concerné (pour information)
+   Rôle      : Informe le professeur que le secrétariat a tranché sur le
+               justificatif de l'un de ses étudiants ; affiche un encart
+               vert ou rouge selon la décision et rappelle l'étudiant, le
+               cours et la date de l'absence.
+   Contexte attendu (variables Django passées au template) :
+     - professor_name : nom complet du professeur destinataire
+     - student_name   : nom complet de l'étudiant concerné
+     - course_code    : code du cours concerné
+     - absence_date   : date de l'absence justifiée
+     - approved       : booléen — True si acceptée, False si refusée
+     - decision       : chaîne d'affichage ("acceptée" ou "refusée")
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Justification {{ decision }}{% endblock %}
 {% block subtitle %}Notification Professeur{% endblock %}

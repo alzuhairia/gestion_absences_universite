@@ -1,6 +1,23 @@
 """
-FICHIER : apps/dashboard/views_admin_users_list.py
-RESPONSABILITE : Liste, création, modification et audit des utilisateurs (admin)
+Vues de liste, création, modification et audit des utilisateurs pour le tableau de bord administrateur UniAbsences.
+
+Vues
+-----
+``admin_users``
+    Liste paginée et recherchable de tous les comptes utilisateurs avec filtres par rôle
+    et statut.
+
+``admin_user_create``
+    Crée un nouveau compte utilisateur en utilisant ``UserForm`` ; définit un mot
+    de passe temporaire et le drapeau ``must_change_password = True``.
+
+``admin_user_edit``
+    Modifie un compte utilisateur existant ; les champs de mot de passe sont optionnels lors d'une mise à jour.
+
+``admin_user_audit``
+    Affiche la piste ``LogAudit`` pour un compte utilisateur spécifique.
+
+Fait partie du tableau de bord UniAbsences.
 """
 import logging
 

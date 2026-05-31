@@ -1,8 +1,9 @@
 """
-FICHIER : apps/dashboard/views_secretary_home.py
-RESPONSABILITE : Re-export hub — vues principales du secrétariat
+Concentrateur des vues d'accueil secrétaire pour le tableau de bord UniAbsences.
 
-Organisation :
+Concentrateur de réexport pour le tableau de bord principal et les vues de statistiques du secrétariat.
+
+Sous-modules :
   views_secretary_main.py  — dashboard, get_active_courses_queryset, active_courses
   views_secretary_stats.py — inscriptions, seuils d'absence, exports
 """

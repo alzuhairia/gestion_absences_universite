@@ -1,3 +1,12 @@
+{# ============================================================
+   Template : student_index.html
+   Rôle    : Tableau de bord d'accueil de l'étudiant connecté.
+             Fournit en un coup d'œil :
+               - 4 cartes KPI (cours, séances, absences, taux %)
+               - statut académique global (OK / À risque / Bloqué)
+               - 4 raccourcis vers les pages principales
+                 (Cours, Absences, Rapports, Statistiques)
+   ============================================================ #}
 {% extends 'base_student.html' %}
 
 {% block title %}Tableau de Bord - Étudiant{% endblock %}
@@ -8,7 +17,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
+    <!-- En-tête : titre + libellé de l'année académique active -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
@@ -24,7 +33,7 @@
         </div>
     </div>
 
-    <!-- Information Banner -->
+    <!-- Bannière d'accueil dismissible (rappel de la navigation latérale) -->
     <div class="alert alert-info alert-dismissible fade show" role="alert">
         <i class="fas fa-info-circle me-2"></i>
         <strong>Bienvenue dans votre espace étudiant :</strong> Ce tableau de bord vous présente un aperçu rapide de votre situation académique. 
@@ -32,7 +41,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <!-- Threshold Warning -->
+    <!-- Bannière d'alerte si l'étudiant est BLOQUÉ (seuil dépassé) -->
     {% if is_blocked %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -42,7 +51,7 @@
     </div>
     {% endif %}
 
-    <!-- KPI Cards -->
+    <!-- 4 cartes KPI : cours inscrits, séances, absences, taux global -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2 kpi-card">
@@ -121,7 +130,7 @@
         </div>
     </div>
 
-    <!-- Academic Status Card -->
+    <!-- Carte statut académique global (OK / À risque / Bloqué) -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow student-card">
@@ -158,7 +167,7 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Raccourcis (4 cartes) vers les pages principales du tableau de bord -->
     <div class="row">
         <div class="col-md-3 mb-3">
             <div class="card shadow student-card">

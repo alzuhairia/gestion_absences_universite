@@ -7,11 +7,11 @@
 {% block auth_subtitle %}Connectez-vous à votre espace UniAbsences pour suivre vos cours et absences.{% endblock %}
 
 {% block content %}
-<!-- Login Form -->
+<!-- Formulaire de connexion -->
 <form method="post" action="{% url 'accounts:login' %}" id="loginForm" novalidate>
     {% csrf_token %}
 
-    <!-- Error Messages -->
+    <!-- Messages d'erreur -->
     {% if form.errors %}
     <div class="alert alert-danger" role="alert">
         <i class="fas fa-triangle-exclamation"></i>
@@ -36,7 +36,7 @@
         {% endif %}
     {% endif %}
 
-    <!-- Email Field -->
+    <!-- Champ email -->
     <div class="field-icon-wrap mb-3">
         <i class="fas fa-envelope field-icon" aria-hidden="true"></i>
         <div class="form-floating">
@@ -54,7 +54,7 @@
         </div>
     </div>
 
-    <!-- Password Field -->
+    <!-- Champ mot de passe -->
     <div class="field-icon-wrap mb-2">
         <i class="fas fa-lock field-icon" aria-hidden="true"></i>
         <div class="form-floating">
@@ -80,17 +80,17 @@
         </button>
     </div>
 
-    <!-- Hidden next -->
+    <!-- Champ caché « next » -->
     <input type="hidden" name="next" value="{{ next|default:'/' }}" />
 
-    <!-- Forgot password -->
+    <!-- Mot de passe oublié -->
     <div class="form-row-meta">
         <a href="{% url 'accounts:password_reset' %}" class="link-forgot">
             Mot de passe oublié&nbsp;?
         </a>
     </div>
 
-    <!-- Submit Button -->
+    <!-- Bouton de soumission -->
     <button type="submit" class="btn-sn-primary" id="submitBtn">
         <span id="submitLabel">
             <i class="fas fa-arrow-right-to-bracket me-1"></i>
@@ -99,7 +99,7 @@
     </button>
 </form>
 
-<!-- Help -->
+<!-- Aide -->
 <div class="text-center mt-4">
     <small class="text-muted">
         <i class="fas fa-circle-question me-1"></i>
@@ -111,7 +111,7 @@
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
     (function () {
-        // Toggle password visibility
+        // Bascule la visibilité du mot de passe
         var togglePassword = document.getElementById('togglePassword');
         var passwordInput = document.getElementById('id_password');
         var togglePasswordIcon = document.getElementById('togglePasswordIcon');
@@ -126,7 +126,7 @@
             });
         }
 
-        // Form submission loading state
+        // État de chargement lors de la soumission du formulaire
         var loginForm = document.getElementById('loginForm');
         var submitBtn = document.getElementById('submitBtn');
         var submitLabel = document.getElementById('submitLabel');
@@ -140,7 +140,7 @@
             });
         }
 
-        // Auto-focus email if empty
+        // Focus automatique sur l'email si vide
         var emailInput = document.getElementById('id_username');
         if (emailInput && !emailInput.value) {
             emailInput.focus();

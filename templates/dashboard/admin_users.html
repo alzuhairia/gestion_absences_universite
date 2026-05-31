@@ -1,3 +1,16 @@
+{# ============================================================
+   Template : admin_users.html
+   Rôle    : Liste de tous les utilisateurs côté administrateur
+             avec filtres (rôle, statut, recherche texte),
+             pagination, sélection multiple et suppression
+             individuelle ou en masse.
+   Particularités JS (bas de fichier) :
+     - Gestion de la case « Tout sélectionner » avec état
+       indéterminé (semi-cochée)
+     - Modal de confirmation avant suppression multiple, avec
+       deux variantes : suppression simple OU suppression
+       forcée (qui efface aussi les données liées)
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}Gestion des Utilisateurs{% endblock %}
@@ -23,7 +36,7 @@
         </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filtres : rôle, statut actif, recherche libre -->
     <div class="card shadow mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
@@ -58,7 +71,7 @@
         </div>
     </div>
 
-    <!-- Users List -->
+    <!-- Liste des utilisateurs avec actions groupées -->
     <div class="card shadow">
         <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Liste des Utilisateurs</h6>
@@ -155,7 +168,7 @@
                 </div>
             </form>
             
-            <!-- Pagination -->
+            <!-- Pagination de la liste des utilisateurs -->
             {% if users.has_other_pages %}
             <nav aria-label="Navigation des pages" class="mt-3">
                 <ul class="pagination justify-content-center">
@@ -199,7 +212,7 @@
                 </div>
                 <p>Êtes-vous sûr de vouloir supprimer définitivement les <strong id="modalUserCount">0</strong> utilisateur(s) sélectionné(s) ?</p>
                 <div id="selectedUsersList" class="mb-3" style="max-height: 200px; overflow-y: auto;">
-                    <!-- Liste des utilisateurs sélectionnés -->
+                    <!-- Liste injectée dynamiquement en JS à l'ouverture du modal -->
                 </div>
                 <div class="alert alert-info mb-0">
                     <i class="fas fa-info-circle me-1"></i>
@@ -270,7 +283,8 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
-    // Gestion de la sélection multiple
+    // ----- Gestion de la sélection multiple et de la suppression de masse -----
+    // Références DOM : cases à cocher, boutons d'action, modal de confirmation.
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     const userCheckboxes = document.querySelectorAll('.user-checkbox');
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -293,6 +307,9 @@
         bulkActionFeedback.classList.remove('d-none');
     }
     
+    // Recalcule le compteur affiché et l'état du bouton « Supprimer
+    // sélectionnés ». Met aussi à jour l'état (cochée / indéterminée)
+    // de la case « Tout sélectionner » en en-tête du tableau.
     function updateSelectedCount() {
         const selected = document.querySelectorAll('.user-checkbox:checked');
         const count = selected.length;
@@ -301,20 +318,23 @@
         if (count > 0) {
             clearFeedback();
         }
-        
-        // Mettre à jour le checkbox "Tout sélectionner"
+
+        // Mettre à jour visuellement la case "Tout sélectionner" :
+        // - cochée si toutes les lignes sont cochées
+        // - indéterminée si seulement quelques-unes le sont
         if (selectAllCheckbox) {
             selectAllCheckbox.checked = count > 0 && count === userCheckboxes.length;
             selectAllCheckbox.indeterminate = count > 0 && count < userCheckboxes.length;
         }
     }
     
-    // Écouter les changements sur les checkboxes
+    // Écouter les changements sur chaque case à cocher de ligne
     userCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', updateSelectedCount);
     });
-    
-    // Checkbox "Tout sélectionner"
+
+    // Case "Tout sélectionner" située dans l'en-tête : coche / décoche
+    // l'ensemble des lignes en une seule action.
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
             userCheckboxes.forEach(checkbox => {
@@ -324,7 +344,8 @@
         });
     }
     
-    // Bouton "Tout sélectionner"
+    // Bouton "Tout sélectionner" (au-dessus du tableau) — alternative
+    // à la case d'en-tête pour les utilisateurs qui préfèrent un bouton.
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', function() {
             userCheckboxes.forEach(checkbox => {
@@ -335,7 +356,8 @@
         });
     }
     
-    // Bouton "Tout désélectionner"
+    // Bouton "Tout désélectionner" — décoche toutes les lignes en
+    // un clic et remet à zéro le compteur.
     if (deselectAllBtn) {
         deselectAllBtn.addEventListener('click', function() {
             userCheckboxes.forEach(checkbox => {
@@ -346,7 +368,8 @@
         });
     }
     
-    // Bouton "Supprimer sélectionnés"
+    // Bouton "Supprimer sélectionnés" — déclenche l'ouverture du modal
+    // récapitulant les utilisateurs concernés avant validation finale.
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', function() {
             const selected = document.querySelectorAll('.user-checkbox:checked');
@@ -355,8 +378,9 @@
                 return;
             }
             clearFeedback();
-            
-            // Mettre à jour le modal avec les utilisateurs sélectionnés
+
+            // Construction dynamique de la liste des utilisateurs ciblés
+            // affichée dans le corps du modal (nom + email).
             document.getElementById('modalUserCount').textContent = selected.length;
             const usersList = document.getElementById('selectedUsersList');
             usersList.replaceChildren();
@@ -380,13 +404,15 @@
                 list.appendChild(item);
             });
             usersList.appendChild(list);
-            
-            // Afficher le modal
+
+            // Affichage du modal Bootstrap pour validation utilisateur
             deleteMultipleModal.show();
         });
     }
     
-    // Bouton "Suppression forcée"
+    // Bouton "Suppression forcée" : utilise l'input caché force_delete=1
+    // pour signaler au backend qu'il doit aussi supprimer les données liées
+    // (inscriptions, absences, etc.) — opération destructive irréversible.
     const forceDeleteBtn = document.getElementById('forceDeleteBtn');
     const forceDeleteInput = document.getElementById('forceDeleteInput');
     if (forceDeleteBtn && forceDeleteInput && deleteMultipleForm) {
@@ -394,7 +420,8 @@
             forceDeleteInput.value = '1';
             deleteMultipleForm.submit();
         });
-        // Reset à 0 pour la suppression simple
+        // Pour le bouton "suppression simple" classique, on remet le flag
+        // à 0 afin que le backend n'effectue PAS de cascade destructive.
         deleteMultipleForm.addEventListener('submit', function() {
             if (forceDeleteInput.value !== '1') {
                 forceDeleteInput.value = '0';
@@ -402,7 +429,7 @@
         });
     }
 
-    // Initialiser le compteur
+    // Initialisation au chargement : remet à zéro le compteur affiché
     updateSelectedCount();
 </script>
 {% endblock extra_js %}

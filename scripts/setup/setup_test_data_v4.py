@@ -1,3 +1,4 @@
+"""Script de seed v4 — peuple la base avec un jeu de données de test complet pour le développement et la QA."""
 import os
 import sys
 from pathlib import Path
@@ -8,7 +9,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 import django
 django.setup()
-from datetime import date
 from apps.accounts.models import User
 from apps.academics.models import Faculte, Departement, Cours
 from apps.enrollments.models import Inscription
@@ -18,6 +18,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 def create_test_data():
+    """Crée facultés, départements, cours, séances, étudiants et absences pour tester le workflow complet."""
     print("Creating test data with CORRECT Models V4...")
 
     # 1. Users

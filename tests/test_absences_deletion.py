@@ -24,13 +24,13 @@ from .test_absences import BaseAbsenceTestCase
 
 
 class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
-    """Tests race condition protection on simultaneous absence creation."""
+    """Tests de protection contre les race conditions à la création simultanée d'absences."""
 
     def test_concurrent_absence_creation(self):
         """
-        Simulates a race condition: two requests try to create the same absence
-        simultaneously. The unique_together constraint + IntegrityError handling
-        ensures only one absence is created and the duplicate is gracefully ignored.
+        Simule une race condition : deux requêtes tentent de créer la même absence
+        en parallèle. La contrainte ``unique_together`` + gestion d'``IntegrityError``
+        garantit qu'une seule absence est créée et que le doublon est ignoré proprement.
         """
         seance = Seance.objects.create(
             date_seance=date(2026, 3, 15),
@@ -54,6 +54,7 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
         self.assertEqual(Absence.objects.filter(id_seance=seance).count(), 1)
 
         def raise_on_create(self_qs, **kwargs):
+            """Stub levant ``IntegrityError`` pour simuler une insertion concurrente."""
             raise IntegrityError("duplicate key violates unique constraint")
 
         with patch.object(
@@ -66,8 +67,8 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
 
     def test_unique_constraint_prevents_duplicate_absence(self):
         """
-        Verifies the unique_together constraint on (id_inscription, id_seance)
-        prevents duplicate absences.
+        Vérifie que la contrainte ``unique_together`` sur (id_inscription, id_seance)
+        empêche la création de doublons d'absences.
         """
         seance = Seance.objects.create(
             date_seance=date(2026, 3, 16),
@@ -100,8 +101,8 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
 
     def test_select_for_update_on_seance(self):
         """
-        Verifies that the seance is fetched with select_for_update() inside
-        the transaction, preventing concurrent modification of the same session.
+        Vérifie que la séance est récupérée avec ``select_for_update()`` dans
+        la transaction, empêchant la modification concurrente de la même séance.
         """
         self.client.force_login(self.prof)
         url = reverse("absences:mark_absence", args=[self.course1.id_cours])
@@ -121,10 +122,10 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
 
 
 class CourseDeletionTests(BaseAbsenceTestCase):
-    """Tests for course deletion cascade and ProtectedError handling."""
+    """Tests de suppression en cascade d'un cours et gestion des ``ProtectedError``."""
 
     def _build_course_with_deps(self):
-        """Create a course with seance, absence, and justification."""
+        """Crée un cours avec séance, absence et justification associées."""
         seance = Seance.objects.create(
             date_seance=date(2026, 2, 1),
             heure_debut=time(8, 0),
@@ -147,7 +148,7 @@ class CourseDeletionTests(BaseAbsenceTestCase):
         return seance, absence, justification
 
     def test_secretary_cascade_deletes_all_related_objects(self):
-        """Full cascade deletion removes justifications, absences, inscriptions, seances, and course."""
+        """La suppression en cascade efface justifications, absences, inscriptions, séances et cours."""
         seance, absence, justification = self._build_course_with_deps()
         course_pk = self.course1.id_cours
 
@@ -164,8 +165,8 @@ class CourseDeletionTests(BaseAbsenceTestCase):
 
     def test_course_deletion_with_protected_references_shows_error(self):
         """
-        When a ProtectedError bubbles up, the view must show a clear, grouped
-        error message — NOT a 500.
+        Lorsqu'un ``ProtectedError`` remonte, la vue affiche un message d'erreur
+        clair et groupé — surtout pas une erreur 500.
         """
         seance, absence, justification = self._build_course_with_deps()
         course_pk = self.course1.id_cours
@@ -192,8 +193,8 @@ class CourseDeletionTests(BaseAbsenceTestCase):
 
     def test_course_deletion_generic_exception_shows_error(self):
         """
-        A generic exception during deletion must be logged and produce
-        a user-friendly error message, not a 500.
+        Une exception générique pendant la suppression doit être journalisée et
+        produire un message d'erreur clair pour l'utilisateur, pas un 500.
         """
         self._build_course_with_deps()
         course_pk = self.course1.id_cours
@@ -214,15 +215,16 @@ class CourseDeletionTests(BaseAbsenceTestCase):
 
 
 class PaginationFallbackTests(BaseAbsenceTestCase):
-    """Invalid page numbers must fall back to page 1, not crash or show empty."""
+    """Un numéro de page invalide doit retomber sur la page 1 et non planter ou renvoyer du vide."""
 
     def setUp(self):
+        """Authentifie le secrétaire et résout l'URL de la liste paginée des cours."""
         super().setUp()
         self.client.force_login(self.secretary)
         self.url = reverse("dashboard:secretary_courses")
 
     def test_invalid_page_number_redirects_to_page_1(self):
-        """page=999, page=abc, page=-1 all return page 1 content (200)."""
+        """``page=999``, ``page=abc``, ``page=-1`` doivent renvoyer le contenu de la page 1 (200)."""
         for bad_page in ("999", "abc", "-1", "0", ""):
             with self.subTest(page=bad_page):
                 response = self.client.get(
@@ -234,14 +236,15 @@ class PaginationFallbackTests(BaseAbsenceTestCase):
 
 
 class UserDeletionTests(BaseAbsenceTestCase):
-    """Tests for admin user deletion with FK cleanup and last-admin guard."""
+    """Tests de suppression d'utilisateur par l'admin avec nettoyage des FK et verrou « dernier admin »."""
 
     def setUp(self):
+        """Authentifie l'administrateur pour pouvoir invoquer les vues de suppression."""
         super().setUp()
         self.client.force_login(self.admin)
 
     def test_user_deletion_cleans_up_all_references(self):
-        """Deleting a professor with courses detaches courses and deletes the user."""
+        """Supprimer un professeur détache ses cours (FK SET_NULL) avant de supprimer le compte."""
         url = reverse("dashboard:admin_user_delete", args=[self.prof.pk])
         response = self.client.post(url, secure=True)
 
@@ -251,7 +254,7 @@ class UserDeletionTests(BaseAbsenceTestCase):
         self.assertIsNone(self.course1.professeur)
 
     def test_user_with_inscriptions_is_deactivated_not_deleted(self):
-        """A student with inscriptions is deactivated, not hard-deleted."""
+        """Un étudiant ayant des inscriptions est désactivé (soft delete), pas supprimé en dur."""
         url = reverse("dashboard:admin_user_delete", args=[self.student1.pk])
         response = self.client.post(url, secure=True)
 
@@ -261,7 +264,7 @@ class UserDeletionTests(BaseAbsenceTestCase):
         self.assertFalse(self.student1.actif)
 
     def test_cannot_delete_last_admin(self):
-        """The last active admin cannot be deleted."""
+        """Le dernier administrateur actif ne peut pas être supprimé (verrou de sécurité)."""
         url = reverse("dashboard:admin_user_delete", args=[self.admin.pk])
         response = self.client.post(url, secure=True)
 
@@ -270,7 +273,7 @@ class UserDeletionTests(BaseAbsenceTestCase):
         self.assertTrue(self.admin.actif)
 
     def test_cannot_delete_self(self):
-        """An admin cannot delete their own account."""
+        """Un administrateur ne peut pas supprimer son propre compte."""
         url = reverse("dashboard:admin_user_delete", args=[self.admin.pk])
         response = self.client.post(url, secure=True)
 

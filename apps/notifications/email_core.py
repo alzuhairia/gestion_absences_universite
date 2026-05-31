@@ -24,9 +24,9 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# Bounded thread pool for fire-and-forget async email sending.
-# Prevents thread explosion when bulk operations (e.g. mark_absence on 200 students)
-# trigger many emails at once. Daemon=True so workers don't block process shutdown.
+# Pool de threads borné pour l'envoi d'emails asynchrone fire-and-forget.
+# Empêche l'explosion de threads lorsque des opérations en masse (par ex. mark_absence sur 200 étudiants)
+# déclenchent de nombreux emails en même temps. Daemon=True pour que les workers ne bloquent pas l'arrêt du processus.
 _EMAIL_EXECUTOR = ThreadPoolExecutor(
     max_workers=getattr(settings, "EMAIL_ASYNC_MAX_WORKERS", 5),
     thread_name_prefix="email-async",
@@ -35,10 +35,10 @@ _EMAIL_EXECUTOR = ThreadPoolExecutor(
 
 def send_notification_email(recipient_user, subject, body, html_body=None):
     """
-    Send a single notification email. Never raises.
+    Envoie un seul email de notification. Ne lève jamais d'exception.
 
-    Returns:
-        True if email was sent, False otherwise.
+    Retourne :
+        True si l'email a été envoyé, False sinon.
     """
     if not recipient_user or not getattr(recipient_user, "email", None):
         return False
@@ -67,10 +67,10 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
 
 def send_notification_email_bulk(recipient_users, subject, body, html_body=None):
     """
-    Send the same email to multiple users. Never raises.
+    Envoie le même email à plusieurs utilisateurs. Ne lève jamais d'exception.
 
-    Returns:
-        Number of emails successfully sent.
+    Retourne :
+        Nombre d'emails envoyés avec succès.
     """
     sent = 0
     for user in recipient_users:
@@ -81,11 +81,11 @@ def send_notification_email_bulk(recipient_users, subject, body, html_body=None)
 
 def send_email_async(recipient_user, subject, body, html_body=None):
     """
-    Send an email via a bounded background thread pool. Fire-and-forget.
+    Envoie un email via un pool de threads borné en arrière-plan. Fire-and-forget.
 
-    Uses a shared ThreadPoolExecutor so that bulk operations cannot exhaust
-    process resources. Submissions beyond pool capacity queue instead of
-    spawning unbounded threads.
+    Utilise un ThreadPoolExecutor partagé afin que les opérations en masse ne puissent pas
+    épuiser les ressources du processus. Les soumissions au-delà de la capacité du pool sont
+    mises en file d'attente au lieu de créer des threads sans limite.
     """
     if not recipient_user or not getattr(recipient_user, "email", None):
         return
@@ -96,6 +96,7 @@ def send_email_async(recipient_user, subject, body, html_body=None):
     recipient_pk = getattr(recipient_user, "pk", "?")
 
     def _send():
+        """Envoie l'email via ``send_mail`` et journalise toute exception sans la propager."""
         try:
             send_mail(
                 subject=subject,
@@ -115,21 +116,22 @@ def send_email_async(recipient_user, subject, body, html_body=None):
     try:
         _EMAIL_EXECUTOR.submit(_send)
     except RuntimeError:
-        # Executor was shut down (e.g. during process teardown). Fall back to
-        # a one-shot daemon thread so we don't drop the email entirely.
+        # L'executor a été arrêté (par ex. lors du teardown du processus). Repli sur
+        # un thread daemon unique afin de ne pas perdre l'email totalement.
         threading.Thread(target=_send, daemon=True).start()
 
 
 def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_key,
                     cooldown_hours=24):
     """
-    Send an email only if the same (recipient, event_type, event_key) was NOT
-    already sent within the cooldown window.  Records the send in EmailLog.
+    Envoie un email uniquement si le même (destinataire, event_type, event_key) n'a PAS
+    déjà été envoyé dans la fenêtre de cooldown. Enregistre l'envoi dans EmailLog.
 
-    Race-free: the EmailLog row is claimed *before* sending, inside an atomic
-    block, so two concurrent callers cannot both pass the check and both send.
+    Race-free : la ligne EmailLog est revendiquée *avant* l'envoi, à l'intérieur d'un bloc
+    atomique, de sorte que deux appelants concurrents ne puissent pas tous les deux passer
+    la vérification et envoyer.
 
-    Returns True if sent, False if skipped or failed.
+    Retourne True si envoyé, False si ignoré ou échoué.
     """
     from apps.notifications.models import EmailLog
 
@@ -182,7 +184,7 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
 
 
 def _render_html(template_name, context):
-    """Render an HTML email template. Returns None on error (graceful fallback)."""
+    """Rend un template d'email HTML. Retourne None en cas d'erreur (repli gracieux)."""
     try:
         return render_to_string(template_name, context)
     except Exception:

@@ -157,13 +157,13 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    <!-- En-tête de page (formulaire d'inscription, ancien design — voir enrollment_form.html pour le nouveau) -->
     <div class="page-header text-center">
         <h1 class="mb-2"><i class="fas fa-user-plus me-2"></i>Gestion des Inscriptions</h1>
         <p class="mb-0 opacity-90">Créer, modifier et gérer les inscriptions étudiantes</p>
     </div>
 
-    <!-- Step Indicator -->
+    <!-- Indicateur visuel des 4 étapes (étudiant / année & faculté / département / cours) -->
     <div class="step-indicator">
         <div class="step active" id="step1">
             <div class="step-number">1</div>
@@ -183,7 +183,7 @@
         </div>
     </div>
 
-    <!-- Form Card -->
+    <!-- Carte principale du formulaire -->
     <div class="form-card">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h3 class="mb-0">
@@ -197,7 +197,7 @@
         <form method="post" action="{% url 'enrollments:enroll_student' %}" id="enrollmentForm">
             {% csrf_token %}
 
-            <!-- Step 1: Student Selection -->
+            <!-- Étape 1 : Sélection de l'étudiant (avec autocomplete via datalist) -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-user-graduate"></i>
@@ -225,7 +225,7 @@
                 </div>
             </div>
 
-            <!-- Step 2: Academic Year & Faculty -->
+            <!-- Étape 2 : Année académique et faculté -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-calendar-alt"></i>
@@ -261,7 +261,7 @@
                 </div>
             </div>
 
-            <!-- Step 3: Department -->
+            <!-- Étape 3 : Département (liste chargée en AJAX selon la faculté) -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-building"></i>
@@ -284,7 +284,7 @@
                 </div>
             </div>
 
-            <!-- Step 4: Course -->
+            <!-- Étape 4 : Cours (liste chargée en AJAX selon le département) -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-book"></i>
@@ -308,7 +308,7 @@
                 </div>
             </div>
 
-            <!-- Submit Button -->
+            <!-- Bouton de soumission (activé uniquement quand toutes les étapes sont remplies) -->
             <div class="d-flex justify-content-end mt-4">
                 <button type="submit" class="btn btn-primary btn-submit" id="submitBtn" disabled>
                     <i class="fas fa-check-circle me-2"></i>Inscrire l'étudiant
@@ -371,23 +371,23 @@
     }
 
     function updateStepIndicator(step) {
-        // Reset all steps
+        // Réinitialise l'état visuel de toutes les étapes
         for (let i = 1; i <= 4; i++) {
             const stepEl = document.getElementById('step' + i);
             stepEl.classList.remove('active', 'completed');
         }
 
-        // Mark completed steps
+        // Marque les étapes précédentes comme complétées (vert)
         for (let i = 1; i < step; i++) {
             document.getElementById('step' + i).classList.add('completed');
         }
 
-        // Mark current step as active
+        // Marque l'étape courante comme active (violet)
         if (step <= 4) {
             document.getElementById('step' + step).classList.add('active');
         }
 
-        // Enable submit button if all steps are completed
+        // Active le bouton de soumission uniquement si tous les champs sont renseignés
         const studentEmail = document.getElementById('student_email').value;
         const academicYear = document.getElementById('academic_year').value;
         const faculty = document.getElementById('faculty').value;
@@ -500,7 +500,7 @@
         updateStepIndicator(4);
     }
 
-    // Event listeners (CSP-compliant replacements for onchange handlers)
+    // Écouteurs d'événements (remplacements conformes CSP pour les anciens handlers inline onchange)
     document.getElementById('student_email').addEventListener('change', function() {
         updateStepIndicator(1);
     });
@@ -517,7 +517,7 @@
         showCourseInfo(this);
     });
 
-    // Initialize step indicator
+    // Initialisation de l'indicateur d'étapes au chargement de la page
     document.addEventListener('DOMContentLoaded', function() {
         updateStepIndicator(1);
     });

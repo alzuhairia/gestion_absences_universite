@@ -1,6 +1,8 @@
 """
-FICHIER : apps/dashboard/views_admin_settings.py
-RESPONSABILITE : Re-export hub — paramètres système et journaux admin
+Concentrateur des paramètres administrateur pour le tableau de bord UniAbsences.
+
+Concentrateur de réexport qui agrège la vue du formulaire des paramètres système et les
+vues du journal d'audit dans un seul espace de noms pour ``dashboard/urls.py``.
 
 Sous-modules :
   views_admin_settings_form.py — admin_settings (formulaire paramètres système)

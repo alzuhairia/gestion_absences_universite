@@ -1,3 +1,9 @@
+"""
+Tests — budgets de requêtes SQL par vue (détection précoce des régressions N+1).
+
+Chaque test cible une vue clé et vérifie que le nombre de requêtes SQL
+métier (hors session Django) reste sous le plafond fixé.
+"""
 from datetime import date, time
 
 from django.db import connection
@@ -13,8 +19,11 @@ from apps.enrollments.models import Inscription
 
 
 class QueryBudgetTests(TestCase):
+    """Suite de tests imposant un plafond de requêtes SQL à chaque vue importante."""
+
     @classmethod
     def setUpTestData(cls):
+        """Crée un dataset représentatif (10 étudiants × 5 cours × 4 séances) une seule fois."""
         cls.faculte = Faculte.objects.create(nom_faculte="Faculte Perf")
         cls.departement = Departement.objects.create(
             nom_departement="Departement Perf",
@@ -106,6 +115,7 @@ class QueryBudgetTests(TestCase):
                 )
 
     def assert_max_queries(self, max_queries, func, *args, **kwargs):
+        """Exécute ``func`` et vérifie que le nombre de requêtes SQL métier ne dépasse pas ``max_queries``."""
         # Warm up session/auth and URL resolver to reduce CI flakiness.
         func(*args, **kwargs)
 
@@ -131,6 +141,7 @@ class QueryBudgetTests(TestCase):
         return response
 
     def test_active_courses_query_budget(self):
+        """Vue ``active_courses`` : ≤ 12 requêtes SQL pour la liste des cours actifs."""
         self.client.force_login(self.admin)
         response = self.assert_max_queries(
             12,
@@ -141,6 +152,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_student_courses_query_budget(self):
+        """Vue ``student_courses`` : ≤ 10 requêtes pour la page « Mes cours » d'un étudiant."""
         self.client.force_login(self.students[0])
         response = self.assert_max_queries(
             10,
@@ -151,6 +163,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_instructor_course_detail_query_budget(self):
+        """Vue ``instructor_course_detail`` : ≤ 20 requêtes pour le détail d'un cours côté professeur."""
         self.client.force_login(self.professor)
         response = self.assert_max_queries(
             20,
@@ -163,6 +176,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_rules_management_query_budget(self):
+        """Vue ``rules_management`` : ≤ 8 requêtes pour la gestion des règles de prérequis."""
         self.client.force_login(self.secretary)
         response = self.assert_max_queries(
             8,
@@ -173,6 +187,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_get_courses_api_query_budget(self):
+        """Endpoint API ``get_courses`` : ≤ 5 requêtes pour la liste filtrée par département/année."""
         self.client.force_login(self.secretary)
         response = self.assert_max_queries(
             5,
@@ -189,6 +204,7 @@ class QueryBudgetTests(TestCase):
         self.assertIsInstance(payload, list)
 
     def test_student_dashboard_query_budget(self):
+        """Tableau de bord étudiant : ≤ 10 requêtes pour la vue d'accueil."""
         self.client.force_login(self.students[0])
         response = self.assert_max_queries(
             10,
@@ -199,6 +215,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_instructor_dashboard_query_budget(self):
+        """Tableau de bord professeur : ≤ 12 requêtes pour la vue d'accueil."""
         self.client.force_login(self.professor)
         response = self.assert_max_queries(
             12,
@@ -209,6 +226,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_secretary_dashboard_query_budget(self):
+        """Tableau de bord secrétaire : ≤ 10 requêtes pour la vue d'accueil."""
         self.client.force_login(self.secretary)
         response = self.assert_max_queries(
             10,
@@ -219,6 +237,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_admin_dashboard_query_budget(self):
+        """Tableau de bord admin : ≤ 15 requêtes pour la vue d'accueil (KPIs globaux)."""
         self.client.force_login(self.admin)
         response = self.assert_max_queries(
             15,
@@ -229,6 +248,7 @@ class QueryBudgetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_admin_statistics_query_budget(self):
+        """Vue ``admin_statistics`` : ≤ 12 requêtes pour la page de statistiques agrégées."""
         self.client.force_login(self.admin)
         response = self.assert_max_queries(
             12,

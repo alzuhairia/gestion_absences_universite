@@ -1,10 +1,17 @@
 """
-FICHIER : apps/enrollments/forms.py
-RESPONSABILITE : Formulaires d'inscription etudiants
-FONCTIONNALITES PRINCIPALES :
-  - StudentCreationForm : creation compte etudiant
-  - EnrollmentForm : inscription par niveau ou cours specifiques
-DEPENDANCES CLES : apps.accounts.models, apps.academics.models, apps.academic_sessions.models, apps.enrollments.models
+Formulaires d'inscription des étudiants dans le système UniAbsences.
+
+Deux formulaires sont définis :
+
+- ``StudentCreationForm`` — crée un nouveau compte utilisateur étudiant avec
+  un mot de passe temporaire. L'étudiant sera invité à changer le mot de
+  passe à la première connexion (``must_change_password=True``).
+
+- ``EnrollmentForm`` — pilote le workflow d'inscription. Supporte deux modes :
+    - LEVEL  : inscrire à tous les cours actifs d'un niveau/département/année donné.
+    - COURSE : inscrire à un ou plusieurs cours sélectionnés individuellement.
+
+Appartient à : UniAbsences — application enrollments.
 """
 
 from typing import Any, cast
@@ -19,7 +26,15 @@ from apps.accounts.models import User
 
 
 class StudentCreationForm(forms.Form):
-    """Formulaire pour créer un étudiant lors de l'inscription"""
+    """
+    Formulaire de création d'un compte utilisateur étudiant durant le workflow d'inscription.
+
+    Valide que l'adresse e-mail n'est pas déjà utilisée, que les deux champs
+    mot de passe correspondent, et que le mot de passe choisi passe les
+    validateurs de mot de passe configurés par Django (évalués contre une
+    instance ``User`` provisoire afin que les vérifications de similarité
+    des attributs utilisateur fonctionnent correctement).
+    """
 
     nom = forms.CharField(
         max_length=100,
@@ -47,12 +62,38 @@ class StudentCreationForm(forms.Form):
     )
 
     def clean_email(self):
+        """
+        Valide qu'aucun utilisateur actif ne détient déjà l'adresse e-mail soumise.
+
+        Returns
+        -------
+        str
+            L'adresse e-mail normalisée si elle est unique.
+
+        Raises
+        ------
+        ValidationError
+            Si un utilisateur avec cet e-mail existe déjà dans le système.
+        """
         email = self.cleaned_data.get("email")
         if User.objects.filter(email=email).exists():
             raise ValidationError("Un utilisateur avec cet e-mail existe déjà.")
         return email
 
     def clean(self):
+        """
+        Validation inter-champs : confirme la correspondance des mots de passe et exécute les validateurs Django.
+
+        La vérification de la force du mot de passe est effectuée contre un
+        objet ``User`` provisoire rempli avec les données du formulaire afin
+        que ``UserAttributeSimilarityValidator`` de Django puisse comparer le
+        mot de passe au nom et à l'e-mail de l'étudiant.
+
+        Raises
+        ------
+        ValidationError
+            Si les mots de passe ne correspondent pas ou échouent aux validateurs de Django.
+        """
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
         password_confirm = cleaned_data.get("password_confirm")
@@ -63,6 +104,8 @@ class StudentCreationForm(forms.Form):
             )
 
         if password:
+            # Construire un User non persisté pour que les validateurs de similarité d'attributs
+            # aient accès au nom et à l'e-mail de l'étudiant.
             tentative_user = User(
                 email=cleaned_data.get("email", ""),
                 nom=cleaned_data.get("nom", ""),
@@ -77,10 +120,23 @@ class StudentCreationForm(forms.Form):
         return cleaned_data
 
     def create_student(self, niveau=None):
-        """Crée un compte étudiant avec le mot de passe temporaire.
+        """
+        Persiste le nouveau compte étudiant en utilisant les données validées du formulaire.
 
-        Args:
-            niveau: niveau académique (int) déduit du contexte d'inscription.
+        Le compte est créé avec ``must_change_password=True`` afin que
+        l'étudiant soit forcé de définir son propre mot de passe à la
+        première connexion.
+
+        Parameters
+        ----------
+        niveau : int or None
+            Niveau académique déduit du contexte d'inscription (1, 2, ou 3).
+            Passé à ``None`` lorsque le mode d'inscription est COURSE plutôt que LEVEL.
+
+        Returns
+        -------
+        User
+            L'instance utilisateur étudiant nouvellement créée.
         """
         student = User.objects.create_user(
             email=self.cleaned_data["email"],
@@ -96,7 +152,17 @@ class StudentCreationForm(forms.Form):
 
 
 class EnrollmentForm(forms.Form):
-    """Formulaire pour l'inscription d'un étudiant"""
+    """
+    Formulaire pour inscrire un étudiant à des cours ou à un niveau académique complet.
+
+    Les champs se comportent différemment selon ``enrollment_type`` :
+
+    - LEVEL  : ``departement`` et ``niveau`` sont requis ; ``courses`` est ignoré.
+    - COURSE : ``courses`` est requis ; ``departement`` et ``niveau`` sont ignorés.
+
+    Soit ``student_email`` (compte existant), soit ``create_new_student``
+    (création de compte à la volée) doit être fourni — mais pas les deux.
+    """
 
     ENROLLMENT_TYPE_CHOICES = [
         ("LEVEL", "Inscription à un niveau complet (Année 1, 2 ou 3)"),
@@ -110,7 +176,7 @@ class EnrollmentForm(forms.Form):
         initial="COURSE",
     )
 
-    # Département / filière pour l'inscription à un niveau complet
+    # Département / filière utilisé uniquement pour le mode d'inscription LEVEL.
     departement = forms.ModelChoiceField(
         queryset=Departement.objects.filter(actif=True).order_by("nom_departement"),
         label="Département / Filière",
@@ -120,7 +186,7 @@ class EnrollmentForm(forms.Form):
         help_text="Seuls les cours de ce département seront inclus",
     )
 
-    # Niveau pour l'inscription à un niveau complet
+    # Niveau académique (1, 2 ou 3) utilisé uniquement pour le mode d'inscription LEVEL.
     niveau = forms.ChoiceField(
         choices=[(1, "Année 1"), (2, "Année 2"), (3, "Année 3")],
         label="Niveau d'étude",
@@ -129,7 +195,7 @@ class EnrollmentForm(forms.Form):
         help_text="Sélectionnez le niveau pour l'inscription à un niveau complet",
     )
 
-    # Champs pour l'étudiant existant
+    # E-mail d'un compte étudiant existant.
     student_email = forms.EmailField(
         label="E-mail de l'étudiant (si compte existant)",
         required=False,
@@ -138,14 +204,14 @@ class EnrollmentForm(forms.Form):
         ),
     )
 
-    # Champs pour créer un nouvel étudiant
+    # Bascule pour créer un nouveau compte étudiant à la volée.
     create_new_student = forms.BooleanField(
         label="Créer un nouveau compte étudiant",
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
 
-    # Année académique
+    # Année académique cible pour l'inscription.
     academic_year = forms.ModelChoiceField(
         queryset=AnneeAcademique.objects.all().order_by("-libelle"),
         label="Année Académique",
@@ -153,7 +219,7 @@ class EnrollmentForm(forms.Form):
         empty_label="Sélectionner une année académique",
     )
 
-    # Cours (un ou plusieurs) pour inscription spécifique
+    # Un ou plusieurs cours — utilisé uniquement pour le mode d'inscription COURSE.
     courses = forms.ModelMultipleChoiceField(
         queryset=Cours.objects.none(),
         label="Cours",
@@ -162,6 +228,14 @@ class EnrollmentForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialise le formulaire et remplit le queryset des cours.
+
+        Le queryset par défaut inclut tous les cours actifs triés par
+        département puis code de cours. La vue peut surcharger ce queryset
+        après instanciation pour le restreindre à l'année académique
+        actuellement active.
+        """
         super().__init__(*args, **kwargs)
         self.fields["courses"].queryset = (
             Cours.objects.filter(actif=True)
@@ -170,13 +244,27 @@ class EnrollmentForm(forms.Form):
         )
 
     def clean(self):
+        """
+        Validation inter-champs pour le type d'inscription et la sélection de l'étudiant.
+
+        Règles appliquées :
+        - Le mode LEVEL nécessite à la fois ``departement`` et ``niveau``.
+        - Le mode COURSE nécessite au moins un cours sélectionné.
+        - Exactement un de ``student_email`` ou ``create_new_student`` doit
+          être fourni — fournir les deux ou aucun est une erreur.
+
+        Raises
+        ------
+        ValidationError
+            Avec des messages d'erreur au niveau du champ pour chaque règle violée.
+        """
         cleaned_data = super().clean()
         enrollment_type = cleaned_data.get("enrollment_type")
         student_email = cleaned_data.get("student_email")
         create_new_student = cleaned_data.get("create_new_student")
         niveau = cleaned_data.get("niveau")
 
-        # Validation selon le type d'inscription
+        # Valider les champs requis en fonction du mode d'inscription sélectionné.
         if enrollment_type == "LEVEL":
             if not cleaned_data.get("departement"):
                 raise ValidationError(
@@ -199,7 +287,7 @@ class EnrollmentForm(forms.Form):
                     }
                 )
 
-        # Validation de l'étudiant
+        # S'assurer qu'exactement une méthode d'identification de l'étudiant est fournie.
         if not create_new_student and not student_email:
             raise ValidationError(
                 {
@@ -207,6 +295,7 @@ class EnrollmentForm(forms.Form):
                 }
             )
 
+        # Fournir les deux est ambigu — rejeter pour éviter des problèmes de données silencieux.
         if create_new_student and student_email:
             raise ValidationError(
                 {

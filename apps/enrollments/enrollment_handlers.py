@@ -1,13 +1,24 @@
 """
-FICHIER : apps/enrollments/enrollment_handlers.py
-RESPONSABILITE : Logique d'inscription par niveau et par cours
+Logique métier des opérations d'inscription des étudiants.
 
-Fonctions :
-  get_prerequisite_info     — helper : liste des prérequis d'un cours (non bloquant)
-  _handle_level_enrollment  — inscription à tous les cours d'un niveau
-  _handle_course_enrollment — inscription à un ou plusieurs cours précis
+Ce module sépare la logique de traitement des inscriptions de la couche vue
+afin que chaque fonction handler puisse être testée et réutilisée
+indépendamment.
 
-Retourne "done" en cas de succès, None si l'appelant doit afficher le formulaire.
+Functions
+---------
+get_prerequisite_info     — helper : récupère la liste des prérequis d'un cours (informatif uniquement)
+_handle_level_enrollment  — inscrit un étudiant à tous les cours actifs d'un niveau donné
+_handle_course_enrollment — inscrit un étudiant à un ou plusieurs cours spécifiques
+
+Return convention
+-----------------
+Chaque handler renvoie la chaîne ``"done"`` en cas de succès, ou ``None``
+lorsque l'appelant doit ré-afficher le formulaire (par ex. après une erreur
+de validation ou un conflit). Les messages Django sont utilisés pour
+communiquer les détails du résultat à l'utilisateur.
+
+Appartient à : UniAbsences — application enrollments.
 """
 import logging
 
@@ -24,8 +35,25 @@ logger = logging.getLogger(__name__)
 
 def get_prerequisite_info(course):
     """
-    Retourne la liste des prérequis d'un cours (information uniquement).
-    Les prérequis sont affichés comme avertissement, jamais bloquants.
+    Renvoie une liste de descripteurs de prérequis pour un cours.
+
+    Les prérequis sont uniquement informatifs — ils sont affichés sous forme
+    d'avertissements dans l'UI mais ne bloquent jamais l'inscription. La
+    vérification des prérequis (par ex. confirmer qu'un étudiant a réussi un
+    cours antérieur) sort du périmètre d'un système de gestion des absences.
+
+    Parameters
+    ----------
+    course : Cours
+        Le cours dont les prérequis doivent être récupérés.
+
+    Returns
+    -------
+    list[dict]
+        Chaque élément contient :
+          - ``code``  (str) — code du cours prérequis
+          - ``name``  (str) — nom du cours
+          - ``year``  (str) — libellé de l'année académique, ou ``"N/A"`` si non défini
     """
     prerequisites = course.prerequisites.select_related("id_annee").all()
     return [
@@ -39,7 +67,42 @@ def get_prerequisite_info(course):
 
 
 def _handle_level_enrollment(request, student, enrollment_form, year):
-    """Inscription mode NIVEAU — tous les cours actifs du niveau sélectionné."""
+    """
+    Inscrit un étudiant à tous les cours actifs d'un niveau d'étude donné.
+
+    Récupère chaque ``Cours`` actif correspondant au niveau, au département et
+    à l'année académique sélectionnés, puis crée un enregistrement
+    ``Inscription`` pour chacun qui n'existe pas encore. Le champ ``niveau``
+    de l'étudiant est également mis à jour pour refléter le nouveau niveau.
+
+    Business rules enforced
+    -----------------------
+    - Un étudiant ne peut pas être inscrit à deux niveaux différents au sein
+      de la même année académique (vérification de conflit inter-niveaux).
+    - Si aucun cours actif n'est trouvé pour la combinaison niveau/département/année
+      demandée, un avertissement descriptif est affiché et l'inscription est annulée.
+    - Des avertissements de prérequis sont affichés pour chaque cours ayant
+      des prérequis, mais ils ne bloquent jamais l'inscription.
+    - Toute l'opération s'exécute au sein d'une seule transaction base de données
+      afin qu'un échec en milieu de boucle ne laisse pas l'étudiant partiellement inscrit.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        La requête HTTP courante (utilisée pour attacher les messages Django).
+    student : User
+        L'étudiant à inscrire.
+    enrollment_form : EnrollmentForm
+        Une instance de formulaire validée fournissant ``niveau`` et ``departement``.
+    year : AnneeAcademique
+        L'année académique cible.
+
+    Returns
+    -------
+    str or None
+        ``"done"`` en cas de succès (l'appelant redirige), ``None`` en cas
+        d'erreur ou de conflit (l'appelant ré-affiche le formulaire).
+    """
     niveau = int(enrollment_form.cleaned_data["niveau"])
     departement = enrollment_form.cleaned_data["departement"]
 
@@ -50,6 +113,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
         actif=True,
     )
 
+    # Logs de niveau debug pour aider au diagnostic des problèmes d'inscription en production.
     logger.info(
         f"Inscription niveau {niveau}, département '{departement.nom_departement}' "
         f"pour étudiant {student.email}"
@@ -62,6 +126,9 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
             f"année={c.id_annee.libelle if c.id_annee else 'NULL'}, actif={c.actif})"
         )
 
+    # Vérification de conflit inter-niveaux : un étudiant ne peut pas suivre deux niveaux différents
+    # la même année académique. Détecter toute inscription EN_COURS à un niveau différent
+    # et signaler clairement les niveaux en conflit au secrétaire.
     existing_other_level = (
         Inscription.objects.filter(
             id_etudiant=student,
@@ -85,6 +152,8 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
         )
         return None
 
+    # Aucun cours trouvé : fournir un message de diagnostic expliquant les causes possibles
+    # (les cours existent mais sans année assignée, ou existent dans une autre année).
     if not level_courses.exists():
         courses_without_year = Cours.objects.filter(
             niveau=niveau, id_departement=departement, actif=True, id_annee__isnull=True
@@ -113,10 +182,12 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
 
     try:
         with transaction.atomic():
+            # Mettre à jour le niveau de l'étudiant pour qu'il corresponde au niveau nouvellement inscrit.
             student.niveau = niveau
             student.save(update_fields=["niveau"])
 
             for course in level_courses:
+                # Avertir au sujet des prérequis (non bloquant).
                 prereqs = get_prerequisite_info(course)
                 if prereqs:
                     prereq_list = ", ".join([f"{p['code']} - {p['name']}" for p in prereqs])
@@ -127,6 +198,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
                     )
 
                 try:
+                    # Utiliser get_or_create pour éviter gracieusement les inscriptions dupliquées.
                     inscription, created = Inscription.objects.get_or_create(
                         id_etudiant=student,
                         id_cours=course,
@@ -138,6 +210,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
                         },
                     )
                     if not created:
+                        # Déjà inscrit — compter comme ignoré, ne pas générer d'erreur.
                         skipped_count += 1
                         continue
                     logger.info(
@@ -149,6 +222,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
                     logger.exception("Erreur lors de la creation de l'inscription pour %s", course.code_cours)
                     continue
 
+            # Journaliser dans l'audit l'inscription par lot si au moins une inscription a été créée.
             if enrolled_count > 0:
                 log_action(
                     request.user,
@@ -165,6 +239,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
         logger.exception("Erreur d'inscription")
         return None
 
+    # Construire les messages de synthèse destinés à l'utilisateur en fonction des compteurs de résultats.
     if enrolled_count > 0:
         messages.success(
             request,
@@ -183,6 +258,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
                 f"{skipped_count} cours ignoré(s) (déjà inscrit) : {existing_codes}.",
             )
     elif skipped_count > 0:
+        # Tous les cours étaient déjà inscrits — informer plutôt que de générer une erreur.
         existing_codes = ", ".join(
             c.code_cours
             for c in level_courses
@@ -195,6 +271,7 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
             f"pour {year.libelle} : {existing_codes}.",
         )
     elif errors:
+        # Afficher jusqu'à 5 messages d'erreur individuels pour éviter de surcharger la page.
         for error in errors[:5]:
             messages.error(request, error)
         if len(errors) > 5:
@@ -210,20 +287,52 @@ def _handle_level_enrollment(request, student, enrollment_form, year):
 
 
 def _handle_course_enrollment(request, student, enrollment_form, year):
-    """Inscription mode COURS — un ou plusieurs cours précis."""
+    """
+    Inscrit un étudiant à un ou plusieurs cours sélectionnés individuellement.
+
+    Chaque cours sélectionné est validé par rapport à l'année académique
+    cible avant que l'inscription ne soit tentée. Les cours dont
+    ``id_annee`` ne correspond pas à l'année sélectionnée sont rejetés avec
+    un avertissement mais n'interrompent pas toute l'opération — les cours
+    restants sont quand même traités.
+
+    Des avertissements de prérequis sont affichés pour chaque cours ayant
+    des prérequis, mais les prérequis ne bloquent jamais l'inscription.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        La requête HTTP courante (utilisée pour attacher les messages Django).
+    student : User
+        L'étudiant à inscrire.
+    enrollment_form : EnrollmentForm
+        Une instance de formulaire validée fournissant le queryset ``courses``.
+    year : AnneeAcademique
+        L'année académique cible utilisée comme clé d'inscription.
+
+    Returns
+    -------
+    str or None
+        ``"done"`` en cas de succès (l'appelant redirige), ``None`` en cas
+        d'erreur interne inattendue (l'appelant ré-affiche le formulaire).
+    """
     selected_courses = enrollment_form.cleaned_data["courses"]
 
     enrolled_count = 0
     skipped_count = 0
-    year_mismatch = []
+    year_mismatch = []  # Codes des cours rejetés parce que leur année != l'année sélectionnée.
 
     try:
         with transaction.atomic():
             for course in selected_courses:
+                # Rejeter les cours qui appartiennent à une année académique différente.
+                # Cela peut se produire si le queryset du formulaire n'a pas été correctement filtré
+                # ou si le secrétaire a changé l'année après avoir chargé la page.
                 if course.id_annee and course.id_annee.id_annee != year.id_annee:
                     year_mismatch.append(course.code_cours)
                     continue
 
+                # Avertir au sujet des prérequis (informatif, non bloquant).
                 prereqs = get_prerequisite_info(course)
                 if prereqs:
                     prereq_list = ", ".join([f"{p['code']} - {p['name']}" for p in prereqs])
@@ -233,6 +342,7 @@ def _handle_course_enrollment(request, student, enrollment_form, year):
                         f"Veuillez vérifier que l'étudiant les a complétés.",
                     )
 
+                # get_or_create empêche les erreurs d'inscriptions dupliquées.
                 inscription, created = Inscription.objects.get_or_create(
                     id_etudiant=student,
                     id_cours=course,
@@ -253,6 +363,7 @@ def _handle_course_enrollment(request, student, enrollment_form, year):
                 else:
                     skipped_count += 1
 
+            # Journaliser dans l'audit l'inscription multi-cours si quelque chose a été créé.
             if enrolled_count > 0:
                 course_codes = ", ".join(
                     c.code_cours
@@ -272,6 +383,7 @@ def _handle_course_enrollment(request, student, enrollment_form, year):
         logger.exception("Erreur d'inscription multi-cours")
         return None
 
+    # Construire une chaîne de synthèse unique couvrant les trois catégories de résultats.
     result_parts = []
     if enrolled_count > 0:
         result_parts.append(f"{enrolled_count} cours inscrit(s)")
@@ -284,6 +396,7 @@ def _handle_course_enrollment(request, student, enrollment_form, year):
 
     summary = f"Résultat pour {student.get_full_name()} — {' | '.join(result_parts)}"
 
+    # Utiliser le niveau success uniquement quand tout s'est inscrit proprement ; sinon avertir.
     if enrolled_count > 0 and not year_mismatch:
         messages.success(request, summary)
     else:

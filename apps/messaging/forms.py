@@ -15,6 +15,8 @@ from .models import Message
 
 
 class MessageForm(forms.ModelForm):
+    """Formulaire de composition d'un message interne avec filtrage des destinataires par rôle."""
+
     destinataire = forms.ModelChoiceField(
         queryset=User.objects.filter(actif=True),
         widget=forms.Select(attrs={"class": "form-select"}),
@@ -41,26 +43,30 @@ class MessageForm(forms.ModelForm):
     )
 
     class Meta:
+        """Configuration ModelForm : modèle ``Message`` et trois champs métier exposés."""
+
         model = Message
         fields = ["destinataire", "objet", "contenu"]
 
     def __init__(self, *args, **kwargs):
+        """Restreint la liste des destinataires en fonction du rôle de l'expéditeur."""
         user = kwargs.pop("user", None)
         super(MessageForm, self).__init__(*args, **kwargs)
         if user:
-            # Role-based recipient filtering
+            # Filtrage des destinataires basé sur le rôle
             qs = User.objects.filter(actif=True).exclude(pk=user.pk)
             if user.role == User.Role.ETUDIANT:
-                # Students can only message professors and secretaries
+                # Les étudiants ne peuvent écrire qu'aux professeurs et secrétaires
                 qs = qs.filter(role__in=[User.Role.PROFESSEUR, User.Role.SECRETAIRE])
-            # ADMIN, SECRETAIRE, PROFESSEUR can message anyone active
+            # ADMIN, SECRETAIRE, PROFESSEUR peuvent écrire à tout utilisateur actif
             self.fields["destinataire"].queryset = qs
-            # Label improvement
+            # Amélioration du label
             self.fields["destinataire"].label_from_instance = (
                 lambda obj: f"{obj.prenom} {obj.nom} ({obj.role})"
             )
 
     def clean_destinataire(self):
+        """Refuse un destinataire désactivé (cas de race condition entre affichage et soumission)."""
         dest = self.cleaned_data.get("destinataire")
         if dest and not dest.actif:
             raise ValidationError("Ce destinataire n'est plus actif.")

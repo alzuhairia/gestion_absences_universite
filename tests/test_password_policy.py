@@ -1,3 +1,12 @@
+"""
+Tests — politique de mots de passe et flux de réinitialisation.
+
+Vérifie :
+  - Le rejet des mots de passe faibles par les formulaires admin/étudiant.
+  - Le verrou empêchant la création d'un second administrateur via la page de setup initial.
+  - La politique de reset par un admin (force ``must_change_password``).
+  - L'usage unique du jeton de réinitialisation et le rejet des utilisateurs désactivés.
+"""
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -7,7 +16,10 @@ from apps.enrollments.forms import StudentCreationForm
 
 
 class PasswordPolicyFormTests(TestCase):
+    """Tests de validation des mots de passe sur les formulaires de création utilisateur."""
+
     def test_user_form_rejects_weak_password(self):
+        """``UserForm`` doit refuser un mot de passe trop faible (sans majuscule/chiffre/symbole)."""
         form = UserForm(
             data={
                 "nom": "Weak",
@@ -24,6 +36,7 @@ class PasswordPolicyFormTests(TestCase):
         self.assertIn("password", form.errors)
 
     def test_user_form_accepts_strong_password(self):
+        """``UserForm`` accepte un mot de passe conforme et active ``must_change_password``."""
         form = UserForm(
             data={
                 "nom": "Strong",
@@ -42,6 +55,7 @@ class PasswordPolicyFormTests(TestCase):
         self.assertTrue(user.must_change_password)
 
     def test_student_creation_form_rejects_weak_password(self):
+        """``StudentCreationForm`` refuse un mot de passe ne respectant pas la politique."""
         form = StudentCreationForm(
             data={
                 "nom": "Student",
@@ -57,6 +71,7 @@ class PasswordPolicyFormTests(TestCase):
         self.assertIn("password", form.errors)
 
     def test_student_creation_form_accepts_strong_password(self):
+        """``StudentCreationForm`` valide un mot de passe respectant la politique de force."""
         form = StudentCreationForm(
             data={
                 "nom": "Student",
@@ -129,7 +144,10 @@ class InitialSetupTests(TestCase):
 
 
 class AdminPasswordResetPolicyTests(TestCase):
+    """Tests du flux ``admin_user_reset_password`` (politique imposée par l'admin)."""
+
     def setUp(self):
+        """Crée un admin et une cible étudiante, puis authentifie l'admin."""
         self.admin = User.objects.create_user(
             email="admin-password@example.com",
             nom="Admin",
@@ -151,6 +169,7 @@ class AdminPasswordResetPolicyTests(TestCase):
         )
 
     def test_admin_reset_rejects_weak_password(self):
+        """Un mot de passe faible saisi par l'admin est refusé et l'ancien hash reste actif."""
         response = self.client.post(self.url, {"new_password": "weakpass"}, secure=True)
 
         self.assertEqual(response.status_code, 302)
@@ -159,6 +178,7 @@ class AdminPasswordResetPolicyTests(TestCase):
         self.assertFalse(self.target.must_change_password)
 
     def test_admin_reset_accepts_strong_password(self):
+        """Un mot de passe conforme remplace l'ancien et force le changement au prochain login."""
         response = self.client.post(
             self.url, {"new_password": "StrongPass123!"}, secure=True
         )
@@ -173,6 +193,7 @@ class PasswordResetTokenTests(TestCase):
     """Verify password reset token one-time use and inactive-user guard."""
 
     def setUp(self):
+        """Crée un utilisateur étudiant cible pour générer puis valider un jeton de reset."""
         self.user = User.objects.create_user(
             email="reset@example.com",
             nom="Reset",

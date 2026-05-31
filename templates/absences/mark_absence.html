@@ -4,7 +4,7 @@
 
 {% block extra_css %}
 <style>
-    /* Row-level loading: dim the row + show inline spinner */
+    /* Chargement au niveau ligne : atténue la ligne + affiche l'indicateur en ligne */
     tr.htmx-request { opacity: 0.45; transition: opacity 0.15s ease; pointer-events: none; }
     .htmx-indicator { display: none; }
     tr.htmx-request .htmx-indicator { display: inline-block; }
@@ -21,7 +21,7 @@
 {% block content %}
 <div class="container-fluid">
 
-    <!-- Header with session status badge -->
+    <!-- En-tête avec badge d'état de la séance -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">
             Faire l'appel : {{ course.code_cours }}
@@ -54,7 +54,7 @@
     <form method="POST" id="attendance-form">
         {% csrf_token %}
 
-        <!-- Session Info -->
+        <!-- Informations sur la séance -->
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-primary text-white">
                 <h6 class="m-0 font-weight-bold">
@@ -82,7 +82,7 @@
             </div>
         </div>
 
-        <!-- Live recap card -->
+        <!-- Carte récapitulative en direct -->
         {% if not is_validated and students %}
         <div class="card shadow mb-4 border-start border-4 border-info" id="live-recap">
             <div class="card-body">
@@ -104,7 +104,7 @@
         </div>
         {% endif %}
 
-        <!-- Student List -->
+        <!-- Liste des étudiants -->
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-dark">
@@ -152,7 +152,7 @@
                 </div>
             </div>
 
-            <!-- Action buttons -->
+            <!-- Boutons d'action -->
             {% if not is_validated and students %}
             <div class="card-footer bg-white">
                 <div class="d-flex justify-content-between align-items-center">
@@ -170,7 +170,7 @@
                     </div>
                 </div>
 
-                <!-- Inline confirmation (hidden by default) -->
+                <!-- Confirmation en ligne (masquée par défaut) -->
                 <div id="confirm-bar" class="alert alert-warning mt-3 d-none">
                     <div class="d-flex justify-content-between align-items-center">
                         <span>
@@ -199,13 +199,13 @@
             {% endif %}
         </div>
 
-        <!-- Hidden field for action type -->
+        <!-- Champ caché pour le type d'action -->
         <input type="hidden" name="form_action" id="form_action" value="draft">
     </form>
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    /* --- Toggle helpers --- */
+    /* --- Aides au basculement --- */
     function toggleAbsenceOptions(id, isAbsent) {
         const typeSelect = document.getElementById('type_' + id);
         if (typeSelect) {
@@ -229,7 +229,7 @@
         }
     }
 
-    /* --- Live recap counter --- */
+    /* --- Compteur récapitulatif en direct --- */
     function updateRecap() {
         const rows = document.querySelectorAll('#student-tbody .student-row');
         let absent = 0;
@@ -238,7 +238,7 @@
             if (absentRadio && absentRadio.checked) {
                 absent++;
             } else if (!absentRadio) {
-                // Read-only row: check if it's an absent (has danger disabled btn)
+                // Ligne en lecture seule : vérifie s'il s'agit d'un absent (bouton « danger » désactivé)
                 if (row.querySelector('.btn-danger.disabled')) absent++;
             }
         });
@@ -249,7 +249,7 @@
         if (recapAbsent) recapAbsent.textContent = absent;
     }
 
-    /* --- Bulk actions --- */
+    /* --- Actions en masse --- */
     function markAll(status) {
         document.querySelectorAll('.student-row').forEach(function(row) {
             const id = row.dataset.id;
@@ -264,7 +264,7 @@
         updateRecap();
     }
 
-    /* --- Submit actions --- */
+    /* --- Actions de soumission --- */
     function submitDraft() {
         document.getElementById('form_action').value = 'draft';
         document.getElementById('attendance-form').submit();
@@ -275,7 +275,7 @@
         document.getElementById('attendance-form').submit();
     }
 
-    /* --- Inline confirmation --- */
+    /* --- Confirmation en ligne --- */
     function showConfirmation() {
         document.getElementById('confirm-bar').classList.remove('d-none');
     }
@@ -284,7 +284,7 @@
         document.getElementById('confirm-bar').classList.add('d-none');
     }
 
-    // Event listeners (CSP-compliant replacements for onclick handlers)
+    // Écouteurs d'événements (remplacements conformes CSP des gestionnaires onclick)
     document.querySelectorAll('.js-mark-all').forEach(function(btn) {
         btn.addEventListener('click', function() { markAll(this.dataset.status); });
     });
@@ -298,7 +298,7 @@
     if (hideBtn) hideBtn.addEventListener('click', hideConfirmation);
     if (valBtn) valBtn.addEventListener('click', submitValidate);
 
-    /* --- Event delegation on tbody (survives HTMX swaps) --- */
+    /* --- Délégation d'événements sur tbody (résiste aux échanges HTMX) --- */
     var tbody = document.getElementById('student-tbody');
     if (tbody) {
         tbody.addEventListener('change', function(e) {
@@ -312,7 +312,7 @@
         });
     }
 
-    /* --- Student search filter --- */
+    /* --- Filtre de recherche d'étudiants --- */
     var searchInput = document.getElementById('student-search');
     if (searchInput) {
         searchInput.addEventListener('input', function() {

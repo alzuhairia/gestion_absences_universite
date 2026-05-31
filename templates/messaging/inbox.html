@@ -194,7 +194,8 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Modern Header -->
+    {# Boîte de réception : liste les messages reçus par l'utilisateur courant (lus + non lus) #}
+    <!-- En-tête moderne avec dégradé violet -->
     <div class="messaging-header mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -210,7 +211,7 @@
     </div>
 
     <div class="row">
-        <!-- Modern Sidebar -->
+        <!-- Barre latérale de navigation messagerie (Inbox / Sent) -->
         <div class="col-md-3 mb-4">
             <div class="messaging-sidebar">
                 <a href="{% url 'messaging:inbox' %}" class="messaging-nav-item active">
@@ -229,7 +230,7 @@
             </div>
         </div>
 
-        <!-- Messages List -->
+        <!-- Liste paginée des messages reçus -->
         <div class="col-md-9">
             <div class="messaging-container">
                 <div class="messages-list">

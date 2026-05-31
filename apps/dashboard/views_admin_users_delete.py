@@ -1,6 +1,23 @@
 """
-FICHIER : apps/dashboard/views_admin_users_delete.py
-RESPONSABILITE : Suppression unitaire et en lot des utilisateurs (admin)
+Vues de suppression d'utilisateurs pour le tableau de bord administrateur UniAbsences.
+
+Vues
+-----
+``admin_user_delete``
+    Supprime un compte utilisateur unique. Cascade à travers les données liées via
+    ``_cascade_delete_user_data`` dans une transaction de base de données.
+
+``admin_users_delete_multiple``
+    Supprime en masse une liste d'IDs utilisateur soumise depuis la page de liste des utilisateurs.
+    Chaque suppression est encapsulée dans une transaction individuelle afin qu'une seule
+    ``ProtectedError`` n'annule pas l'ensemble du lot.
+
+``_cascade_delete_user_data``
+    Aide interne qui supprime les enregistrements liés (inscriptions, absences,
+    justifications, journaux d'audit, sessions) avant de retirer l'utilisateur, dans
+    l'ordre des dépendances correct pour éviter les erreurs de contrainte FK.
+
+Fait partie du tableau de bord UniAbsences.
 """
 import logging
 

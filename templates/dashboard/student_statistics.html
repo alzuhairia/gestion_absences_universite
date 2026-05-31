@@ -1,3 +1,17 @@
+{# ============================================================
+   Template : student_statistics.html
+   Rôle    : Page statistique de l'étudiant connecté.
+             Présente :
+               - 4 KPI (total absences, justifiées, heures non
+                 justifiées, cours à risque)
+               - graphique à barres : taux d'absence par cours
+                 avec couleur dynamique relative au seuil propre
+                 du cours
+               - graphique linéaire : tendance mensuelle des
+                 heures d'absence sur l'année académique
+   Note : les données sont injectées via json_script en bas de
+          fichier puis parsées par Chart.js.
+   ============================================================ #}
 {% extends 'base_student.html' %}
 
 {% block title %}Statistiques - Étudiant{% endblock %}
@@ -9,7 +23,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
+    <!-- En-tête de page avec bouton « Imprimer » (window.print) -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
@@ -40,7 +54,7 @@
     </div>
     {% endif %}
 
-    <!-- KPIs -->
+    <!-- 4 cartes KPI : total / justifiées / heures perdues / cours à risque -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2 kpi-card">
@@ -112,9 +126,9 @@
         </div>
     </div>
 
-    <!-- Charts Row -->
+    <!-- Ligne des graphiques : barres (par cours) + courbe (tendance) -->
     <div class="row">
-        <!-- Bar Chart -->
+        <!-- Graphique à barres : taux d'absence par cours -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow student-card">
                 <div class="card-header py-3 bg-white student-card-header">
@@ -145,7 +159,7 @@
             </div>
         </div>
 
-        <!-- Line Chart -->
+        <!-- Graphique linéaire : tendance mensuelle des heures d'absence -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow student-card">
                 <div class="card-header py-3 bg-white student-card-header">
@@ -185,8 +199,12 @@
 {{ trend_data_json|json_script:"trend-data-data" }}
 {{ system_threshold_json|json_script:"system-threshold-data" }}
 <script nonce="{{ request.csp_nonce }}">
+    // Branche le bouton « Imprimer » sur l'API navigateur window.print().
     document.getElementById('print-btn').addEventListener('click', function() { window.print(); });
 
+    // Récupération des données injectées par Django via json_script.
+    // C'est la méthode recommandée par Django pour passer des
+    // données sérialisées au JS sans risque XSS.
     const courseLabels = JSON.parse(document.getElementById('course-labels-data').textContent);
     const absencePercentages = JSON.parse(document.getElementById('absence-percentages-data').textContent);
     const courseThresholds = JSON.parse(document.getElementById('course-thresholds-data').textContent);
@@ -194,12 +212,16 @@
     const trendData = JSON.parse(document.getElementById('trend-data-data').textContent);
     const systemThreshold = JSON.parse(document.getElementById('system-threshold-data').textContent);
 
-    // Couleur dynamique par cours selon son propre seuil
+    // ----- Couleur dynamique par cours, relative à SON PROPRE seuil -----
+    // Chaque cours peut avoir un seuil d'absence différent ; on choisit
+    // donc la couleur de la barre en fonction de la position du taux
+    // par rapport à ce seuil spécifique (pas un seuil global).
     function getBarColor(value, seuil) {
         if (value >= seuil) return '#dc3545';       // rouge — bloqué
         if (value >= seuil * 0.5) return '#f6c23e';  // orange — attention
         return '#1cc88a';                             // vert — OK
     }
+    // Variante légèrement plus foncée pour l'effet hover.
     function getBarHoverColor(value, seuil) {
         if (value >= seuil) return '#c82333';
         if (value >= seuil * 0.5) return '#dda520';
@@ -207,6 +229,8 @@
     }
 
     // --- Graphique en barres : Taux d'absence par cours ---
+    // Échelle Y de 0 à 100 %. Les callbacks de couleurs sont
+    // appelés par Chart.js pour chaque barre (context.dataIndex).
     const ctxBar = document.getElementById("absenceBarChart");
     if (ctxBar) {
         new Chart(ctxBar, {
@@ -262,7 +286,9 @@
         });
     }
 
-    // --- Graphique linéaire : Tendance mensuelle ---
+    // --- Graphique linéaire : Tendance mensuelle des heures d'absence ---
+    // Une courbe lisse (tension 0.3) verte sur fond vert clair,
+    // avec des points cliquables (hit radius élargi pour l'UX).
     const ctxLine = document.getElementById("absenceTrendChart");
     if (ctxLine) {
         new Chart(ctxLine, {

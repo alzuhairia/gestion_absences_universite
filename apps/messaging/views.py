@@ -30,6 +30,7 @@ _ROLE_MESSAGING_CONTEXT = {
 
 
 def _messaging_base_ctx(user):
+    """Résout le template de base et l'URL de dashboard adaptés au rôle de l'utilisateur."""
     base_template, dashboard_url = _ROLE_MESSAGING_CONTEXT.get(
         user.role, ("base_student.html", "dashboard:student_dashboard")
     )
@@ -105,7 +106,7 @@ def compose(request):
                     **_messaging_base_ctx(request.user),
                     "form": form,
                 })
-            # Server-side role check: students can only message professors/secretaries
+            # Vérification de rôle côté serveur : les étudiants ne peuvent écrire qu'aux professeurs/secrétaires
             if request.user.role == User.Role.ETUDIANT:
                 dest = message.destinataire
                 if dest.role not in (User.Role.PROFESSEUR, User.Role.SECRETAIRE):
@@ -144,7 +145,7 @@ def message_detail(request, message_id):
         id_message=message_id,
     )
 
-    # Check permission (handle NULL expediteur/destinataire from SET_NULL)
+    # Vérification des permissions (gestion des expediteur/destinataire NULL issus de SET_NULL)
     is_recipient = (
         msg.destinataire_id is not None and msg.destinataire_id == request.user.pk
     )
@@ -153,7 +154,7 @@ def message_detail(request, message_id):
         messages.error(request, "Vous n'avez pas accès à ce message.")
         return redirect("messaging:inbox")
 
-    # Mark as read if user is recipient
+    # Marquer comme lu si l'utilisateur est le destinataire
     if is_recipient and not msg.lu:
         msg.mark_as_read()
 

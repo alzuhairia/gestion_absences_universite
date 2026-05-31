@@ -126,7 +126,8 @@
         </div>
     </div>
 
-    <!-- Filtres -->
+    <!-- Section de filtres : recherche par étudiant, date et code cours -->
+    <!-- Les filtres sont passés en GET et conservés dans la pagination plus bas -->
     <div class="filter-section">
         <form method="get" class="row g-3">
             <div class="col-md-4">
@@ -164,7 +165,7 @@
         {% endif %}
     </div>
 
-    <!-- Liste des absences -->
+    <!-- Liste paginée des absences justifiées encodées par le secrétariat -->
     {% if page_obj %}
     <div class="mb-4">
         <p class="text-muted">
@@ -251,7 +252,7 @@
     </div>
     {% endfor %}
 
-    <!-- Pagination -->
+    <!-- Pagination : préserve les filtres actifs dans chaque lien de page -->
     {% if page_obj.has_other_pages %}
     <nav aria-label="Pagination">
         <ul class="pagination justify-content-center">

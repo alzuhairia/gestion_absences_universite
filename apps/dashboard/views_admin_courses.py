@@ -1,17 +1,26 @@
 """
-Gestion CRUD des cours (rôle administrateur).
+Vues CRUD des cours pour le tableau de bord administrateur UniAbsences.
 
-Fonctionnalités :
-  - Liste et création de cours
-  - Modification / désactivation
-  - Suppression unitaire avec cascade (inscriptions → absences)
-  - Suppression multiple en lot
+Fournit des vues réservées aux administrateurs pour gérer les enregistrements ``Cours`` :
+
+- Lister tous les cours (paginés) et en créer de nouveaux via ``CoursForm``.
+- Modifier ou désactiver (soft-deactivate) un cours existant.
+- Supprimer un cours unique avec cascade manuel :
+  ``Justification → Absence → Inscription / Seance → Cours``.
+- Supprimer en masse plusieurs cours sélectionnés depuis la page de liste ; chaque cours
+  est supprimé dans son propre bloc try/except afin qu'un seul échec n'interrompe
+  pas l'ensemble du lot.
+
+Toutes les opérations destructrices sont encapsulées dans ``transaction.atomic()`` et
+journalisées au niveau d'audit CRITIQUE.
 
 Voir aussi :
-  views_admin_faculties.py  — CRUD facultés
-  views_admin_departments.py — CRUD départements
-  views_admin_academic_years.py — CRUD années académiques
-  views_admin_prerequisites.py  — API prérequis par niveau
+  ``views_admin_faculties.py``       — CRUD des facultés.
+  ``views_admin_departments.py``     — CRUD des départements.
+  ``views_admin_academic_years.py``  — CRUD des années académiques.
+  ``views_admin_prerequisites.py``   — point d'API des prérequis.
+
+Fait partie du tableau de bord UniAbsences.
 """
 
 import logging
@@ -40,7 +49,25 @@ logger = logging.getLogger(__name__)
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_courses(request):
-    """Liste et création de cours"""
+    """
+    Liste tous les cours et gère la création d'un nouveau cours.
+
+    GET  — affiche une liste paginée des cours (20 par page, ordonnée par
+           ``code_cours``) avec un ``CoursForm`` vide.
+    POST — valide le formulaire et crée le cours ; journalise une entrée
+           d'audit CRITIQUE et redirige vers la liste en cas de succès.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        Prend en charge le paramètre GET ``page`` pour la pagination.
+
+    Retourne
+    -------
+    HttpResponse
+        Template ``dashboard/admin_courses.html`` rendu en GET ou POST invalide,
+        ou redirection vers ``admin_courses`` en cas de création réussie.
+    """
 
     if request.method == "POST":
         form = CoursForm(request.POST)
@@ -84,7 +111,27 @@ def admin_courses(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_course_edit(request, course_id):
-    """Modification ou désactivation d'un cours"""
+    """
+    Modifie ou désactive un cours existant.
+
+    GET  — affiche le formulaire d'édition prérempli avec les valeurs actuelles
+           du cours.
+    POST — valide et enregistre les modifications ; le message d'audit distingue
+           une modification ordinaire d'une désactivation en fonction de ``cours.actif``.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        La requête HTTP entrante.
+    course_id : int
+        Clé primaire du ``Cours`` à modifier.
+
+    Retourne
+    -------
+    HttpResponse
+        Template ``dashboard/admin_course_edit.html`` rendu en GET ou POST
+        invalide, ou redirection vers ``admin_courses`` en cas de succès.
+    """
 
     cours = get_object_or_404(Cours, id_cours=course_id)
 
@@ -123,7 +170,31 @@ def admin_course_edit(request, course_id):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_course_delete(request, course_id):
-    """Suppression d'un cours avec suppression en cascade des inscriptions et absences"""
+    """
+    Supprime un cours avec cascade complet des enregistrements dépendants.
+
+    GET  — affiche une page de confirmation (``admin_confirm_delete.html``)
+           listant les comptes d'objets dépendants qui seront également
+           supprimés.
+    POST — exécute la suppression en cascade dans une transaction :
+           ``Justification → Absence → Inscription → Seance → Cours``.
+           Les comptes sont pré-calculés avant la suppression pour le message d'audit.
+           ``ProtectedError`` et les exceptions inattendues sont capturés et
+           signalés via les messages Django sans planter la vue.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        La requête HTTP entrante.
+    course_id : int
+        Clé primaire du ``Cours`` à supprimer.
+
+    Retourne
+    -------
+    HttpResponse
+        Page de confirmation en GET, ou redirection vers ``admin_courses``
+        après POST (succès ou échec).
+    """
 
     cours = get_object_or_404(Cours, id_cours=course_id)
     cours_code = cours.code_cours
@@ -228,7 +299,26 @@ def admin_course_delete(request, course_id):
 @admin_required
 @require_http_methods(["POST"])
 def admin_courses_delete_multiple(request):
-    """Suppression multiple de cours avec cascade (inscriptions, absences, etc.)"""
+    """
+    Supprime en masse une liste de cours soumis depuis la page de liste des cours.
+
+    Lit les IDs de cours depuis la liste POST ``course_ids``, les dédoublonne et
+    les valide, puis itère sur le queryset verrouillé en supprimant chaque
+    cours (avec son cascade complet) individuellement. Un try/except par cours
+    garantit qu'un échec n'empêche pas les autres cours d'être
+    supprimés. Chaque suppression réussie est journalisée au niveau CRITIQUE.
+
+    Paramètres
+    ----------
+    request : HttpRequest
+        Le corps POST doit contenir une ou plusieurs valeurs ``course_ids``.
+
+    Retourne
+    -------
+    HttpResponseRedirect
+        Redirige toujours vers ``admin_courses`` avec des messages de succès
+        et/ou d'erreur résumant le résultat.
+    """
 
     raw_ids = request.POST.getlist("course_ids")
     if not raw_ids:

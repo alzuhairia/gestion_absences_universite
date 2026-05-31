@@ -1,9 +1,23 @@
+"""
+Pytest configuration for the UniAbsences project.
+
+This file contains pytest hooks and fixtures for test setup and teardown.
+It ensures Django is properly configured and handles database connection cleanup
+for PostgreSQL test databases.
+
+Part of the UniAbsences test infrastructure.
+"""
 import django
 from django.conf import settings
 
 
 def pytest_configure(config):
-    """Ensure Django is set up before test collection."""
+    """
+    Ensure Django is set up before test collection.
+    
+    Also configures logging to suppress file output during tests and
+    terminates stale database connections to prevent test interference.
+    """
     settings.LOGGING["handlers"]["file"]["class"] = "logging.NullHandler"
 
     # Kill stale connections to the test database before pytest-django tries to create/drop it.

@@ -53,6 +53,8 @@ class Message(models.Model):
     )
 
     class Meta:
+        """Métadonnées Django : table ``message``, tri chronologique inverse et index lus/non-lus."""
+
         managed = True
         db_table = "message"
         app_label = "messaging"
@@ -65,16 +67,19 @@ class Message(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        """Persiste le message et invalide le cache du compteur non-lu du destinataire."""
         super().save(*args, **kwargs)
         if self.destinataire_id is not None:
             cache.delete(f"messages:unread_count:{self.destinataire_id}")
 
     def mark_as_read(self):
+        """Marque le message comme lu (no-op s'il est déjà lu) et invalide le cache via ``save()``."""
         if not self.lu:
             self.lu = True
             self.save(update_fields=["lu"])
 
     def __str__(self):
+        """Représentation lisible : « Message de <expéditeur> à <destinataire> — <objet> »."""
         sender = str(self.expediteur) if self.expediteur else "(supprimé)"
         recipient = str(self.destinataire) if self.destinataire else "(supprimé)"
         return f"Message de {sender} à {recipient} - {self.objet}"

@@ -1,3 +1,21 @@
+{# ============================================================
+   Email : justification_decision.html
+   Déclencheur : Le secrétariat statue (accepte ou refuse) sur un justificatif
+                 soumis par un étudiant — construit par
+                 build_justification_decision_email().
+   Destinataire : Étudiant ayant soumis le justificatif
+   Rôle      : Communique la décision finale (ACCEPTÉE / REFUSÉE) avec un
+               encart vert ou rouge ; rappelle le cours et la date de
+               l'absence concernée ; affiche le motif de refus lorsque la
+               décision est négative et qu'un motif est fourni.
+   Contexte attendu (variables Django passées au template) :
+     - student_name : nom complet de l'étudiant destinataire
+     - course_code  : code du cours concerné
+     - absence_date : date de l'absence justifiée
+     - approved     : booléen — True si acceptée, False si refusée
+     - decision     : chaîne d'affichage ("ACCEPTÉE" ou "REFUSÉE")
+     - motif        : motif textuel du refus (optionnel, affiché si refusée)
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Justification {{ decision }}{% endblock %}
 {% block subtitle %}Décision Justificatif{% endblock %}

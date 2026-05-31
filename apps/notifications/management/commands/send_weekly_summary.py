@@ -1,11 +1,15 @@
 """
-Management command: send weekly absence summary to all active secretaries.
+Commande de management — envoi du résumé hebdomadaire d'absences aux secrétaires.
 
-Usage:
-    python manage.py send_weekly_summary          # current week
-    python manage.py send_weekly_summary --dry-run # preview without sending
+Construit les agrégats de la semaine écoulée (total d'absences, nouveaux
+blocages, justifications en attente, cours à risque) et envoie un email à
+chaque secrétaire actif.
 
-Schedule with cron (e.g. every Monday at 08:00):
+Utilisation :
+    python manage.py send_weekly_summary          # semaine en cours
+    python manage.py send_weekly_summary --dry-run # aperçu sans envoi
+
+Planification cron (ex. tous les lundis à 08:00) :
     0 8 * * 1 cd /app && python manage.py send_weekly_summary
 """
 
@@ -27,16 +31,20 @@ from apps.notifications.email import (
 
 
 class Command(BaseCommand):
-    help = "Send weekly absence summary email to all active secretaries."
+    """Commande Django : envoie le résumé hebdomadaire d'absences à chaque secrétaire actif."""
+
+    help = "Envoie l'email de résumé hebdomadaire d'absences à tous les secrétaires actifs."
 
     def add_arguments(self, parser):
+        """Déclare l'option ``--dry-run`` pour prévisualiser sans envoyer les emails."""
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Print summary data without sending emails.",
+            help="Affiche les données calculées sans envoyer d'email.",
         )
 
     def handle(self, *args, **options):
+        """Calcule les agrégats de la semaine et envoie le résumé à chaque secrétaire."""
         dry_run = options["dry_run"]
         today = timezone.localdate()
 

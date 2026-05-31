@@ -1,3 +1,23 @@
+{# ============================================================
+   Email : weekly_summary.html
+   Déclencheur : Tâche périodique hebdomadaire qui agrège les statistiques
+                 d'absence de la semaine écoulée — construit par
+                 build_weekly_summary_email().
+   Destinataire : Secrétaire(s) du département
+   Rôle      : Fournit au secrétariat un récapitulatif chiffré de la
+               semaine : nombre total d'absences enregistrées, nouveaux
+               étudiants bloqués, justificatifs en attente, et tableau
+               des cours comportant des étudiants à risque. Affiche un
+               message rassurant si aucun cours n'est à risque.
+   Contexte attendu (variables Django passées au template) :
+     - secretary_name        : nom complet du secrétaire destinataire
+     - week_start            : date de début de la semaine (chaîne)
+     - week_end              : date de fin de la semaine (chaîne)
+     - total_absences        : nombre total d'absences enregistrées (int)
+     - new_blocked           : nombre de nouveaux étudiants bloqués (int)
+     - pending_justifications: nombre de justificatifs en attente (int)
+     - courses_at_risk       : liste de dicts {course_name, at_risk_count}
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Résumé hebdomadaire{% endblock %}
 {% block subtitle %}Résumé hebdomadaire des absences{% endblock %}

@@ -1,6 +1,20 @@
 """
-FICHIER : apps/dashboard/views_secretary_main.py
-RESPONSABILITE : Dashboard principal du secrétariat + vue cours actifs
+Vue principale du tableau de bord secrétaire pour UniAbsences.
+
+``secretary_dashboard``
+    Affiche la page d'accueil du secrétariat avec les KPI de synthèse : justifications
+    en attente, inscriptions actives, total des absences et étudiants à
+    risque pour l'année académique en cours.
+
+``get_active_courses_queryset``
+    Constructeur de queryset partagé utilisé à la fois par le tableau de bord et le point
+    HTMX des cours actifs ; retourne les cours avec le statut EN_COURS pour l'année active.
+
+``active_courses``
+    Point HTMX partiel qui retourne le fragment de liste des cours actifs pour
+    le polling du tableau de bord.
+
+Fait partie du tableau de bord UniAbsences.
 """
 
 from django.contrib.auth.decorators import login_required

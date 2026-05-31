@@ -1,8 +1,10 @@
 """
-FICHIER : apps/dashboard/views_admin_users.py
-RESPONSABILITE : Re-export hub — gestion des utilisateurs (admin)
+Concentrateur des vues de gestion des utilisateurs administrateur pour le tableau de bord UniAbsences.
 
-Organisation :
+Concentrateur de réexport qui agrège tous les symboles de vue de gestion des utilisateurs depuis les
+trois sous-modules dans un seul espace de noms pour ``dashboard/urls.py``.
+
+Sous-modules :
   views_admin_users_list.py     — liste, création, modification, audit
   views_admin_users_security.py — reset mot de passe, réinitialisation 2FA
   views_admin_users_delete.py   — suppression unitaire et en lot

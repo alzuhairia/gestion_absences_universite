@@ -1,12 +1,30 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""
+Django management entry point for the UniAbsences project.
+
+This script is the standard Django command-line utility. It bootstraps
+Django's settings module and delegates execution to Django's management
+command infrastructure.
+
+Part of the UniAbsences project root.
+"""
 
 import os
 import sys
 
 
 def main():
-    """Run administrative tasks."""
+    """
+    Configure Django settings and execute the requested management command.
+
+    Sets the DJANGO_SETTINGS_MODULE environment variable to the project's
+    settings package if it has not already been set, then hands off to
+    Django's ``execute_from_command_line`` with the original ``sys.argv``.
+
+    Raises:
+        ImportError: If Django is not installed or the virtual environment
+            is not activated.
+    """
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     try:
         from django.core.management import execute_from_command_line

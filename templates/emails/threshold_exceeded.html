@@ -1,3 +1,18 @@
+{# ============================================================
+   Email : threshold_exceeded.html
+   Déclencheur : Le taux d'absence d'un étudiant pour un cours franchit le
+                 seuil autorisé après l'enregistrement d'une nouvelle absence
+                 — construit par build_threshold_exceeded_email().
+   Destinataire : Étudiant dont l'accès à l'examen vient d'être bloqué
+   Rôle      : Alerte critique informant l'étudiant que son taux d'absence
+               dépasse le seuil et que son accès à l'examen est désormais
+               bloqué ; invite à contacter le secrétariat en cas d'erreur.
+   Contexte attendu (variables Django passées au template) :
+     - student_name : nom complet de l'étudiant destinataire
+     - course_name  : libellé du cours concerné
+     - taux         : taux d'absence atteint (chaîne formatée, ex. "32.5")
+     - seuil        : seuil autorisé en pourcentage (entier)
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Alerte — Seuil d'absence dépassé{% endblock %}
 {% block subtitle %}Alerte Absence{% endblock %}

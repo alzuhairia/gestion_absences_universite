@@ -1,3 +1,4 @@
+"""Script de vérification — confirme la création d'entrées d'audit pour les actions utilisateur suivies."""
 import os
 import sys
 from pathlib import Path
@@ -9,7 +10,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 import django
 django.setup()
 from django.test import RequestFactory
-from django.contrib.messages.storage.fallback import FallbackStorage
 
 from apps.accounts.models import User
 from apps.audits.views import audit_list
@@ -17,6 +17,7 @@ from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
 
 def verify():
+    """Crée une action loguée et vérifie qu'elle apparaît bien dans la page d'audit du secrétariat."""
     print("Verifying Audit & Traceability...")
     
     # Setup Data

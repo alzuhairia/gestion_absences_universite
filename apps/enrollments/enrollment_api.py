@@ -1,14 +1,18 @@
 """
-API AJAX pour l'interface dynamique d'inscription.
+Endpoints API AJAX pour l'interface d'inscription dynamique.
 
-Endpoints :
-  - get_departments        : départements d'une faculté
-  - get_courses            : cours actifs d'un département (+ filtre année)
-  - get_courses_by_year    : tous les cours actifs d'une année académique
-  - get_courses_by_student : cours auxquels un étudiant est déjà inscrit
+Tous les endpoints renvoient du JSON et sont protégés par ``@api_login_required``
+(rôle ADMIN ou SECRETAIRE requis). Une limite de débit partagée de 30 requêtes
+par 5 minutes par IP est appliquée via ``django-ratelimit``.
 
-Toutes les routes sont protégées par @api_login_required (ADMIN ou SECRETAIRE)
-et limitées à 30 requêtes / 5 minutes par IP.
+Endpoints
+---------
+get_departments        — départements appartenant à une faculté donnée
+get_courses            — cours actifs pour un département (avec filtre année optionnel)
+get_courses_by_year    — tous les cours actifs pour une année académique (avec filtres optionnels)
+get_courses_by_student — cours dans lesquels un étudiant est actuellement inscrit
+
+Appartient à : UniAbsences — application enrollments.
 """
 import logging
 
@@ -30,6 +34,8 @@ from apps.dashboard.decorators import (
 from .models import Inscription
 
 logger = logging.getLogger(__name__)
+
+# Limite de débit partagée appliquée à chaque endpoint de ce module.
 API_RATE_LIMIT = "30/5m"
 
 
@@ -38,19 +44,24 @@ API_RATE_LIMIT = "30/5m"
 @require_GET
 def get_departments(request):
     """
-    API — Liste les départements d'une faculté.
+    Renvoie la liste des départements appartenant à une faculté.
 
-    Query params:
-        faculty_id (int, requis) : ID de la faculté
+    Parameters
+    ----------
+    request : HttpRequest
+        Doit inclure ``faculty_id`` (entier) comme paramètre de requête GET.
 
-    Réponses:
-        200 [{"id": int, "name": str}, ...]
-        400 {"error": {"code": "bad_request", "message": "..."}}
-        401 {"error": {"code": "auth_required", ...}}
-        403 {"error": {"code": "forbidden", ...}}
-        429 Rate limit dépassé (30/5m par IP)
-        500 {"error": {"code": "server_error", ...}}
+    Returns
+    -------
+    JsonResponse
+        200 — ``[{"id": int, "name": str}, ...]``
+        400 — ``{"error": {"code": "bad_request", "message": "..."}}``
+        401 — authentification requise
+        403 — rôle non autorisé
+        429 — limite de débit dépassée (30 requêtes / 5 min par IP)
+        500 — erreur serveur inattendue (inclut ``request_id`` pour le traçage des logs)
     """
+    # Respecter le flag de rate-limit défini par django-ratelimit avant d'exécuter la logique.
     if getattr(request, "limited", False):
         return api_error("Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited")
     try:
@@ -61,6 +72,8 @@ def get_departments(request):
             faculty_id = int(faculty_id)
         except (TypeError, ValueError):
             return api_error("faculty_id doit être un entier", status=400, code="bad_request")
+
+        # Ne récupérer que les deux champs nécessaires au frontend pour garder une payload réduite.
         departments = Departement.objects.filter(id_faculte_id=faculty_id).values(
             "id_departement", "nom_departement"
         )
@@ -70,6 +83,7 @@ def get_departments(request):
         ]
         return api_ok(data)
     except Exception:
+        # Logger avec un ID de requête unique afin que l'incident puisse être corrélé dans les logs.
         request_id = new_request_id()
         logger.exception("Erreur API get_departments [request_id=%s]", request_id)
         return api_error("Une erreur interne est survenue.", status=500,
@@ -81,14 +95,26 @@ def get_departments(request):
 @require_GET
 def get_courses(request):
     """
-    API — Liste les cours actifs d'un département.
+    Renvoie les cours actifs pour un département, avec un filtre optionnel par année académique.
 
-    Query params:
-        dept_id  (int, requis)    : ID du département
-        year_id  (int, optionnel) : filtre par année académique
+    La réponse inclut un flag ``has_prereq`` afin que le frontend puisse avertir
+    le secrétaire avant d'inscrire un étudiant à qui il manquerait des prérequis.
 
-    Réponses:
-        200 [{"id": int, "name": str, "code": str, "has_prereq": bool, "year": str|null}, ...]
+    Parameters
+    ----------
+    request : HttpRequest
+        Paramètres GET :
+          - ``dept_id`` (int, requis)    — clé primaire du département
+          - ``year_id`` (int, optionnel) — filtre par année académique
+
+    Returns
+    -------
+    JsonResponse
+        200 — ``[{"id": int, "name": str, "code": str,
+                  "has_prereq": bool, "year": str|null}, ...]``
+        400 — paramètre manquant ou invalide
+        429 — limite de débit dépassée
+        500 — erreur serveur inattendue
     """
     if getattr(request, "limited", False):
         return api_error("Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited")
@@ -108,19 +134,23 @@ def get_courses(request):
             except (TypeError, ValueError):
                 return api_error("year_id doit être un entier", status=400, code="bad_request")
 
+        # Queryset de base : cours actifs pour le département donné.
         courses = Cours.objects.filter(
             id_departement_id=dept_id, actif=True
         ).select_related("id_annee", "id_departement")
 
+        # Restriction optionnelle par année académique.
         if year_id:
             courses = courses.filter(id_annee_id=year_id)
 
+        # Annoter avec le nombre de prérequis pour piloter le badge d'avertissement du frontend.
         courses = courses.annotate(prereq_count=Count("prerequisites", distinct=True))
 
         data = []
         for c in courses:
             data.append({
                 "id": c.id_cours,
+                # Afficher le code à côté du nom pour que le secrétaire puisse identifier le cours.
                 "name": f"[{c.code_cours}] {c.nom_cours}",
                 "code": c.code_cours,
                 "has_prereq": c.prereq_count > 0,
@@ -139,18 +169,29 @@ def get_courses(request):
 @require_GET
 def get_courses_by_year(request):
     """
-    API — Liste tous les cours actifs d'une année académique.
+    Renvoie tous les cours actifs pour une année académique, avec filtres optionnels.
 
-    Query params:
-        year_id  (int, requis)    : ID de l'année académique
-        dept_id  (int, optionnel) : filtre par département
-        niveau   (int, optionnel) : filtre par niveau
-        student_id (int, optionnel) : marque les cours déjà inscrits
+    Lorsque ``student_id`` est fourni, la réponse marque également les cours
+    auxquels l'étudiant est déjà inscrit (``already_enrolled: true``), ce qui
+    permet au frontend de griser ces cases à cocher.
 
-    Réponses:
-        200 [{"id": int, "code": str, "name": str, "department": str,
-              "has_prereq": bool, "already_enrolled": bool}, ...]
-        400 {"error": {"code": "bad_request", "message": "year_id requis"}}
+    Parameters
+    ----------
+    request : HttpRequest
+        Paramètres GET :
+          - ``year_id``    (int, requis)    — clé primaire de l'année académique
+          - ``dept_id``    (int, optionnel) — filtre par département
+          - ``niveau``     (int, optionnel) — filtre par niveau d'étude (1, 2, ou 3)
+          - ``student_id`` (int, optionnel) — marque les cours déjà inscrits
+
+    Returns
+    -------
+    JsonResponse
+        200 — ``[{"id": int, "code": str, "name": str, "department": str,
+                  "has_prereq": bool, "already_enrolled": bool}, ...]``
+        400 — paramètre manquant ou invalide
+        429 — limite de débit dépassée
+        500 — erreur serveur inattendue
     """
     if getattr(request, "limited", False):
         return api_error("Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited")
@@ -164,8 +205,10 @@ def get_courses_by_year(request):
         return api_error("year_id doit être un entier", status=400, code="bad_request")
 
     try:
+        # Commencer avec tous les cours actifs pour l'année demandée.
         qs = Cours.objects.filter(id_annee_id=year_id, actif=True)
 
+        # Appliquer le filtre département optionnel.
         dept_id = request.GET.get("dept_id")
         niveau = request.GET.get("niveau")
         if dept_id:
@@ -174,6 +217,8 @@ def get_courses_by_year(request):
             except (TypeError, ValueError):
                 return api_error("dept_id doit être un entier", status=400, code="bad_request")
             qs = qs.filter(id_departement_id=dept_id)
+
+        # Appliquer le filtre niveau d'étude optionnel.
         if niveau:
             try:
                 niveau = int(niveau)
@@ -187,6 +232,8 @@ def get_courses_by_year(request):
             .order_by("id_departement__nom_departement", "code_cours")
         )
 
+        # Récupérer les inscriptions actuelles de l'étudiant en une seule requête, puis utiliser un set
+        # pour des vérifications d'appartenance en O(1) au lieu d'accès BD par cours.
         enrolled_course_ids = set()
         student_id = request.GET.get("student_id")
         if student_id:
@@ -211,6 +258,7 @@ def get_courses_by_year(request):
                 "hours": c.nombre_total_periodes,
                 "department": c.id_departement.nom_departement,
                 "has_prereq": c.prereq_count > 0,
+                # True lorsque l'étudiant est déjà inscrit (EN_COURS) à ce cours.
                 "already_enrolled": c.id_cours in enrolled_course_ids,
             })
         return api_ok(data)
@@ -226,14 +274,26 @@ def get_courses_by_year(request):
 @require_GET
 def get_courses_by_student(request):
     """
-    API — Liste les cours auxquels un étudiant est inscrit (année active).
+    Renvoie les cours auxquels un étudiant est actuellement inscrit pour l'année académique active.
 
-    Query params:
-        student_id (int, requis) : ID de l'étudiant
+    Seules les inscriptions de statut ``EN_COURS`` sont renvoyées. Si aucune
+    année académique n'est marquée active, une liste vide est retournée plutôt
+    qu'une erreur.
 
-    Réponses:
-        200 [{"id": int, "code": str, "name": str, "department": str, "level": int, "year": str}, ...]
-        400 {"error": {"code": "bad_request", "message": "student_id requis"}}
+    Parameters
+    ----------
+    request : HttpRequest
+        Paramètres GET :
+          - ``student_id`` (int, requis) — clé primaire de l'utilisateur étudiant
+
+    Returns
+    -------
+    JsonResponse
+        200 — ``[{"id": int, "code": str, "name": str,
+                  "department": str, "level": int, "year": str}, ...]``
+        400 — ``student_id`` manquant ou invalide
+        429 — limite de débit dépassée
+        500 — erreur serveur inattendue
     """
     if getattr(request, "limited", False):
         return api_error("Trop de requetes. Reessayez plus tard.", status=429, code="rate_limited")
@@ -247,6 +307,7 @@ def get_courses_by_student(request):
         return api_error("student_id doit être un entier", status=400, code="bad_request")
 
     try:
+        # Résoudre l'année académique actuellement active ; renvoyer une liste vide si aucune.
         annee_active = AnneeAcademique.objects.filter(active=True).first()
         if not annee_active:
             return api_ok([])
@@ -268,6 +329,7 @@ def get_courses_by_student(request):
                 "name": ins.id_cours.nom_cours,
                 "department": ins.id_cours.id_departement.nom_departement,
                 "level": ins.id_cours.niveau,
+                # Protection contre les cours pas encore assignés à une année académique.
                 "year": ins.id_cours.id_annee.libelle if ins.id_cours.id_annee else "",
             }
             for ins in inscriptions

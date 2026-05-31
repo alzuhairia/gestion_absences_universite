@@ -132,13 +132,14 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    {# Vue de gestion des seuils d'absence : liste les étudiants à risque + permet d'accorder ou révoquer une exemption #}
+    <!-- En-tête de page (titre + sous-titre rouge gradient) -->
     <div class="page-header text-center">
         <h1 class="mb-2"><i class="fas fa-balance-scale me-2"></i>Gestion des seuils d'absence</h1>
         <p class="mb-0 opacity-90">Gérer les exemptions et le statut des étudiants à risque</p>
     </div>
 
-    <!-- Info Banner -->
+    <!-- Bandeau d'information pédagogique pour le secrétariat -->
     <div class="info-banner">
         <div class="d-flex align-items-start">
             <i class="fas fa-info-circle fa-2x text-primary me-3 mt-1"></i>
@@ -153,7 +154,7 @@
         </div>
     </div>
 
-    <!-- Statistics -->
+    <!-- Cartes de statistiques (total à risque / bloqués / exemptés) -->
     {% if at_risk_list %}
     <div class="row mb-4">
         <div class="col-md-4">
@@ -177,7 +178,7 @@
     </div>
     {% endif %}
 
-    <!-- Students List -->
+    <!-- Liste des étudiants à risque (chaque carte = un couple inscription/cours) -->
     {% if at_risk_list %}
     <div class="row">
         {% for item in at_risk_list %}
@@ -299,7 +300,7 @@
     {% endif %}
 </div>
 
-<!-- Exemption Modal -->
+<!-- Modal d'accord d'exemption (formulaire : marge de tolérance + motif obligatoire) -->
 <div class="modal fade" id="exemptionModal" tabindex="-1" aria-labelledby="exemptionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -370,7 +371,7 @@
     </div>
 </div>
 
-<!-- Revoke Confirmation Modal -->
+<!-- Modal de confirmation de révocation d'une exemption existante -->
 <div class="modal fade" id="revokeModal" tabindex="-1" aria-labelledby="revokeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -442,7 +443,7 @@
         _currentSeuil = parseFloat(seuil);
         document.getElementById('modalStudentName').textContent = studentName;
         document.getElementById('exemptionForm').action = getToggleUrl(id);
-        // Suggest a margin that would unblock the student
+        // Propose par défaut une marge suffisante pour débloquer l'étudiant (rate - seuil + 1)
         var minMargin = Math.max(Math.ceil(_currentRate - _currentSeuil) + 1, 1);
         document.getElementById('exemption_margin').value = minMargin;
         updatePreview();

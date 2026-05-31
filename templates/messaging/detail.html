@@ -1,3 +1,18 @@
+{# ============================================================
+   Template : detail.html
+   Rôle    : Affichage d'un message reçu ou envoyé en lecture seule.
+             Présente l'expéditeur, le destinataire, la date d'envoi,
+             l'objet et le contenu, avec actions : imprimer, retour
+             à la boîte, répondre (redirige vers compose).
+   Contexte attendu :
+     - base_template : template parent selon le rôle
+     - dashboard_url : nom d'URL du tableau de bord (breadcrumb)
+     - message       : objet Message (expediteur, destinataire,
+                       objet, contenu, date_envoi)
+   Particularités : gère le cas d'un utilisateur supprimé en
+                    affichant "(Utilisateur supprimé)". Bouton
+                    imprimer câblé en JS avec nonce CSP.
+   ============================================================ #}
 {% extends base_template %}
 
 {% block title %}Lire le message{% endblock %}

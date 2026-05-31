@@ -15,8 +15,8 @@
 
     <style>
         /* ─────────────────────────────────────────────
-           UniAbsences — Design System
-           Manrope (self-served via @fontsource on jsDelivr)
+           UniAbsences — Système de design
+           Manrope (auto-hébergé via @fontsource sur jsDelivr)
            ───────────────────────────────────────────── */
         @font-face {
             font-family: 'Manrope';
@@ -55,7 +55,7 @@
         }
 
         :root {
-            /* Brand palette */
+            /* Palette de la marque */
             --sn-primary: #6366F1;
             --sn-primary-600: #4F46E5;
             --sn-primary-700: #4338CA;
@@ -69,35 +69,35 @@
             --sn-surface: #FFFFFF;
             --sn-surface-soft: #F8FAFC;
 
-            /* Text */
+            /* Texte */
             --sn-text: #0F172A;
             --sn-text-soft: #334155;
             --sn-text-muted: #64748B;
             --sn-text-on-dark: #E2E8F0;
             --sn-text-on-dark-soft: #94A3B8;
 
-            /* Borders */
+            /* Bordures */
             --sn-border: #E2E8F0;
             --sn-border-strong: #CBD5E1;
 
-            /* Glass */
+            /* Effet verre */
             --sn-glass-bg: rgba(255, 255, 255, 0.78);
             --sn-glass-border: rgba(255, 255, 255, 0.55);
 
-            /* Radii */
+            /* Rayons */
             --sn-radius-sm: 10px;
             --sn-radius-md: 14px;
             --sn-radius-lg: 20px;
             --sn-radius-xl: 28px;
 
-            /* Shadows */
+            /* Ombres */
             --sn-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
             --sn-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
             --sn-shadow-lg: 0 30px 80px -20px rgba(15, 23, 42, 0.35);
             --sn-glow-primary: 0 18px 40px -12px rgba(99, 102, 241, 0.55);
             --sn-glow-primary-strong: 0 22px 50px -10px rgba(99, 102, 241, 0.7);
 
-            /* Motion */
+            /* Mouvement */
             --sn-ease: cubic-bezier(0.22, 1, 0.36, 1);
         }
 
@@ -124,7 +124,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Layout — split shell
+           Mise en page — coque divisée
            ───────────────────────────────────────────── */
         .auth-shell {
             display: flex;
@@ -158,7 +158,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Brand pane — animated background
+           Panneau de marque — arrière-plan animé
            ───────────────────────────────────────────── */
         .brand-grid {
             position: absolute;
@@ -222,7 +222,7 @@
             50%      { transform: translate3d(-30px, 30px, 0) scale(0.95); }
         }
 
-        /* Product preview illustration (student-themed) */
+        /* Illustration d'aperçu du produit (thème étudiant) */
         .brand-illustration {
             position: absolute;
             top: 50%;
@@ -235,9 +235,9 @@
             pointer-events: none;
         }
 
-        /* Float animations applied to <g> wrappers.
-           transform-box: fill-box keeps the float local to each group's
-           bounding box so child SVG transform="" attributes are preserved. */
+        /* Animations de flottement appliquées aux wrappers <g>.
+           transform-box: fill-box garde le flottement local à la boîte
+           englobante de chaque groupe pour préserver les attributs transform="" SVG enfants. */
         .brand-illustration .ill-float {
             transform-box: fill-box;
             animation: ill-float 7s var(--sn-ease) infinite;
@@ -259,7 +259,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Brand pane — content
+           Panneau de marque — contenu
            ───────────────────────────────────────────── */
         .brand-mark {
             display: inline-flex;
@@ -419,7 +419,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Glass auth card
+           Carte d'authentification effet verre
            ───────────────────────────────────────────── */
         .auth-card {
             width: 100%;
@@ -519,7 +519,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Forms — floating labels & inputs
+           Formulaires — labels flottants et champs
            ───────────────────────────────────────────── */
         .form-floating > .form-control,
         .form-floating > .form-control-plaintext {
@@ -562,7 +562,7 @@
             transform: scale(0.78) translateY(-0.55rem) translateX(0.18rem);
         }
 
-        /* Field with leading icon */
+        /* Champ avec icône en tête */
         .field-icon-wrap {
             position: relative;
         }
@@ -583,7 +583,7 @@
             color: var(--sn-primary);
         }
 
-        /* Password show/hide button */
+        /* Bouton afficher/masquer le mot de passe */
         .password-toggle {
             position: absolute;
             top: 50%;
@@ -614,7 +614,7 @@
             padding-right: 3.25rem;
         }
 
-        /* Forgot password row */
+        /* Ligne mot de passe oublié */
         .form-row-meta {
             display: flex;
             align-items: center;
@@ -636,7 +636,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Submit button — gradient, halo, motion
+           Bouton de soumission — dégradé, halo, mouvement
            ───────────────────────────────────────────── */
         .btn-sn-primary {
             position: relative;
@@ -728,7 +728,7 @@
             z-index: 2;
         }
 
-        /* Loading spinner */
+        /* Indicateur de chargement */
         .btn-sn-primary .spinner-ring {
             width: 18px;
             height: 18px;
@@ -742,7 +742,7 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Secondary muted button */
+        /* Bouton secondaire atténué */
         .btn-sn-ghost {
             display: inline-flex;
             align-items: center;
@@ -764,7 +764,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Alerts — soft, modern
+           Alertes — douces, modernes
            ───────────────────────────────────────────── */
         .alert {
             border: 1px solid transparent;
@@ -808,10 +808,11 @@
         }
 
         /* ─────────────────────────────────────────────
-           Bootstrap form overrides — applied to all
-           auth pages that extend base_auth (password
-           reset, password change, etc.) so they inherit
-           the same look without local edits.
+           Surcharges des formulaires Bootstrap — appliquées à
+           toutes les pages d'authentification qui étendent base_auth
+           (réinitialisation du mot de passe, changement de mot de
+           passe, etc.) afin qu'elles héritent du même style sans
+           modifications locales.
            ───────────────────────────────────────────── */
         .form-label {
             font-weight: 600;
@@ -821,9 +822,9 @@
             letter-spacing: 0.005em;
         }
 
-        /* Base .form-control look (non-floating).
-           .form-floating > .form-control and .otp-input override
-           via higher specificity. */
+        /* Apparence de base de .form-control (non flottant).
+           .form-floating > .form-control et .otp-input surchargent
+           via une spécificité supérieure. */
         .form-control {
             min-height: 52px;
             padding: 0.8rem 1rem;
@@ -849,8 +850,9 @@
             margin-top: 0.5rem;
         }
 
-        /* Map .btn.btn-primary (used by password_reset, password_change…)
-           onto the gradient button so all pages stay consistent. */
+        /* Mappe .btn.btn-primary (utilisé par password_reset,
+           password_change…) sur le bouton à dégradé pour que toutes les
+           pages restent cohérentes. */
         .btn.btn-primary {
             position: relative;
             display: inline-flex;
@@ -907,7 +909,7 @@
             color: var(--sn-primary);
         }
 
-        /* Generic info note */
+        /* Note d'information générique */
         .info-message {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.06));
             border: 1px solid rgba(99, 102, 241, 0.18);
@@ -929,7 +931,7 @@
         }
 
         /* ─────────────────────────────────────────────
-           Responsive
+           Adaptation responsive
            ───────────────────────────────────────────── */
         @media (max-width: 1100px) {
             .auth-brand-pane {
@@ -999,7 +1001,7 @@
             }
         }
 
-        /* Reduced motion */
+        /* Mouvement réduit */
         @media (prefers-reduced-motion: reduce) {
             *,
             *::before,
@@ -1010,7 +1012,7 @@
             }
         }
 
-        /* Accessibility: visible focus */
+        /* Accessibilité : focus visible */
         a:focus-visible,
         button:focus-visible,
         input:focus-visible {
@@ -1029,7 +1031,7 @@
             border: 0 !important;
         }
 
-        /* Skip link */
+        /* Lien d'évitement */
         .skip-link {
             position: absolute;
             top: 12px;
@@ -1051,17 +1053,17 @@
     <a href="#auth-main" class="skip-link visually-hidden-focusable">Aller au contenu principal</a>
 
     <div class="auth-shell">
-        <!-- ───────────────────── LEFT — Brand pane ───────────────────── -->
+        <!-- ───────────────────── GAUCHE — Panneau de marque ───────────────────── -->
         <aside class="auth-brand-pane" aria-hidden="false">
             <div class="brand-grid" aria-hidden="true"></div>
             <div class="brand-orb brand-orb--a" aria-hidden="true"></div>
             <div class="brand-orb brand-orb--b" aria-hidden="true"></div>
             <div class="brand-orb brand-orb--c" aria-hidden="true"></div>
 
-            <!-- Student-themed product preview illustration -->
+            <!-- Illustration d'aperçu du produit sur le thème étudiant -->
             <svg class="brand-illustration" viewBox="0 0 560 540" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
-                    <!-- Soft drop shadow for floating cards -->
+                    <!-- Ombre portée douce pour les cartes flottantes -->
                     <filter id="sn-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
                         <feOffset dx="0" dy="6" result="off"/>
@@ -1074,7 +1076,7 @@
                         </feMerge>
                     </filter>
 
-                    <!-- Header gradients -->
+                    <!-- Dégradés d'en-tête -->
                     <linearGradient id="sn-header-grad" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stop-color="#6366F1"/>
                         <stop offset="100%" stop-color="#8B5CF6"/>
@@ -1088,7 +1090,7 @@
                         <stop offset="100%" stop-color="#312E81"/>
                     </linearGradient>
 
-                    <!-- Avatar gradients -->
+                    <!-- Dégradés d'avatar -->
                     <linearGradient id="sn-av1" x1="0" y1="0" x2="1" y2="1">
                         <stop offset="0%" stop-color="#C7D2FE"/>
                         <stop offset="100%" stop-color="#A5B4FC"/>
@@ -1107,13 +1109,13 @@
                     </linearGradient>
                 </defs>
 
-                <!-- Background dashed connector curves -->
+                <!-- Courbes de connexion en pointillés en arrière-plan -->
                 <g opacity="0.28" stroke="#A5B4FC" stroke-width="1.2" stroke-dasharray="3 6" fill="none">
                     <path d="M 60 110 Q 280 30, 510 130"/>
                     <path d="M 70 460 Q 280 530, 510 450"/>
                 </g>
 
-                <!-- Stack of books (top-left) -->
+                <!-- Pile de livres (en haut à gauche) -->
                 <g class="ill-float-fast">
                     <g transform="translate(40, 80)">
                         <rect x="0" y="32" width="84" height="14" rx="3" fill="#A5B4FC"/>
@@ -1128,41 +1130,41 @@
                     </g>
                 </g>
 
-                <!-- Graduation cap (top-right) -->
+                <!-- Toque de diplômé (en haut à droite) -->
                 <g class="ill-float-slow">
                     <g transform="translate(425, 50)">
-                        <!-- Mortarboard top -->
+                        <!-- Plateau de la toque -->
                         <polygon points="0,22 60,4 120,22 60,40" fill="url(#sn-cap-grad)"/>
                         <polygon points="0,22 60,4 120,22 60,40" fill="#fff" opacity="0.08"/>
-                        <!-- Cap base -->
+                        <!-- Base de la toque -->
                         <path d="M 22 30 Q 22 56, 60 56 Q 98 56, 98 30 L 92 33 Q 92 50, 60 50 Q 28 50, 28 33 Z"
                               fill="url(#sn-cap-grad)"/>
-                        <!-- Tassel string -->
+                        <!-- Ficelle du pompon -->
                         <path d="M 110 24 Q 116 36, 112 54" stroke="#FBBF24" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-                        <!-- Tassel knot + ball -->
+                        <!-- Nœud et boule du pompon -->
                         <circle cx="112" cy="56" r="4" fill="#F59E0B"/>
                         <rect x="108" y="50" width="8" height="3" rx="1" fill="#FBBF24"/>
                     </g>
                 </g>
 
-                <!-- Main attendance dashboard card -->
+                <!-- Carte principale du tableau de bord de présence -->
                 <g class="ill-float">
                     <g transform="translate(85, 145)">
-                        <!-- Card body -->
+                        <!-- Corps de la carte -->
                         <rect x="0" y="0" width="380" height="290" rx="22" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
                         <rect x="0" y="0" width="380" height="290" rx="22" fill="none" stroke="rgba(99,102,241,0.18)" stroke-width="1"/>
 
-                        <!-- Header band (only top corners rounded) -->
+                        <!-- Bande d'en-tête (seuls les coins supérieurs sont arrondis) -->
                         <path d="M 0 22 Q 0 0, 22 0 L 358 0 Q 380 0, 380 22 L 380 60 L 0 60 Z" fill="url(#sn-header-grad)"/>
 
-                        <!-- Header: course icon + title bars -->
+                        <!-- En-tête : icône du cours + barres de titre -->
                         <circle cx="30" cy="30" r="11" fill="#fff" opacity="0.22"/>
                         <text x="30" y="34" fill="#fff" font-size="11" font-weight="800" text-anchor="middle"
                               font-family="Manrope, ui-sans-serif, system-ui, sans-serif">UA</text>
                         <rect x="50" y="22" width="135" height="7" rx="3.5" fill="#fff" opacity="0.9"/>
                         <rect x="50" y="35" width="92" height="5" rx="2.5" fill="#fff" opacity="0.55"/>
 
-                        <!-- Header right pill: "EN COURS" -->
+                        <!-- Pilule à droite de l'en-tête : « EN COURS » -->
                         <rect x="280" y="20" width="84" height="22" rx="11" fill="rgba(255,255,255,0.22)"/>
                         <circle cx="294" cy="31" r="3" fill="#86EFAC">
                             <animate attributeName="opacity" values="0.5;1;0.5" dur="2.4s" repeatCount="indefinite"/>
@@ -1170,12 +1172,12 @@
                         <text x="324" y="35" fill="#fff" font-size="9.5" font-weight="800" text-anchor="middle"
                               font-family="Manrope, ui-sans-serif, system-ui, sans-serif">EN COURS</text>
 
-                        <!-- Subtle divider under header -->
+                        <!-- Séparateur subtil sous l'en-tête -->
                         <line x1="22" y1="80" x2="358" y2="80" stroke="#F1F5F9" stroke-width="1"/>
                         <text x="22" y="98" fill="#94A3B8" font-size="9" font-weight="700"
                               font-family="Manrope, ui-sans-serif, system-ui, sans-serif" letter-spacing="1">LISTE DE PRÉSENCES · 09/04</text>
 
-                        <!-- Row 1 — present -->
+                        <!-- Ligne 1 — présent -->
                         <g transform="translate(0, 130)">
                             <circle cx="38" cy="0" r="17" fill="url(#sn-av1)"/>
                             <text x="38" y="4" fill="#3730A3" font-size="11" font-weight="800" text-anchor="middle"
@@ -1187,7 +1189,7 @@
                                   stroke-linecap="round" stroke-linejoin="round"/>
                         </g>
 
-                        <!-- Row 2 — present -->
+                        <!-- Ligne 2 — présent -->
                         <g transform="translate(0, 172)">
                             <circle cx="38" cy="0" r="17" fill="url(#sn-av2)"/>
                             <text x="38" y="4" fill="#92400E" font-size="11" font-weight="800" text-anchor="middle"
@@ -1199,7 +1201,7 @@
                                   stroke-linecap="round" stroke-linejoin="round"/>
                         </g>
 
-                        <!-- Row 3 — pending (justification under review) -->
+                        <!-- Ligne 3 — en attente (justification en cours d'examen) -->
                         <g transform="translate(0, 214)">
                             <circle cx="38" cy="0" r="17" fill="url(#sn-av3)"/>
                             <text x="38" y="4" fill="#166534" font-size="11" font-weight="800" text-anchor="middle"
@@ -1212,7 +1214,7 @@
                             <circle cx="338" cy="0" r="9" fill="none" stroke="#F59E0B" stroke-width="2"/>
                         </g>
 
-                        <!-- Row 4 — present -->
+                        <!-- Ligne 4 — présent -->
                         <g transform="translate(0, 256)">
                             <circle cx="38" cy="0" r="17" fill="url(#sn-av4)"/>
                             <text x="38" y="4" fill="#9D174D" font-size="11" font-weight="800" text-anchor="middle"
@@ -1226,18 +1228,18 @@
                     </g>
                 </g>
 
-                <!-- Floating mini-calendar (overlaps top-right of main card) -->
+                <!-- Mini-calendrier flottant (chevauche le coin supérieur droit de la carte principale) -->
                 <g class="ill-float-slow">
                     <g transform="translate(370, 95)">
                         <rect x="0" y="0" width="160" height="148" rx="16" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
                         <rect x="0" y="0" width="160" height="148" rx="16" fill="none" stroke="rgba(139,92,246,0.20)" stroke-width="1"/>
 
-                        <!-- Header -->
+                        <!-- En-tête -->
                         <path d="M 0 16 Q 0 0, 16 0 L 144 0 Q 160 0, 160 16 L 160 40 L 0 40 Z" fill="url(#sn-cal-grad)"/>
                         <text x="80" y="26" fill="#fff" font-size="11" font-weight="800" text-anchor="middle"
                               font-family="Manrope, ui-sans-serif, system-ui, sans-serif" letter-spacing="0.5">MARS 2026</text>
 
-                        <!-- Day labels -->
+                        <!-- Libellés des jours -->
                         <g fill="#94A3B8" font-size="8" font-weight="700" text-anchor="middle"
                            font-family="Manrope, ui-sans-serif, system-ui, sans-serif">
                             <text x="22" y="58">L</text>
@@ -1249,9 +1251,9 @@
                             <text x="142" y="58">D</text>
                         </g>
 
-                        <!-- Calendar dots: 4 rows × 7 cols, mostly green = present, one purple = today -->
+                        <!-- Points du calendrier : 4 lignes × 7 colonnes, majoritairement vert = présent, un violet = aujourd'hui -->
                         <g>
-                            <!-- Row 1 -->
+                            <!-- Ligne 1 -->
                             <circle cx="22"  cy="74" r="3.5" fill="#E2E8F0"/>
                             <circle cx="42"  cy="74" r="3.5" fill="#22C55E"/>
                             <circle cx="62"  cy="74" r="3.5" fill="#22C55E"/>
@@ -1259,7 +1261,7 @@
                             <circle cx="102" cy="74" r="3.5" fill="#22C55E"/>
                             <circle cx="122" cy="74" r="3.5" fill="#E2E8F0"/>
                             <circle cx="142" cy="74" r="3.5" fill="#E2E8F0"/>
-                            <!-- Row 2 -->
+                            <!-- Ligne 2 -->
                             <circle cx="22"  cy="92" r="3.5" fill="#22C55E"/>
                             <circle cx="42"  cy="92" r="3.5" fill="#F59E0B"/>
                             <circle cx="62"  cy="92" r="3.5" fill="#22C55E"/>
@@ -1267,7 +1269,7 @@
                             <circle cx="102" cy="92" r="3.5" fill="#22C55E"/>
                             <circle cx="122" cy="92" r="3.5" fill="#E2E8F0"/>
                             <circle cx="142" cy="92" r="3.5" fill="#E2E8F0"/>
-                            <!-- Row 3 — TODAY highlighted -->
+                            <!-- Ligne 3 — AUJOURD'HUI mis en évidence -->
                             <circle cx="22"  cy="110" r="3.5" fill="#22C55E"/>
                             <circle cx="42"  cy="110" r="3.5" fill="#22C55E"/>
                             <circle cx="62"  cy="110" r="8"   fill="#8B5CF6"/>
@@ -1277,7 +1279,7 @@
                             <circle cx="102" cy="110" r="3.5" fill="#E2E8F0"/>
                             <circle cx="122" cy="110" r="3.5" fill="#E2E8F0"/>
                             <circle cx="142" cy="110" r="3.5" fill="#E2E8F0"/>
-                            <!-- Row 4 -->
+                            <!-- Ligne 4 -->
                             <circle cx="22"  cy="128" r="3.5" fill="#E2E8F0"/>
                             <circle cx="42"  cy="128" r="3.5" fill="#E2E8F0"/>
                             <circle cx="62"  cy="128" r="3.5" fill="#E2E8F0"/>
@@ -1289,17 +1291,17 @@
                     </g>
                 </g>
 
-                <!-- Floating circular progress badge "94 % Présence" (bottom-left) -->
+                <!-- Badge de progression circulaire flottant « 94 % Présence » (en bas à gauche) -->
                 <g class="ill-float-fast">
                     <g transform="translate(25, 380)">
                         <circle cx="60" cy="60" r="58" fill="#FFFFFF" filter="url(#sn-card-shadow)"/>
-                        <!-- Progress track -->
+                        <!-- Piste de progression -->
                         <circle cx="60" cy="60" r="46" fill="none" stroke="#E2E8F0" stroke-width="8"/>
-                        <!-- Progress arc — 94% of full circle (~272°) -->
+                        <!-- Arc de progression — 94 % du cercle complet (~272°) -->
                         <circle cx="60" cy="60" r="46" fill="none" stroke="#22C55E" stroke-width="8"
                                 stroke-dasharray="272 290" stroke-linecap="round"
                                 transform="rotate(-90 60 60)"/>
-                        <!-- Center text -->
+                        <!-- Texte au centre -->
                         <text x="60" y="60" fill="#0F172A" font-size="22" font-weight="800" text-anchor="middle"
                               font-family="Manrope, ui-sans-serif, system-ui, sans-serif">94%</text>
                         <text x="60" y="78" fill="#64748B" font-size="9" font-weight="700" text-anchor="middle"
@@ -1307,7 +1309,7 @@
                     </g>
                 </g>
 
-                <!-- Decorative animated dots -->
+                <!-- Points animés décoratifs -->
                 <g>
                     <circle cx="510" cy="280" r="5" fill="#22C55E">
                         <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite"/>

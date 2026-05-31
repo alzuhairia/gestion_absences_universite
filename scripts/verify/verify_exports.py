@@ -1,3 +1,4 @@
+"""Script de vérification — génère les exports PDF/Excel et contrôle que les fichiers produits sont valides."""
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from apps.accounts.models import User
 from apps.dashboard.views_export import export_student_pdf, export_at_risk_excel
 
 def verify():
+    """Génère un export PDF étudiant et un export Excel des étudiants à risque, puis vérifie leur statut HTTP."""
     print("Verifying Export & Reporting...")
     
     # 1. Verify PDF Export

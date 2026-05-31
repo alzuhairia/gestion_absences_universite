@@ -25,17 +25,19 @@ logger = logging.getLogger(__name__)
 
 
 def _health_rate_limit(group, request) -> str:
+    """Renvoie la chaîne de quota (ex. ``5/m``) lue dans ``settings.HEALTHCHECK_RATE_LIMIT``."""
     return settings.HEALTHCHECK_RATE_LIMIT
 
 
 @lru_cache(maxsize=1)
 def _health_allowlist_networks_cached(cidrs_tuple):
     """
-    Parse the configured CIDR allowlist into ``ip_network`` objects.
+    Parse l'allowlist CIDR configurée en objets ``ip_network``.
 
-    Cached on the immutable settings tuple so the parsing only happens once
-    per process. The cache key changes automatically if HEALTHCHECK_ALLOWLIST_CIDRS
-    is reloaded with a different list (e.g. on settings reload in tests).
+    Mis en cache sur le tuple immuable des settings, de sorte que le parsing
+    n'ait lieu qu'une seule fois par processus. La clé de cache change
+    automatiquement si HEALTHCHECK_ALLOWLIST_CIDRS est rechargé avec une
+    liste différente (par ex. lors d'un rechargement des settings en tests).
     """
     networks = []
     for cidr in cidrs_tuple:
@@ -49,12 +51,14 @@ def _health_allowlist_networks_cached(cidrs_tuple):
 
 
 def _health_allowlist_networks():
+    """Façade qui invoque la version cachée avec la liste CIDR courante des settings."""
     return _health_allowlist_networks_cached(
         tuple(settings.HEALTHCHECK_ALLOWLIST_CIDRS)
     )
 
 
 def _is_health_client_allowed(client_ip: str) -> bool:
+    """Retourne ``True`` si ``client_ip`` appartient à l'un des réseaux autorisés."""
     try:
         parsed = ipaddress.ip_address(client_ip)
     except ValueError:
@@ -78,8 +82,8 @@ def health_check(request):
         429 {"status": "error", "error": "Too Many Requests"}  — rate limit (HEALTHCHECK_RATE_LIMIT)
         503 {"status": "error", "error": "Service unavailable"}  — DB inaccessible
     """
-    # Never log query strings for this endpoint. This avoids accidental token leakage
-    # from malformed requests sent with query parameters.
+    # Ne jamais logger les query strings pour cet endpoint. Cela évite une fuite
+    # accidentelle de token via des requêtes mal formées envoyées avec des paramètres.
     request.META["QUERY_STRING"] = ""
 
     if getattr(request, "limited", False):

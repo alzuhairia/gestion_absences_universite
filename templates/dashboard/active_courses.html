@@ -175,7 +175,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    <!-- En-tête de page -->
     <div class="page-header text-center">
         <h1 class="mb-2">
             <i class="fas fa-book me-2"></i>Cours Actifs
@@ -192,14 +192,14 @@
         </p>
     </div>
 
-    <!-- Business Rule Info -->
+    <!-- Information sur la règle métier -->
     <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-2"></i>
         <strong>Règle métier :</strong> Un cours est considéré comme actif s'il a un professeur assigné 
         <strong>ET</strong> (a des séances <strong>OU</strong> des inscriptions) dans l'année académique courante.
     </div>
 
-    <!-- Filters Card -->
+    <!-- Carte des filtres -->
     <div class="filters-card">
         <form method="get" class="row g-3">
             <div class="col-md-3">
@@ -263,7 +263,7 @@
         </form>
     </div>
 
-    <!-- Courses List -->
+    <!-- Liste des cours -->
     {% if courses_data %}
     <div class="row">
         {% for item in courses_data %}

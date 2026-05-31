@@ -1,3 +1,15 @@
+{# ============================================================
+   Template : disable_2fa.html
+   Rôle    : Formulaire de confirmation pour désactiver la double
+             authentification (2FA) sur le compte de l'utilisateur.
+             Exige la saisie du mot de passe actuel et affiche un
+             avertissement sur la baisse de sécurité.
+   Contexte attendu :
+     - base_template : template parent selon le rôle (défaut base.html)
+     - user          : utilisateur authentifié (implicite)
+   Particularités : POST sur accounts:disable_2fa, champ password
+                    en autocomplete="current-password".
+   ============================================================ #}
 {% extends base_template|default:'base.html' %}
 
 {% block title %}Désactiver la 2FA{% endblock %}

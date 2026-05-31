@@ -1,15 +1,17 @@
 """
-Management command: push N demo students over the absence threshold so they
-appear in the "at risk / ineligible" screens.
+Commande de management — force N étudiants de démo au-dessus du seuil d'absence.
 
-Usage:
-    python manage.py seed_at_risk              # default: 10 students, 3 courses each
+Permet de peupler les écrans « à risque / inéligible » avec un dataset cohérent
+pour les démonstrations et tests de bout en bout.
+
+Utilisation :
+    python manage.py seed_at_risk              # défaut : 10 étudiants, 3 cours chacun
     python manage.py seed_at_risk --students 5 --courses 4
     python manage.py seed_at_risk --year-label 2025-2026
 
-For each targeted student, the command picks --courses of their active
-inscriptions and creates enough NON_JUSTIFIEE absences (on existing seances)
-to push their absence rate strictly above the course's seuil.
+Pour chaque étudiant ciblé, la commande choisit ``--courses`` de ses inscriptions
+actives et crée suffisamment d'absences ``NON_JUSTIFIEE`` (sur les séances existantes)
+pour porter son taux d'absence strictement au-dessus du seuil du cours.
 """
 
 from decimal import Decimal
@@ -24,25 +26,29 @@ from apps.enrollments.models import Inscription
 
 
 class Command(BaseCommand):
-    help = "Mark N demo students as at-risk by exceeding the absence threshold."
+    """Commande Django : marque ``--students`` étudiants démo comme « à risque » en dépassant le seuil."""
+
+    help = "Marque N étudiants démo comme à risque en dépassant le seuil d'absences."
 
     def add_arguments(self, parser):
+        """Déclare les options CLI : nombre d'étudiants, de cours et année académique cible."""
         parser.add_argument("--students", type=int, default=10)
         parser.add_argument(
             "--courses",
             type=int,
             default=3,
-            help="How many courses per student to push over the threshold.",
+            help="Nombre de cours par étudiant à pousser au-dessus du seuil.",
         )
         parser.add_argument(
             "--year-label",
             type=str,
             default=None,
-            help="Label of the academic year to use (e.g. 2025-2026). "
-            "If omitted, uses the active year or computes one from today.",
+            help="Libellé de l'année académique à utiliser (ex. 2025-2026). "
+            "Si omis, utilise l'année active.",
         )
 
     def handle(self, *args, **opts):
+        """Point d'entrée : sélectionne les étudiants démo et leur crée des absences au-delà du seuil."""
         nb_students = opts["students"]
         nb_courses = opts["courses"]
 
@@ -122,7 +128,7 @@ class Command(BaseCommand):
 
     # -------------------------------------------------------- #
     def _resolve_academic_year(self, label=None):
-        """Return the matching AnneeAcademique without creating one."""
+        """Retourne l'``AnneeAcademique`` correspondante sans en créer de nouvelle."""
         if label:
             year = AnneeAcademique.objects.filter(libelle=label).first()
             if year:
@@ -137,8 +143,8 @@ class Command(BaseCommand):
     # -------------------------------------------------------- #
     def _push_over_threshold(self, inscription, encoder):
         """
-        Create NON_JUSTIFIEE absences on existing seances until
-        (hours_absent / total_periodes) * 100 > seuil.
+        Crée des absences ``NON_JUSTIFIEE`` sur les séances existantes jusqu'à
+        ce que ``(heures_absent / total_periodes) * 100 > seuil``.
         """
         cours = inscription.id_cours
         seuil = cours.get_seuil_absence()

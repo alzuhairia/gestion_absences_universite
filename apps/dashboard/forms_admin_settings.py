@@ -1,6 +1,19 @@
 """
-FICHIER : apps/dashboard/forms_admin_settings.py
-RESPONSABILITE : Formulaires admin — Paramètres système et Années académiques
+Formulaires des paramètres système et des années académiques pour le tableau de bord d'administration UniAbsences.
+
+Forms
+-----
+``SystemSettingsForm``
+    Édite l'enregistrement singleton ``SystemSettings`` : seuil
+    d'absence par défaut, délai d'inactivité de session et exigences
+    de complexité des mots de passe.
+
+``AnneeAcademiqueForm``
+    Crée / met à jour une année académique ; le ``save()`` du
+    formulaire désactive toutes les autres années lorsque le nouvel
+    enregistrement est défini avec ``active = True``.
+
+Fait partie du système de tableau de bord UniAbsences.
 """
 
 from django import forms
@@ -10,7 +23,27 @@ from apps.dashboard.models import SystemSettings
 
 
 class SystemSettingsForm(forms.ModelForm):
+    """
+    ModelForm pour l'édition de l'enregistrement singleton ``SystemSettings``.
+
+    Expose tous les paramètres système configurables regroupés en
+    quatre sections :
+
+    - **Règles académiques** — seuil d'absence par défaut et type de blocage.
+    - **Politique de mots de passe** — longueur minimale et exigences
+      de classes de caractères.
+    - **MFA** — bascule globale d'authentification à deux facteurs.
+    - **Présence GPS / QR** — coordonnées de l'établissement, rayon
+      d'acceptation et intervalle de rotation du jeton QR.
+    - **RGPD** — durée de conservation des données personnelles en jours.
+
+    Le champ ``data_retention_days`` est exclu des ``labels`` et
+    ``help_texts`` ici, et documenté au niveau du modèle à la place.
+    """
+
     class Meta:
+        """Configuration ModelForm : modèle ``SystemSettings`` et widgets/labels pour chaque réglage."""
+
         model = SystemSettings
         fields = [
             "default_absence_threshold",
@@ -81,7 +114,19 @@ class SystemSettingsForm(forms.ModelForm):
 
 
 class AnneeAcademiqueForm(forms.ModelForm):
+    """
+    ModelForm pour la création et la mise à jour d'une ``AnneeAcademique`` (année académique).
+
+    Applique la règle métier d'une seule année active : lorsqu'une
+    année est sauvegardée avec ``active=True``, ``save()`` désactive
+    toutes les autres années actives à l'intérieur d'une transaction
+    de base de données de sorte qu'exactement une année soit marquée
+    active à tout moment.
+    """
+
     class Meta:
+        """Configuration ModelForm : modèle ``AnneeAcademique``, deux champs et widgets Bootstrap."""
+
         model = AnneeAcademique
         fields = ["libelle", "active"]
         widgets = {
@@ -98,12 +143,32 @@ class AnneeAcademiqueForm(forms.ModelForm):
         }
 
     def save(self, commit=True):
+        """
+        Sauvegarde l'année académique en appliquant la contrainte d'une seule année active.
+
+        Lorsque ``active=True``, tous les autres enregistrements
+        ``AnneeAcademique`` actuellement actifs sont désactivés de
+        manière atomique avant que l'enregistrement nouveau/mis à jour
+        soit sauvegardé.
+
+        Parameters
+        ----------
+        commit : bool, optional
+            Lorsque ``False``, retourne l'instance non sauvegardée
+            sans toucher à la base de données.  Par défaut ``True``.
+
+        Returns
+        -------
+        AnneeAcademique
+            L'instance d'année académique sauvegardée (ou préparée).
+        """
         instance = super().save(commit=False)
         if commit:
             if instance.active:
                 from django.db import transaction
 
                 with transaction.atomic():
+                    # Désactive toutes les autres années avant d'activer celle-ci.
                     AnneeAcademique.objects.exclude(pk=instance.pk).filter(
                         active=True
                     ).update(active=False)

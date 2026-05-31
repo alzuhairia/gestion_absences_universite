@@ -1,9 +1,20 @@
 """
-FICHIER : apps/absences/forms.py
-RESPONSABILITE : Formulaire d'encodage d'absences justifiees par le secretariat
-FONCTIONNALITES PRINCIPALES :
-  - SecretaryJustifiedAbsenceForm : encodage avec document optionnel
-DEPENDANCES CLES : apps.absences.models, apps.accounts.models, apps.academics.models, apps.academic_sessions.models
+Formulaires pour l'encodage direct d'absences par le secrétariat.
+
+Ce module fournit le formulaire Django utilisé par le secrétariat pour encoder
+directement des absences — en contournant le flux de marquage d'absence du
+professeur. Cela est utile lorsqu'un étudiant remet un justificatif papier au
+bureau ou lorsque le secrétariat doit enregistrer une absence rétroactivement.
+
+Responsabilités :
+  - SecretaryJustifiedAbsenceForm : collecter l'étudiant, la date, les cours
+    concernés, le type/la durée d'absence, une plage horaire facultative, un
+    commentaire interne et un fichier justificatif facultatif.
+  - Filtrer les cours disponibles à l'année académique active.
+  - Validation croisée des champs (l'absence partielle requiert une durée ; la
+    plage horaire doit être complète et logiquement ordonnée).
+
+Fait partie du système de gestion des absences UniAbsences.
 """
 
 from typing import cast
@@ -18,7 +29,21 @@ from apps.accounts.models import User
 
 class SecretaryJustifiedAbsenceForm(forms.Form):
     """
-    Formulaire pour que le secrétariat encode une absence justifiée.
+    Formulaire pour le secrétariat permettant d'encoder directement une absence pour un étudiant.
+
+    Permet d'encoder en une seule étape les absences justifiées (avec un
+    document justificatif) et non justifiées. Plusieurs cours peuvent être
+    sélectionnés pour la même date, créant un enregistrement d'absence par
+    cours sélectionné.
+
+    Le queryset cours est peuplé dynamiquement dans __init__ pour inclure
+    uniquement les cours de l'année académique actuellement active.
+
+    Règles de validation appliquées dans clean() :
+      - duree_absence est requise lorsque type_absence vaut PARTIEL.
+      - heure_debut et heure_fin sont mutuellement requises (soit les deux
+        présentes, soit les deux absentes).
+      - heure_fin doit être strictement postérieure à heure_debut.
     """
 
     etudiant = forms.ModelChoiceField(
@@ -96,9 +121,16 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialise le formulaire et peuple le queryset cours pour l'année académique active.
+
+        Si aucune année académique n'est actuellement active, le champ cours est
+        laissé vide afin que le formulaire puisse tout de même être rendu (avec
+        une erreur explicative affichée par la vue).
+        """
         super().__init__(*args, **kwargs)
 
-        # Filtrer les cours par année académique active
+        # Filtrer les cours à l'année académique active uniquement.
         annee_active = AnneeAcademique.objects.filter(active=True).first()
         if annee_active:
             cast(forms.ModelMultipleChoiceField, self.fields["cours"]).queryset = (
@@ -110,13 +142,27 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
             cast(forms.ModelMultipleChoiceField, self.fields["cours"]).queryset = Cours.objects.none()
 
     def clean(self):
+        """
+        Applique les règles de validation croisée des champs.
+
+        Règles :
+          - Une absence partielle (PARTIEL) doit comporter une durée explicite positive.
+          - Si heure_debut est fournie, heure_fin est requise, et inversement.
+          - heure_fin doit être strictement postérieure à heure_debut.
+
+        Returns:
+            dict: Le dictionnaire cleaned_data validé.
+
+        Raises:
+            forms.ValidationError: indexée par le nom du champ en erreur.
+        """
         cleaned_data = super().clean()
         type_absence = cleaned_data.get("type_absence")
         duree_absence = cleaned_data.get("duree_absence")
         heure_debut = cleaned_data.get("heure_debut")
         heure_fin = cleaned_data.get("heure_fin")
 
-        # Si type = PARTIEL, la durée est requise
+        # Une absence partielle doit avoir une durée explicite (pas de valeur par défaut sur la séance complète).
         if type_absence == Absence.TypeAbsence.PARTIEL and (not duree_absence or duree_absence <= 0):
             raise forms.ValidationError(
                 {"duree_absence": "La durée est requise pour une absence partielle."}

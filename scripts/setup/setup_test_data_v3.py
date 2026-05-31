@@ -1,14 +1,48 @@
+"""
+UniAbsences – scripts.setup.setup_test_data_v3
+===============================================
+
+Version 3 data-seeding script.  Fixes a model mismatch discovered during
+development: the ``Seance`` model does not have a ``type_seance`` field, so
+that argument is removed from session creation calls.  The required
+``id_annee`` field is added to ``Seance`` instead.
+
+Key differences from V2
+-----------------------
+* ``AnneeAcademique`` is looked up by ``libelle`` (not ``code_annee``), which
+  matches the actual model field name on the deployed schema.
+* ``Seance.objects.create`` no longer passes ``type_seance`` (field does not
+  exist on the model in this version of the schema).
+* ``id_annee`` is explicitly set on every ``Seance`` record.
+* Idempotency guard: if a justification is already present via the reverse
+  relation, it is not created again.
+
+What this script creates
+------------------------
+Same logical dataset as V2 (admin, student, INFO101, 2024-2025 year,
+enrollment, two absences, one justification) but with corrected field usage.
+
+Usage
+-----
+::
+
+    python scripts/setup/setup_test_data_v3.py
+
+Part of: UniAbsences setup / test-data seeding layer (v3).
+"""
+
 import os
 import sys
 from pathlib import Path
-# Ajouter le répertoire racine au PYTHONPATH
+
+# Bootstrap Django before any app imports.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 import django
 django.setup()
-from datetime import date
+
 from apps.accounts.models import User
 from apps.academics.models import Faculte, Departement, Cours
 from apps.enrollments.models import Inscription
@@ -17,13 +51,22 @@ from apps.absences.models import Absence, Justification
 from django.utils import timezone
 from datetime import timedelta
 
-def create_test_data():
+
+def create_test_data() -> None:
+    """Seed the V3 test dataset with corrected model field usage.
+
+    Creates or retrieves all required records.  Absence and justification
+    creation is skipped if records already exist; a missing justification is
+    added on existing data if needed.
+    """
     print("Creating test data with CORRECT Models...")
 
-    # 1. Users
+    # ------------------------------------------------------------------
+    # Step 1 – Users
+    # ------------------------------------------------------------------
     admin_email = "admin@uni.edu"
     if not User.objects.filter(email=admin_email).exists():
-        admin = User.objects.create_superuser(
+        User.objects.create_superuser(
             email=admin_email,
             nom="Admin",
             prenom="Super",
@@ -47,13 +90,15 @@ def create_test_data():
         print(f"Student already exists: {student_email}")
         student = User.objects.get(email=student_email)
 
-    # 2. Academics
+    # ------------------------------------------------------------------
+    # Step 2 – Academic hierarchy
+    # ------------------------------------------------------------------
     faculte, _ = Faculte.objects.get_or_create(nom_faculte="Sciences")
     departement, _ = Departement.objects.get_or_create(
-        nom_departement="Informatique", 
+        nom_departement="Informatique",
         defaults={'id_faculte': faculte}
     )
-    
+
     cours, _ = Cours.objects.get_or_create(
         code_cours="INFO101",
         defaults={
@@ -63,17 +108,16 @@ def create_test_data():
             'id_departement': departement
         }
     )
-    
-    # 3. Annee (Fix: libelle)
-    # Note: 'active' field exists but let's stick to defaults or set it
+
+    # V3 fix: use ``libelle`` as the lookup key (the actual model field name).
     annee, _ = AnneeAcademique.objects.get_or_create(
         libelle="2024-2025",
-        defaults={
-            'active': True
-        }
+        defaults={'active': True}
     )
 
-    # 4. Enrollment
+    # ------------------------------------------------------------------
+    # Step 3 – Enrollment
+    # ------------------------------------------------------------------
     inscription, created = Inscription.objects.get_or_create(
         id_etudiant=student,
         id_cours=cours,
@@ -82,32 +126,25 @@ def create_test_data():
     )
     print(f"Enrollment {'created' if created else 'exists'}: {inscription}")
 
-    # 5. Sessions & Absences
-    # Fix: Seance needs id_annee
+    # ------------------------------------------------------------------
+    # Step 4 – Sessions and absences
+    # V3 fix: ``Seance`` does not have a ``type_seance`` field in this
+    # schema version; pass ``id_annee`` instead.
+    # ------------------------------------------------------------------
     current_absences = Absence.objects.filter(id_inscription=inscription).count()
-    
-    # Force delete previous absences if they are messy to ensure clean state? 
-    # Or just check count.
-    
+
     if current_absences == 0:
         base_time = timezone.now()
-        
-        # Seance 1: 4h
+
+        # Session 1 – 20 h unjustified absence.
         seance1 = Seance.objects.create(
             id_cours=cours,
-            id_annee=annee, # <--- Added
+            id_annee=annee,  # Required FK – added in V3
             date_seance=base_time.date(),
             heure_debut=base_time.time(),
-            heure_fin=(base_time + timedelta(hours=4)).time(),
-            type_seance="CM" 
-            # Note: models.py didn't show type_seance in Seance model! 
-            # Wait, step 135 output for Seance model:
-            # Contains: date_seance, heure_debut, heure_fin, id_cours, id_annee.
-            # DOES NOT contain type_seance!
-            # It was in Absence (TYPE_CHOICES) but maybe not in Seance model shown?
-            # Let's check step 135 carefully.
-            # Lines 26-42: No type_seance field.
-            # So I should NOT pass type_seance.
+            heure_fin=(base_time + timedelta(hours=4)).time()
+            # type_seance is intentionally omitted – field does not exist on
+            # the Seance model in this schema version.
         )
         Absence.objects.create(
             id_inscription=inscription,
@@ -116,11 +153,11 @@ def create_test_data():
             statut='NON_JUSTIFIEE',
             encodee_par=User.objects.first()
         )
-        
-        # Seance 2
+
+        # Session 2 – 20 h pending absence with immediate justification.
         seance2 = Seance.objects.create(
             id_cours=cours,
-            id_annee=annee, # <--- Added
+            id_annee=annee,
             date_seance=base_time.date() + timedelta(days=1),
             heure_debut=base_time.time(),
             heure_fin=(base_time + timedelta(hours=4)).time()
@@ -132,24 +169,28 @@ def create_test_data():
             statut='EN_ATTENTE',
             encodee_par=User.objects.first()
         )
-        
+
         Justification.objects.create(
             id_absence=abs_to_justify,
             document=b"fake_pdf_content",
             commentaire="Created by Setup V3",
             validee=False
         )
-        
+
         print("Created Absences and Pending Justification.")
 
     else:
         print("Absences already exist. Adding justification if needed.")
-        pending = Absence.objects.filter(id_inscription=inscription, statut='EN_ATTENTE').exists()
+        pending = Absence.objects.filter(
+            id_inscription=inscription, statut='EN_ATTENTE'
+        ).exists()
         if not pending:
             last_abs = Absence.objects.filter(id_inscription=inscription).last()
             if last_abs:
                 last_abs.statut = 'EN_ATTENTE'
                 last_abs.save()
+                # Guard against creating a duplicate justification via the
+                # reverse OneToOne accessor.
                 if not hasattr(last_abs, 'justification'):
                     Justification.objects.create(
                         id_absence=last_abs,
@@ -158,11 +199,6 @@ def create_test_data():
                         validee=False
                     )
                 print("Added missing justification.")
-
-
-if __name__ == "__main__":
-    create_test_data()
-("Added missing justification.")
 
 
 if __name__ == "__main__":

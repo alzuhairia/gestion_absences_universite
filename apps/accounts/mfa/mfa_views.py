@@ -1,11 +1,18 @@
 """
-FICHIER : apps/accounts/mfa/mfa_views.py
-RESPONSABILITE : Re-export centralisé des vues 2FA/TOTP.
+MFA views hub for the UniAbsences accounts system.
 
-Organisation :
-  mfa_setup.py  — setup_2fa (activation) + disable_2fa + _role_base_template
-  mfa_verify.py — verify_2fa (gate post-login)
-  mfa_backup.py — backup_codes_view + regenerate_backup_codes
+This module is a re-export hub — it imports all public 2FA view functions
+from their respective sub-modules and re-exports them under a single namespace.
+``accounts/urls.py`` imports from here so that URL routing code is decoupled
+from the internal sub-module layout.
+
+Sub-modules
+-----------
+``mfa_setup.py``    — ``setup_2fa`` (TOTP activation wizard), ``disable_2fa``.
+``mfa_verify.py``   — ``verify_2fa`` (post-login TOTP gate).
+``mfa_backup.py``   — ``backup_codes_view``, ``regenerate_backup_codes``.
+
+Part of the UniAbsences accounts / MFA system.
 """
 
 from .mfa_setup import disable_2fa, setup_2fa  # noqa: F401

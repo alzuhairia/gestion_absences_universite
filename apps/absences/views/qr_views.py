@@ -1,11 +1,18 @@
 """
-FICHIER : apps/absences/views/qr_views.py
-RESPONSABILITE : Re-export centralisé du système QR code de présence.
+QR attendance system hub — apps/absences/views/qr_views.py
 
-Organisation :
-  qr_utils.py    — helpers GPS, génération QR, logging (partagés par les deux fichiers)
-  qr_professor.py — qr_generate, qr_dashboard, qr_refresh_token, qr_finalize
-  qr_student.py  — qr_scan (scan étudiant avec anti-fraude GPS)
+Re-export hub that aggregates all QR attendance view symbols into a single
+namespace so that ``absences/urls.py`` can import without knowing the
+internal sub-module layout.
+
+Sub-modules
+-----------
+``qr_utils.py``    — GPS helpers, QR image generation, scan logging (shared).
+``qr_professor.py`` — ``qr_generate``, ``qr_dashboard``, ``qr_refresh_token``,
+                      ``qr_finalize``.
+``qr_student.py``  — ``qr_scan`` (GPS anti-fraud student scan endpoint).
+
+Part of the UniAbsences absences system.
 """
 
 from .qr_professor import (  # noqa: F401

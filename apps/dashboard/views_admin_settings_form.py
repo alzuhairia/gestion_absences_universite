@@ -1,6 +1,12 @@
 """
-FICHIER : apps/dashboard/views_admin_settings_form.py
-RESPONSABILITE : Formulaire de configuration des paramètres système global
+Vue du formulaire des paramètres système pour le tableau de bord administrateur UniAbsences.
+
+``admin_settings``
+    Affiche et traite le ``SystemSettingsForm``. Persiste les modifications dans
+    l'enregistrement singleton ``SystemSettings`` et redirige avec un message
+    de succès. Réservé à ``@admin_required``.
+
+Fait partie du tableau de bord UniAbsences.
 """
 
 import logging

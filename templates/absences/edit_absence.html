@@ -1,3 +1,19 @@
+{# ============================================================
+   Template : edit_absence.html
+   Rôle    : Formulaire d'édition d'une absence existante côté
+             secrétariat. Permet d'ajuster la durée, le type
+             (ABSENT / PARTIEL) et de forcer le statut
+             (EN_ATTENTE / JUSTIFIEE / NON_JUSTIFIEE) en
+             contournant le flux normal de validation.
+   Contexte attendu :
+     - absence                  : objet Absence à modifier
+     - seance_duration          : durée max de la séance (numérique)
+     - seance_duration_display  : durée formatée pour affichage
+   Particularités : la modification du statut est un OVERRIDE
+                    administratif qui sera enregistré dans le
+                    journal d'audit avec le motif obligatoire saisi
+                    par le secrétaire (champ "reason").
+   ============================================================ #}
 {% extends 'base_secretary.html' %}
 
 {% block title %}Modifier l'absence{% endblock %}

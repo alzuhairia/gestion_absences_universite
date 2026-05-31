@@ -1,6 +1,18 @@
 """
-FICHIER : apps/dashboard/views_admin_users_security.py
-RESPONSABILITE : Reset mot de passe et réinitialisation 2FA (admin)
+Vues de gestion de la sécurité administrateur pour le tableau de bord UniAbsences.
+
+Vues
+-----
+``admin_user_reset_password``
+    Génère un nouveau mot de passe aléatoire pour un compte utilisateur, définit
+    ``must_change_password = True`` et affiche le mot de passe temporaire
+    une seule fois (il n'est jamais stocké en clair après cette page).
+
+``admin_user_reset_2fa``
+    Désactive la 2FA TOTP pour un compte utilisateur et supprime ses codes de secours,
+    permettant à l'utilisateur de se réinscrire à la prochaine connexion.
+
+Fait partie du tableau de bord UniAbsences.
 """
 import logging
 

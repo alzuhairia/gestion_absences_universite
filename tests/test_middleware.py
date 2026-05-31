@@ -1,3 +1,6 @@
+"""
+Tests — résilience du middleware d'inactivité de session quand Redis tombe.
+"""
 from unittest.mock import MagicMock
 
 from django.test import RequestFactory, TestCase
@@ -7,7 +10,10 @@ from apps.accounts.models import User
 
 
 class SessionMiddlewareRedisDownTest(TestCase):
+    """Vérifie que ``SessionInactivityMiddleware`` reste robuste face à une panne du backend session."""
+
     def setUp(self):
+        """Crée un utilisateur étudiant et instancie le middleware avec un get_response sentinelle."""
         self.factory = RequestFactory()
         self.user = User.objects.create_user(
             email="user@example.com",
@@ -20,22 +26,22 @@ class SessionMiddlewareRedisDownTest(TestCase):
         self.middleware = SessionInactivityMiddleware(lambda req: self.response_sentinel)
 
     def test_session_middleware_redis_down_does_not_crash(self):
-        """If the session backend raises, the middleware must not crash or log out the user."""
+        """Si le backend de session lève une exception, le middleware ne doit ni planter ni déconnecter l'utilisateur."""
         request = self.factory.get("/")
         request.user = self.user
 
-        # Simulate a broken session (e.g. Redis connection refused)
+        # Simule une session cassée (ex. connexion Redis refusée)
         broken_session = MagicMock()
         broken_session.get.side_effect = ConnectionError("Redis is down")
         request.session = broken_session
 
         response = self.middleware(request)
 
-        # The middleware must fall through to get_response, not crash
+        # Le middleware doit déléguer à get_response sans planter
         self.assertIs(response, self.response_sentinel)
 
     def test_session_middleware_normal_flow_unaffected(self):
-        """Normal authenticated request still updates _last_activity."""
+        """Une requête authentifiée normale doit toujours mettre à jour ``_last_activity``."""
         request = self.factory.get("/")
         request.user = self.user
         request.session = {}

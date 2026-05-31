@@ -1,3 +1,23 @@
+"""Tests de contrat entre le frontend (templates) et les sessions backend.
+
+Deux familles de vérifications complémentaires :
+
+1. ``FrontendFetchGuardTemplateTests`` (SimpleTestCase, pas de base) :
+   parcourt des templates clés et vérifie qu'ils contiennent bien le
+   patron ``fetchJson`` défensif — entête ``X-Requested-With``,
+   contrôle de ``response.ok`` et du Content-Type — pour qu'une page
+   HTML servie par erreur (redirection de login, etc.) ne soit pas
+   silencieusement injectée dans un parseur JSON côté client.
+
+2. La/les suites TestCase complémentaires exercent les endpoints de
+   session réels pour confirmer le comportement attendu en cas de
+   session expirée / utilisateur non authentifié.
+
+Ce test est un garde-fou contre une régression observée par le passé :
+si le backend renvoie du HTML (login) à un appel AJAX attendant du
+JSON, l'utilisateur voit une erreur opaque côté UI. Le patron
+``fetchJson`` doit rester en place.
+"""
 from pathlib import Path
 
 from django.test import SimpleTestCase, TestCase
@@ -8,6 +28,8 @@ from apps.accounts.models import User
 
 
 class FrontendFetchGuardTemplateTests(SimpleTestCase):
+    """Vérifie que les templates critiques conservent le patron ``fetchJson`` défensif."""
+
     TEMPLATE_ASSERTIONS = {
         "templates/enrollments/manager.html": [
             "fetchJson",
@@ -50,6 +72,7 @@ class FrontendFetchGuardTemplateTests(SimpleTestCase):
     )
 
     def test_templates_keep_fetch_guard_rails(self):
+        """Chaque template listé doit toujours contenir l'ensemble des marqueurs ``fetchJson``."""
         for template_path, expected_snippets in self.TEMPLATE_ASSERTIONS.items():
             with self.subTest(template=template_path):
                 content = Path(template_path).read_text(encoding="utf-8").lower()
@@ -57,6 +80,7 @@ class FrontendFetchGuardTemplateTests(SimpleTestCase):
                     self.assertIn(snippet.lower(), content)
 
     def test_sensitive_templates_do_not_use_inner_html(self):
+        """Les templates manipulant des données utilisateurs n'utilisent pas ``innerHTML`` (anti-XSS)."""
         for template_path in self.XSS_SENSITIVE_TEMPLATES:
             with self.subTest(template=template_path):
                 content = Path(template_path).read_text(encoding="utf-8").lower()
@@ -66,7 +90,10 @@ class FrontendFetchGuardTemplateTests(SimpleTestCase):
 
 
 class FrontendSessionExpiryContractTests(TestCase):
+    """Contrat : une session expirée renvoie 401 JSON sur les endpoints AJAX consommés par le front."""
+
     def setUp(self):
+        """Crée un secrétaire et le catalogue d'endpoints AJAX à vérifier."""
         self.faculte = Faculte.objects.create(nom_faculte="Faculte Front Contract")
         self.secretary = User.objects.create_user(
             email="front-secretary@example.com",
@@ -88,6 +115,7 @@ class FrontendSessionExpiryContractTests(TestCase):
         )
 
     def test_expired_session_returns_json_401_for_front_endpoints(self):
+        """Après logout, tous les endpoints AJAX renvoient un 401 JSON cohérent (pas un HTML)."""
         self.client.force_login(self.secretary)
         self.client.logout()
 

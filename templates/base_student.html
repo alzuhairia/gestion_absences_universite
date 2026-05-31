@@ -6,12 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Espace Étudiant - Gestion des Absences{% endblock %}</title>
 
-    <!-- Bootstrap 5.3 CSS -->
+    {# Template de base pour les pages du rôle Étudiant (sidebar verte, accès consultation uniquement) #}
+    <!-- Bootstrap 5.3 CSS (CDN avec SRI) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
-    <!-- FontAwesome 6.0 -->
+    <!-- FontAwesome 6.0 (CDN avec SRI) -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" integrity="sha384-3B6NwesSXE7YJlcLI9RpRqGf2p/EgVH8BgoKTaUrmKNDkHPStTQ3EyoYjCGXaOTS" crossorigin="anonymous" referrerpolicy="no-referrer">
 
     <style>
+        /* Variables CSS : couleurs et dimensions propres au rôle Étudiant */
         :root {
             --sidebar-width: 280px;
             --student-primary: #1cc88a;
@@ -23,7 +25,7 @@
             background-color: #f8f9fa;
         }
 
-        /* Student Sidebar Styling */
+        /* Sidebar Étudiant (fixe à gauche, dégradé vert) */
         .student-sidebar {
             width: var(--sidebar-width);
             height: 100vh;
@@ -98,7 +100,7 @@
             background-color: rgba(0, 0, 0, 0.2);
         }
 
-        /* Main Content */
+        /* Zone de contenu principal (décalée à droite de la sidebar) */
         .student-main-content {
             margin-left: var(--sidebar-width);
             padding: 2rem;
@@ -106,7 +108,7 @@
             min-height: 100vh;
         }
 
-        /* Mobile Responsive */
+        /* Responsive mobile : sidebar masquée et activable via bouton burger */
         @media (max-width: 768px) {
             .student-sidebar {
                 margin-left: calc(var(--sidebar-width) * -1);
@@ -121,7 +123,7 @@
             }
         }
 
-        /* Student Cards */
+        /* Cartes Étudiant (effet ombre au survol) */
         .student-card {
             border: none;
             border-radius: 0.5rem;
@@ -142,7 +144,7 @@
             border-radius: 0.5rem 0.5rem 0 0;
         }
 
-        /* KPI Cards */
+        /* Cartes KPI (indicateurs clés sur le tableau de bord) */
         .kpi-card {
             border-left: 4px solid;
             transition: transform 0.2s;
@@ -152,7 +154,7 @@
             transform: translateY(-2px);
         }
 
-        /* Top Navbar for Mobile */
+        /* Barre de navigation supérieure visible uniquement en mobile (bouton burger) */
         .student-top-navbar {
             background: #fff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -173,7 +175,7 @@
 </head>
 
 <body>
-    <!-- Student Sidebar -->
+    <!-- Sidebar Étudiant (fixe à gauche) -->
     <nav class="student-sidebar d-flex flex-column" id="studentSidebar">
         <div class="student-sidebar-header">
             <div class="brand">
@@ -253,9 +255,9 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
+    <!-- Contenu principal (à droite de la sidebar) -->
     <div class="student-main-content">
-        <!-- Top Mobile Header -->
+        <!-- En-tête mobile (bouton burger pour afficher la sidebar) -->
         <div class="d-block d-md-none student-top-navbar rounded mb-3">
             <button class="btn btn-success btn-sm" id="studentSidebarToggle">
                 <i class="fas fa-bars"></i>
@@ -263,7 +265,7 @@
             <span class="fw-bold">Espace Étudiant</span>
         </div>
 
-        <!-- Breadcrumbs -->
+        <!-- Fil d'Ariane (chaque page enfant remplit le block breadcrumbs) -->
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Espace Étudiant</a></li>
@@ -271,7 +273,7 @@
             </ol>
         </nav>
 
-        <!-- Messages/Alerts -->
+        <!-- Messages flash Django (succès, erreur, info...) -->
         {% if messages %}
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -281,16 +283,16 @@
         {% endfor %}
         {% endif %}
 
-        <!-- Content Block -->
+        <!-- Bloc de contenu (rempli par chaque page enfant) -->
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Bootstrap Bundle with Popper -->
+    <!-- Bootstrap Bundle avec Popper (modals, tooltips, dropdowns) -->
     <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
     {% block extra_js %}{% endblock %}
 
     <script nonce="{{ request.csp_nonce }}">
-        // Toggle Student Sidebar on Mobile
+        // Bascule l'affichage de la sidebar en mode mobile
         const sidebarToggle = document.getElementById('studentSidebarToggle');
         const studentSidebar = document.getElementById('studentSidebar');
 
@@ -300,13 +302,13 @@
             });
         }
 
-        // Logout handler
+        // Gestion de la déconnexion (soumission du formulaire POST associé au lien)
         document.getElementById('logout-link').addEventListener('click', function(e) {
             e.preventDefault();
             document.getElementById('logout-form').submit();
         });
 
-        // Initialize tooltips
+        // Initialisation des tooltips Bootstrap sur tous les éléments concernés
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)

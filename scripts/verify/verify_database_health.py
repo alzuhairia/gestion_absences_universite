@@ -1,3 +1,4 @@
+"""Verification script — runs health checks on the database (connectivity, table counts, constraints)."""
 import os
 import sys
 from pathlib import Path

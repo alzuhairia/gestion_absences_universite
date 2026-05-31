@@ -15,13 +15,13 @@ from .test_absences import BaseAbsenceTestCase
 
 
 class LockedSeanceTests(BaseAbsenceTestCase):
-    """Tests that a validated (locked) seance blocks absence creation."""
+    """Vérifie qu'une séance validée (verrouillée) empêche la création d'absences."""
 
     def test_absence_creation_blocked_for_locked_seance(self):
         """
-        Simulates TOCTOU: seance is unlocked when the form loads,
-        but gets validated before the POST is processed. The
-        select_for_update + re-check must reject the submission.
+        Simule un TOCTOU : la séance est déverrouillée au chargement du formulaire,
+        mais validée avant le traitement du POST. Le ``select_for_update`` +
+        re-check doit rejeter la soumission.
         """
         seance = Seance.objects.create(
             date_seance=date(2026, 4, 10),
@@ -58,7 +58,7 @@ class LockedSeanceTests(BaseAbsenceTestCase):
         )
 
     def test_absence_creation_allowed_for_unlocked_seance(self):
-        """Normal case: unlocked seance allows absence creation."""
+        """Cas normal : une séance non verrouillée autorise la création d'absences."""
         self.client.force_login(self.prof)
         url = reverse("absences:mark_absence", args=[self.course1.id_cours])
 
@@ -76,7 +76,10 @@ class LockedSeanceTests(BaseAbsenceTestCase):
 
 
 class AbsenceSecurityTests(BaseAbsenceTestCase):
+    """Tests de sécurité : la vue ``mark_absence`` rejette les IDs d'inscription non autorisés."""
+
     def test_mark_absence_rejects_invalid_inscription_id(self):
+        """Un POST contenant un ``id_inscription`` étranger au cours doit renvoyer 403."""
         self.client.force_login(self.prof)
 
         url = reverse("absences:mark_absence", args=[self.course1.id_cours])

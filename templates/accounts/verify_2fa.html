@@ -8,7 +8,7 @@
 
 {% block extra_css %}
 <style>
-    /* OTP-style code input — purely visual, single underlying field */
+    /* Champ de saisie de style OTP — purement visuel, un seul champ sous-jacent */
     .otp-input {
         width: 100%;
         height: 72px;
@@ -17,7 +17,7 @@
         font-size: 1.85rem;
         font-weight: 700;
         letter-spacing: 0.55em;
-        text-indent: 0.55em; /* compensate letter-spacing centering */
+        text-indent: 0.55em; /* compense le centrage dû à letter-spacing */
         color: var(--sn-text);
         background: #fff;
         border: 1.5px solid var(--sn-border);
@@ -157,7 +157,7 @@
         var label = document.getElementById('verifyLabel');
         var mode = 'totp';
 
-        // Numeric-only filter + auto-submit when 6 digits typed (TOTP mode)
+        // Filtre numérique uniquement + soumission automatique quand 6 chiffres sont saisis (mode TOTP)
         if (input) {
             input.addEventListener('input', function () {
                 var clean = input.value.replace(/\D+/g, '').slice(0, 6);
@@ -170,7 +170,7 @@
             });
         }
 
-        // Backup code formatting: insert a dash between the two 5-char groups
+        // Formatage du code de secours : insère un tiret entre les deux groupes de 5 caractères
         if (backupInput) {
             backupInput.addEventListener('input', function () {
                 var raw = backupInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
@@ -182,9 +182,9 @@
             });
         }
 
-        // Toggle between TOTP and backup code mode.
-        // We use `disabled` on the hidden field so only ONE value is posted
-        // for the shared name="token".
+        // Bascule entre le mode TOTP et le mode code de secours.
+        // On utilise `disabled` sur le champ masqué afin qu'UNE SEULE valeur soit envoyée
+        // pour le name="token" partagé.
         if (toggleBtn) {
             toggleBtn.addEventListener('click', function () {
                 if (mode === 'totp') {
@@ -205,7 +205,7 @@
             });
         }
 
-        // Loading state on submit
+        // État de chargement lors de la soumission
         if (form && btn && label) {
             form.addEventListener('submit', function () {
                 btn.disabled = true;

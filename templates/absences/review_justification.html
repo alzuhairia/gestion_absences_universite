@@ -10,7 +10,7 @@
 
 {% block content %}
 <div class="row">
-    <!-- Left Column: Details -->
+    <!-- Colonne de gauche : récapitulatif de l'absence et justificatif soumis par l'étudiant -->
     <div class="col-lg-6">
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-primary text-white">
@@ -99,7 +99,7 @@
         </div>
     </div>
 
-    <!-- Right Column: Actions -->
+    <!-- Colonne de droite : note interne secrétariat + décision (valider / refuser) -->
     <div class="col-lg-6">
         {% if justification %}
         <div class="card shadow mb-4">
@@ -187,7 +187,7 @@
             </div>
         </div>
 
-        <!-- Edit link -->
+        <!-- Lien de secours vers la modification directe de l'absence (override secrétariat) -->
         {% if is_secretary %}
         <div class="d-grid">
             <a href="{% url 'absences:edit_absence' absence.pk %}" class="btn btn-outline-secondary">

@@ -1,14 +1,24 @@
 """
-Package de services pour la gestion des absences.
+Absence Services Package — apps/absences/services/__init__.py
 
-Organisation par responsabilité :
-  - justification_service.py : délais et validation des justificatifs
-  - absence_service.py       : calcul de statistiques et requêtes optimisées
-  - eligibility_service.py   : éligibilité examen et calcul de risque centralisé
-  - prediction_service.py    : détection prédictive des absences à risque
+Part of the UniAbsences university attendance management system.
 
-Toutes les fonctions restent importables depuis apps.absences.services
-pour assurer la compatibilité ascendante.
+This package is the central business-logic layer for the absences application.
+It is split into four single-responsibility modules, each covering a distinct
+aspect of the absence-management domain:
+
+  - ``justification_service.py`` : deadline calculation and expiry checks for
+    student-submitted justification documents.
+  - ``absence_service.py``       : core statistics computation (absence hours,
+    percentages, and alert detection) with optimised querysets.
+  - ``eligibility_service.py``   : exam eligibility decisions and bulk risk
+    counting — the authoritative source of truth for blocking logic.
+  - ``prediction_service.py``    : linear-extrapolation risk forecasting that
+    warns before a student actually reaches the threshold.
+
+All public symbols are re-exported from this package so that callers can use
+``from apps.absences.services import <name>`` regardless of which sub-module
+the symbol lives in, preserving backwards compatibility.
 """
 from .justification_service import (
     JUSTIFICATION_DEADLINE_DAYS,

@@ -1,3 +1,13 @@
+{# ============================================================
+   Template : student_reports.html
+   Rôle    : Page de téléchargement du rapport PDF d'absences
+             de l'étudiant connecté. Affiche un résumé en
+             3 chiffres (cours / total absences / taux global)
+             puis propose le téléchargement si l'étudiant est
+             inscrit à au moins un cours.
+   Note : le rapport PDF ne comptabilise QUE les absences non
+          justifiées et en attente.
+   ============================================================ #}
 {% extends 'base_student.html' %}
 
 {% block title %}Rapports{% endblock %}
@@ -30,7 +40,7 @@
         <strong>Année académique :</strong> {{ academic_year.libelle }}
     </div>
 
-    <!-- Statistics Summary -->
+    <!-- Résumé statistique en 3 chiffres-clés -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card shadow student-card">
@@ -67,7 +77,7 @@
         Le rapport PDF n'est pas disponible tant qu'aucune inscription n'est enregistrée.
     </div>
     {% else %}
-    <!-- PDF Report Download -->
+    <!-- Carte de téléchargement du rapport PDF complet -->
     <div class="card shadow student-card">
         <div class="card-header py-3 bg-danger text-white student-card-header">
             <h6 class="m-0 font-weight-bold">
@@ -102,7 +112,7 @@
     </div>
     {% endif %}
 
-    <!-- Information -->
+    <!-- Note explicative sur le contenu du rapport PDF -->
     <div class="alert alert-info mt-4">
         <i class="fas fa-info-circle me-2"></i>
         <strong>Note :</strong> Le rapport PDF contient uniquement les absences non justifiées et en attente de validation.

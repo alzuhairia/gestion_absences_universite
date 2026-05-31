@@ -1,3 +1,13 @@
+{# ============================================================
+   Template : admin_course_edit.html
+   Rôle    : Formulaire de modification d'un cours côté
+             administrateur. Permet d'éditer les champs principaux
+             (code, nom, périodes, seuil, département, niveau,
+             année académique, professeur) et la liste des
+             prérequis (cours antérieurs).
+   Règle métier importante : un cours de niveau N ne peut avoir
+             que des prérequis de niveau < N.
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}Modifier le Cours{% endblock %}
@@ -88,6 +98,9 @@
                                 {{ form.professeur }}
                             </div>
                         </div>
+                        {# Bloc prérequis : la liste est filtrée par niveau.
+                           Le message d'information ci-dessous rappelle à
+                           l'utilisateur la règle métier sur les niveaux. #}
                         <div class="mb-3">
                             <label for="{{ form.prerequisites.id_for_label }}" class="form-label">
                                 <i class="fas fa-list-check me-2"></i>Prérequis

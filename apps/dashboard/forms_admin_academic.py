@@ -1,6 +1,17 @@
 """
-FICHIER : apps/dashboard/forms_admin_academic.py
-RESPONSABILITE : Formulaires académiques admin — Facultés, Départements, Cours
+Formulaires de la structure académique pour le tableau de bord d'administration UniAbsences.
+
+Classes ModelForm utilisées dans les vues CRUD d'administration pour la
+hiérarchie académique.
+
+Forms
+-----
+``FaculteForm``     — Crée / met à jour un enregistrement de faculté.
+``DepartementForm`` — Crée / met à jour un département ; filtre les facultés actives.
+``CoursForm``       — Crée / met à jour un cours : seuil d'absence, niveau,
+                      assignation du professeur et sélection des prérequis.
+
+Fait partie du système de tableau de bord UniAbsences.
 """
 
 from django import forms
@@ -11,7 +22,18 @@ from apps.accounts.models import User
 
 
 class FaculteForm(forms.ModelForm):
+    """
+    ModelForm pour la création et l'édition d'un enregistrement ``Faculte`` (faculté).
+
+    N'expose que le champ de nom ``nom_faculte`` et le drapeau de
+    suppression douce ``actif``.  Désactiver une faculté la masque des
+    widgets de sélection sans supprimer aucun département ou cours
+    dépendant de la base de données.
+    """
+
     class Meta:
+        """Configuration ModelForm : modèle ``Faculte``, widgets Bootstrap et libellés FR."""
+
         model = Faculte
         fields = ["nom_faculte", "actif"]
         widgets = {
@@ -28,7 +50,18 @@ class FaculteForm(forms.ModelForm):
 
 
 class DepartementForm(forms.ModelForm):
+    """
+    ModelForm pour la création et l'édition d'un enregistrement ``Departement`` (département).
+
+    Liste uniquement les facultés actives dans le widget de sélection
+    ``id_faculte`` de sorte que les départements ne puissent être
+    rattachés à des facultés désactivées.  Le drapeau ``actif`` fournit
+    un comportement de suppression douce cohérent avec ``FaculteForm``.
+    """
+
     class Meta:
+        """Configuration ModelForm : modèle ``Departement``, widgets Bootstrap et libellés FR."""
+
         model = Departement
         fields = ["nom_departement", "id_faculte", "actif"]
         widgets = {
@@ -47,6 +80,32 @@ class DepartementForm(forms.ModelForm):
 
 
 class CoursForm(forms.ModelForm):
+    """
+    ModelForm pour la création et l'édition d'un enregistrement ``Cours`` (cours).
+
+    Comportements clés au-delà d'un ModelForm standard :
+
+    - **Filtrage des prérequis** : le queryset ``prerequisites`` est
+      restreint à l'initialisation de sorte que seuls les cours d'un
+      niveau d'étude inférieur soient sélectionnables (les cours de
+      niveau 1 n'ont pas de prérequis ; le niveau 2 peut sélectionner
+      le niveau 1 ; le niveau 3 peut sélectionner le niveau 1 ou 2).
+      Cette logique s'exécute aussi bien pour les instances existantes
+      (où le niveau actuel est connu) que pour les soumissions de
+      nouvelle instance (où le niveau provient des données POST).
+
+    - **Année académique automatique** : lors de la création d'un
+      nouveau cours, ``clean()`` résout l'``AnneeAcademique`` actuellement
+      active et la stocke dans ``_resolved_year`` afin que ``save()``
+      puisse l'assigner sans exposer le champ dans l'interface du
+      formulaire.
+
+    - **Queryset des professeurs** : restreint aux utilisateurs actifs
+      ayant le rôle PROFESSEUR de sorte que les comptes inactifs ou
+      non-professeurs ne soient jamais proposés dans la liste
+      déroulante.
+    """
+
     prerequisites = forms.ModelMultipleChoiceField(
         queryset=Cours.objects.none(),
         required=False,
@@ -55,6 +114,8 @@ class CoursForm(forms.ModelForm):
     )
 
     class Meta:
+        """Configuration ModelForm : modèle ``Cours``, widgets Bootstrap et champs exposés."""
+
         model = Cours
         fields = [
             "code_cours",
@@ -79,7 +140,22 @@ class CoursForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialise les querysets des champs et la liste des prérequis.
+
+        Restreint ``id_departement`` aux départements actifs et
+        ``professeur`` aux comptes de professeurs actifs.  Construit le
+        bon queryset de prérequis selon qu'il s'agit d'une édition
+        (l'instance a une PK) ou d'une soumission de nouveau cours
+        (niveau lu dans les données POST).
+
+        Parameters
+        ----------
+        *args, **kwargs
+            Transmis à ``ModelForm.__init__``.
+        """
         super().__init__(*args, **kwargs)
+        # Espace réservé pour l'année académique résolue lors du clean().
         self._resolved_year = None
         self.fields["id_departement"].queryset = Departement.objects.filter(actif=True)
         self.fields["professeur"].queryset = User.objects.filter(
@@ -158,8 +234,28 @@ class CoursForm(forms.ModelForm):
         )
 
     def clean(self):
+        """
+        Validation inter-champs et résolution de l'année académique.
+
+        Pour la création d'un nouveau cours, résout l'``AnneeAcademique``
+        active (avec repli sur l'année au libellé le plus récent si
+        aucune année n'est marquée active) et la stocke dans
+        ``self._resolved_year``.
+
+        Raises
+        ------
+        forms.ValidationError
+            Si aucune année académique n'existe en base de données, car
+            un cours ne peut être créé sans année associée.
+
+        Returns
+        -------
+        dict
+            Les données du formulaire nettoyées et validées.
+        """
         cleaned_data = super().clean()
         if not self.instance.pk:
+            # Préfère l'année active ; repli sur la plus récente par libellé.
             active_year = AnneeAcademique.objects.filter(active=True).first()
             if not active_year:
                 active_year = AnneeAcademique.objects.order_by("-libelle").first()
@@ -171,12 +267,34 @@ class CoursForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
+        """
+        Persiste l'instance du cours et met à jour la relation M2M des prérequis.
+
+        Assigne l'année académique résolue aux nouvelles instances
+        avant la sauvegarde.  Le champ many-to-many ``prerequisites`` est
+        mis à jour via ``set()`` après le ``save()`` principal afin que
+        l'instance dispose déjà d'une PK.
+
+        Parameters
+        ----------
+        commit : bool, optional
+            Lorsque ``False``, l'instance est préparée mais non
+            sauvegardée en base (les prérequis ne sont pas non plus
+            mis à jour).  Par défaut ``True``.
+
+        Returns
+        -------
+        Cours
+            L'instance de cours sauvegardée (ou préparée).
+        """
         instance = super().save(commit=False)
 
+        # Rattache l'année académique résolue uniquement aux nouveaux cours.
         if not instance.pk:
             instance.id_annee = self._resolved_year
 
         if commit:
             instance.save()
+            # Met à jour les liens M2M des prérequis après la sauvegarde de l'instance.
             instance.prerequisites.set(self.cleaned_data["prerequisites"])
         return instance

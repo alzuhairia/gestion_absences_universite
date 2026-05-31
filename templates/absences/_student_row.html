@@ -1,6 +1,6 @@
 {% comment %}
-Partial template rendered by the HTMX endpoint after a per-student attendance toggle.
-Context: ins (Inscription with .absence_data attached), is_validated, course, seance_id
+Modèle partiel rendu par l'endpoint HTMX après un basculement de présence par étudiant.
+Contexte : ins (Inscription avec .absence_data attaché), is_validated, course, seance_id
 {% endcomment %}
 <tr class="student-row" data-id="{{ ins.id_inscription }}" id="row-{{ ins.id_inscription }}" hx-indicator="closest tr">
     <td class="align-middle">

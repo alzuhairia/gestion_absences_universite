@@ -1,14 +1,33 @@
 """
-Validation des justificatifs — vue secrétariat.
+Secretary justification views — apps/absences/views/secretary_justification.py
 
-Fonctionnalités :
-  - review_justification   : consulter une absence + son justificatif (lecture/commentaire)
-  - validation_list        : liste des absences filtrées par statut (NON_JUSTIFIEE / EN_ATTENTE / JUSTIFIEE)
-  - process_justification  : approuver ou rejeter un justificatif soumis par un étudiant
-  - justified_absences_list: liste des absences justifiées encodées par le secrétariat
+Handles the absence justification review and approval workflow for the
+secretariat role.
 
-SÉCURITÉ : @secretary_required sur toutes les vues.
-TRANSACTION : select_for_update() sur justification + absence pour éviter le double-traitement.
+Views
+-----
+``review_justification``
+    Display a single absence alongside its submitted justification document
+    and allow the secretary to add a management comment.
+
+``validation_list``
+    Filterable list of absences by justification status
+    (NON_JUSTIFIEE / EN_ATTENTE / JUSTIFIEE).
+
+``process_justification``
+    Approve or reject a pending justification; transitions the ``Justification``
+    state machine and updates the parent ``Absence`` status accordingly.
+
+``justified_absences_list``
+    List of absences that have been justified (status = JUSTIFIEE) and were
+    encoded directly by the secretariat.
+
+Security controls:
+  - ``@secretary_required`` on all views.
+  - ``select_for_update()`` on both ``Justification`` and ``Absence`` records
+    inside a transaction to prevent concurrent double-processing.
+
+Part of the UniAbsences absences system.
 """
 import logging
 from pathlib import Path

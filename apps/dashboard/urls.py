@@ -1,6 +1,23 @@
 """
-FICHIER : apps/dashboard/urls.py
-RESPONSABILITE : Routes URL centrales pour tous les dashboards par role
+Configuration des URL pour le tableau de bord UniAbsences.
+
+Tous les motifs d'URL de ce fichier sont montés sous le préfixe
+``dashboard/`` défini dans le ``config/urls.py`` racine.  L'espace de
+noms ``app_name = "dashboard"`` permet la résolution inverse avec le
+préfixe ``dashboard:``.
+
+Les URL sont regroupées par rôle :
+  - Partagé   : index (redirection de répartition selon le rôle).
+  - Admin     : tableau de bord principal, statistiques, utilisateurs,
+                facultés, départements, cours, années académiques,
+                prérequis, paramètres, audit.
+  - Secrétaire : tableau de bord, cours actifs, inscriptions, seuils,
+                 exports, CRUD facultés/départements, audit.
+  - Professeur : tableau de bord, liste/détail des cours, séances.
+  - Étudiant  : tableau de bord, statistiques, cours, absences, rapports PDF.
+  - Exports   : rapport PDF (rendu via template), Excel des étudiants à risque.
+
+Fait partie du système de tableau de bord UniAbsences.
 """
 from django.urls import path
 
@@ -31,9 +48,9 @@ urlpatterns = [
     path("student/courses/", views.student_courses, name="student_courses"),
     path("student/absences/", views.student_absences, name="student_absences"),
     path("student/reports/", views.student_reports, name="student_reports"),
-    # Active Courses Management (read-only view - moved to avoid conflict with secretary_courses)
+    # Gestion des cours actifs (vue en lecture seule — déplacée pour éviter le conflit avec secretary_courses)
     path("secretary/active-courses/", views.active_courses, name="active_courses"),
-    # Instructor Pages
+    # Pages des enseignants
     path("instructor/courses/", views.instructor_courses, name="instructor_courses"),
     path("instructor/sessions/", views.instructor_sessions, name="instructor_sessions"),
     path(
@@ -46,7 +63,7 @@ urlpatterns = [
         views.instructor_course_detail,
         name="instructor_course_detail",
     ),
-    # Student Course Details
+    # Détails des cours étudiant
     path(
         "student/course/<int:inscription_id>/",
         views.student_course_detail,
@@ -63,10 +80,10 @@ urlpatterns = [
         views_export.export_at_risk_excel,
         name="export_at_risk_excel",
     ),
-    # ========== ADMINISTRATOR DASHBOARD ROUTES ==========
-    # Statistics
+    # ========== ROUTES DU TABLEAU DE BORD ADMINISTRATEUR ==========
+    # Statistiques
     path("admin/statistics/", views_admin.admin_statistics, name="admin_statistics"),
-    # Academic Structure Management
+    # Gestion de la structure académique
     path("admin/faculties/", views_admin.admin_faculties, name="admin_faculties"),
     path(
         "admin/faculties/<int:faculte_id>/edit/",
@@ -105,7 +122,7 @@ urlpatterns = [
         views_admin.admin_courses_delete_multiple,
         name="admin_courses_delete_multiple",
     ),
-    # User Management
+    # Gestion des utilisateurs
     path("admin/users/", views_admin.admin_users, name="admin_users"),
     path(
         "admin/users/create/", views_admin.admin_user_create, name="admin_user_create"
@@ -140,9 +157,9 @@ urlpatterns = [
         views_admin.admin_user_audit,
         name="admin_user_audit",
     ),
-    # System Settings
+    # Paramètres système
     path("admin/settings/", views_admin.admin_settings, name="admin_settings"),
-    # Academic Year Management
+    # Gestion des années académiques
     path(
         "admin/academic-years/",
         views_admin.admin_academic_years,
@@ -158,14 +175,14 @@ urlpatterns = [
         views_admin.admin_academic_year_delete,
         name="admin_academic_year_delete",
     ),
-    # Audit Logs
+    # Journaux d'audit
     path("admin/audit-logs/", views_admin.admin_audit_logs, name="admin_audit_logs"),
     path(
         "admin/audit-logs/export-csv/",
         views_admin.admin_export_audit_csv,
         name="admin_export_audit_csv",
     ),
-    # QR Scan Logs
+    # Journaux des scans QR
     path("admin/qr-scan-logs/", views_admin.admin_qr_scan_logs, name="admin_qr_scan_logs"),
     # API pour les prérequis selon le niveau
     path(
@@ -173,8 +190,8 @@ urlpatterns = [
         views_admin.get_prerequisites_by_level,
         name="get_prerequisites_by_level",
     ),
-    # ========== SECRETARY ACADEMIC STRUCTURE MANAGEMENT ==========
-    # Academic Structure Management (same as admin but for secretary)
+    # ========== GESTION DE LA STRUCTURE ACADÉMIQUE PAR LE SECRÉTARIAT ==========
+    # Gestion de la structure académique (identique à l'admin mais pour le secrétariat)
     path(
         "secretary/faculties/",
         views_secretary.secretary_faculties,

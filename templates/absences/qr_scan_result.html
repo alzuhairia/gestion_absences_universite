@@ -1,3 +1,21 @@
+{# ============================================================
+   Template : qr_scan_result.html
+   Rôle    : Page de retour affichée à l'étudiant après scan d'un
+             QR code de présence. Présente le résultat sous forme
+             de carte colorée selon le statut : success (présence
+             validée), duplicate (déjà scanné), expired (QR périmé)
+             ou error (refusé, ex. hors zone GPS).
+   Contexte attendu :
+     - scan_status : 'success' | 'duplicate' | 'expired' | 'error'
+     - message     : message principal à afficher
+     - distance    : distance GPS (optionnel, si hors zone)
+     - radius      : rayon autorisé en mètres (optionnel)
+     - scanned_at  : horodatage du scan précédent (cas duplicate)
+     - course      : objet cours associé (optionnel)
+     - seance      : séance associée (optionnel)
+   Particularités : animation CSS "pop-in" sur l'icône pour un
+                    retour visuel immédiat.
+   ============================================================ #}
 {% extends 'base_student.html' %}
 
 {% block title %}Résultat du scan{% endblock %}

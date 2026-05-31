@@ -1,5 +1,24 @@
 """
-Modèles QR code : token de présence, scan validé et log d'audit.
+Modèles de présence par QR code : token, enregistrement de scan validé et journal d'audit.
+
+Ce module définit les trois modèles qui alimentent la fonctionnalité de
+check-in autonome par QR code. Un professeur génère un QRAttendanceToken à
+durée limitée qui est encodé dans une image QR affichée. Les étudiants scannent
+le QR avec leur téléphone, et chaque présence validée est stockée comme
+QRScanRecord. Chaque tentative de scan (réussie ou échouée) est également
+écrite dans QRScanLog à des fins d'audit de sécurité.
+
+Responsabilités :
+  - QRAttendanceToken : token à durée limitée intégré dans l'image QR ;
+    transporte des coordonnées GPS facultatives pour la vérification de
+    localisation anti-fraude.
+  - QRScanRecord : enregistrement persistant d'une présence étudiante validée ;
+    rattaché à la Seance (et non au token) pour que les scans survivent aux
+    rafraîchissements de token.
+  - QRScanLog : piste d'audit immuable pour chaque tentative de scan avec
+    statut GPS, code de résultat, token haché et métadonnées client.
+
+Fait partie du système de présence par QR UniAbsences.
 """
 import uuid
 
@@ -9,9 +28,21 @@ from django.db import models
 
 class QRAttendanceToken(models.Model):
     """
-    Short-lived token embedded in a QR code for attendance scanning.
-    One Seance may have several tokens over time (professor can refresh).
-    Only the latest active token accepts scans.
+    Token UUID à courte durée de vie intégré dans une image de QR code pour le scan de présence étudiant.
+
+    Une Seance peut accumuler plusieurs tokens au fil du temps à mesure que le
+    professeur les rafraîchit ; seul le dernier token actif et non expiré
+    accepte de nouveaux scans. Lorsque verify_location vaut True, les étudiants
+    doivent soumettre des coordonnées GPS situées dans un rayon de
+    DISTANCE_THRESHOLD_METERS de la position enregistrée du professeur (ou
+    du rayon GPS configuré de l'établissement) pour être marqués présents.
+
+    Constantes de classe :
+        TOKEN_LIFETIME_MINUTES : durée de vie suggérée par défaut (l'expiration
+            réelle est définie par SystemSettings.qr_token_duration_seconds à
+            la création).
+        DISTANCE_THRESHOLD_METERS : limite de distance GPS de repli lorsqu'aucun
+            rayon GPS au niveau système n'est configuré.
     """
 
     TOKEN_LIFETIME_MINUTES = 15
@@ -35,32 +66,45 @@ class QRAttendanceToken(models.Model):
         default=False,
         help_text="Si activé, la géolocalisation est obligatoire pour valider la présence.",
     )
-    # GPS anti-fraud: professor's location when generating the QR
+    # Anti-fraude GPS : position du professeur lors de la génération du QR
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
 
     class Meta:
+        """Métadonnées Django : table dédiée et tri par date de création décroissante."""
+
         db_table = "qr_attendance_token"
         app_label = "absences"
         ordering = ["-created_at"]
 
     def __str__(self):
+        """Représentation lisible affichant les 8 premiers caractères du token et la séance."""
         return f"QR {self.token!s:.8} — {self.seance}"
 
     @property
     def is_expired(self):
+        """Retourne True si l'horodatage d'expiration du token est dépassé."""
         from django.utils import timezone
         return timezone.now() > self.expires_at
 
     @property
     def is_usable(self):
+        """Retourne True uniquement si le token est à la fois actif (non désactivé) et non encore expiré."""
         return self.is_active and not self.is_expired
 
 
 class QRScanRecord(models.Model):
     """
-    Records a student's QR scan for a given seance.
-    Linked to seance (not token) so that scans survive token refreshes.
+    Enregistrement persistant d'une présence étudiante validée via un scan QR.
+
+    Rattaché à la Seance (et non à QRAttendanceToken) afin que les présences
+    validées soient préservées même lorsque le professeur rafraîchit le token
+    en cours de séance. La contrainte unique_together sur (seance, inscription)
+    empêche le double enregistrement du même étudiant pour la même séance.
+
+    Le drapeau is_suspicious est levé lorsque la distance GPS de l'étudiant
+    dépasse DISTANCE_THRESHOLD_METERS ; la présence est tout de même
+    enregistrée mais signalée à l'attention du professeur sur le tableau de bord.
     """
 
     seance = models.ForeignKey(
@@ -84,35 +128,51 @@ class QRScanRecord(models.Model):
     )
     scanned_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
-    # GPS anti-fraud: student's location when scanning
+    # Anti-fraude GPS : position de l'étudiant lors du scan
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     distance_meters = models.FloatField(null=True, blank=True)
     is_suspicious = models.BooleanField(default=False)
 
     class Meta:
+        """Métadonnées Django : table dédiée et unicité (seance, inscription) anti-doublons."""
+
         db_table = "qr_scan_record"
         app_label = "absences"
         unique_together = (("seance", "inscription"),)
 
     def __str__(self):
+        """Représentation lisible identifiant l'étudiant scanné et la date de la séance."""
         return f"Scan {self.student} — {self.seance.date_seance}"
 
 
 class QRScanLog(models.Model):
     """
-    Audit log for EVERY QR scan attempt (successful or failed).
-    Unlike QRScanRecord (which only stores validated presences),
-    this logs all attempts for security auditing.
+    Journal d'audit immuable pour chaque tentative de scan QR, qu'elle soit réussie ou refusée.
+
+    Contrairement à QRScanRecord, qui ne stocke que les présences validées, ce
+    modèle capture chaque tentative, y compris les scans refusés (token expiré,
+    échec GPS, non inscrit, doublon, etc.) à des fins d'investigation de
+    sécurité et de détection de fraude.
+
+    Le champ qr_token_used stocke un hash SHA-256 de l'UUID brut du token
+    plutôt que le token lui-même — cela empêche les attaques par rejeu si le
+    journal est un jour exposé, tout en permettant la corrélation médico-légale.
+
+    Ce modèle est en lecture seule : les permissions add/change/delete sont
+    désactivées dans l'admin pour préserver l'intégrité de l'audit.
     """
 
     class GPSStatus(models.TextChoices):
+        """État de la collecte GPS au moment du scan (accepté, refusé, indisponible, non requis)."""
+
         ACCEPTED = "accepted", "GPS accepté"
         REFUSED = "refused", "GPS refusé par l'étudiant"
         UNAVAILABLE = "unavailable", "GPS indisponible"
         NOT_REQUIRED = "not_required", "Vérification non activée"
 
     class ScanResult(models.TextChoices):
+        """Résultat fonctionnel du scan : validé ou rejeté avec le motif précis."""
         VALIDATED = "validated", "Présence validée"
         REJECTED_GPS = "rejected_gps", "Refusé — pas de GPS"
         REJECTED_DISTANCE = "rejected_distance", "Refusé — hors zone"
@@ -147,6 +207,8 @@ class QRScanLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Métadonnées Django : tri chronologique inverse et index pour les requêtes d'audit."""
+
         db_table = "qr_scan_log"
         app_label = "absences"
         ordering = ["-timestamp"]
@@ -157,4 +219,5 @@ class QRScanLog(models.Model):
         ]
 
     def __str__(self):
+        """Représentation lisible identifiant l'étudiant, le résultat et l'horodatage."""
         return f"ScanLog {self.etudiant} — {self.scan_result} — {self.timestamp}"

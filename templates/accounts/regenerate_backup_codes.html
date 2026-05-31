@@ -1,3 +1,15 @@
+{# ============================================================
+   Template : regenerate_backup_codes.html
+   Rôle    : Formulaire de confirmation pour régénérer la liste
+             des codes de secours 2FA. Exige le mot de passe actuel
+             et avertit que tous les anciens codes seront invalidés
+             immédiatement.
+   Contexte attendu :
+     - base_template : template parent selon le rôle (défaut base.html)
+   Particularités : POST sur accounts:regenerate_backup_codes ;
+                    les nouveaux codes sont affichés sur la page
+                    accounts/backup_codes.html après succès.
+   ============================================================ #}
 {% extends base_template|default:'base.html' %}
 
 {% block title %}Régénérer les codes de secours{% endblock %}

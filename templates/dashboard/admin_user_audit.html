@@ -1,3 +1,13 @@
+{# ============================================================
+   Template : admin_user_audit.html
+   Rôle    : Affiche le journal d'audit d'un utilisateur ciblé
+             côté administrateur. Liste toutes les actions
+             enregistrées (connexions, modifications, suppressions,
+             actions sensibles marquées CRITIQUE).
+   Contexte attendu :
+     - user : utilisateur dont on consulte l'historique
+     - logs : queryset paginé des entrées de log
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}Historique - {{ user.get_full_name }}{% endblock %}
@@ -59,7 +69,7 @@
                 </table>
             </div>
             
-            <!-- Pagination -->
+            <!-- Pagination du journal d'audit -->
             {% if logs.has_other_pages %}
             <nav aria-label="Navigation des pages" class="mt-3">
                 <ul class="pagination justify-content-center">

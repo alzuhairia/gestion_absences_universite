@@ -19,7 +19,7 @@ from .test_absence_logic import AbsenceLogicBaseTestCase
 
 
 class AbsenceValidationTest(AbsenceLogicBaseTestCase):
-    """Tests for Absence model validation (clean method)."""
+    """Tests de validation au niveau modèle ``Absence`` (méthode ``clean``)."""
 
     def test_duration_cannot_exceed_seance(self):
         """duree_absence > seance duration raises ValidationError."""
@@ -164,9 +164,10 @@ class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
 
 
 class EnAttenteExcludedFromThresholdTest(AbsenceLogicBaseTestCase):
-    """EN_ATTENTE absences must be excluded from all threshold/rate calculations."""
+    """Les absences ``EN_ATTENTE`` doivent être exclues de tous les calculs de seuil/taux."""
 
     def _create_absence(self, seance_idx, statut, duree="4.00"):
+        """Fabrique une absence sur la séance ``seance_idx`` avec le statut et la durée donnés."""
         return Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[seance_idx],

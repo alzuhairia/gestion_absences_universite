@@ -1,3 +1,4 @@
+"""Script de vérification — contrôle que la détection des étudiants à risque renvoie le résultat attendu."""
 import os
 import sys
 from pathlib import Path
@@ -21,6 +22,7 @@ from apps.dashboard.views import instructor_dashboard
 from django.utils import timezone
 
 def verify_at_risk():
+    """Crée un étudiant fictif au-dessus du seuil et vérifie qu'il apparaît dans la liste « à risque »."""
     print("--- Verifying At-Risk Student Detection ---")
     
     # 1. Setup Data

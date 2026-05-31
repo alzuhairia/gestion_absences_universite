@@ -1,12 +1,25 @@
 """
-FICHIER : apps/audits/models.py
-RESPONSABILITE : Journal d'audit pour la tracabilite des actions critiques
-FONCTIONNALITES PRINCIPALES :
-  - LogAudit : enregistrement immutable de chaque action (utilisateur, IP, timestamp)
-  - Niveaux : INFO, WARNING, CRITIQUE
-  - Types d'objets traces : USER, COURS, ABSENCE, JUSTIFICATION, EXPORT, etc.
-  - Logs en lecture seule (ne peuvent pas etre supprimes)
-DEPENDANCES CLES : accounts.User (SET_NULL pour preserver les logs)
+Modèle de journal d'audit pour le système UniAbsences.
+
+Ce module définit ``LogAudit``, la piste d'audit immuable en append-only
+utilisée à travers l'application pour enregistrer les actions de sécurité
+et critiques sur le plan métier.
+
+``LogAudit``
+    Chaque enregistrement capture : l'utilisateur agissant (nullable —
+    préservé lorsque le compte est supprimé), le type d'action, le type
+    et l'identifiant de l'objet ciblé, un niveau de gravité (INFO /
+    WARNING / CRITIQUE), l'adresse IP du client et un horodatage UTC.
+
+    Les enregistrements sont volontairement en écriture unique : il
+    n'existe aucune voie ``update()`` ou ``delete()`` dans la couche
+    applicative. Le niveau ``CRITIQUE`` est réservé aux événements tels
+    que les blocages d'éligibilité à l'examen et les suppressions
+    massives d'utilisateurs.
+
+Appelé par ``apps.audits.utils.log_action`` à travers le code source.
+
+Fait partie du système d'audit UniAbsences.
 """
 
 from django.conf import settings
@@ -15,8 +28,45 @@ from django.db import models
 
 class LogAudit(models.Model):
     """
-    Modèle représentant un journal d'audit pour tracer toutes les actions critiques du système.
-    Les logs sont en lecture seule et ne peuvent pas être supprimés.
+    Entrée immuable du journal d'audit enregistrant une action utilisateur unique.
+
+    Chaque enregistrement capture l'utilisateur agissant, une description
+    textuelle libre de l'action, l'adresse IP du client, un horodatage UTC
+    (défini automatiquement à la création), un niveau de gravité et des
+    références optionnelles à l'objet affecté (``objet_type`` + ``objet_id``).
+
+    Décisions de conception
+    -----------------------
+    - ``id_utilisateur`` utilise ``SET_NULL`` afin que les entrées de
+      journal soient préservées même après la suppression du compte
+      utilisateur (piste d'audit conforme au RGPD).
+    - Il n'existe aucune voie ``update()`` ou ``delete()`` dans la couche
+      applicative. L'administration Django désactive également la
+      suppression (voir ``LogAuditAdmin.has_delete_permission``).
+    - Le niveau ``CRITIQUE`` est réservé aux événements à fort impact tels
+      que les blocages d'éligibilité à l'examen et les suppressions
+      massives d'utilisateurs.
+
+    Attributs
+    ---------
+    id_log : int
+        Clé primaire auto-incrémentée.
+    id_utilisateur : User or None
+        L'utilisateur ayant effectué l'action. ``None`` si le compte a
+        depuis été supprimé.
+    action : str
+        Description textuelle libre de l'action (max 500 caractères après
+        nettoyage dans ``log_action``).
+    date_action : datetime
+        Horodatage UTC défini automatiquement à la création de l'enregistrement.
+    adresse_ip : str
+        Adresse IP du client capturée au moment de l'action.
+    niveau : str
+        Niveau de gravité : ``"INFO"``, ``"WARNING"`` ou ``"CRITIQUE"``.
+    objet_type : str or None
+        Catégorie de l'objet affecté (l'une de ``OBJET_TYPE_CHOICES``).
+    objet_id : int or None
+        Clé primaire de l'objet affecté.
     """
 
     NIVEAU_CHOICES = [
@@ -90,6 +140,8 @@ class LogAudit(models.Model):
     )
 
     class Meta:
+        """Métadonnées Django : table ``log_audit``, tri chronologique inverse et index d'audit."""
+
         managed = True
         db_table = "log_audit"
         app_label = "audits"
@@ -104,4 +156,5 @@ class LogAudit(models.Model):
         ]
 
     def __str__(self):
+        """Retourne un résumé concis : horodatage, acteur et les 50 premiers caractères de l'action."""
         return f"{self.date_action} - {self.id_utilisateur} : {self.action[:50]}"

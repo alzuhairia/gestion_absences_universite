@@ -41,7 +41,7 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Left: QR Code -->
+        <!-- Gauche : Code QR -->
         <div class="col-lg-5 mb-4">
             <div class="qr-container">
                 <h5 class="fw-bold mb-1">{{ course.code_cours }}</h5>
@@ -56,7 +56,7 @@
                 </div>
                 {% endif %}
 
-                <!-- QR Image -->
+                <!-- Image QR -->
                 <div id="qr-image-container">
                     {% if is_expired %}
                     <div class="alert alert-warning py-2 mb-3">
@@ -67,12 +67,12 @@
                     {% endif %}
                 </div>
 
-                <!-- Auto-refresh progress bar -->
+                <!-- Barre de progression d'auto-rafraîchissement -->
                 <div class="mb-2" style="height: 4px; background: #e9ecef; border-radius: 2px;">
                     <div class="auto-refresh-bar" id="refresh-bar" style="width: 100%;"></div>
                 </div>
 
-                <!-- Countdown -->
+                <!-- Compte à rebours -->
                 <div class="mb-3">
                     <div class="countdown {% if is_expired %}expired{% else %}text-success{% endif %}"
                          id="countdown"
@@ -83,7 +83,7 @@
                     <div class="small text-muted" id="countdown-label">Nouveau QR dans...</div>
                 </div>
 
-                <!-- Scan URL -->
+                <!-- URL de scan -->
                 <div class="scan-url-box mb-3" id="scan-url">{{ scan_url }}</div>
                 <button class="btn btn-sm btn-outline-secondary" id="copy-url-btn">
                     <i class="fas fa-copy me-1"></i>Copier le lien
@@ -105,7 +105,7 @@
                     </button>
                 </div>
 
-                <!-- Finalize confirmation -->
+                <!-- Confirmation de finalisation -->
                 <div id="finalize-bar" class="alert alert-warning mt-3 d-none text-start">
                     <strong><i class="fas fa-exclamation-triangle me-1"></i>Confirmer ?</strong>
                     <p class="mb-2 small">Les étudiants n'ayant pas scanné seront marqués absents. La séance sera verrouillée.</p>
@@ -122,7 +122,7 @@
             </div>
         </div>
 
-        <!-- Right: Live scan list -->
+        <!-- Droite : Liste de scan en direct -->
         <div class="col-lg-7">
             <div class="card shadow">
                 <div class="card-header py-3 bg-white">
@@ -153,7 +153,7 @@
 
 <script nonce="{{ request.csp_nonce }}">
 (function() {
-    /* --- DOM refs --- */
+    /* --- Références DOM --- */
     var countdownEl = document.getElementById('countdown');
     var countdownLabel = document.getElementById('countdown-label');
     var refreshBar = document.getElementById('refresh-bar');
@@ -162,17 +162,17 @@
     var refreshForm = document.getElementById('refresh-form');
     var finalizeForm = document.getElementById('finalize-form');
 
-    /* --- State --- */
+    /* --- État --- */
     var expires = new Date(countdownEl.dataset.expires).getTime();
     var totalDuration = parseInt(countdownEl.dataset.duration) || 60;
     var csrfTokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
     var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
     var refreshUrl = refreshForm.action;
-    var refreshing = false;  /* guard against concurrent fetches */
+    var refreshing = false;  /* protection contre les fetchs concurrents */
 
     console.log('[QR] Timer started:', totalDuration, 'seconds, expires:', new Date(expires).toLocaleTimeString(), 'refreshUrl:', refreshUrl);
 
-    /* --- Countdown tick — runs every second, never stops --- */
+    /* --- Tic du compte à rebours — s'exécute chaque seconde, ne s'arrête jamais --- */
     setInterval(function() {
         var now = Date.now();
         var diff = Math.max(0, Math.floor((expires - now) / 1000));
@@ -193,7 +193,7 @@
         }
     }, 1000);
 
-    /* --- AJAX auto-refresh --- */
+    /* --- Auto-rafraîchissement AJAX --- */
     function doAutoRefresh() {
         fetch(refreshUrl, {
             method: 'POST',
@@ -210,7 +210,7 @@
             return resp.json();
         })
         .then(function(data) {
-            /* Update QR image */
+            /* Met à jour l'image QR */
             qrContainer.textContent = '';
             var img = document.createElement('img');
             img.src = data.qr_data_uri;
@@ -219,22 +219,22 @@
             img.id = 'qr-img';
             qrContainer.appendChild(img);
 
-            /* Update scan URL */
+            /* Met à jour l'URL de scan */
             scanUrlEl.textContent = data.scan_url;
 
-            /* Update URLs for next cycle */
+            /* Met à jour les URLs pour le prochain cycle */
             refreshUrl = data.refresh_url;
             refreshForm.action = data.refresh_url;
             finalizeForm.action = data.finalize_url;
 
-            /* Update HTMX polling URL */
+            /* Met à jour l'URL de polling HTMX */
             var scanList = document.getElementById('scan-list');
             if (scanList) {
                 scanList.setAttribute('hx-get', data.dashboard_url);
                 if (typeof htmx !== 'undefined') htmx.process(scanList);
             }
 
-            /* Reset timer state */
+            /* Réinitialise l'état du minuteur */
             expires = new Date(data.expires_at).getTime();
             totalDuration = Math.max(1, Math.round((expires - Date.now()) / 1000));
             countdownEl.classList.remove('expired');
@@ -247,12 +247,12 @@
         .catch(function(err) {
             console.error('[QR] QR refresh failed:', err);
             countdownLabel.textContent = 'Erreur — nouvelle tentative dans 5s...';
-            /* Unlock after 5s so the setInterval can retry */
+            /* Débloque après 5 s pour que le setInterval puisse réessayer */
             setTimeout(function() { refreshing = false; }, 5000);
         });
     }
 
-    /* --- Copy URL --- */
+    /* --- Copie de l'URL --- */
     var copyBtn = document.getElementById('copy-url-btn');
     if (copyBtn) {
         copyBtn.addEventListener('click', function() {
@@ -264,7 +264,7 @@
         });
     }
 
-    /* --- Finalize confirmation toggle --- */
+    /* --- Bascule de confirmation de finalisation --- */
     var showBtn = document.getElementById('show-finalize-btn');
     var hideBtn = document.getElementById('hide-finalize-btn');
     var bar = document.getElementById('finalize-bar');

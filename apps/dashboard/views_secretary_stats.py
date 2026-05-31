@@ -1,6 +1,20 @@
 """
-FICHIER : apps/dashboard/views_secretary_stats.py
-RESPONSABILITE : Inscriptions, seuils d'absence et exports (secrétariat)
+Vues de statistiques et d'export du secrétaire pour le tableau de bord UniAbsences.
+
+Vues
+-----
+``secretary_enrollments``
+    Liste paginée de toutes les inscriptions actives avec taux d'absences, statut
+    d'éligibilité et liens d'actions rapides pour le secrétariat.
+
+``secretary_seuils_absence``
+    Tableau d'ensemble des seuils d'absence par cours en regard de la valeur par
+    défaut du système, afin que le secrétariat puisse identifier les cours aux paramètres personnalisés.
+
+``secretary_exports``
+    Page d'accueil pour les exports en masse : déclenche les vues de téléchargement PDF et Excel.
+
+Fait partie du tableau de bord UniAbsences.
 """
 from collections import defaultdict
 

@@ -1,3 +1,10 @@
+"""
+Tests d'intégration continue : absence de migrations en attente et durcissement cookies.
+
+Ces vérifications tournent dans la pipeline CI pour empêcher la fusion d'un
+code qui aurait modifié un modèle sans générer la migration correspondante,
+ou qui aurait régressé sur les drapeaux de sécurité des cookies en production.
+"""
 from io import StringIO
 
 from django.conf import settings
@@ -7,9 +14,12 @@ from django.test.utils import override_settings
 
 
 class MigrationCheckTests(SimpleTestCase):
+    """Vérifie que le projet est cohérent avec ses migrations et passe ``check --deploy``."""
+
     databases = {"default"}
 
     def test_makemigrations_check_dry_run(self):
+        """Aucune migration manquante : ``makemigrations --check --dry-run`` doit renvoyer ``No changes detected``."""
         stdout = StringIO()
         stderr = StringIO()
 
@@ -25,6 +35,7 @@ class MigrationCheckTests(SimpleTestCase):
         self.assertIn("No changes detected", combined_output)
 
     def test_check_deploy(self):
+        """``manage.py check --deploy`` ne doit produire aucun avertissement en configuration production."""
         stdout = StringIO()
         stderr = StringIO()
 
@@ -53,7 +64,7 @@ class MigrationCheckTests(SimpleTestCase):
 
 
 class ProductionCookieSecurityTests(SimpleTestCase):
-    """Verify cookie hardening flags that Django's check --deploy does not cover."""
+    """Vérifie les drapeaux de durcissement cookies non couverts par ``check --deploy``."""
 
     @override_settings(
         DEBUG=False,
@@ -64,6 +75,7 @@ class ProductionCookieSecurityTests(SimpleTestCase):
         CSRF_COOKIE_HTTPONLY=True,
     )
     def test_production_cookie_flags(self):
+        """En production, les cookies de session et CSRF doivent être Secure/HttpOnly/SameSite=Strict."""
         self.assertTrue(settings.SESSION_COOKIE_SECURE)
         self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
         self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Strict")

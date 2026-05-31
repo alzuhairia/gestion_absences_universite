@@ -1,3 +1,15 @@
+{# ============================================================
+   Template : profile.html
+   Rôle    : Page profil utilisateur : affiche les informations
+             personnelles (nom, email, rôle, statut actif) en
+             lecture seule, sans formulaire d'édition. Bouton de
+             retour vers le tableau de bord.
+   Contexte attendu :
+     - user : utilisateur authentifié (auto-injecté via context_processor)
+   Particularités : la "Dernière connexion" utilise {% now %} et
+                    n'est donc pas la vraie date de connexion mais
+                    l'horodatage de rendu de la page.
+   ============================================================ #}
 {% extends 'base.html' %}
 
 {% block title %}Mon Profil{% endblock %}

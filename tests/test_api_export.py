@@ -17,9 +17,10 @@ from apps.enrollments.models import Inscription
 
 
 class PdfExportTests(TestCase):
-    """Tests for the student PDF export API endpoint."""
+    """Tests de l'endpoint API d'export PDF du rapport étudiant."""
 
     def setUp(self):
+        """Crée un étudiant, ses inscriptions et ses absences pour produire un export multi-pages."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac PDF")
         self.dept = Departement.objects.create(
             nom_departement="Dept PDF", id_faculte=self.faculte

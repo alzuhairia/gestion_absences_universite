@@ -31,6 +31,7 @@
                     <form method="post" id="enrollmentForm">
                         {% csrf_token %}
 
+                        {# Formulaire multi-étapes : type → étudiant → année → cours → récap #}
                         <!-- Étape 1 : Type d'inscription -->
                         <div class="mb-4">
                             <h5 class="mb-3">
@@ -54,7 +55,7 @@
                             {% endif %}
                         </div>
 
-                        <!-- Département + Niveau (si inscription à un niveau complet) -->
+                        <!-- Département + Niveau (affichés uniquement si inscription à un niveau complet) -->
                         <div id="levelSection" class="mb-4" style="display: none;">
                             <h5 class="mb-3">
                                 <i class="fas fa-graduation-cap me-2 text-primary"></i>Département et Niveau
@@ -105,7 +106,7 @@
                                 </div>
                             </div>
 
-                            <!-- Formulaire de création d'étudiant (masqué par défaut) -->
+                            <!-- Formulaire de création d'un nouvel étudiant (masqué par défaut, affiché si case cochée) -->
                             <div id="newStudentForm" style="display: none;" class="border rounded p-3 mb-3 bg-light">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -157,7 +158,7 @@
                                 </div>
                             </div>
 
-                            <!-- Étudiant existant -->
+                            <!-- Recherche d'un étudiant déjà existant (par email) -->
                             <div id="existingStudentForm">
                                 <div class="mb-3">
                                     <label for="{{ enrollment_form.student_email.id_for_label }}" class="form-label">
@@ -202,7 +203,7 @@
                             <div class="alert alert-danger">{{ enrollment_form.courses.errors }}</div>
                             {% endif %}
 
-                            <!-- Barre de recherche + actions -->
+                            <!-- Barre de recherche par code/nom + boutons tout cocher / tout décocher -->
                             <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
                                 <div class="flex-grow-1">
                                     <input type="text" id="courseSearch" class="form-control" placeholder="Rechercher un cours par code ou nom...">
@@ -215,12 +216,12 @@
                                 </button>
                             </div>
 
-                            <!-- Compteur de sélection -->
+                            <!-- Compteur dynamique de cours sélectionnés (mis à jour en JS) -->
                             <div class="mb-3">
                                 <span id="selectionCounter" class="badge bg-primary fs-6">0 cours sélectionné(s)</span>
                             </div>
 
-                            <!-- Liste des cours groupés par département -->
+                            <!-- Liste des cours regroupés par département (chargée en AJAX selon l'année académique) -->
                             <div id="courseListContainer" style="max-height: 450px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
                                 <div id="courseListLoading" class="text-center py-4 text-muted">
                                     <i class="fas fa-spinner fa-spin me-2"></i>Sélectionnez une année académique pour charger les cours...
@@ -233,13 +234,13 @@
                             </small>
                         </div>
 
-                        <!-- Alerte de validation -->
+                        <!-- Alerte de validation affichée si le formulaire est incomplet -->
                         <div id="enrollValidationAlert" class="alert alert-danger alert-dismissible fade d-none mt-3" role="alert">
                             <i class="fas fa-exclamation-circle me-2"></i><span id="enrollValidationMsg"></span>
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
                         </div>
 
-                        <!-- Boutons -->
+                        <!-- Boutons d'action : annuler ou ouvrir le récap avant soumission -->
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'dashboard:secretary_enrollments' %}" class="btn btn-secondary">
                                 <i class="fas fa-times me-1"></i> Annuler
@@ -255,7 +256,7 @@
     </div>
 </div>
 
-<!-- Modal récapitulatif (Étape 5) -->
+<!-- Modal récapitulatif (Étape 5) : confirmation finale avant soumission réelle du formulaire -->
 <div class="modal fade" id="recapModal" tabindex="-1" aria-labelledby="recapModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -379,7 +380,7 @@ function renderCourseList(courses) {
         return;
     }
 
-    // Group by department
+    // Regroupement des cours par département (clé = nom du département)
     const grouped = {};
     courses.forEach(c => {
         if (!grouped[c.department]) grouped[c.department] = [];
@@ -487,6 +488,7 @@ async function loadCoursesByYear() {
    Étape 5 : Récapitulatif avant confirmation
    ===================================================== */
 
+// Échappe les caractères HTML d'une chaîne (protection XSS minimale lors de l'injection dans innerHTML)
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
@@ -497,7 +499,7 @@ function getRecapData() {
     const enrollmentType = document.querySelector('input[name="enrollment_type"]:checked')?.value;
     const createNew = document.getElementById('create_new_student').checked;
 
-    // Étudiant
+    // Construction du libellé étudiant (nouveau compte ou étudiant existant)
     let studentLabel;
     if (createNew) {
         const nom = escapeHtml(document.querySelector('[name="student-nom"]')?.value || '');
@@ -509,11 +511,11 @@ function getRecapData() {
         studentLabel = emailVal ? escapeHtml(emailVal) : '<em>non renseigné</em>';
     }
 
-    // Année académique
+    // Récupération du libellé de l'année académique sélectionnée
     const yearSelect = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}');
     const yearLabel = yearSelect?.selectedIndex > 0 ? escapeHtml(yearSelect.options[yearSelect.selectedIndex].text) : '<em>non sélectionnée</em>';
 
-    // Cours sélectionnés (mode COURSE)
+    // Cours sélectionnés (mode COURSE) — extraits depuis les data-attributes des cases cochées
     const selectedCourses = [];
     if (enrollmentType === 'COURSE') {
         document.querySelectorAll('.course-checkbox:checked').forEach(cb => {
@@ -526,7 +528,7 @@ function getRecapData() {
         });
     }
 
-    // Département + Niveau (mode LEVEL)
+    // Département + Niveau (mode LEVEL — inscription en lot à tous les cours du niveau)
     let niveauLabel = '';
     let departementLabel = '';
     if (enrollmentType === 'LEVEL') {
@@ -584,22 +586,23 @@ function buildCourseTable(courses, showDept) {
     return html;
 }
 
+// Construit le HTML du récapitulatif affiché dans le modal (sections étudiant / année / cours)
 function buildRecapHtml(data, levelCourses) {
     let html = '';
 
-    // Étudiant
+    // Section : étudiant concerné
     html += `<div class="recap-section">
         <h6><i class="fas fa-user-graduate me-2"></i>Étudiant</h6>
         <p class="mb-0 ms-3">${data.studentLabel}</p>
     </div>`;
 
-    // Année
+    // Section : année académique
     html += `<div class="recap-section">
         <h6><i class="fas fa-calendar-alt me-2"></i>Année académique</h6>
         <p class="mb-0 ms-3">${data.yearLabel}</p>
     </div>`;
 
-    // Mode inscription
+    // Branche selon le mode d'inscription : LEVEL (niveau complet) ou COURSE (cours individuels)
     if (data.enrollmentType === 'LEVEL') {
         html += `<div class="recap-section">
             <h6><i class="fas fa-building me-2"></i>Département / Filière</h6>
@@ -611,7 +614,7 @@ function buildRecapHtml(data, levelCourses) {
             <p class="mb-0 ms-3">${data.niveauLabel}</p>
         </div>`;
 
-        // Tableau des cours
+        // Tableau récapitulatif des cours inclus dans le niveau choisi
         html += `<div class="recap-section">
             <h6><i class="fas fa-book me-2"></i>Cours inclus <span class="badge bg-success">${levelCourses.length}</span></h6>`;
         html += buildCourseTable(levelCourses, false);
@@ -636,10 +639,11 @@ function showValidationError(msg) {
     alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+// Affiche le modal récapitulatif — en mode LEVEL, charge les cours via l'API avant rendu
 async function showRecap() {
     const data = getRecapData();
 
-    // Validation rapide avant d'ouvrir le récap
+    // Validation rapide avant d'ouvrir le récap : au moins un cours sélectionné en mode COURSE
     if (data.enrollmentType === 'COURSE' && data.selectedCourses.length === 0) {
         showValidationError('Veuillez sélectionner au moins un cours.');
         return;
@@ -648,7 +652,7 @@ async function showRecap() {
     const body = document.getElementById('recapBody');
 
     if (data.enrollmentType === 'LEVEL') {
-        // Charger les cours du département + niveau via l'API
+        // Mode LEVEL : on charge tous les cours du couple (département, niveau) via l'API
         const yearId = document.getElementById('{{ enrollment_form.academic_year.id_for_label }}').value;
         const deptId = document.getElementById('{{ enrollment_form.departement.id_for_label }}').value;
         const niveau = document.getElementById('{{ enrollment_form.niveau.id_for_label }}').value;
@@ -658,7 +662,7 @@ async function showRecap() {
             return;
         }
 
-        // Afficher le modal avec un spinner pendant le chargement
+        // Ouvre le modal immédiatement avec un spinner — meilleur ressenti utilisateur que d'attendre l'API
         body.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Chargement des cours...</p></div>';
         const modal = new bootstrap.Modal(document.getElementById('recapModal'));
         modal.show();
@@ -706,7 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('courseSearch').addEventListener('input', filterCourses);
 
-    // Event listeners replacing inline onclick/onchange handlers
+    // Branchement des écouteurs en JS (remplace les anciens handlers inline onclick/onchange — conforme CSP)
     document.querySelectorAll('.js-enrollment-type').forEach(function(div) {
         div.addEventListener('click', function() {
             document.getElementById(this.dataset.target).checked = true;
@@ -722,7 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('reviewBtn').addEventListener('click', showRecap);
     document.getElementById('confirmBtn').addEventListener('click', confirmSubmit);
 
-    // Event delegation for dynamically created course checkboxes
+    // Délégation d'événement : les cases à cocher des cours sont créées dynamiquement après chargement API
     document.getElementById('courseList').addEventListener('change', function(e) {
         if (e.target.classList.contains('course-checkbox')) {
             updateCounter();

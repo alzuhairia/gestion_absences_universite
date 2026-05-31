@@ -1,8 +1,13 @@
 """
-FICHIER : apps/dashboard/views_admin_stats.py
-RESPONSABILITE : Statistiques avancées des absences (graphiques, top N, répartitions)
+Vue des statistiques administrateur pour le tableau de bord UniAbsences.
 
-Note : Le tableau de bord principal admin (KPIs) est dans views_admin_dashboard.py
+``admin_statistics``
+    Affiche la page de statistiques avancées avec les données de graphiques : top professeurs
+    par nombre d'absences, top cours, tendance mensuelle des absences, absences par
+    département et répartition par statut de justification et niveau d'études.
+    Les données sont restreintes à l'année académique active.
+
+Note : les KPIs principaux du tableau de bord administrateur se trouvent dans ``views_admin_dashboard.py``.
 """
 
 import logging
@@ -108,7 +113,7 @@ def admin_statistics(request):
     level_labels = [f"Année {l['niveau']}" for l in level_absences if l["niveau"]]
     level_data = [l["total"] for l in level_absences if l["niveau"]]
 
-    # 7. KPI summary stats
+    # 7. Statistiques KPI synthétiques
     total_absences = Absence.objects.filter(year_filter).count()
     status_dict = {s["statut"]: s["total"] for s in status_absences}
     kpi_justified = status_dict.get(Absence.Statut.JUSTIFIEE, 0)

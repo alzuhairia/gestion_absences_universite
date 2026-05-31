@@ -19,7 +19,10 @@ from apps.enrollments.models import Inscription
 
 
 class BaseQRTestCase(TestCase):
+    """Base de test partagée : crée faculté/dept/année/cours/séance/inscription pour les scénarios QR."""
+
     def setUp(self):
+        """Initialise le dataset minimal et configure les coordonnées GPS de l'établissement."""
         self.faculte = Faculte.objects.create(nom_faculte="Faculte QR")
         self.departement = Departement.objects.create(
             nom_departement="Dept QR", id_faculte=self.faculte,
@@ -56,6 +59,7 @@ class BaseQRTestCase(TestCase):
         settings.save()
 
     def _create_token(self, verify_location=False, expired=False, **kwargs):
+        """Fabrique un ``QRAttendanceToken`` pour la séance courante (option expiré/géolocalisé)."""
         expires_at = timezone.now() + (
             timedelta(seconds=-10) if expired else timedelta(seconds=60)
         )
@@ -67,10 +71,14 @@ class BaseQRTestCase(TestCase):
 
 
 class HaversineTest(TestCase):
+    """Tests unitaires de la fonction ``_haversine`` (distance géodésique en mètres)."""
+
     def test_same_point_zero_distance(self):
+        """Deux points identiques doivent renvoyer une distance de zéro mètre."""
         self.assertAlmostEqual(_haversine(36.75, 3.04, 36.75, 3.04), 0, places=0)
 
     def test_known_distance(self):
-        # ~111 km between these latitudes
+        """Un degré de latitude vaut ~111 km — tolérance ±500 m."""
+        # ~111 km entre ces latitudes
         dist = _haversine(36.0, 3.0, 37.0, 3.0)
         self.assertAlmostEqual(dist, 111_195, delta=500)

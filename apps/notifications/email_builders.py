@@ -17,7 +17,7 @@ from .email_core import _render_html
 
 
 def build_threshold_exceeded_email(student, course_name, taux, seuil):
-    """Email sent to student when absence threshold is exceeded."""
+    """Email envoyé à l'étudiant lorsque le seuil d'absence est dépassé."""
     subject = f"[UniAbsences] ALERTE — Seuil d'absence dépassé pour {course_name}"
     context = {
         "student_name": student.get_full_name(),
@@ -38,7 +38,7 @@ def build_threshold_exceeded_email(student, course_name, taux, seuil):
 
 
 def build_threshold_exceeded_professor_email(professor, student, course_name, taux, seuil):
-    """Email sent to professor when a student in their course exceeds the threshold."""
+    """Email envoyé au professeur lorsqu'un étudiant de son cours dépasse le seuil."""
     subject = f"[UniAbsences] Étudiant bloqué — {student.get_full_name()} ({course_name})"
     context = {
         "professor_name": professor.get_full_name(),
@@ -61,7 +61,7 @@ def build_threshold_exceeded_professor_email(professor, student, course_name, ta
 
 
 def build_eligibility_restored_email(student, course_name):
-    """Email sent to student when eligibility is restored."""
+    """Email envoyé à l'étudiant lorsque l'éligibilité est restaurée."""
     subject = f"[UniAbsences] Éligibilité restaurée — {course_name}"
     context = {
         "student_name": student.get_full_name(),
@@ -77,7 +77,7 @@ def build_eligibility_restored_email(student, course_name):
 
 
 def build_justification_submitted_professor_email(professor, student, course_code, absence_date):
-    """Email sent to professor when a student submits a justification."""
+    """Email envoyé au professeur lorsqu'un étudiant soumet un justificatif."""
     subject = f"[UniAbsences] Justificatif soumis — {student.get_full_name()} ({course_code})"
     context = {
         "professor_name": professor.get_full_name(),
@@ -98,7 +98,7 @@ def build_justification_submitted_professor_email(professor, student, course_cod
 
 
 def build_justification_decision_email(student, course_code, absence_date, approved, motif=""):
-    """Email sent to student when justification is approved or rejected."""
+    """Email envoyé à l'étudiant lorsque le justificatif est accepté ou refusé."""
     decision = "ACCEPTÉE" if approved else "REFUSÉE"
     subject = f"[UniAbsences] Justification {decision} — {course_code} ({absence_date})"
     context = {
@@ -122,7 +122,7 @@ def build_justification_decision_email(student, course_code, absence_date, appro
 
 
 def build_justification_decision_professor_email(professor, student, course_code, absence_date, approved):
-    """Email sent to professor when a justification in their course is decided."""
+    """Email envoyé au professeur lorsqu'un justificatif de son cours est décidé."""
     decision = "acceptée" if approved else "refusée"
     subject = f"[UniAbsences] Justification {decision} — {student.get_full_name()} ({course_code})"
     context = {
@@ -144,7 +144,7 @@ def build_justification_decision_professor_email(professor, student, course_code
 
 
 def build_absence_recorded_email(student, course_name, absence_date, taux):
-    """Email sent to student when a professor records an absence."""
+    """Email envoyé à l'étudiant lorsqu'un professeur enregistre une absence."""
     subject = f"[UniAbsences] Absence enregistrée — {course_name} ({absence_date})"
     context = {
         "student_name": student.get_full_name(),
@@ -167,16 +167,16 @@ def build_absence_recorded_email(student, course_name, absence_date, taux):
 
 def build_weekly_summary_email(secretary, summary_data):
     """
-    Email sent to secretaries with weekly absence statistics.
+    Email envoyé aux secrétaires avec les statistiques d'absence hebdomadaires.
 
-    Args:
-        secretary: User instance (secretary)
-        summary_data: dict with keys:
-            - week_start, week_end: date strings
-            - total_absences: int
-            - new_blocked: int
-            - pending_justifications: int
-            - courses_at_risk: list of {course_name, at_risk_count}
+    Paramètres:
+        secretary: instance User (secrétaire)
+        summary_data: dict avec les clés :
+            - week_start, week_end : chaînes de dates
+            - total_absences : int
+            - new_blocked : int
+            - pending_justifications : int
+            - courses_at_risk : liste de {course_name, at_risk_count}
     """
     subject = (
         f"[UniAbsences] Résumé hebdomadaire des absences "

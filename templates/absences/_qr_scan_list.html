@@ -1,9 +1,9 @@
 {% comment %}
-HTMX partial — refreshed every 3s by the QR dashboard.
-Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, has_gps, qr_token
+Partiel HTMX — rafraîchi toutes les 3 s par le tableau de bord QR.
+Contexte : scanned, not_scanned, scanned_count, total_students, suspicious_count, has_gps, qr_token
 {% endcomment %}
 
-<!-- Big progress indicator -->
+<!-- Grand indicateur de progression -->
 {% if total_students > 0 %}
 <div class="text-center mb-3">
     <div class="d-inline-block position-relative" style="width:130px; height:130px;">
@@ -21,7 +21,7 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
 </div>
 {% endif %}
 
-<!-- Counters -->
+<!-- Compteurs -->
 <div class="row text-center mb-3">
     <div class="col-4">
         <div class="h4 mb-0 fw-bold text-primary">{{ total_students }}</div>
@@ -37,7 +37,7 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
     </div>
 </div>
 
-<!-- Suspicious alert -->
+<!-- Alerte suspecte -->
 {% if suspicious_count > 0 %}
 <div class="alert alert-danger py-2 mb-3">
     <i class="fas fa-map-marker-alt me-1"></i>
@@ -45,7 +45,7 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
 </div>
 {% endif %}
 
-<!-- Linear progress bar -->
+<!-- Barre de progression linéaire -->
 {% if total_students > 0 %}
 <div class="progress mb-4" style="height: 10px; border-radius: 5px;">
     <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar"
@@ -56,7 +56,7 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
 {% endif %}
 
 <div class="row">
-    <!-- Scanned (present) -->
+    <!-- Scannés (présents) -->
     <div class="col-md-6 mb-3">
         <h6 class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Présents ({{ scanned_count }})</h6>
         {% if scanned %}
@@ -84,7 +84,7 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
         {% endif %}
     </div>
 
-    <!-- Not scanned (waiting) -->
+    <!-- Non scannés (en attente) -->
     <div class="col-md-6 mb-3">
         <h6 class="text-warning fw-bold"><i class="fas fa-hourglass-half me-1"></i>En attente ({{ not_scanned|length }})</h6>
         {% if not_scanned %}

@@ -1,3 +1,6 @@
+"""
+Tests — messagerie interne : invalidation du cache compteur, formulaire et blocage des comptes désactivés.
+"""
 from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
@@ -8,7 +11,10 @@ from apps.messaging.models import Message
 
 
 class MessageCacheInvalidationTest(TestCase):
+    """Vérifie que les opérations sur ``Message`` invalident correctement le cache du compteur non-lu."""
+
     def setUp(self):
+        """Crée un expéditeur (professeur) et un destinataire (étudiant) avec leur clé de cache."""
         self.sender = User.objects.create_user(
             email="sender@example.com",
             password="testpass123",
@@ -26,15 +32,16 @@ class MessageCacheInvalidationTest(TestCase):
         self.cache_key = f"messages:unread_count:{self.recipient.pk}"
 
     def tearDown(self):
+        """Purge le cache après chaque test pour éviter toute fuite d'état entre tests."""
         cache.clear()
 
     def test_cache_invalidated_on_new_message(self):
-        """Le cache du compteur non-lu est supprime quand un nouveau message est cree."""
-        # Seed the cache with a stale value
+        """Le cache du compteur non-lu est supprimé lorsqu'un nouveau message est créé."""
+        # Pré-remplit le cache avec une valeur périmée
         cache.set(self.cache_key, 0, timeout=300)
         self.assertEqual(cache.get(self.cache_key), 0)
 
-        # Create a new message — save() should invalidate the cache
+        # Création d'un nouveau message — save() doit invalider le cache
         Message.objects.create(
             expediteur=self.sender,
             destinataire=self.recipient,
@@ -45,14 +52,14 @@ class MessageCacheInvalidationTest(TestCase):
         self.assertIsNone(cache.get(self.cache_key))
 
     def test_cache_invalidated_on_mark_as_read(self):
-        """mark_as_read() met lu=True et invalide le cache."""
+        """``mark_as_read()`` met ``lu=True`` et invalide le cache."""
         msg = Message.objects.create(
             expediteur=self.sender,
             destinataire=self.recipient,
             objet="Test",
             contenu="Contenu test",
         )
-        # Seed cache after creation
+        # Pré-remplit le cache après création
         cache.set(self.cache_key, 1, timeout=300)
 
         msg.mark_as_read()
@@ -61,7 +68,7 @@ class MessageCacheInvalidationTest(TestCase):
         self.assertIsNone(cache.get(self.cache_key))
 
     def test_mark_as_read_noop_if_already_read(self):
-        """mark_as_read() ne fait rien si le message est deja lu."""
+        """``mark_as_read()`` ne fait rien si le message est déjà lu."""
         msg = Message.objects.create(
             expediteur=self.sender,
             destinataire=self.recipient,
@@ -69,13 +76,16 @@ class MessageCacheInvalidationTest(TestCase):
             contenu="Contenu test",
             lu=True,
         )
-        # Should not trigger a save
+        # Ne doit déclencher aucun save
         msg.mark_as_read()
         self.assertTrue(msg.lu)
 
 
 class MessageFormTests(TestCase):
+    """Tests de validation du formulaire ``MessageForm`` (destinataires actifs uniquement, exclusion de soi)."""
+
     def setUp(self):
+        """Crée un expéditeur, un destinataire actif et un destinataire désactivé."""
         self.sender = User.objects.create_user(
             email="sender@example.com",
             password="testpass123",
@@ -101,9 +111,9 @@ class MessageFormTests(TestCase):
         self.inactive_recipient.save(update_fields=["actif"])
 
     def test_message_form_rejects_inactive_recipient(self):
-        """Selecting an inactive user as recipient must be rejected."""
-        # Force the inactive user into the queryset (simulates race condition:
-        # user deactivated between page load and form submission)
+        """Sélectionner un utilisateur désactivé comme destinataire doit être rejeté."""
+        # Force l'utilisateur désactivé dans le queryset (simule une race condition :
+        # utilisateur désactivé entre le chargement de la page et la soumission)
         form = MessageForm(
             data={
                 "destinataire": self.inactive_recipient.pk,
@@ -120,7 +130,7 @@ class MessageFormTests(TestCase):
         self.assertIn("actif", form.errors["destinataire"][0])
 
     def test_message_form_accepts_active_recipient(self):
-        """Active recipient should be accepted."""
+        """Un destinataire actif doit être accepté par le formulaire."""
         form = MessageForm(
             data={
                 "destinataire": self.active_recipient.pk,
@@ -132,20 +142,20 @@ class MessageFormTests(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_message_form_excludes_inactive_from_queryset(self):
-        """Inactive users should not appear in the recipient queryset."""
+        """Les utilisateurs désactivés ne doivent pas apparaître dans le queryset des destinataires."""
         form = MessageForm(user=self.sender)
         qs = form.fields["destinataire"].queryset
         self.assertIn(self.active_recipient, qs)
         self.assertNotIn(self.inactive_recipient, qs)
 
     def test_message_form_excludes_self(self):
-        """The sender should not appear in their own recipient list."""
+        """L'expéditeur ne doit pas figurer dans sa propre liste de destinataires."""
         form = MessageForm(user=self.sender)
         qs = form.fields["destinataire"].queryset
         self.assertNotIn(self.sender, qs)
 
     def test_inactive_user_cannot_send_message(self):
-        """A deactivated user must be blocked from sending messages."""
+        """Un utilisateur désactivé ne doit pas pouvoir envoyer de message."""
         self.sender.actif = False
         self.sender.save(update_fields=["actif"])
 
@@ -156,6 +166,6 @@ class MessageFormTests(TestCase):
             {"destinataire": self.active_recipient.pk, "objet": "Hi", "contenu": "Test"},
             secure=True,
         )
-        # Should redirect, not send
+        # Doit rediriger sans envoyer
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Message.objects.count(), 0)

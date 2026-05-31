@@ -1,3 +1,4 @@
+"""Script de vérification — exerce le workflow de validation d'une justification de bout en bout."""
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ from apps.notifications.models import Notification
 from apps.absences.views.secretary_views import process_justification
 
 def verify():
+    """Approuve une justification via la vue secrétaire et vérifie l'effet sur l'absence et la notification."""
     print("Verifying Justification Workflow...")
     
     # Setup Data

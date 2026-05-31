@@ -66,8 +66,9 @@ class Notification(models.Model):
         verbose_name="Date d'envoi",
         db_index=True,
     )
-
     class Meta:
+        """Métadonnées Django : table ``notification``, tri chronologique inverse et index lus/non-lus."""
+
         managed = True
         db_table = "notification"
         app_label = "notifications"
@@ -80,6 +81,7 @@ class Notification(models.Model):
         ]
 
     def __str__(self):
+        """Représentation lisible identifiant le destinataire et la date d'envoi."""
         return f"Notification pour {self.id_utilisateur} - {self.date_envoi}"
 
 
@@ -90,11 +92,11 @@ class Notification(models.Model):
 
 class EmailLog(models.Model):
     """
-    Tracks sent emails to prevent duplicate spam.
+    Suit les emails envoyés afin d'empêcher les doublons de spam.
 
-    A SHA-256 digest is computed from (recipient_email, event_type, event_key)
-    and stored with a timestamp.  Before sending, we check whether the same
-    digest was already created within the cooldown window.
+    Un digest SHA-256 est calculé à partir de (recipient_email, event_type, event_key)
+    et stocké avec un horodatage. Avant l'envoi, on vérifie si le même digest a déjà
+    été créé dans la fenêtre de cooldown.
     """
 
     digest = models.CharField(max_length=64, unique=True, db_index=True)
@@ -103,6 +105,8 @@ class EmailLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Métadonnées Django : table ``email_log`` et index sur ``created_at`` pour le cooldown."""
+
         managed = True
         db_table = "email_log"
         app_label = "notifications"
@@ -111,17 +115,18 @@ class EmailLog(models.Model):
         ]
 
     def __str__(self):
+        """Représentation lisible : type d'événement → destinataire (date)."""
         return f"{self.event_type} → {self.recipient_email} ({self.created_at})"
 
     @classmethod
     def make_digest(cls, email, event_type, event_key):
-        """Build a deterministic SHA-256 digest for deduplication."""
+        """Construit un digest SHA-256 déterministe pour la déduplication."""
         raw = f"{email}|{event_type}|{event_key}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     @classmethod
     def already_sent(cls, email, event_type, event_key, cooldown_hours=24):
-        """Return True if an email with the same signature was sent within the cooldown."""
+        """Retourne True si un email avec la même signature a été envoyé pendant la période de cooldown."""
         digest = cls.make_digest(email, event_type, event_key)
         cutoff = timezone.now() - timezone.timedelta(hours=cooldown_hours)
         return cls.objects.filter(digest=digest, created_at__gte=cutoff).exists()
@@ -129,15 +134,15 @@ class EmailLog(models.Model):
     @classmethod
     def record(cls, email, event_type, event_key):
         """
-        Record that an email was sent.
+        Enregistre qu'un email a été envoyé.
 
-        On collision the existing row is preserved as-is — we deliberately do
-        NOT reset ``created_at``, otherwise a duplicate send would silently
-        push the cooldown window forward and hide the incident.
+        En cas de collision, la ligne existante est conservée telle quelle — on ne
+        réinitialise PAS volontairement ``created_at``, sinon un envoi en double
+        repousserait silencieusement la fenêtre de cooldown et masquerait l'incident.
 
-        Note: this method is retained for backwards compatibility. The
-        race-free path is ``send_with_dedup`` in ``apps.notifications.email``,
-        which claims the slot via INSERT-or-conditional-UPDATE before sending.
+        Note : cette méthode est conservée pour la rétrocompatibilité. Le chemin
+        race-free est ``send_with_dedup`` dans ``apps.notifications.email``,
+        qui revendique le slot via INSERT-or-conditional-UPDATE avant l'envoi.
         """
         digest = cls.make_digest(email, event_type, event_key)
         cls.objects.get_or_create(

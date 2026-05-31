@@ -1,6 +1,8 @@
 """
-Base test case for absence business logic tests.
-Sub-files: test_absence_rates.py, test_absence_validation.py, test_absence_integration.py
+Cas de test de base pour les tests de logique métier des absences.
+
+Sous-fichiers : test_absence_rates.py, test_absence_validation.py,
+test_absence_integration.py.
 """
 from datetime import date, time
 
@@ -13,9 +15,10 @@ from apps.enrollments.models import Inscription
 
 
 class AbsenceLogicBaseTestCase(TestCase):
-    """Base test case with shared fixtures."""
+    """Cas de test de base partageant les fixtures (utilisateurs, cours, séances)."""
 
     def setUp(self):
+        """Initialise les fixtures communes utilisées par les sous-classes de logique d'absences."""
         self.faculte = Faculte.objects.create(nom_faculte="Faculte Test")
         self.departement = Departement.objects.create(
             nom_departement="Departement Test",

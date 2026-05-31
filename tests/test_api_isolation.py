@@ -18,9 +18,10 @@ from apps.enrollments.models import Inscription
 
 
 class AbsenceApiIsolationTests(TestCase):
-    """Tests that the Absence API enforces per-role data isolation."""
+    """Tests d'isolation : l'API ``Absence`` filtre les résultats selon le rôle de l'appelant."""
 
     def setUp(self):
+        """Crée 2 profs/2 étudiants/2 cours avec absences distinctes pour vérifier le cloisonnement."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac ISO")
         self.dept = Departement.objects.create(
             nom_departement="Dept ISO", id_faculte=self.faculte
@@ -123,7 +124,7 @@ class AbsenceApiIsolationTests(TestCase):
         self.url = reverse("api:absence-list")
 
     def test_professor_cannot_see_other_courses_absences(self):
-        """Prof1 sees only absences from their own courses, not prof2's."""
+        """Prof1 ne voit que les absences de ses propres cours, jamais celles de prof2."""
         self.client.force_login(self.prof1)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
@@ -133,7 +134,7 @@ class AbsenceApiIsolationTests(TestCase):
         self.assertNotIn(self.absence2.pk, ids)
 
     def test_student_cannot_see_other_students_absences(self):
-        """Student1 sees only their own absences, not student2's."""
+        """Student1 ne voit que ses propres absences, jamais celles de student2."""
         self.client.force_login(self.student1)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
@@ -144,9 +145,10 @@ class AbsenceApiIsolationTests(TestCase):
 
 
 class StudentApiIsolationTests(TestCase):
-    """Tests that the Student API enforces per-role data isolation."""
+    """Tests d'isolation : l'API ``Student`` filtre les utilisateurs selon le rôle de l'appelant."""
 
     def setUp(self):
+        """Prépare admin, 2 profs et 2 étudiants pour vérifier le filtrage du listing étudiants."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac STU")
         self.dept = Departement.objects.create(
             nom_departement="Dept STU", id_faculte=self.faculte
@@ -208,7 +210,7 @@ class StudentApiIsolationTests(TestCase):
         self.url = reverse("api:student-list")
 
     def test_student_cannot_list_other_students(self):
-        """A student hitting the student list endpoint sees only themselves."""
+        """Un étudiant qui appelle la liste des étudiants ne voit que lui-même."""
         self.client.force_login(self.student1)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
@@ -218,7 +220,7 @@ class StudentApiIsolationTests(TestCase):
         self.assertNotIn(self.student2.pk, ids)
 
     def test_professor_sees_only_enrolled_students(self):
-        """A professor sees only students enrolled in their courses."""
+        """Un professeur ne voit que les étudiants inscrits à ses propres cours."""
         self.client.force_login(self.prof)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
@@ -228,14 +230,14 @@ class StudentApiIsolationTests(TestCase):
         self.assertNotIn(self.student2.pk, ids)
 
     def test_professor_without_students_sees_empty(self):
-        """A professor with no enrolled students gets an empty list."""
+        """Un professeur sans étudiant inscrit reçoit une liste vide."""
         self.client.force_login(self.prof2)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"], [])
 
     def test_admin_sees_all_students(self):
-        """Admin sees every student."""
+        """L'administrateur voit tous les étudiants sans restriction."""
         self.client.force_login(self.admin)
         response = self.client.get(self.url, secure=True)
         self.assertEqual(response.status_code, 200)
@@ -246,9 +248,10 @@ class StudentApiIsolationTests(TestCase):
 
 
 class ApiAcademicYearIsolationTests(TestCase):
-    """Professor API endpoints must restrict data to the active academic year."""
+    """Les endpoints API côté professeur doivent restreindre les données à l'année académique active."""
 
     def setUp(self):
+        """Crée une ancienne et une nouvelle année avec les mêmes acteurs pour vérifier le filtrage."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac Year Isolation")
         self.dept = Departement.objects.create(
             nom_departement="Dept Year Isolation", id_faculte=self.faculte
@@ -301,7 +304,7 @@ class ApiAcademicYearIsolationTests(TestCase):
         )
 
     def test_professor_inscriptions_filtered_by_active_year(self):
-        """InscriptionViewSet for professors must only return current year inscriptions."""
+        """``InscriptionViewSet`` côté professeur ne renvoie que les inscriptions de l'année active."""
         self.client.force_login(self.prof)
         response = self.client.get(reverse("api:enrollment-list"), secure=True)
         self.assertEqual(response.status_code, 200)
@@ -311,8 +314,8 @@ class ApiAcademicYearIsolationTests(TestCase):
         self.assertNotIn(self.old_inscription.id_inscription, ids)
 
     def test_professor_absences_filtered_by_active_year(self):
-        """AbsenceViewSet for professors must only return current year absences."""
-        # Create absences for both years
+        """``AbsenceViewSet`` côté professeur ne renvoie que les absences de l'année active."""
+        # Crée des absences pour les deux années
         old_seance = Seance.objects.create(
             date_seance=date(2025, 3, 1),
             heure_debut=time(8, 0),

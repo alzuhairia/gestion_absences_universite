@@ -1,13 +1,13 @@
 """
-Management command to create the initial superadmin account.
+Commande de management — création du premier compte super-administrateur.
 
-Usage (local):
+Utilisation (local) :
     python manage.py createsuperadmin
 
-Usage (Docker):
+Utilisation (Docker) :
     docker compose exec web python manage.py createsuperadmin
 
-Non-interactive mode (for CI/scripts):
+Mode non interactif (CI / scripts) :
     python manage.py createsuperadmin --email admin@example.com \
         --nom Admin --prenom Super --password SecurePass123!
 """
@@ -20,20 +20,24 @@ from apps.accounts.models import User, UserManager
 
 
 class Command(BaseCommand):
-    help = "Create the initial superadmin account (ADMIN role with is_superuser=True)"
+    """Commande Django créant un compte super-administrateur initial (rôle ADMIN, ``is_superuser=True``)."""
+
+    help = "Crée le premier compte super-administrateur (rôle ADMIN avec is_superuser=True)"
 
     def add_arguments(self, parser):
-        parser.add_argument("--email", help="Admin email address")
-        parser.add_argument("--nom", help="Last name")
-        parser.add_argument("--prenom", help="First name")
-        parser.add_argument("--password", help="Password (prompted if omitted)")
+        """Déclare les options CLI : email, nom, prénom, mot de passe et mode non interactif."""
+        parser.add_argument("--email", help="Adresse email de l'administrateur")
+        parser.add_argument("--nom", help="Nom de famille")
+        parser.add_argument("--prenom", help="Prénom")
+        parser.add_argument("--password", help="Mot de passe (demandé en interactif si omis)")
         parser.add_argument(
             "--no-input",
             action="store_true",
-            help="Non-interactive mode (all fields required as arguments)",
+            help="Mode non interactif (tous les champs doivent être passés en arguments)",
         )
 
     def handle(self, *args, **options):
+        """Crée le compte après vérification d'unicité et validation de la politique mot de passe."""
         admin_count = User.objects.filter(role=User.Role.ADMIN).count()
         if admin_count > 0:
             self.stdout.write(

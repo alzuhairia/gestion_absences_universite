@@ -1,3 +1,18 @@
+{# ============================================================
+   Template : admin_confirm_delete.html
+   Rôle    : Page de confirmation générique de suppression côté
+             administrateur. Gère deux cas distincts :
+               1. Suppression simple (objet sans dépendances)
+               2. Suppression d'utilisateur avec choix
+                  « supprimer en cascade » ou « désactiver »
+   Contexte attendu :
+     - object_label   : libellé de l'objet à supprimer
+     - cancel_url     : URL de retour si l'utilisateur annule
+     - cancel_label   : libellé du lien d'annulation (breadcrumb)
+     - cascade_items  : liste des données liées (compteurs)
+     - has_dependencies : True si on doit proposer le double choix
+     - extra_warning  : avertissement supplémentaire facultatif
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}Confirmer la suppression{% endblock %}
@@ -28,6 +43,9 @@
                         <span class="fs-5"><i class="fas fa-times-circle me-1"></i> {{ object_label }}</span>
                     </div>
 
+                    {# Bloc cascade : si l'objet possède des données associées,
+                       on les liste pour que l'admin mesure l'impact avant
+                       de confirmer la suppression. #}
                     {% if cascade_items %}
                     <div class="card mb-3 border-warning">
                         <div class="card-header bg-warning text-dark py-2">
@@ -47,6 +65,9 @@
                     </div>
                     {% endif %}
 
+                    {# Branche utilisateur avec dépendances : on offre deux
+                       formulaires distincts — suppression forcée OU
+                       désactivation simple (conservation des données). #}
                     {% if has_dependencies %}
                     <div class="alert alert-warning">
                         <i class="fas fa-info-circle me-1"></i>
@@ -82,6 +103,8 @@
 
                     {% else %}
 
+                    {# Branche par défaut : suppression simple, un seul
+                       bouton de confirmation. #}
                     {% if extra_warning %}
                     <div class="alert alert-warning">
                         <i class="fas fa-info-circle me-1"></i> {{ extra_warning }}

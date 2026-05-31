@@ -1,3 +1,21 @@
+{# ============================================================
+   Email : threshold_exceeded_professor.html
+   Déclencheur : Un étudiant inscrit au cours d'un professeur dépasse le
+                 seuil d'absence et est automatiquement bloqué — construit
+                 par build_threshold_exceeded_professor_email().
+   Destinataire : Professeur du cours concerné
+   Rôle      : Informe le professeur qu'un de ses étudiants vient d'être
+               bloqué pour cause de dépassement de seuil ; rappelle les
+               coordonnées de l'étudiant, le taux atteint et le seuil
+               autorisé.
+   Contexte attendu (variables Django passées au template) :
+     - professor_name : nom complet du professeur destinataire
+     - student_name   : nom complet de l'étudiant bloqué
+     - student_email  : email de l'étudiant (affiché dans les statistiques)
+     - course_name    : libellé du cours concerné
+     - taux           : taux d'absence atteint (chaîne formatée)
+     - seuil          : seuil autorisé en pourcentage (entier)
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Étudiant bloqué{% endblock %}
 {% block subtitle %}Notification Professeur{% endblock %}

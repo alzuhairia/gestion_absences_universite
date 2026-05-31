@@ -1,11 +1,26 @@
 """
-FICHIER : apps/dashboard/views_admin_dashboard.py
-RESPONSABILITE : Tableau de bord principal admin — KPIs et vue d'ensemble
+Vue principale du tableau de bord administrateur pour UniAbsences.
 
-Fonctionnalités :
-  - is_admin()                   : helper de vérification de rôle
-  - _get_at_risk_count_cached()  : calcul avec cache Redis 5 min
-  - admin_dashboard_main()       : page principale avec 8 KPIs
+Ce module affiche la page d'accueil principale de l'administrateur avec des cartes KPI
+agrégées et le nombre d'étudiants à risque.
+
+Fonctions
+---------
+``is_admin``
+    Aide en ligne de vérification du rôle utilisée par les décorateurs ``user_passes_test`` dans
+    ce module.
+
+``_get_at_risk_count_cached``
+    Calcule le nombre d'inscriptions à risque avec un cache Redis de 5 minutes afin
+    que le chargement de la page du tableau de bord n'exécute pas une requête lourde à
+    chaque requête.
+
+``admin_dashboard_main``
+    Affiche le template du tableau de bord administrateur avec huit valeurs KPI : étudiants
+    actifs, professeurs, secrétaires, cours, inscriptions, absences,
+    étudiants à risque et justifications en attente.
+
+Fait partie du tableau de bord UniAbsences.
 """
 
 import logging
@@ -32,8 +47,21 @@ logger = logging.getLogger(__name__)
 
 def is_admin(user):
     """
-    Vérifie si l'utilisateur est un administrateur.
-    IMPORTANT: Séparé de is_secretary() pour éviter la confusion des rôles.
+    Retourne ``True`` si l'utilisateur est authentifié et détient le rôle ADMIN.
+
+    Cette aide est volontairement maintenue séparée de tout équivalent ``is_secretary()``
+    pour rendre la séparation des rôles explicite et éviter une confusion accidentelle
+    des deux rôles.
+
+    Paramètres
+    ----------
+    user : User
+        L'objet utilisateur à tester (peut être un ``AnonymousUser``).
+
+    Retourne
+    -------
+    bool
+        ``True`` uniquement lorsque l'utilisateur est authentifié avec ``role == ADMIN``.
     """
     return user.is_authenticated and user.role == User.Role.ADMIN
 
@@ -43,7 +71,33 @@ CACHE_TTL_AT_RISK = 300  # 5 minutes
 
 
 def _get_at_risk_count_cached(academic_year):
-    """Calcule le nombre d'etudiants a risque avec cache Redis (5 min)."""
+    """
+    Calcule le nombre d'inscriptions à risque, en utilisant un cache de 5 minutes.
+
+    Une inscription est considérée « à risque » lorsque le taux d'absences non
+    justifiées de l'étudiant (``duree_absence / nombre_total_periodes * 100``) atteint ou
+    dépasse le seuil effectif pour cette inscription. Le seuil effectif
+    prend en compte les surcharges par cours et la marge d'exemption de 40 %
+    (``ins.exemption_40 + ins.exemption_margin``).
+
+    En cas de hit du cache, l'entier stocké est retourné immédiatement, évitant entièrement
+    la requête d'agrégation lourde. En cas de miss, le compte est calculé en
+    deux requêtes de base de données (toutes les inscriptions actuelles + totaux d'absences agrégés)
+    puis mis en cache pendant ``CACHE_TTL_AT_RISK`` secondes.
+
+    Paramètres
+    ----------
+    academic_year : AnneeAcademique ou None
+        Lorsqu'il est fourni, le calcul est restreint à cette année. Lorsque
+        ``None`` (aucune année active configurée), toutes les inscriptions actuelles sont
+        considérées.
+
+    Retourne
+    -------
+    int
+        Nombre d'inscriptions dont le taux d'absences est égal ou supérieur à leur
+        seuil effectif.
+    """
     cached = cache.get(CACHE_KEY_AT_RISK)
     if cached is not None:
         return cached
@@ -56,6 +110,8 @@ def _get_at_risk_count_cached(academic_year):
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     today = timezone.localdate()
+
+    # Agréger les heures d'absences non justifiées par inscription en une seule requête.
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -74,11 +130,13 @@ def _get_at_risk_count_cached(academic_year):
         if cours.nombre_total_periodes > 0:
             total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
             rate = (total_abs / cours.nombre_total_periodes) * 100
+            # Utiliser le seuil spécifique au cours s'il est défini, sinon la valeur globale par défaut.
             seuil = (
                 cours.seuil_absence
                 if cours.seuil_absence is not None
                 else system_threshold
             )
+            # Appliquer la marge d'exemption pour les étudiants ayant une exemption accordée.
             seuil_effectif = (
                 min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
             )

@@ -168,13 +168,14 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    {# Vue de consultation des journaux d'audit : historique horodaté des actions sensibles (exemptions, validations, etc.) #}
+    <!-- En-tête de page avec dégradé cyan -->
     <div class="page-header text-center">
         <h1 class="mb-2"><i class="fas fa-history me-2"></i>Journaux d'Audit & Traçabilité</h1>
         <p class="mb-0 opacity-90">Consulter l'historique des actions administratives</p>
     </div>
 
-    <!-- Search Card -->
+    <!-- Carte de recherche (filtre par utilisateur, action, email...) -->
     <div class="search-card">
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-8">
@@ -206,7 +207,7 @@
         </form>
     </div>
 
-    <!-- Log Table Card -->
+    <!-- Tableau des entrées du journal (colorisation par type d'action via classes CSS) -->
     <div class="log-table-card">
         {% if logs %}
         <div class="table-responsive">
@@ -297,7 +298,7 @@
         {% endif %}
     </div>
 
-    <!-- Back Button -->
+    <!-- Bouton retour vers le tableau de bord secrétariat -->
     <div class="text-center mt-4">
         <a href="{% url 'dashboard:secretary_dashboard' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i>Retour au tableau de bord

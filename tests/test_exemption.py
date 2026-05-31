@@ -1,3 +1,6 @@
+"""
+Tests — dispense de seuil d'absence (``exemption_40``) et recalcul d'éligibilité associé.
+"""
 from datetime import date, time
 from unittest.mock import patch
 
@@ -13,9 +16,10 @@ from apps.enrollments.models import Inscription
 
 
 class ExemptionBaseTestCase(TestCase):
-    """Shared fixtures for exemption tests."""
+    """Fixtures partagées par les tests de dispense (cours 20h, étudiant inscrit, secrétaire authentifié)."""
 
     def setUp(self):
+        """Crée les acteurs (faculté/dept/année/prof/secrétaire/étudiant) et un cours de 20h."""
         self.faculte = Faculte.objects.create(nom_faculte="Faculte Test")
         self.departement = Departement.objects.create(
             nom_departement="Departement Test",
@@ -63,7 +67,7 @@ class ExemptionBaseTestCase(TestCase):
         )
 
     def _create_absences(self, total_hours):
-        """Create absences totalling `total_hours` (2h sessions)."""
+        """Crée autant d'absences ``NON_JUSTIFIEE`` de 2h que nécessaire pour totaliser ``total_hours``."""
         hours_created = 0
         day = 1
         while hours_created < total_hours:
@@ -87,12 +91,12 @@ class ExemptionBaseTestCase(TestCase):
 
 
 class ExemptionEligibilityTests(ExemptionBaseTestCase):
-    """Tests that toggling exemption immediately recalculates eligibility."""
+    """Vérifie que basculer la dispense recalcule immédiatement l'éligibilité aux examens."""
 
     def test_exemption_triggers_eligibility_recalc(self):
         """
-        Student has 10h absences on 20h course (50%) → blocked (seuil 40%).
-        Granting exemption with margin=15 → seuil_effectif=55% → 50% < 55% → unblocked.
+        L'étudiant a 10h d'absence sur 20h (50 %) → bloqué (seuil 40 %).
+        Accord d'une dispense avec marge=15 → seuil effectif 55 % → 50 % < 55 % → débloqué.
         """
         self._create_absences(10)  # 50% rate
 
@@ -118,8 +122,8 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
 
     def test_revoke_exemption_recalculates_eligibility(self):
         """
-        Student with exemption (eligible despite 50% rate).
-        Revoking exemption → seuil back to 40% → 50% >= 40% → blocked.
+        Étudiant en dispense (éligible malgré 50 % de taux).
+        Retrait de la dispense → seuil ramené à 40 % → 50 % ≥ 40 % → bloqué.
         """
         self._create_absences(10)  # 50% rate
 
@@ -144,7 +148,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         self.assertFalse(self.inscription.exemption_40)
 
     def test_grant_exemption_sends_email_notification(self):
-        """Granting exemption sends an email notification to the student."""
+        """Accorder une dispense envoie une notification email à l'étudiant concerné."""
         self._create_absences(10)
         recalculer_eligibilite(self.inscription)
 
@@ -170,7 +174,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
             self.assertEqual(call_kwargs[1]["event_type"], "exemption_granted")
 
     def test_grant_requires_motif(self):
-        """Granting without motif is rejected."""
+        """Une dispense accordée sans motif obligatoire est refusée."""
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
         response = self.client.post(url, {
@@ -183,7 +187,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         self.assertFalse(self.inscription.exemption_40)
 
     def test_invalid_action_rejected(self):
-        """An invalid action value is rejected with error message."""
+        """Une action inconnue (ni grant/revoke) est rejetée avec un message d'erreur clair."""
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
         response = self.client.post(url, {"action": "invalid"}, secure=True)

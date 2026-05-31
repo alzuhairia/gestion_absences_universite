@@ -1,9 +1,18 @@
 """
-FICHIER : apps/dashboard/views.py
-RESPONSABILITE : Redirection par rôle + re-exports pour backward compatibility avec urls.py.
+Hub des vues du tableau de bord et point d'entrée de répartition par rôle pour UniAbsences.
 
-Les vues métier du secrétariat ont été extraites dans views_secretary_home.py.
-Les vues étudiant / enseignant restent accessibles via leurs re-exports en bas de fichier.
+Ce module a deux objectifs :
+
+1. **Répartition par rôle** — ``dashboard_index`` redirige l'utilisateur
+   authentifié vers le tableau de bord spécifique à son rôle (admin,
+   secrétariat, professeur, étudiant).
+
+2. **Hub de réexportation** — réexporte les symboles de vues publiques
+   des sous-modules secrétariat, étudiant et professeur afin que
+   ``urls.py`` puisse importer depuis ``dashboard.views`` sans
+   connaître l'organisation interne des sous-modules.
+
+Fait partie du système de tableau de bord UniAbsences.
 """
 
 from django.contrib import messages
@@ -33,7 +42,25 @@ from apps.dashboard.views_secretary_home import (  # noqa: F401
 @login_required
 def dashboard_redirect(request):
     """
-    Redirige l'utilisateur vers le bon dashboard selon son rôle.
+    Redirige l'utilisateur authentifié vers son tableau de bord spécifique au rôle.
+
+    Inspecte ``request.user.role`` et délègue à la fonction de vue
+    appropriée selon le rôle.  Si le rôle n'est pas reconnu,
+    l'utilisateur est redirigé vers la page de connexion avec un
+    message d'erreur.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        La requête HTTP entrante.  L'utilisateur doit être authentifié
+        (appliqué par ``@login_required``).
+
+    Returns
+    -------
+    HttpResponse
+        La réponse produite par la vue de tableau de bord déléguée
+        selon le rôle, ou une redirection vers ``accounts:login`` pour
+        les rôles non reconnus.
     """
     user = request.user
     if user.role == User.Role.ETUDIANT:
@@ -52,14 +79,35 @@ def dashboard_redirect(request):
 @login_required
 def admin_dashboard(request):
     """
-    Redirige l'admin vers son dashboard complet ; affiche les justificatifs en attente
-    pour le secrétariat (rôle secondaire autorisé).
+    Point d'entrée de l'URL ``/dashboard/admin/``.
+
+    Distribue vers le gestionnaire approprié selon le rôle de l'appelant :
+
+    - **ADMIN** — délègue à ``admin_dashboard_main`` (tableau de bord KPI complet).
+    - **SECRETAIRE** — affiche l'index du secrétariat avec la liste
+      des demandes de justification en attente (les secrétaires
+      peuvent atteindre cette URL en navigant depuis leur propre
+      contexte ; ils voient une vue limitée plutôt que le tableau de
+      bord admin complet).
+    - **Tout autre rôle** — redirige vers ``dashboard:index`` avec une erreur.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        La requête HTTP entrante.
+
+    Returns
+    -------
+    HttpResponse
+        La réponse déléguée du tableau de bord admin, la vue partielle
+        du secrétariat, ou une redirection en cas d'échec d'autorisation.
     """
     if request.user.role == User.Role.ADMIN:
         from .views_admin import admin_dashboard_main
 
         return admin_dashboard_main(request)
     elif request.user.role == User.Role.SECRETAIRE:
+        # Les secrétaires atteignent légitimement cette URL ; affichez-leur les tâches en attente.
         pending_justifications = Justification.objects.filter(
             state=Justification.State.EN_ATTENTE
         ).select_related("id_absence__id_inscription__id_etudiant")

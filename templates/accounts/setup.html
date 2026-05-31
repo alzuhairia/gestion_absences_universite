@@ -1,3 +1,16 @@
+{# ============================================================
+   Template : setup.html
+   Rôle    : Page d'amorçage one-shot : permet de créer le tout
+             premier compte administrateur lors du premier lancement
+             de l'application. Accessible uniquement tant qu'aucun
+             admin n'existe encore.
+   Contexte attendu :
+     - form : SetupForm avec champs prenom, nom, email,
+              password, password_confirm
+   Particularités : la vue désactive automatiquement cette page une
+                    fois l'admin créé. Layout en grille 2 colonnes
+                    pour les champs prenom/nom.
+   ============================================================ #}
 {% extends 'base_auth.html' %}
 
 {% block title %}Configuration initiale — UniAbsences{% endblock %}

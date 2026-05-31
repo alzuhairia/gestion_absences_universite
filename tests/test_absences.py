@@ -1,3 +1,13 @@
+"""
+Cas de tests pour les fonctionnalités liées aux absences.
+
+Ce module contient les tests unitaires couvrant la création d'absences, le
+workflow de justification et la logique métier associée. Il définit aussi le
+cas de test de base (utilisateurs, cours, inscriptions) réutilisé par les
+autres classes de tests d'absences.
+
+Fait partie de la suite de tests UniAbsences.
+"""
 from django.test import TestCase
 
 from apps.academic_sessions.models import AnneeAcademique
@@ -7,7 +17,16 @@ from apps.enrollments.models import Inscription
 
 
 class BaseAbsenceTestCase(TestCase):
+    """
+    Cas de test de base fournissant un setup commun aux tests d'absences.
+
+    Crée les utilisateurs de test (admin, professeur, secrétaire, étudiants),
+    une faculté, un département, une année académique, des cours et les
+    inscriptions correspondantes.
+    """
+
     def setUp(self):
+        """Initialise les acteurs et le dataset minimal partagés par les sous-classes."""
         self.faculte = Faculte.objects.create(nom_faculte="Faculte Test")
         self.departement = Departement.objects.create(
             nom_departement="Departement Test",

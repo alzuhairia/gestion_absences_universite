@@ -8,7 +8,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
+    <!-- En-tête -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    <!-- Information Banner -->
+    <!-- Bannière d'information -->
     <div class="alert alert-info alert-dismissible fade show" role="alert">
         <i class="fas fa-info-circle me-2"></i>
         <strong>Bienvenue dans votre espace professeur :</strong> Ce tableau de bord vous présente un aperçu rapide de vos activités pédagogiques. 
@@ -32,7 +32,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <!-- KPI Cards -->
+    <!-- Cartes KPI -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2 kpi-card">
@@ -111,7 +111,7 @@
         </div>
     </div>
 
-    <!-- Students At Risk Alert -->
+    <!-- Alerte étudiants à risque -->
     {% if at_risk_count > 0 %}
     <div class="row mb-4">
         <div class="col-12">
@@ -186,7 +186,7 @@
     </div>
     {% endif %}
 
-    <!-- Quick Actions -->
+    <!-- Actions rapides -->
     <div class="row">
         <div class="col-md-4 mb-3">
             <div class="card shadow instructor-card">

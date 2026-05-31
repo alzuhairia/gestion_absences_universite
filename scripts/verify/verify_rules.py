@@ -1,3 +1,4 @@
+"""Script de vérification — valide les règles métier (seuils d'absences, délais de justification, dispenses)."""
 import os
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ from apps.enrollments.models import Inscription
 from apps.enrollments.views_rules import toggle_exemption
 
 def verify():
+    """Bascule la dispense d'une inscription et vérifie l'effet sur la règle des 40 % d'absences."""
     print("Verifying 40% Rule & Exceptions...")
     
     # Setup Data

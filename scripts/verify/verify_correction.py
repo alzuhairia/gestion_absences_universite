@@ -1,3 +1,4 @@
+"""Script de vérification — valide que la correction d'une absence met à jour les enregistrements liés."""
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ from apps.audits.models import LogAudit
 from apps.absences.views.admin_views import edit_absence
 
 def verify():
+    """Édite une absence existante via la vue admin et vérifie la création d'une trace d'audit."""
     print("Verifying Absence Correction & Audit...")
     
     # Setup Data

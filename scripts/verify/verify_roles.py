@@ -1,3 +1,4 @@
+"""Script de vérification — contrôle que le contrôle d'accès par rôle bloque et autorise les bons utilisateurs."""
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ from apps.absences.views import review_justification
 from django.urls import reverse
 
 def verify_roles():
+    """Vérifie que les vues de justification refusent les profs et acceptent les secrétaires."""
     print("--- Verifying Role Separation for Justifications ---")
 
     # 1. Setup Data

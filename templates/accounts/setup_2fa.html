@@ -1,3 +1,19 @@
+{# ============================================================
+   Template : setup_2fa.html
+   Rôle    : Assistant d'activation de la double authentification
+             TOTP en deux étapes : (1) affichage du QR code à scanner
+             dans une appli TOTP (Google/Microsoft Authenticator,
+             Authy, 1Password), (2) saisie du code à 6 chiffres pour
+             valider l'enrôlement.
+   Contexte attendu :
+     - base_template : template parent selon le rôle (défaut base.html)
+     - qr_data_uri   : QR code en data URI (image base64)
+     - secret        : clé TOTP brute (fallback saisie manuelle)
+     - issuer        : nom de l'émetteur affiché dans l'appli
+   Particularités : champ token en inputmode="numeric" + pattern
+                    [0-9]{6} + autocomplete="one-time-code" pour
+                    une UX mobile optimale.
+   ============================================================ #}
 {% extends base_template|default:'base.html' %}
 
 {% block title %}Activer la 2FA{% endblock %}

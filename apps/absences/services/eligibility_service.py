@@ -1,14 +1,27 @@
 """
-Service : Éligibilité à l'examen et calcul de risque centralisé.
+Exam Eligibility & Risk Calculation Service — apps/absences/services/eligibility_service.py
 
-Responsabilité :
-  - recalculer_eligibilite  : décide si un étudiant est bloqué (cœur du système)
-  - calculer_risque_inscription : source unique de vérité pour le statut de risque
-  - get_at_risk_count_for_queryset : comptage optimisé pour les dashboards
+Part of the UniAbsences university attendance management system.
 
-RÈGLE MÉTIER CENTRALE :
-  Un étudiant est bloqué si son taux d'absence NON JUSTIFIÉE >= seuil effectif.
-  Le seuil effectif = seuil du cours + marge d'exemption (si exemption accordée).
+This module is the authoritative source of truth for exam eligibility and
+absence-risk status across the entire system.  Any view, signal, or API
+endpoint that needs to determine whether a student is blocked from sitting
+an exam must call the functions here rather than duplicating the logic.
+
+Main responsibilities:
+  - ``recalculer_eligibilite``         : decide (and persist) whether a student is blocked
+  - ``calculer_risque_inscription``    : return the full risk profile for one enrolment
+  - ``get_at_risk_count_for_queryset`` : bulk count of at-risk enrolments for dashboards
+
+Central business rule:
+  A student is blocked if their NON_JUSTIFIEE absence rate >= the effective threshold.
+
+  Effective threshold = course threshold + exemption margin
+      (if an exemption has been granted to the student; otherwise = course threshold).
+
+Triggered automatically:
+  ``recalculer_eligibilite`` is called by the ``post_save`` signal on ``Absence``
+  so that every absence creation or update immediately re-evaluates eligibility.
 """
 import logging
 
@@ -32,7 +45,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_system_threshold():
-    """Récupère le seuil d'absence par défaut du système en une seule requête."""
+    """
+    Retrieve the system-wide default absence threshold from ``SystemSettings``.
+
+    This is used as a fallback when a course has no per-course threshold
+    configured.  The value is fetched in a single database query.
+
+    Returns:
+        int | float: default absence threshold percentage (e.g. 20).
+    """
     from apps.dashboard.models import SystemSettings
 
     return SystemSettings.get_settings().default_absence_threshold
@@ -40,22 +61,40 @@ def get_system_threshold():
 
 def recalculer_eligibilite(inscription):
     """
-    Recalcule l'éligibilité d'un étudiant à l'examen.
+    Recalculate and persist the exam eligibility status for one enrolment.
 
-    IMPORTANT POUR LA SOUTENANCE :
-    Règle métier du seuil d'absence :
-    - Bloqué si taux d'absence NON JUSTIFIÉE >= seuil effectif
-    - Seuil effectif = seuil cours + marge exemption si exemption accordée
-    - Déclenché automatiquement via signal post_save sur Absence
+    This is the core decision function of the UniAbsences system.
+
+    Algorithm:
+      1. Compute the current absence statistics via ``calculer_absence_stats``.
+      2. Determine the effective threshold (course threshold + exemption margin
+         if an exemption is active).
+      3. If rate >= effective threshold AND student is currently eligible →
+         block the student, send notifications, and write a CRITIQUE audit log.
+      4. If rate < effective threshold AND student is currently blocked →
+         restore eligibility and notify the student by email.
+
+    All database writes are wrapped in ``transaction.atomic()`` to ensure
+    the eligibility flag and the notification are either both saved or neither.
+    Emails are sent via ``transaction.on_commit`` so that an SMTP failure
+    cannot roll back the database transaction.
 
     Args:
-        inscription: Instance de Inscription à recalculer
+        inscription: ``apps.enrollments.models.Inscription`` instance to
+            re-evaluate.  The related ``id_cours`` must be accessible.
+
+    Side effects:
+      - May update ``inscription.eligible_examen`` and save it.
+      - May create a ``Notification`` for the student.
+      - May create a ``LogAudit`` entry at CRITIQUE level.
+      - May send emails to the student and/or the course professor.
     """
     stats = calculer_absence_stats(inscription)
     taux = stats["taux"]
     total_periodes = stats["total_periodes"]
     cours = inscription.id_cours
 
+    # No sessions scheduled yet → student cannot be blocked; ensure flag is True.
     if total_periodes == 0:
         if not inscription.eligible_examen:
             inscription.eligible_examen = True
@@ -63,15 +102,18 @@ def recalculer_eligibilite(inscription):
         return
 
     seuil = cours.get_seuil_absence()
+    # Exempted students get extra margin before being blocked.
     seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
     doit_bloquer = taux >= seuil_effectif
 
     if doit_bloquer:
+        # Only act when the student was previously eligible (avoid duplicate notifications).
         if inscription.eligible_examen:
             with transaction.atomic():
                 inscription.eligible_examen = False
                 inscription.save(update_fields=["eligible_examen"])
 
+                # Build notification message — distinguish exempted vs non-exempted students.
                 msg = (
                     f"ALERTE : Seuil d'exemption de {seuil_effectif}% dépassé pour {cours.nom_cours}. "
                     f"Examen bloqué malgré l'exemption."
@@ -87,6 +129,8 @@ def recalculer_eligibilite(inscription):
                 except Exception:
                     logger.exception("Failed to create blocking notification for %s", cours.nom_cours)
 
+                # Capture references now; closures in on_commit capture by reference
+                # and the loop variable would be stale by the time the callback fires.
                 student = inscription.id_etudiant
                 professor = cours.professeur
                 course_name = cours.nom_cours
@@ -94,6 +138,7 @@ def recalculer_eligibilite(inscription):
                     lambda: _send_threshold_emails(student, professor, course_name, taux, seuil_effectif)
                 )
 
+                # Write a CRITIQUE audit entry so administrators can trace every blocking event.
                 try:
                     LogAudit.objects.create(
                         id_utilisateur=inscription.id_etudiant,
@@ -102,7 +147,7 @@ def recalculer_eligibilite(inscription):
                             f"(Taux: {taux:.1f}%, Seuil effectif: {seuil_effectif}%"
                             f"{', exempté' if inscription.exemption_40 else ''})"
                         ),
-                        adresse_ip="0.0.0.0",  # nosec B104
+                        adresse_ip="0.0.0.0",  # nosec B104 — system-generated event, no real IP
                         niveau="CRITIQUE",
                         objet_type="INSCRIPTION",
                         objet_id=inscription.id_inscription,
@@ -110,6 +155,7 @@ def recalculer_eligibilite(inscription):
                 except Exception:
                     logger.exception("Failed to create audit log for blocking %s", cours.nom_cours)
     else:
+        # Absence rate is below threshold — restore eligibility if student was blocked.
         if not inscription.eligible_examen:
             with transaction.atomic():
                 inscription.eligible_examen = True
@@ -128,6 +174,7 @@ def recalculer_eligibilite(inscription):
                 course_name = cours.nom_cours
 
                 def _send_restored():
+                    """Send the eligibility-restored email after the transaction commits."""
                     subj, body, html_body = build_eligibility_restored_email(student, course_name)
                     send_notification_email(student, subj, body, html_body)
 
@@ -135,7 +182,23 @@ def recalculer_eligibilite(inscription):
 
 
 def _send_threshold_emails(student, professor, course_name, taux, seuil):
-    """Envoie les emails de dépassement de seuil à l'étudiant et au professeur."""
+    """
+    Send threshold-exceeded notification emails to the student and the professor.
+
+    This function is called via ``transaction.on_commit`` so that SMTP failures
+    do not roll back the eligibility change in the database.
+
+    Args:
+        student: ``User`` instance for the blocked student.
+        professor: ``User`` instance for the course professor, or None.
+        course_name (str): human-readable course name for email content.
+        taux (float): current absence rate percentage.
+        seuil (float): effective threshold that was exceeded.
+
+    Side effects:
+        Sends up to two emails (student + professor).  Exceptions are caught
+        and logged so that a failing email does not surface as an HTTP 500.
+    """
     try:
         subj, body, html_body = build_threshold_exceeded_email(student, course_name, taux, seuil)
         send_notification_email(student, subj, body, html_body)
@@ -150,20 +213,36 @@ def _send_threshold_emails(student, professor, course_name, taux, seuil):
 
 def calculer_risque_inscription(inscription, system_threshold=None):
     """
-    Calcul centralisé du statut de risque d'une inscription.
-    Source unique de vérité — évite la duplication dans 8+ vues.
+    Return the complete risk profile for a single enrolment.
+
+    This function is the single source of truth for risk status used by all
+    views and APIs.  It consolidates the logic that was previously duplicated
+    across 8+ view functions.
+
+    Args:
+        inscription: ``apps.enrollments.models.Inscription`` instance.
+        system_threshold (int | float | None): pre-loaded system default threshold.
+            If None, it is fetched via ``get_system_threshold()``.
 
     Returns:
-        dict: {
-            'is_at_risk', 'is_blocked', 'is_under_exemption',
-            'taux', 'seuil', 'seuil_effectif',
-            'total_absence', 'total_periodes'
-        }
+        dict with the following keys:
+
+        - ``is_at_risk`` (bool): True if the rate meets the base course threshold.
+        - ``is_blocked`` (bool): True if the rate meets the effective threshold
+          (after applying any exemption margin).
+        - ``is_under_exemption`` (bool): True if the student is at risk but not yet
+          blocked because an exemption margin is protecting them.
+        - ``taux`` (float): current absence rate, rounded to 1 decimal place.
+        - ``seuil`` (int | float): base course threshold.
+        - ``seuil_effectif`` (int | float): effective threshold after exemption.
+        - ``total_absence`` (float): total unjustified absence hours.
+        - ``total_periodes`` (int): total planned course hours.
     """
     if system_threshold is None:
         system_threshold = get_system_threshold()
 
     cours = inscription.id_cours
+    # Use the course-specific threshold when set; fall back to the system default.
     seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
     seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
 
@@ -172,6 +251,8 @@ def calculer_risque_inscription(inscription, system_threshold=None):
 
     is_at_risk = taux >= seuil
     is_blocked = taux >= seuil_effectif
+    # Under exemption: student has crossed the base threshold but is still protected
+    # by the exemption margin — they should be warned but are not blocked yet.
     is_under_exemption = inscription.exemption_40 and is_at_risk and not is_blocked
 
     return {
@@ -188,11 +269,27 @@ def calculer_risque_inscription(inscription, system_threshold=None):
 
 def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
     """
-    Compte les inscriptions à risque dans un queryset.
-    Optimisé pour les vues dashboard : une seule requête SQL agrégée.
+    Count the number of at-risk enrolments in a queryset.
+
+    Optimised for dashboard views: performs a single bulk SQL aggregation
+    instead of evaluating each enrolment individually.  This keeps page load
+    times acceptable even for large cohorts.
+
+    Args:
+        inscriptions_qs: ``QuerySet[Inscription]`` — the set of enrolments to
+            examine.  The related ``id_cours`` must be accessible (use
+            ``select_related("id_cours")`` before passing).
+        system_threshold (int | float | None): pre-loaded system default threshold.
+            Reuse a cached value here when calling from a loop to avoid a DB hit
+            per enrolment.
 
     Returns:
-        tuple: (at_risk_count: int, absence_sums: dict {id_inscription: total_heures})
+        tuple:
+          - ``at_risk_count`` (int): number of enrolments whose effective absence
+            rate meets or exceeds the effective threshold.
+          - ``absence_sums`` (dict): mapping of ``{id_inscription: total_hours}``
+            for all enrolments with recorded unjustified absences today.  Callers
+            may reuse this dict to avoid duplicate queries.
     """
     if system_threshold is None:
         system_threshold = get_system_threshold()
@@ -203,6 +300,7 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
 
     today = timezone.localdate()
 
+    # Single aggregation query: sum unjustified absence hours per enrolment.
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -217,11 +315,13 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
     at_risk_count = 0
     for ins in inscriptions_qs:
         cours = ins.id_cours
+        # Skip enrolments with no planned hours — they cannot be at risk.
         if not cours.nombre_total_periodes:
             continue
         seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
         total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         taux = min((total_abs / cours.nombre_total_periodes) * 100, 100)
+        # Apply exemption margin before comparing against threshold.
         seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
         if taux >= seuil_effectif:
             at_risk_count += 1

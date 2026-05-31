@@ -1,3 +1,4 @@
+"""Script de vérification — client HTTP qui appelle l'endpoint « à risque » et valide la réponse."""
 import os
 import sys
 from pathlib import Path
@@ -16,9 +17,9 @@ from apps.absences.models import Absence
 from apps.enrollments.models import Inscription
 from apps.academic_sessions.models import Seance
 from django.utils import timezone
-from django.db.models import Sum
 
 def verify_at_risk_client():
+    """Authentifie un professeur via ``django.test.Client`` et vérifie la présence de la section « risque »."""
     print("--- Verifying At-Risk (Using Client) ---")
     
     # 1. Setup Data

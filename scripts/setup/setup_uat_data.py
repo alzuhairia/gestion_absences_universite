@@ -1,3 +1,4 @@
+"""Script de seed UAT — crée des données réalistes pour valider les scénarios de tests utilisateurs."""
 import os
 import sys
 from pathlib import Path
@@ -9,7 +10,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 import django
 django.setup()
 
-from datetime import date
 from apps.accounts.models import User
 from apps.academics.models import Faculte, Departement, Cours
 from apps.enrollments.models import Inscription
@@ -20,6 +20,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 def create_uat_data():
+    """Crée le dataset UAT (utilisateurs, cours, inscriptions, séances, absences, notifications)."""
     print("Creating UAT data...")
 
     # 1. User

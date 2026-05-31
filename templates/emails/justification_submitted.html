@@ -1,3 +1,19 @@
+{# ============================================================
+   Email : justification_submitted.html
+   Déclencheur : Un étudiant soumet un justificatif d'absence pour un cours —
+                 construit par build_justification_submitted_professor_email().
+   Destinataire : Professeur du cours concerné
+   Rôle      : Avertit le professeur qu'un justificatif vient d'être déposé
+               par l'un de ses étudiants ; rappelle les coordonnées de
+               l'étudiant, le cours et la date d'absence, et précise que
+               le secrétariat se chargera de la validation.
+   Contexte attendu (variables Django passées au template) :
+     - professor_name : nom complet du professeur destinataire
+     - student_name   : nom complet de l'étudiant ayant soumis le justificatif
+     - student_email  : email de l'étudiant (affiché dans les statistiques)
+     - course_code    : code du cours concerné
+     - absence_date   : date de l'absence justifiée
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Justificatif soumis{% endblock %}
 {% block subtitle %}Notification Professeur{% endblock %}

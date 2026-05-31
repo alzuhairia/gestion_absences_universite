@@ -1,3 +1,16 @@
+{# ============================================================
+   Template : student_course_detail.html
+   Rôle    : Vue détaillée d'un cours pour l'étudiant connecté.
+             Affiche en deux onglets : (1) l'historique de toutes
+             les séances avec statut Présent/Absent/Excusé et
+             (2) la liste des absences avec actions de
+             soumission de justificatif.
+   Alertes affichées en haut de page selon la situation :
+     - BLOQUÉ (seuil dépassé) — rouge
+     - BLOQUÉ malgré exemption — rouge
+     - SOUS EXEMPTION — bleu
+     - À risque (>=30 %) — orange
+   ============================================================ #}
 {% extends 'base_student.html' %}
 {% load absence_tags %}
 
@@ -9,6 +22,13 @@
 {% endblock %}
 
 {% block extra_css %}
+{# Styles spécifiques à la page :
+   - .page-header   : bandeau d'accueil dégradé vert/cyan
+   - .nav-tabs      : onglets « Séances » / « Absences »
+   - .tab-content   : conteneur des contenus d'onglet
+   - .session-row / .absence-row : lignes de tableau survolées
+   - .warning-box   : encadré rouge si l'étudiant est bloqué
+#}
 <style>
     .page-header {
         background: linear-gradient(135deg, #1cc88a 0%, #17a2b8 100%);
@@ -76,7 +96,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    <!-- Bandeau d'en-tête du cours (code, nom, professeur, année) -->
     <div class="page-header">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -100,7 +120,7 @@
         </div>
     </div>
 
-    <!-- Threshold Warnings -->
+    <!-- Alertes liées au seuil d'absence (bloqué / exemption / risque) -->
     {% if is_blocked %}
     <div class="warning-box">
         <h5 class="fw-bold mb-3">
@@ -133,7 +153,7 @@
     </div>
     {% endif %}
 
-    <!-- Tabs -->
+    <!-- Onglets Bootstrap : Séances / Absences (active_tab depuis la vue) -->
     <ul class="nav nav-tabs" id="courseTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if active_tab == 'sessions' %}active{% endif %}" 
@@ -157,9 +177,9 @@
         </li>
     </ul>
 
-    <!-- Tab Content -->
+    <!-- Contenu des onglets -->
     <div class="tab-content" id="courseTabsContent">
-        <!-- Tab 1: Sessions -->
+        <!-- Onglet 1 : historique chronologique des séances du cours -->
         <div class="tab-pane fade {% if active_tab == 'sessions' %}show active{% endif %}" 
              id="sessions" 
              role="tabpanel">
@@ -212,7 +232,7 @@
             {% endif %}
         </div>
 
-        <!-- Tab 2: Absences -->
+        <!-- Onglet 2 : absences uniquement (avec actions de justification) -->
         <div class="tab-pane fade {% if active_tab == 'absences' %}show active{% endif %}" 
              id="absences" 
              role="tabpanel">
@@ -300,7 +320,9 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    // Update URL when tab changes
+    // Met à jour la query string (?tab=...) à chaque changement
+    // d'onglet, afin que l'URL reste partageable et que le rechargement
+    // de la page conserve l'onglet précédemment ouvert.
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
         tab.addEventListener('shown.bs.tab', function (e) {
             const tabName = e.target.getAttribute('data-bs-target').substring(1);

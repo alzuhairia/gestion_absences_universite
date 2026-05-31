@@ -1,13 +1,15 @@
 """
-Utilitaires internes du système QR code.
+Internal utilities for the QR code attendance system.
 
-Fonctions :
-  - Calcul GPS (Haversine) et validation de coordonnées
-  - Génération du QR code en data-URI base64
-  - Hachage SHA-256 du token QR pour les logs d'audit
-  - Journalisation des tentatives de scan (QRScanLog)
+Functions:
+  - GPS calculations (Haversine) and coordinate validation
+  - QR code generation as base64 data URI
+  - SHA-256 hashing of QR tokens for audit logs
+  - Logging of scan attempts (QRScanLog)
 
-Ces helpers sont importés par qr_professor.py et qr_student.py.
+These helpers are imported by qr_professor.py and qr_student.py.
+
+Part of the UniAbsences attendance system.
 """
 import hashlib
 import math
@@ -22,7 +24,18 @@ from ..models import QRScanLog
 
 
 def _haversine(lat1, lon1, lat2, lon2):
-    """Distance en mètres entre deux points GPS (formule de Haversine)."""
+    """
+    Calculate the distance in meters between two GPS points using the Haversine formula.
+    
+    Parameters:
+        lat1 (float): Latitude of the first point in degrees.
+        lon1 (float): Longitude of the first point in degrees.
+        lat2 (float): Latitude of the second point in degrees.
+        lon2 (float): Longitude of the second point in degrees.
+    
+    Returns:
+        float: Distance in meters.
+    """
     R = 6_371_000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -33,8 +46,15 @@ def _haversine(lat1, lon1, lat2, lon2):
 
 def _is_valid_coordinate(coord):
     """
-    False si coord est None ou proche de Null Island (0,0).
-    Empêche le spoofing GPS avec des coordonnées nulles.
+    Check if a coordinate is valid (not None and not near Null Island).
+    
+    Prevents GPS spoofing with null coordinates.
+    
+    Parameters:
+        coord (float or None): The coordinate to validate.
+    
+    Returns:
+        bool: True if valid, False otherwise.
     """
     if coord is None:
         return False
@@ -42,7 +62,12 @@ def _is_valid_coordinate(coord):
 
 
 def _get_establishment_gps():
-    """Retourne (latitude, longitude, radius) depuis SystemSettings."""
+    """
+    Retrieve GPS settings (latitude, longitude, radius) from SystemSettings.
+    
+    Returns:
+        tuple: (latitude, longitude, radius_meters)
+    """
     from apps.dashboard.models import SystemSettings
     s = SystemSettings.get_settings()
     return s.gps_latitude, s.gps_longitude, s.gps_radius_meters
@@ -50,8 +75,15 @@ def _get_establishment_gps():
 
 def _hash_qr_token(raw_token):
     """
-    Retourne sha256:<hex> du token QR, ou '' si absent.
-    Le log d'audit ne stocke jamais le token brut (replay attack).
+    Return a SHA-256 hash of the QR token, or empty string if absent.
+    
+    Audit logs never store raw tokens to prevent replay attacks.
+    
+    Parameters:
+        raw_token (str or None): The raw QR token.
+    
+    Returns:
+        str: Hashed token in format 'sha256:<hex>' or empty string.
     """
     if not raw_token:
         return ""
@@ -59,12 +91,24 @@ def _hash_qr_token(raw_token):
     return f"sha256:{digest}"
 
 
-# ── Journalisation ────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 
 
 def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
                       latitude=None, longitude=None, distance=None):
-    """Journalise chaque tentative de scan QR (token haché SHA-256)."""
+    """
+    Log each QR scan attempt with hashed token for audit purposes.
+    
+    Parameters:
+        request: The HTTP request object.
+        seance: The Seance model instance.
+        qr_token: The QRAttendanceToken instance or None.
+        gps_status (str): GPS validation status.
+        scan_result (str): Result of the scan attempt.
+        latitude (float, optional): Latitude from the scan.
+        longitude (float, optional): Longitude from the scan.
+        distance (float, optional): Distance in meters from establishment.
+    """
     QRScanLog.objects.create(
         etudiant=request.user,
         seance=seance,

@@ -15,10 +15,10 @@ from .test_absences import BaseAbsenceTestCase
 
 
 class JustificationDeadlineTests(BaseAbsenceTestCase):
-    """Tests that justification upload is rejected after the deadline."""
+    """Vérifie que la soumission d'une justification est refusée après le délai imparti."""
 
     def _create_old_absence(self, days_ago):
-        """Create an absence whose seance was `days_ago` days in the past."""
+        """Crée une absence dont la séance est ``days_ago`` jours dans le passé."""
         seance_date = timezone.localdate() - timedelta(days=days_ago)
         seance = Seance.objects.create(
             date_seance=seance_date,
@@ -62,9 +62,10 @@ class JustificationDeadlineTests(BaseAbsenceTestCase):
 
 
 class EditAbsenceTests(BaseAbsenceTestCase):
-    """Tests for the edit_absence view (secretary editing an absence)."""
+    """Tests de la vue ``edit_absence`` (édition d'une absence par le secrétariat)."""
 
     def _create_absence(self, statut="NON_JUSTIFIEE"):
+        """Crée une séance et une absence dans le statut demandé, prête à être éditée."""
         seance = Seance.objects.create(
             date_seance=date(2026, 2, 1),
             heure_debut=time(8, 0),

@@ -1,5 +1,6 @@
 """
-Tests that user-generated content is properly escaped in rendered templates.
+Tests vérifiant que les contenus saisis par l'utilisateur sont correctement
+échappés dans les templates rendus (protection anti-XSS).
 """
 
 from datetime import date, time
@@ -16,10 +17,11 @@ from apps.enrollments.models import Inscription
 
 
 class CommentEscapingTest(TestCase):
-    """Verify that user comments are HTML-escaped in rendered pages."""
+    """Vérifie que les commentaires utilisateurs sont échappés HTML dans les pages rendues."""
 
     @classmethod
     def setUpTestData(cls):
+        """Crée le dataset partagé : faculté, dept, cours, étudiant, inscription, justification injectée."""
         cls.faculte = Faculte.objects.create(nom_faculte="Fac XSS")
         cls.dept = Departement.objects.create(
             nom_departement="Dept XSS", id_faculte=cls.faculte

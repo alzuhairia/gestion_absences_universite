@@ -1,3 +1,18 @@
+{# ============================================================
+   Email : absence_recorded.html
+   Déclencheur : Un professeur enregistre une absence (manuelle ou via scan QR)
+                 pour un étudiant — construit par build_absence_recorded_email().
+   Destinataire : Étudiant absent
+   Rôle      : Notifie l'étudiant qu'une absence vient d'être consignée dans
+               un cours donné, en lui rappelant la date concernée et son taux
+               d'absence courant ; invite à contacter le professeur ou à
+               soumettre un justificatif en cas d'erreur.
+   Contexte attendu (variables Django passées au template) :
+     - student_name  : nom complet de l'étudiant destinataire
+     - course_name   : libellé du cours concerné
+     - absence_date  : date de l'absence enregistrée
+     - taux          : taux d'absence courant (chaîne formatée, ex. "12.5")
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Absence enregistrée{% endblock %}
 {% block subtitle %}Notification d'absence{% endblock %}

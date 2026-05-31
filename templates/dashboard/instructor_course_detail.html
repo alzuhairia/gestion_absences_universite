@@ -147,7 +147,7 @@
         border-radius: 8px;
         margin-bottom: 1.5rem;
     }
-    /* Trend arrow animation — only HIGH + up */
+    /* Animation des flèches de tendance — uniquement HIGH + up */
     @keyframes pulse-critical {
         0%, 100% { opacity: 1; transform: scale(1); }
         50% { opacity: 0.6; transform: scale(1.25); }
@@ -158,7 +158,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Page Header -->
+    <!-- En-tête de page -->
     <div class="page-header">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -178,7 +178,7 @@
         </div>
     </div>
 
-    <!-- Tabs -->
+    <!-- Onglets -->
     <ul class="nav nav-tabs" id="courseTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if active_tab == 'students' %}active{% endif %}" 
@@ -212,9 +212,9 @@
         </li>
     </ul>
 
-    <!-- Tab Content -->
+    <!-- Contenu des onglets -->
     <div class="tab-content" id="courseTabsContent">
-        <!-- Tab 1: Students (READ ONLY) -->
+        <!-- Onglet 1 : Étudiants (LECTURE SEULE) -->
         <div class="tab-pane fade {% if active_tab == 'students' %}show active{% endif %}" 
              id="students" 
              role="tabpanel">
@@ -342,7 +342,7 @@
             {% endif %}
         </div>
 
-        <!-- Tab 2: Sessions -->
+        <!-- Onglet 2 : Séances -->
         <div class="tab-pane fade {% if active_tab == 'sessions' %}show active{% endif %}"
              id="sessions"
              role="tabpanel">
@@ -447,7 +447,7 @@
             {% endif %}
         </div>
 
-        <!-- Tab 3: Statistics -->
+        <!-- Onglet 3 : Statistiques -->
         <div class="tab-pane fade {% if active_tab == 'statistics' %}show active{% endif %}" 
              id="statistics" 
              role="tabpanel">
@@ -484,7 +484,7 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    // Update URL when tab changes
+    // Mettre à jour l'URL lorsque l'onglet change
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
         tab.addEventListener('shown.bs.tab', function (e) {
             const tabName = e.target.getAttribute('data-bs-target').substring(1);
@@ -494,7 +494,7 @@
         });
     });
 
-    // Apply dynamic projected bar width/threshold values without inline template CSS.
+    // Appliquer les valeurs dynamiques de largeur/seuil de la barre projetée sans CSS inline dans le template.
     document.querySelectorAll('.projected-bar-fill').forEach(el => {
         const width = Number(el.dataset.width) || 0;
         el.style.width = `${width}%`;

@@ -105,9 +105,12 @@ COURSE_TOPICS_BY_NIVEAU = {
 
 
 class Command(BaseCommand):
-    help = "Populate the database with realistic demo data for manual testing."
+    """Commande Django : peuple la base avec un jeu de données de démo réaliste pour les tests manuels."""
+
+    help = "Peuple la base avec un jeu de données de démonstration réaliste pour les tests manuels."
 
     def add_arguments(self, parser):
+        """Déclare les options CLI (taille du jeu de données, taux d'absences, année cible)."""
         parser.add_argument(
             "--reset",
             action="store_true",
@@ -140,6 +143,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Point d'entrée : orchestre la création des facultés, utilisateurs, cours, séances et absences."""
         random.seed(42)
 
         nb_students = options["nb_students"]
@@ -252,6 +256,7 @@ class Command(BaseCommand):
     #  Reset                                                             #
     # ------------------------------------------------------------------ #
     def _reset_demo_data(self):
+        """Supprime les utilisateurs ``demo_*`` et cours ``DEMO_*`` ainsi que leurs dépendances."""
         self.stdout.write("Resetting previous demo data...")
         # Order matters — Absence -> Inscription -> Seance -> Cours -> User
         demo_users = User.objects.filter(email__startswith="demo_")
@@ -272,6 +277,7 @@ class Command(BaseCommand):
     #  Users                                                             #
     # ------------------------------------------------------------------ #
     def _create_professors(self, n, departements):
+        """Crée ``n`` professeurs ``demo_prof*`` (idempotent via ``get_or_create``)."""
         self.stdout.write(f"Creating {n} professors...")
         profs = []
         for i in range(n):
@@ -294,6 +300,7 @@ class Command(BaseCommand):
         return profs
 
     def _create_students(self, n):
+        """Crée ``n`` étudiants répartis sur les niveaux 1/2/3."""
         self.stdout.write(f"Creating {n} students...")
         students = []
         for i in range(n):
@@ -321,6 +328,7 @@ class Command(BaseCommand):
     #  Courses                                                           #
     # ------------------------------------------------------------------ #
     def _create_courses(self, n, departements, profs, year):
+        """Crée ``n`` cours répartis sur les départements existants et les niveaux 1/2/3."""
         self.stdout.write(f"Creating {n} courses...")
         courses = []
         # Spread courses across niveaux 1/2/3
@@ -359,6 +367,7 @@ class Command(BaseCommand):
     #  Enrollments                                                       #
     # ------------------------------------------------------------------ #
     def _enroll_students(self, students, courses, year):
+        """Inscrit chaque étudiant à tous les cours de son niveau pour l'année donnée."""
         self.stdout.write("Enrolling students...")
         from django.db import IntegrityError
         count = 0
@@ -387,6 +396,7 @@ class Command(BaseCommand):
     #  Seances                                                           #
     # ------------------------------------------------------------------ #
     def _create_seances(self, courses, year, nb_per_course):
+        """Crée environ ``nb_per_course`` séances par cours, réparties sur les ~10 dernières semaines."""
         self.stdout.write(f"Creating ~{nb_per_course} seances per course...")
         seances = []
         today = date.today()
@@ -423,6 +433,7 @@ class Command(BaseCommand):
     #  Absences                                                          #
     # ------------------------------------------------------------------ #
     def _create_absences(self, seances, students, encoder, rate):
+        """Génère des absences aléatoires (taux ~``rate``) sur les séances passées."""
         self.stdout.write(
             f"Marking absences (rate ~ {rate:.0%})... students not absent = present."
         )

@@ -19,7 +19,10 @@ from .test_absences import BaseAbsenceTestCase
 
 
 class UploadValidationTests(BaseAbsenceTestCase):
+    """Tests d'intégration vérifiant le rejet des justificatifs malveillants ou invalides."""
+
     def setUp(self):
+        """Prépare un MEDIA_ROOT temporaire et authentifie l'étudiant testeur."""
         super().setUp()
         self._temp_media_root = tempfile.mkdtemp()
         self._override_settings = override_settings(MEDIA_ROOT=self._temp_media_root)
@@ -28,10 +31,12 @@ class UploadValidationTests(BaseAbsenceTestCase):
         self.client.force_login(self.student1)
 
     def _cleanup_media_root(self):
+        """Restaure MEDIA_ROOT et supprime le répertoire temporaire après chaque test."""
         self._override_settings.disable()
         shutil.rmtree(self._temp_media_root, ignore_errors=True)
 
     def _create_absence(self):
+        """Crée une séance et une absence non justifiée pour servir de cible aux uploads."""
         seance = Seance.objects.create(
             date_seance=date(2026, 1, 2),
             heure_debut=time(8, 0),
@@ -49,6 +54,7 @@ class UploadValidationTests(BaseAbsenceTestCase):
         )
 
     def test_upload_rejects_mime_spoofed_file(self):
+        """Refuse un fichier dont l'extension .pdf cache un contenu PNG (MIME usurpé)."""
         absence = self._create_absence()
         fake_pdf = SimpleUploadedFile(
             "proof.pdf",
@@ -66,6 +72,7 @@ class UploadValidationTests(BaseAbsenceTestCase):
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
 
     def test_upload_rejects_invalid_extension(self):
+        """Refuse un fichier dont l'extension n'est pas dans la liste autorisée."""
         absence = self._create_absence()
         bad_ext = SimpleUploadedFile(
             "proof.txt",
@@ -83,6 +90,7 @@ class UploadValidationTests(BaseAbsenceTestCase):
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
 
     def test_upload_rejects_forged_binary_file(self):
+        """Refuse un fichier .jpg dont les octets correspondent en réalité à un PDF."""
         absence = self._create_absence()
         forged_jpeg = SimpleUploadedFile(
             "proof.jpg",
@@ -100,6 +108,7 @@ class UploadValidationTests(BaseAbsenceTestCase):
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
 
     def test_upload_rejects_file_over_size_limit(self):
+        """Refuse un fichier dépassant la limite de 5 Mo configurée."""
         absence = self._create_absence()
         oversized = SimpleUploadedFile(
             "proof.pdf",
@@ -128,14 +137,18 @@ class UploadSizeGuardTests(TestCase):
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
         class OversizedFile:
+            """Stub de fichier surdimensionné : ``read()`` doit échouer si appelé."""
+
             name = "big.pdf"
             content_type = "application/pdf"
-            size = 10 * 1024 * 1024  # 10 MB — exceeds 5 MB limit
+            size = 10 * 1024 * 1024  # 10 Mo — dépasse la limite de 5 Mo
 
             def read(self, n=-1):
-                raise AssertionError("read() should not be called for oversized files")
+                """Ne doit jamais être appelée pour un fichier trop volumineux."""
+                raise AssertionError("read() ne doit pas être appelée pour les fichiers trop volumineux")
 
             def seek(self, pos):
+                """No-op : aucune lecture réelle n'est attendue ici."""
                 pass
 
         with self.assertRaises(UploadValidationError) as ctx:
@@ -147,14 +160,18 @@ class UploadSizeGuardTests(TestCase):
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
         class BadReadFile:
+            """Stub de fichier dont ``read()`` lève une ``IOError`` (panne disque simulée)."""
+
             name = "doc.pdf"
             content_type = "application/pdf"
-            size = 1024  # valid size
+            size = 1024  # taille valide
 
             def read(self, n=-1):
+                """Simule une panne de lecture en levant ``IOError``."""
                 raise IOError("disk failure")
 
             def seek(self, pos):
+                """No-op : aucun déplacement réel attendu sur ce stub."""
                 pass
 
         with self.assertRaises(UploadValidationError) as ctx:
@@ -166,14 +183,18 @@ class UploadSizeGuardTests(TestCase):
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
         class FakeFile:
+            """Stub volontairement dépourvu de l'attribut ``.size`` pour valider le garde-fou."""
+
             name = "doc.pdf"
             content_type = "application/pdf"
-            # No .size attribute
+            # Pas d'attribut .size
 
             def read(self, n=-1):
+                """Renvoie un en-tête PDF minimal pour passer la vérification de signature."""
                 return b"%PDF-1.4"
 
             def seek(self, pos):
+                """No-op : aucun déplacement réel attendu sur ce stub."""
                 pass
 
         with self.assertRaises(UploadValidationError) as ctx:

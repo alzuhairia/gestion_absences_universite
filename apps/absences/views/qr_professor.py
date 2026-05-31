@@ -1,10 +1,26 @@
 """
-FICHIER : apps/absences/views/qr_professor.py
-RESPONSABILITE : Re-export hub — vues QR code côté professeur
+Professor QR-code views hub — apps/absences/views/qr_professor.py
 
-Sous-modules :
-  qr_professor_generate.py — qr_generate (créer séance + token QR)
-  qr_professor_session.py  — qr_dashboard, qr_refresh_token, qr_finalize
+Re-export hub that aggregates all professor-facing QR attendance view functions
+into a single stable namespace so that ``absences/urls.py`` can import without
+knowing the internal sub-module layout.
+
+Sub-modules
+-----------
+``qr_professor_generate.py``
+    ``qr_generate`` — create a ``Seance`` and issue a signed ``QRAttendanceToken``;
+    redirect to the live dashboard.
+
+``qr_professor_session.py``
+    ``qr_dashboard``     — real-time scan dashboard (HTMX-polled).
+    ``qr_refresh_token`` — rotate the active QR token without losing existing scans.
+    ``qr_finalize``      — close the session: mark non-scanners absent and lock.
+
+All symbols are re-exported with ``noqa: F401`` so that static analysis tools
+do not flag the imports as unused; they are intentionally part of this
+package's public API.
+
+Part of the UniAbsences absences system.
 """
 
 from .qr_professor_generate import qr_generate  # noqa: F401

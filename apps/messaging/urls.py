@@ -9,7 +9,7 @@ from . import views
 app_name = "messaging"
 
 urlpatterns = [
-    path("", views.inbox, name="index"),  # Redirect default to inbox (or keep alias)
+    path("", views.inbox, name="index"),  # Redirection par défaut vers la boîte de réception (ou conserver l'alias)
     path("inbox/", views.inbox, name="inbox"),
     path("sent/", views.sent_box, name="sent"),
     path("compose/", views.compose, name="compose"),

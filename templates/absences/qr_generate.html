@@ -48,7 +48,8 @@
                     </div>
                 </div>
 
-                <!-- GPS verification -->
+                <!-- Bloc de vérification GPS : exige (ou non) la position des étudiants et capture celle du prof côté client -->
+                <!-- La capture GPS du prof sert de référence anti-fraude (calcul de distance côté backend) -->
                 <div class="mb-4">
                     <div class="form-check form-switch mb-2">
                         <input class="form-check-input" type="checkbox" id="verify-location" name="verify_location">
@@ -131,7 +132,7 @@
     }
 
     gpsCheckbox.addEventListener('change', captureGPS);
-    captureGPS(); // auto-capture on load
+    captureGPS(); // Capture automatique au chargement de la page
 })();
 </script>
 {% endblock %}

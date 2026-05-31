@@ -14,7 +14,7 @@
         <div class="col-lg-8">
             <h1 class="h3 mb-4 text-gray-800">Dossier de Justification</h1>
 
-            <!-- Absence Info Card -->
+            <!-- Carte d'informations sur l'absence -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-white border-bottom-0">
                     <h6 class="m-0 font-weight-bold text-primary">Détails de l'absence</h6>
@@ -51,10 +51,10 @@
                 </div>
             </div>
 
-            <!-- Status & Action Card -->
+            <!-- Carte d'état et d'action -->
             <div class="card shadow mb-4">
                 <div class="card-body p-4">
-                    <!-- Status Display -->
+                    <!-- Affichage de l'état -->
                     <div class="mb-4 text-center">
                         <h6 class="text-muted text-uppercase fw-bold mb-3 small">État du dossier</h6>
                         {% if absence.statut == 'NON_JUSTIFIEE' %}
@@ -79,7 +79,7 @@
                         {% endif %}
                     </div>
 
-                    <!-- Previous Submission Info (if any) -->
+                    <!-- Informations sur l'envoi précédent (le cas échéant) -->
                     {% if justification %}
                     <div class="alert alert-secondary border-0 d-flex align-items-start mb-4">
                         <i class="fas fa-history mt-1 me-3"></i>
@@ -93,7 +93,7 @@
                     </div>
                     {% endif %}
 
-                    <!-- Form (Only if UNJUSTIFIED or PENDING) -->
+                    <!-- Formulaire (uniquement si NON JUSTIFIÉE ou EN ATTENTE) -->
                     {% if absence.statut != 'JUSTIFIEE' and not justification or justification.state == 'REFUSEE' %}
                     <hr class="my-4">
 
@@ -193,7 +193,7 @@
         clearFileError();
         if (!file) return;
         
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 5 * 1024 * 1024; // 5 Mo
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
         
         if (file.size > maxSize) {
@@ -212,7 +212,7 @@
     var fileInput = document.querySelector('input[type="file"]');
     if (fileInput) fileInput.addEventListener('change', function() { validateFile(this); });
 
-    // Prevent double submission
+    // Empêche la double soumission
     document.getElementById('justificationForm')?.addEventListener('submit', function(e) {
         const submitBtn = document.getElementById('submitBtn');
         if (submitBtn) {

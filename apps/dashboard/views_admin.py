@@ -1,8 +1,11 @@
 """
-FICHIER : apps/dashboard/views_admin.py
-RESPONSABILITE : Re-export centralisé de toutes les vues admin.
+Hub des vues d'administration pour le tableau de bord UniAbsences.
 
-Structure des sous-modules admin :
+Hub de réexportation qui agrège tous les symboles de vues
+d'administration des sous-modules de sorte que ``dashboard/urls.py``
+importe depuis un seul espace de noms stable.
+
+Sub-modules structure:
   views_admin_dashboard.py      — Dashboard principal (KPIs, at-risk cache)
   views_admin_stats.py          — Statistiques avancées (graphiques, top N)
   views_admin_courses.py        — CRUD cours
@@ -14,8 +17,8 @@ Structure des sous-modules admin :
   views_admin_settings.py       — Paramètres système, audit logs, QR scan logs
 """
 
-# Re-export all admin views so urls.py can do `from . import views_admin`.
-# New code should import directly from the specific sub-module.
+# Réexporte toutes les vues d'administration afin que urls.py puisse faire `from . import views_admin`.
+# Le nouveau code doit importer directement depuis le sous-module concerné.
 
 from apps.dashboard.views_admin_dashboard import (  # noqa: F401
     admin_dashboard_main,

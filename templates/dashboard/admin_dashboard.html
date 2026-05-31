@@ -8,7 +8,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
+    <!-- En-tête -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-gray-800">
@@ -18,7 +18,7 @@
         </div>
     </div>
 
-    <!-- Warning Banner -->
+    <!-- Bannière d'avertissement -->
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Rôle Administrateur :</strong> Ce tableau de bord est destiné à la configuration et au contrôle du système. 
@@ -26,7 +26,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <!-- KPIs -->
+    <!-- Indicateurs clés (KPI) -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2">
@@ -104,7 +104,7 @@
         </div>
     </div>
 
-    <!-- Additional KPIs Row -->
+    <!-- Ligne supplémentaire d'indicateurs clés (KPI) -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-danger shadow h-100 py-2">
@@ -183,7 +183,7 @@
         </div>
     </div>
 
-    <!-- System Status -->
+    <!-- État du système -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow">
@@ -272,7 +272,7 @@
         </div>
     </div>
 
-    <!-- Quick Stats Link -->
+    <!-- Lien vers les statistiques rapides -->
     <div class="row mb-4">
         <div class="col-12">
             <a href="{% url 'dashboard:admin_statistics' %}" class="card shadow text-decoration-none">
@@ -289,7 +289,7 @@
         </div>
     </div>
 
-    <!-- Recent Audit Logs -->
+    <!-- Journaux d'audit récents -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow">

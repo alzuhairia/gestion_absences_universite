@@ -1,12 +1,32 @@
 """
-FICHIER : apps/academics/models.py
-RESPONSABILITE : Structure academique de l'universite (Faculte > Departement > Cours)
-FONCTIONNALITES PRINCIPALES :
-  - Hierarchie : Faculte -> Departement -> Cours
-  - Seuil d'absence personnalisable par cours (ou seuil systeme par defaut)
-  - Prerequis entre cours (ManyToMany, filtres par niveau)
-  - Soft delete via champ 'actif' sur chaque entite
-DEPENDANCES CLES : accounts.User (professeur), academic_sessions.AnneeAcademique
+Modèles de la structure académique pour le système UniAbsences.
+
+Ce module définit la hiérarchie académique à trois niveaux utilisée dans
+tout le système ainsi que le motif partagé de suppression logique appliqué
+à chaque entité.
+
+Modèles
+-------
+``Faculte``
+    Regroupement de plus haut niveau (faculté / école). Supprimé logiquement
+    via ``actif``.
+
+``Departement``
+    Regroupement de niveau intermédiaire appartenant à une faculté. Supprimé
+    logiquement via ``actif``.
+
+``Cours``
+    Un cours unique enseigné, appartenant à un département. Comporte :
+    - un seuil d'absence optionnel propre au cours (revient au seuil par
+      défaut du système provenant de ``SystemSettings`` lorsque
+      ``seuil_absence`` vaut None) ;
+    - une auto-référence ManyToMany pour les cours prérequis (filtrée par
+      niveau d'étude afin d'éviter les prérequis circulaires ou incohérents) ;
+    - ``nombre_total_periodes`` — total des heures planifiées, utilisé comme
+      dénominateur pour les calculs de taux d'absence ;
+    - suppression logique via ``actif``.
+
+Partie de la structure académique d'UniAbsences.
 """
 
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -15,7 +35,23 @@ from django.db import models
 
 class Faculte(models.Model):
     """
-    Modèle représentant une faculté de l'université.
+    Unité organisationnelle de plus haut niveau représentant une faculté ou
+    école universitaire.
+
+    Une faculté regroupe un ou plusieurs départements et agit comme la racine
+    de la hiérarchie académique à trois niveaux (faculté → département → cours).
+
+    Attributs
+    ---------
+    id_faculte : int
+        Clé primaire auto-incrémentée.
+    nom_faculte : str
+        Nom de la faculté unique et lisible par l'humain
+        (par ex. "Sciences & Technology").
+    actif : bool
+        Drapeau de suppression logique. Les facultés inactives sont masquées
+        des widgets de sélection mais leurs données historiques sont
+        entièrement préservées.
     """
 
     id_faculte = models.AutoField(primary_key=True)
@@ -30,6 +66,8 @@ class Faculte(models.Model):
     )
 
     class Meta:
+        """Métadonnées Django : table ``faculte``, libellés français et tri alphabétique."""
+
         managed = True
         db_table = "faculte"
         app_label = "academics"
@@ -38,12 +76,33 @@ class Faculte(models.Model):
         ordering = ["nom_faculte"]
 
     def __str__(self):
+        """Retourne le nom de la faculté comme représentation lisible par l'humain."""
         return self.nom_faculte
 
 
 class Departement(models.Model):
     """
-    Modèle représentant un département rattaché à une faculté.
+    Unité organisationnelle de niveau intermédiaire représentant un
+    département académique.
+
+    Chaque département appartient à exactement une faculté et possède un ou
+    plusieurs cours. Les noms de département doivent être uniques au sein de
+    leur faculté parente (imposé par une ``UniqueConstraint`` sur
+    ``nom_departement + id_faculte``).
+
+    Attributs
+    ---------
+    id_departement : int
+        Clé primaire auto-incrémentée.
+    nom_departement : str
+        Nom du département lisible par l'humain ; unique par faculté.
+    id_faculte : Faculte
+        Clé étrangère vers la faculté parente (PROTECT — empêche la
+        suppression de la faculté tant que des départements la référencent).
+    actif : bool
+        Drapeau de suppression logique. Les départements inactifs sont
+        masqués des widgets de sélection mais leurs données historiques sont
+        entièrement préservées.
     """
 
     id_departement = models.AutoField(primary_key=True)
@@ -65,6 +124,8 @@ class Departement(models.Model):
     )
 
     class Meta:
+        """Métadonnées Django : table ``departement``, index, et contrainte d'unicité (nom, faculté)."""
+
         managed = True
         db_table = "departement"
         app_label = "academics"
@@ -82,18 +143,65 @@ class Departement(models.Model):
         ]
 
     def __str__(self):
+        """Retourne le nom du département et celui de la faculté parente pour une identification facile."""
         return f"{self.nom_departement} ({self.id_faculte.nom_faculte})"
 
 
 class Cours(models.Model):
     """
-    Modèle représentant un cours académique.
+    Entité de niveau feuille représentant un cours unique enseigné au sein
+    d'un département.
 
-    IMPORTANT POUR LA SOUTENANCE :
-    - Chaque cours appartient à un niveau (1, 2 ou 3) et une année académique
-    - Les prérequis sont filtrés par niveau (un cours de niveau N ne peut avoir que des prérequis < N)
-    - Le seuil d'absence peut être personnalisé par cours ou utiliser le seuil par défaut
-    - L'année académique est assignée automatiquement à l'année active lors de la création
+    Un cours appartient à un département, une année académique et un niveau
+    d'étude (1–3). Il peut être assigné à un professeur et peut déclarer
+    des cours prérequis que les étudiants doivent avoir validés avant de
+    s'inscrire.
+
+    Règles métier principales
+    -------------------------
+    - ``niveau`` détermine quels cours prérequis sont autorisés : un cours
+      de niveau N ne peut lister que des cours de niveau < N comme
+      prérequis. Cette contrainte est appliquée dans ``CoursForm``
+      (``dashboard/forms_admin.py``).
+    - ``seuil_absence`` est une surcharge propre au cours pour le seuil de
+      taux d'absence. Lorsque ``None``, le seuil par défaut à l'échelle du
+      système provenant de ``SystemSettings`` est utilisé
+      (voir ``get_seuil_absence``).
+    - ``id_annee`` est assigné automatiquement à l'année académique active
+      lorsqu'un nouveau cours est créé via ``CoursForm.save()``.
+    - Les cours supprimés logiquement (``actif=False``) sont masqués de la
+      sélection dans l'interface mais toutes les données de présence
+      associées sont préservées.
+
+    Attributs
+    ---------
+    id_cours : int
+        Clé primaire auto-incrémentée.
+    code_cours : str
+        Code court unique utilisé dans les rapports et exports
+        (par ex. "INFO_01").
+    nom_cours : str
+        Titre complet du cours lisible par l'humain.
+    nombre_total_periodes : int
+        Nombre total d'heures planifiées ; utilisé comme dénominateur lors
+        du calcul du taux d'absence de l'étudiant :
+        ``(heures_absent / total_periodes) * 100``.
+    seuil_absence : int ou None
+        Seuil d'absence propre au cours (pourcentage). Revient au seuil par
+        défaut du système lorsque ``None``.
+    id_departement : Departement
+        Département parent (PROTECT).
+    professeur : User ou None
+        Enseignant responsable (SET_NULL — le cours survit à la suppression
+        de l'enseignant).
+    id_annee : AnneeAcademique
+        Année académique à laquelle le cours appartient (PROTECT).
+    niveau : int
+        Niveau d'étude : 1, 2 ou 3.
+    prerequisites : ManyToMany[Cours]
+        Auto-référence asymétrique listant les cours prérequis.
+    actif : bool
+        Drapeau de suppression logique.
     """
 
     # ============================================
@@ -219,6 +327,8 @@ class Cours(models.Model):
     )
 
     class Meta:
+        """Métadonnées Django : table ``cours``, index optimisés et contraintes métier (seuils, niveau)."""
+
         managed = True
         db_table = "cours"
         app_label = "academics"
@@ -261,15 +371,31 @@ class Cours(models.Model):
         ]
 
     def __str__(self):
+        """Retourne le code et le nom du cours pour une identification facile dans les listes déroulantes et les logs."""
         return f"[{self.code_cours}] {self.nom_cours}"
 
     def get_seuil_absence(self):
         """
-        Retourne le seuil d'absence du cours ou le seuil par défaut du système.
+        Retourne le seuil d'absence effectif pour ce cours.
+
+        Si un seuil propre au cours a été défini (``seuil_absence`` n'est pas
+        ``None``), cette valeur est retournée directement. Sinon, la méthode
+        revient au seuil par défaut à l'échelle du système stocké dans
+        ``SystemSettings``.
+
+        L'import de ``SystemSettings`` est différé pour éviter une erreur
+        d'import circulaire au moment du chargement du module (``dashboard``
+        importe ``academics``).
+
+        Retourne
+        --------
+        int
+            Seuil d'absence en pourcentage (0–100).
         """
         if self.seuil_absence is not None:
             return self.seuil_absence
-        # Import ici pour éviter l'importation circulaire
+        # Import différé pour éviter une dépendance circulaire :
+        # academics → dashboard → academics provoquerait une ImportError.
         from apps.dashboard.models import SystemSettings
 
         return SystemSettings.get_settings().default_absence_threshold

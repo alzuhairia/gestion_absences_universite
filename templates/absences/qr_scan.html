@@ -96,7 +96,7 @@
                 {% endif %}
             </div>
 
-            <!-- GPS blocked message (hidden by default) -->
+            <!-- Message d'erreur GPS (masqué par défaut) : affiché si la géolocalisation est refusée, indisponible ou hors délai -->
             <div id="gps-blocked" class="gps-blocked mt-3 d-none">
                 <i class="fas fa-exclamation-triangle text-danger fa-2x mb-2 d-block"></i>
                 <strong id="gps-blocked-title" class="text-danger">Localisation obligatoire</strong>
@@ -135,14 +135,14 @@
     var confirmBtn = document.getElementById('confirm-btn');
 
     if (!gpsRequired) {
-        /* Mode 1: GPS not required — submit directly */
+        /* Mode 1 : GPS non requis — l'étudiant peut confirmer directement sa présence */
         gpsStatusField.value = 'not_required';
         return;
     }
 
-    /* Mode 2: GPS required */
+    /* Mode 2 : GPS requis — flux complet de capture avec gestion des cas d'erreur */
     if (!navigator.geolocation) {
-        /* GPS not supported by browser */
+        /* Navigateur sans support de la géolocalisation — bouton désactivé définitivement */
         gpsStatus.innerHTML = '';
         gpsBlocked.classList.remove('d-none');
         gpsBlockedTitle.textContent = 'GPS non disponible';
@@ -154,7 +154,7 @@
 
     navigator.geolocation.getCurrentPosition(
         function(pos) {
-            /* CAS A: GPS accepted */
+            /* CAS A : GPS accepté — position transmise et bouton de confirmation activé */
             latInput.value = pos.coords.latitude;
             lngInput.value = pos.coords.longitude;
             gpsStatusField.value = 'accepted';
@@ -167,21 +167,21 @@
             gpsStatusField.value = 'refused';
 
             if (err.code === 1) {
-                /* CAS C: GPS refused by student */
+                /* CAS C : GPS refusé par l'étudiant (PERMISSION_DENIED) — message expliquant comment réautoriser */
                 gpsBlockedTitle.textContent = 'Localisation obligatoire';
                 gpsBlockedMsg.textContent = 'Vous avez refusé l\'accès à votre position. La localisation est obligatoire pour cette séance. Autorisez le GPS dans les paramètres de votre navigateur et rechargez la page.';
             } else if (err.code === 2) {
-                /* CAS D: Position unavailable */
+                /* CAS D : Position indisponible (POSITION_UNAVAILABLE) — erreur technique côté appareil */
                 gpsBlockedTitle.textContent = 'Position indisponible';
                 gpsBlockedMsg.textContent = 'Impossible d\'obtenir votre position (erreur technique). Réessayez ou contactez le professeur.';
                 gpsStatusField.value = 'unavailable';
             } else {
-                /* CAS D: Timeout */
+                /* CAS D bis : Délai dépassé (TIMEOUT) — la requête GPS n'a pas abouti dans les 15s */
                 gpsBlockedTitle.textContent = 'Délai dépassé';
                 gpsBlockedMsg.textContent = 'L\'acquisition GPS a pris trop de temps. Réessayez ou contactez le professeur.';
                 gpsStatusField.value = 'unavailable';
             }
-            /* Button stays DISABLED — no bypass possible */
+            /* Le bouton reste DÉSACTIVÉ — aucun contournement possible côté client */
             confirmBtn.disabled = true;
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }

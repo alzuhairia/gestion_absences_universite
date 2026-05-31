@@ -1,3 +1,11 @@
+{# ============================================================
+   Template : admin_faculties.html
+   Rôle    : Page de gestion des facultés côté administrateur.
+             Deux colonnes :
+               - colonne gauche : formulaire de création
+               - colonne droite : liste paginée + actions
+                 (modifier / supprimer) sur les facultés existantes
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}Gestion des Facultés{% endblock %}
@@ -19,6 +27,7 @@
     </div>
 
     <div class="row">
+        {# Colonne gauche : formulaire de création d'une nouvelle faculté #}
         <div class="col-lg-4 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 bg-primary text-white">
@@ -50,6 +59,7 @@
             </div>
         </div>
 
+        {# Colonne droite : liste paginée des facultés existantes #}
         <div class="col-lg-8">
             <div class="card shadow">
                 <div class="card-header py-3 bg-white">

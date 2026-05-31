@@ -1,3 +1,4 @@
+"""Script de vérification — contrôle l'intégrité des inscriptions (prérequis, absence de doublons)."""
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from apps.enrollments.models import Inscription
 from apps.academic_sessions.models import AnneeAcademique
 
 def verify():
+    """Inscrit un étudiant à un cours et vérifie que les contraintes métier sont bien appliquées."""
     print("Verifying Enrollment Logic...")
     
     # Get or Create Data

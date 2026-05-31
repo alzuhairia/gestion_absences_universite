@@ -1,6 +1,11 @@
 """
-FICHIER : apps/audits/urls.py
-RESPONSABILITE : Routes URL pour la consultation des logs d'audit
+Configuration des URL pour l'application audits d'UniAbsences.
+
+Monte la vue de liste du journal d'audit sous le préfixe ``audits/``
+défini dans le ``config/urls.py`` racine. Le namespace ``app_name = "audits"``
+permet la résolution inverse avec le préfixe ``audits:``.
+
+Fait partie du système d'audit UniAbsences.
 """
 from django.urls import path
 

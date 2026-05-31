@@ -64,7 +64,7 @@
             <form method="POST" id="session-form">
                 {% csrf_token %}
 
-                <!-- Step 1: Session details -->
+                <!-- Étape 1 : informations de base de la séance (date + créneau horaire) -->
                 <h6 class="text-uppercase text-muted small fw-bold mb-3">
                     <span class="badge bg-primary rounded-pill me-1">1</span> Détails de la séance
                 </h6>
@@ -88,7 +88,7 @@
 
                 <hr class="my-4">
 
-                <!-- Step 2: Attendance mode -->
+                <!-- Étape 2 : choix du mode de prise d'appel (manuel vs QR code) -->
                 <h6 class="text-uppercase text-muted small fw-bold mb-3">
                     <span class="badge bg-primary rounded-pill me-1">2</span> Mode de prise d'appel
                 </h6>
@@ -117,7 +117,7 @@
                     </div>
                 </div>
 
-                <!-- QR-specific options (hidden by default) -->
+                <!-- Options spécifiques au mode QR (masquées par défaut, dévoilées par JS quand QR est sélectionné) -->
                 <div class="qr-options" id="qr-options">
                     <div class="card bg-light border-0 p-3 mt-2">
                         <div class="row g-3">
@@ -154,7 +154,7 @@
 
                 <hr class="my-4">
 
-                <!-- Actions -->
+                <!-- Barre d'actions : retour ou soumission du formulaire (libellé adapté au mode choisi) -->
                 <div class="d-flex justify-content-between align-items-center">
                     <a href="{% url 'dashboard:instructor_course_detail' course.id_cours %}"
                        class="btn btn-outline-secondary">
@@ -212,7 +212,7 @@
         });
     }
 
-    /* GPS capture for QR mode */
+    /* Capture GPS du professeur pour le mode QR : sert de référence pour la vérification de distance des étudiants */
     function captureGPS() {
         if (!gpsCheckbox.checked) {
             latInput.value = '';

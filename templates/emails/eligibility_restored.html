@@ -1,3 +1,16 @@
+{# ============================================================
+   Email : eligibility_restored.html
+   Déclencheur : Le taux d'absence d'un étudiant repasse sous le seuil
+                 autorisé (par ex. après acceptation d'un justificatif) —
+                 construit par build_eligibility_restored_email().
+   Destinataire : Étudiant précédemment bloqué
+   Rôle      : Bonne nouvelle annonçant à l'étudiant qu'il est à nouveau
+               éligible à l'examen pour le cours concerné, avec un message
+               d'encouragement à maintenir l'assiduité.
+   Contexte attendu (variables Django passées au template) :
+     - student_name : nom complet de l'étudiant destinataire
+     - course_name  : libellé du cours pour lequel l'éligibilité est rétablie
+   ============================================================ #}
 {% extends "emails/base_email.html" %}
 {% block title %}Éligibilité restaurée{% endblock %}
 {% block subtitle %}Bonne nouvelle{% endblock %}

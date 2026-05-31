@@ -1,3 +1,15 @@
+{# ============================================================
+   Template : student_absences.html
+   Rôle    : Liste paginée de toutes les absences de l'étudiant
+             connecté pour l'année académique active.
+   Particularités :
+     - Délai de 3 jours pour soumettre un justificatif. Au-delà,
+       le bouton de soumission disparaît et un compte à rebours
+       est calculé côté client (script JS en bas de fichier).
+     - Filtre absence_tags fournit |justification_deadline_iso
+       et |justification_expired pour gérer le délai côté
+       template.
+   ============================================================ #}
 {% extends 'base_student.html' %}
 {% load absence_tags %}
 
@@ -163,6 +175,10 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+// Met à jour tous les compteurs de temps restant affichés à côté
+// du bouton « Justifier ». Calcule la différence entre maintenant
+// et la deadline ISO injectée par le template, puis adapte la
+// couleur du texte (rouge < 12 h, orange < 1 j, gris sinon).
 function updateCountdowns() {
     document.querySelectorAll('.countdown-timer').forEach(function(el) {
         var deadline = new Date(el.dataset.deadline);
@@ -170,6 +186,7 @@ function updateCountdowns() {
         var diff = deadline - now;
         var textEl = el.querySelector('.countdown-text');
 
+        // Cas particulier : délai déjà dépassé.
         if (diff <= 0) {
             textEl.textContent = 'Délai expiré';
             el.classList.add('text-danger');
@@ -177,6 +194,8 @@ function updateCountdowns() {
             return;
         }
 
+        // Décompose le delta en jours / heures / minutes pour
+        // un affichage humain (« 2j 5h restants »).
         var days = Math.floor(diff / 86400000);
         var hours = Math.floor((diff % 86400000) / 3600000);
         var minutes = Math.floor((diff % 3600000) / 60000);
@@ -188,6 +207,7 @@ function updateCountdowns() {
 
         textEl.textContent = parts.join(' ') + ' restant' + (days > 0 ? 's' : '');
 
+        // Code couleur d'urgence selon le temps restant.
         if (days === 0 && hours < 12) {
             el.classList.add('text-danger');
             el.classList.remove('text-warning', 'text-muted');
@@ -201,6 +221,7 @@ function updateCountdowns() {
     });
 }
 
+// Premier rendu immédiat, puis rafraîchissement toutes les minutes.
 updateCountdowns();
 setInterval(updateCountdowns, 60000);
 </script>

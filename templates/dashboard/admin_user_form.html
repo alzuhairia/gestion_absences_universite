@@ -1,3 +1,13 @@
+{# ============================================================
+   Template : admin_user_form.html
+   Rôle    : Formulaire de création OU de modification d'un
+             utilisateur côté administrateur (le même template
+             couvre les deux cas — flag editing_user).
+   Contient également, en mode édition :
+     - un sous-formulaire de réinitialisation du mot de passe
+     - un bouton de réinitialisation de la 2FA (si activée par
+       l'utilisateur, utile lors d'une perte de téléphone)
+   ============================================================ #}
 {% extends 'base_admin.html' %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -68,6 +78,9 @@
                             <div class="text-danger small">{{ form.role.errors }}</div>
                             {% endif %}
                         </div>
+                        {# Champs mot de passe : visibles uniquement à la création.
+                           En édition, on passe par le sous-formulaire de
+                           réinitialisation situé plus bas. #}
                         {% if not editing_user %}
                         <div class="mb-3">
                             <label for="{{ form.password.id_for_label }}" class="form-label">Mot de passe temporaire</label>
@@ -106,6 +119,8 @@
                         </div>
                     </form>
 
+                    {# Section éditions sensibles (visibles seulement en mode
+                       modification) : reset du mot de passe et reset 2FA. #}
                     {% if editing_user %}
                     <hr>
                     <h6 class="mb-3">Réinitialiser le mot de passe</h6>
