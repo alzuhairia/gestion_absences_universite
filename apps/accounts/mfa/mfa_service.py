@@ -1,30 +1,34 @@
 """
-MFA business-logic service for the UniAbsences accounts system.
+Service de logique métier MFA pour le système accounts d'UniAbsences.
 
-This module is the HTTP-independent layer for TOTP two-factor authentication.
-It contains no Django view or request logic and can be called from views,
-management commands, or tests alike.
+Ce module est la couche indépendante du HTTP pour l'authentification à deux
+facteurs TOTP. Il ne contient aucune vue Django ni logique de requête et
+peut être appelé depuis des vues, des commandes de gestion ou des tests.
 
-Responsibilities
-----------------
-- Define the session-key constants used by ``TwoFactorMiddleware`` and the
-  2FA views to track setup state and verification status.
-- Expose ``_normalize_token`` — strips whitespace and non-digits from a
-  user-submitted TOTP token to support copy-paste from authenticator apps.
-- Expose ``_normalize_backup_code`` — normalises a raw backup code string
-  to the canonical upper-case alphanumeric form used for hash comparison.
-- Expose ``_format_backup_code`` — formats a 10-character code as two 5-char
-  groups separated by a hyphen for display purposes (e.g. ``ABCDE-FGHIJ``).
-- Expose ``_generate_backup_codes`` — creates a new batch of backup codes,
-  deletes any existing codes atomically, and returns the plaintext values so
-  the caller can display them exactly once.
-- Expose ``_consume_backup_code`` — verifies and consumes a single backup
-  code atomically using ``select_for_update`` to prevent concurrent double-use.
-- Re-export ``_generate_qr_data_uri`` from ``apps.utils`` under the
-  ``_generate_qr_data_uri`` alias for backward compatibility with callers
-  that import it from this module.
+Responsabilités
+---------------
+- Définir les constantes de clés de session utilisées par ``TwoFactorMiddleware``
+  et les vues 2FA pour suivre l'état de configuration et le statut de vérification.
+- Exposer ``_normalize_token`` — supprime les espaces et les non-chiffres
+  d'un token TOTP saisi par l'utilisateur pour gérer le copier-coller
+  depuis les applications d'authentification.
+- Exposer ``_normalize_backup_code`` — normalise une chaîne brute de code
+  de secours vers la forme canonique alphanumérique en majuscules utilisée
+  pour la comparaison de hash.
+- Exposer ``_format_backup_code`` — formate un code de 10 caractères en
+  deux groupes de 5 caractères séparés par un tiret pour l'affichage
+  (ex. ``ABCDE-FGHIJ``).
+- Exposer ``_generate_backup_codes`` — crée un nouveau lot de codes de
+  secours, supprime atomiquement les codes existants et retourne les
+  valeurs en clair pour que l'appelant puisse les afficher exactement une fois.
+- Exposer ``_consume_backup_code`` — vérifie et consomme un seul code de
+  secours atomiquement en utilisant ``select_for_update`` pour empêcher le
+  double usage concurrent.
+- Ré-exporter ``_generate_qr_data_uri`` depuis ``apps.utils`` sous l'alias
+  ``_generate_qr_data_uri`` pour la rétrocompatibilité avec les appelants
+  qui l'importent depuis ce module.
 
-Part of the UniAbsences accounts / MFA system.
+Fait partie du système accounts / MFA d'UniAbsences.
 """
 
 import logging
@@ -41,59 +45,61 @@ from ..models import TwoFactorBackupCode
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Session-key constants
+# Constantes de clés de session
 # ---------------------------------------------------------------------------
 
-#: Key under which the temporary TOTP secret is stored in the session during
-#: the 2FA enrollment wizard.  Cleared once enrollment is confirmed.
+#: Clé sous laquelle le secret TOTP temporaire est stocké dans la session
+#: pendant l'assistant d'enrôlement 2FA. Effacée une fois l'enrôlement confirmé.
 SETUP_SECRET_SESSION_KEY = "_2fa_setup_secret"
 
-#: Key set to ``True`` in the session once the user has passed the TOTP gate
-#: for the current session.  Read by ``TwoFactorMiddleware`` on every request.
+#: Clé mise à ``True`` dans la session une fois que l'utilisateur a passé le
+#: portail TOTP pour la session courante. Lue par ``TwoFactorMiddleware`` à chaque requête.
 VERIFIED_SESSION_KEY = "2fa_verified"
 
-#: Key tracking the number of failed TOTP verification attempts in the current
-#: session.  The user is logged out when this reaches ``MAX_VERIFY_ATTEMPTS``.
+#: Clé qui suit le nombre de tentatives de vérification TOTP échouées dans la
+#: session courante. L'utilisateur est déconnecté lorsque cette valeur atteint
+#: ``MAX_VERIFY_ATTEMPTS``.
 ATTEMPTS_SESSION_KEY = "_2fa_attempts"
 
-#: Maximum number of consecutive failed TOTP verification attempts before the
-#: session is forcibly terminated.
+#: Nombre maximum de tentatives consécutives échouées de vérification TOTP avant
+#: que la session ne soit forcée à se terminer.
 MAX_VERIFY_ATTEMPTS = 5
 
-#: Issuer name embedded in the TOTP provisioning URI and displayed by
-#: authenticator apps (Google Authenticator, Authy, etc.).
+#: Nom de l'émetteur intégré dans l'URI de provisionnement TOTP et affiché
+#: par les applications d'authentification (Google Authenticator, Authy, etc.).
 TOTP_ISSUER = "UniAbsences"
 
-#: Session key under which the newly generated backup codes (plaintext) are
-#: stored for a single round-trip to the one-shot display page.  The key is
-#: removed immediately after the page renders so the codes cannot be revisited.
+#: Clé de session sous laquelle les codes de secours nouvellement générés
+#: (en clair) sont stockés pour un aller-retour unique vers la page d'affichage
+#: à usage unique. La clé est retirée immédiatement après le rendu de la page
+#: afin que les codes ne puissent pas être revisités.
 BACKUP_CODES_SESSION_KEY = "_2fa_new_backup_codes"
 
-#: Number of characters in each backup code.  The code is split into two
-#: 5-character groups for display: ``ABCDE-FGHIJ``.
+#: Nombre de caractères dans chaque code de secours. Le code est divisé en
+#: deux groupes de 5 caractères pour l'affichage : ``ABCDE-FGHIJ``.
 BACKUP_CODE_LENGTH = 10
 
 
 # ---------------------------------------------------------------------------
-# TOTP helpers
+# Helpers TOTP
 # ---------------------------------------------------------------------------
 
 
 def _normalize_token(raw: str) -> str:
     """
-    Normalise a raw TOTP token string for comparison.
+    Normalise une chaîne brute de token TOTP en vue de la comparaison.
 
-    Strips all whitespace and non-digit characters then truncates to 6
-    digits.  This makes the function tolerant of user input that includes
-    spaces (e.g. "123 456" from an authenticator app that adds a space for
-    readability).
+    Supprime tous les espaces et caractères non numériques, puis tronque à 6
+    chiffres. Cela rend la fonction tolérante à une saisie utilisateur
+    incluant des espaces (ex. « 123 456 » d'une application d'authentification
+    qui ajoute un espace pour la lisibilité).
 
-    Parameters:
-        raw (str): The raw string submitted by the user.
+    Paramètres :
+        raw (str) : la chaîne brute soumise par l'utilisateur.
 
-    Returns:
-        str: A string of at most 6 digits, or an empty string if ``raw``
-             is falsy.
+    Retour :
+        str : une chaîne d'au plus 6 chiffres, ou une chaîne vide si ``raw``
+              est faux (falsy).
     """
     if not raw:
         return ""
@@ -101,25 +107,25 @@ def _normalize_token(raw: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Backup-code helpers
+# Helpers de codes de secours
 # ---------------------------------------------------------------------------
 
 
 def _normalize_backup_code(raw: str) -> str:
     """
-    Normalise a raw backup code for hash comparison.
+    Normalise un code de secours brut en vue de la comparaison de hash.
 
-    Converts to upper case and retains only alphanumeric characters, then
-    truncates to ``BACKUP_CODE_LENGTH`` (10).  This makes the function
-    tolerant of input formatted with a hyphen separator (e.g. ``ABCDE-FGHIJ``
-    becomes ``ABCDEFGHIJ``).
+    Convertit en majuscules et conserve uniquement les caractères
+    alphanumériques, puis tronque à ``BACKUP_CODE_LENGTH`` (10). Cela rend la
+    fonction tolérante aux entrées formatées avec un tiret séparateur
+    (ex. ``ABCDE-FGHIJ`` devient ``ABCDEFGHIJ``).
 
-    Parameters:
-        raw (str): The raw code string submitted by the user.
+    Paramètres :
+        raw (str) : la chaîne brute du code soumis par l'utilisateur.
 
-    Returns:
-        str: The normalised code (up to 10 uppercase alphanumeric characters),
-             or an empty string if ``raw`` is falsy.
+    Retour :
+        str : le code normalisé (jusqu'à 10 caractères alphanumériques
+              majuscules), ou une chaîne vide si ``raw`` est faux (falsy).
     """
     if not raw:
         return ""
@@ -128,16 +134,16 @@ def _normalize_backup_code(raw: str) -> str:
 
 def _format_backup_code(raw: str) -> str:
     """
-    Format a 10-character backup code as two 5-character hyphen-separated groups.
+    Formate un code de secours de 10 caractères en deux groupes de 5 caractères séparés par un tiret.
 
-    Used when displaying newly generated codes to the user so they are
-    easier to read and transcribe (e.g. ``ABCDE-FGHIJ``).
+    Utilisé pour l'affichage des codes nouvellement générés afin qu'ils
+    soient plus faciles à lire et à recopier (ex. ``ABCDE-FGHIJ``).
 
-    Parameters:
-        raw (str): A 10-character alphanumeric backup code.
+    Paramètres :
+        raw (str) : un code de secours alphanumérique de 10 caractères.
 
-    Returns:
-        str: The code formatted as ``XXXXX-XXXXX``.
+    Retour :
+        str : le code formaté en ``XXXXX-XXXXX``.
     """
     mid = BACKUP_CODE_LENGTH // 2
     return f"{raw[:mid]}-{raw[mid:]}"
@@ -145,32 +151,33 @@ def _format_backup_code(raw: str) -> str:
 
 def _generate_backup_codes(user, nb=TwoFactorBackupCode.CODES_PER_BATCH):
     """
-    Generate a new batch of backup codes for a user, replacing all existing ones.
+    Génère un nouveau lot de codes de secours pour un utilisateur, en remplaçant tous les anciens.
 
-    All existing backup codes for the user (used or unused) are deleted inside
-    an atomic transaction before the new batch is created.  Only the bcrypt
-    hashes of the new codes are persisted; the plaintext values are returned
-    to the caller so they can be displayed to the user exactly once.
+    Tous les codes de secours existants de l'utilisateur (utilisés ou non) sont
+    supprimés dans une transaction atomique avant que le nouveau lot ne soit
+    créé. Seuls les hashes bcrypt des nouveaux codes sont persistés ; les
+    valeurs en clair sont retournées à l'appelant afin qu'il puisse les
+    afficher à l'utilisateur exactement une fois.
 
-    The character set deliberately excludes visually ambiguous characters
-    (``O``, ``0``, ``1``, ``I``) to reduce transcription errors.
+    Le jeu de caractères exclut volontairement les caractères visuellement
+    ambigus (``O``, ``0``, ``1``, ``I``) afin de réduire les erreurs de recopie.
 
-    Parameters:
-        user: The ``User`` instance for which codes are generated.
-        nb (int): Number of codes to generate.  Defaults to
-                  ``TwoFactorBackupCode.CODES_PER_BATCH`` (8).
+    Paramètres :
+        user : l'instance ``User`` pour laquelle les codes sont générés.
+        nb (int) : nombre de codes à générer. Par défaut
+                   ``TwoFactorBackupCode.CODES_PER_BATCH`` (8).
 
-    Returns:
-        list[str]: Plaintext codes of length ``BACKUP_CODE_LENGTH``.  These
-                   are **not** stored; the caller must show them to the user
-                   and then discard them.
+    Retour :
+        list[str] : codes en clair de longueur ``BACKUP_CODE_LENGTH``. Ils
+                    **ne sont pas** stockés ; l'appelant doit les afficher à
+                    l'utilisateur puis les jeter.
     """
-    # Unambiguous character set: no O/0/1/I to prevent transcription errors.
+    # Jeu de caractères non ambigus : pas de O/0/1/I pour éviter les erreurs de recopie.
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     plaintext = []
     with transaction.atomic():
-        # Delete all existing codes (used or not) to avoid ambiguity about
-        # which codes are currently valid.
+        # Supprime tous les codes existants (utilisés ou non) afin d'éviter
+        # toute ambiguïté sur les codes actuellement valides.
         TwoFactorBackupCode.objects.filter(user=user).delete()
         rows = []
         for _ in range(nb):
@@ -179,7 +186,7 @@ def _generate_backup_codes(user, nb=TwoFactorBackupCode.CODES_PER_BATCH):
             rows.append(
                 TwoFactorBackupCode(
                     user=user,
-                    # Store only the hash; plaintext is never persisted.
+                    # Stocke seulement le hash ; le clair n'est jamais persisté.
                     code_hash=make_password(raw),
                 )
             )
@@ -189,43 +196,47 @@ def _generate_backup_codes(user, nb=TwoFactorBackupCode.CODES_PER_BATCH):
 
 def _consume_backup_code(user, candidate: str) -> bool:
     """
-    Verify and consume a backup code atomically.
+    Vérifie et consomme un code de secours atomiquement.
 
-    All unused backup codes for the user are fetched under a
-    ``SELECT FOR UPDATE`` lock to prevent concurrent verification of the
-    same code from two simultaneous requests (classic double-spend attack).
+    Tous les codes de secours inutilisés de l'utilisateur sont récupérés sous
+    un verrou ``SELECT FOR UPDATE`` pour empêcher la vérification concurrente
+    du même code par deux requêtes simultanées (attaque classique de
+    double-dépense).
 
-    Each hash is compared against ``candidate`` using ``check_password``
-    (Django's constant-time wrapper around the configured hasher).  The loop
-    does **not** break on a non-matching code, iterating all unused codes to
-    avoid timing side-channels that could reveal the number of remaining codes.
+    Chaque hash est comparé à ``candidate`` à l'aide de ``check_password``
+    (le wrapper à temps constant de Django autour du hasher configuré). La
+    boucle **ne s'interrompt pas** sur un code non correspondant et itère
+    sur tous les codes inutilisés pour éviter des canaux auxiliaires
+    temporels qui pourraient révéler le nombre de codes restants.
 
-    On a successful match the code is immediately marked ``used=True`` and
-    ``used_at`` is recorded so it cannot be reused.
+    En cas de correspondance réussie, le code est immédiatement marqué
+    ``used=True`` et ``used_at`` est renseigné afin qu'il ne puisse pas être
+    réutilisé.
 
-    Parameters:
-        user: The ``User`` instance attempting backup-code login.
-        candidate (str): The normalised (uppercase alphanumeric) backup code
-                         submitted by the user.  Must be exactly
-                         ``BACKUP_CODE_LENGTH`` characters.
+    Paramètres :
+        user : l'instance ``User`` tentant la connexion par code de secours.
+        candidate (str) : le code de secours normalisé (alphanumérique
+                          majuscules) soumis par l'utilisateur. Doit faire
+                          exactement ``BACKUP_CODE_LENGTH`` caractères.
 
-    Returns:
-        bool: ``True`` if a matching unused code was found and consumed,
-              ``False`` otherwise.
+    Retour :
+        bool : ``True`` si un code inutilisé correspondant a été trouvé et
+               consommé, ``False`` sinon.
     """
-    # Reject trivially invalid inputs without hitting the database.
+    # Rejette les entrées trivialement invalides sans frapper la base.
     if not candidate or len(candidate) != BACKUP_CODE_LENGTH:
         return False
     with transaction.atomic():
-        # Lock all unused codes for this user for the duration of the
-        # transaction to prevent concurrent consumption of the same code.
+        # Verrouille tous les codes inutilisés de cet utilisateur pour la
+        # durée de la transaction afin d'empêcher la consommation
+        # concurrente du même code.
         unused = list(
             TwoFactorBackupCode.objects.select_for_update()
             .filter(user=user, used=False)
         )
         for row in unused:
             if check_password(candidate, row.code_hash):
-                # Mark as used immediately so the code cannot be reused.
+                # Marque comme utilisé immédiatement pour empêcher la réutilisation.
                 row.used = True
                 row.used_at = timezone.now()
                 row.save(update_fields=["used", "used_at"])

@@ -1,27 +1,29 @@
 """
-Backup-code management views for the UniAbsences MFA system.
+Vues de gestion des codes de secours pour le système MFA d'UniAbsences.
 
-This module handles the two user-facing views related to TOTP backup codes:
-the one-shot display page shown immediately after code generation, and the
-regeneration flow that lets users invalidate all existing codes and issue a
-fresh batch after confirming their password.
+Ce module gère les deux vues côté utilisateur liées aux codes de secours
+TOTP : la page d'affichage unique présentée juste après la génération des
+codes, et le flux de régénération qui permet aux utilisateurs d'invalider
+tous les codes existants et d'en émettre un nouveau lot après confirmation
+de leur mot de passe.
 
-Views
------
+Vues
+----
 ``backup_codes_view``
-    GET-only.  Reads the newly generated plaintext codes from the session
-    (placed there by ``setup_2fa`` or ``regenerate_backup_codes``), formats
-    them for display, clears the session key immediately, and renders the
-    template.  If the session key is absent the user is redirected to their
-    profile — codes are intentionally not stored and cannot be recovered.
+    GET uniquement. Lit les codes en clair nouvellement générés depuis la
+    session (placés là par ``setup_2fa`` ou ``regenerate_backup_codes``), les
+    formate pour l'affichage, efface immédiatement la clé de session et
+    affiche le template. Si la clé de session est absente, l'utilisateur
+    est redirigé vers son profil — les codes ne sont volontairement pas
+    stockés et ne peuvent pas être récupérés.
 
 ``regenerate_backup_codes``
-    GET  — render the confirmation form (requires password entry).
-    POST — validate the password, generate a new batch of codes atomically,
-           store the plaintext codes in the session, and redirect to
-           ``backup_codes_view`` for one-shot display.
+    GET  — affiche le formulaire de confirmation (saisie du mot de passe requise).
+    POST — valide le mot de passe, génère un nouveau lot de codes
+           atomiquement, stocke les codes en clair dans la session et
+           redirige vers ``backup_codes_view`` pour un affichage unique.
 
-Part of the UniAbsences accounts / MFA system.
+Fait partie du système accounts / MFA d'UniAbsences.
 """
 
 import logging
@@ -47,37 +49,40 @@ logger = logging.getLogger(__name__)
 @require_http_methods(["GET"])
 def backup_codes_view(request):
     """
-    Display the newly generated backup codes exactly once.
+    Affiche les codes de secours nouvellement générés exactement une fois.
 
-    This view is the landing page after 2FA setup or code regeneration.
-    The plaintext codes are stored in the session under ``BACKUP_CODES_SESSION_KEY``
-    by the upstream view, retrieved here, formatted for display, and then
-    immediately removed from the session so they cannot be viewed again on
-    a page refresh or a subsequent visit.
+    Cette vue est la page d'arrivée après la configuration 2FA ou la
+    régénération des codes. Les codes en clair sont stockés dans la session
+    sous ``BACKUP_CODES_SESSION_KEY`` par la vue amont, récupérés ici,
+    formatés pour l'affichage, puis immédiatement retirés de la session pour
+    qu'ils ne puissent pas être revus lors d'un rafraîchissement de la page
+    ou d'une visite ultérieure.
 
-    If the session key is absent (user navigated directly or already viewed
-    the codes), a warning is shown and the user is redirected to their profile
-    page with instructions to regenerate the codes if needed.
+    Si la clé de session est absente (l'utilisateur a navigué directement
+    ou a déjà consulté les codes), un avertissement est affiché et
+    l'utilisateur est redirigé vers sa page de profil avec des instructions
+    pour régénérer les codes si nécessaire.
 
-    Only accessible when the user's account already has 2FA enabled — guards
-    against direct URL access before 2FA setup is complete.
+    Accessible uniquement lorsque le compte de l'utilisateur a déjà la 2FA
+    activée — se prémunit contre un accès direct par URL avant que la
+    configuration 2FA ne soit complète.
 
-    Parameters:
-        request: The authenticated GET request.
+    Paramètres :
+        request : la requête GET authentifiée.
 
-    Returns:
-        HttpResponse: The rendered ``accounts/backup_codes.html`` template
-                      with the formatted codes, or a redirect to the profile.
+    Retour :
+        HttpResponse : le template ``accounts/backup_codes.html`` rendu avec
+                       les codes formatés, ou une redirection vers le profil.
     """
     user = request.user
 
-    # Guard: must have 2FA enabled to view backup codes.
+    # Garde : doit avoir la 2FA activée pour consulter les codes de secours.
     if not user.two_factor_enabled:
         return redirect("accounts:profile")
 
     raw_codes = request.session.get(BACKUP_CODES_SESSION_KEY)
     if not raw_codes:
-        # Codes were already viewed or were never stored (direct URL access).
+        # Les codes ont déjà été consultés ou n'ont jamais été stockés (accès direct par URL).
         messages.info(
             request,
             "Les codes de secours ne peuvent etre affiches qu'une seule fois "
@@ -85,10 +90,10 @@ def backup_codes_view(request):
         )
         return redirect("accounts:profile")
 
-    # Remove the codes from the session immediately so they cannot be revisited.
+    # Retire les codes de la session immédiatement pour qu'ils ne puissent pas être revisités.
     request.session.pop(BACKUP_CODES_SESSION_KEY, None)
 
-    # Format each raw 10-char code as "XXXXX-XXXXX" for readability.
+    # Formate chaque code brut de 10 caractères en « XXXXX-XXXXX » pour la lisibilité.
     formatted = [_format_backup_code(c) for c in raw_codes]
 
     return render(
@@ -96,8 +101,8 @@ def backup_codes_view(request):
         "accounts/backup_codes.html",
         {
             "codes": formatted,
-            # Pass the role-appropriate base template so the page inherits
-            # the correct sidebar and navigation layout.
+            # Transmet le template de base adapté au rôle pour que la page
+            # hérite de la bonne sidebar et du bon layout de navigation.
             "base_template": _role_base_template(user),
         },
     )
@@ -107,34 +112,36 @@ def backup_codes_view(request):
 @require_http_methods(["GET", "POST"])
 def regenerate_backup_codes(request):
     """
-    Regenerate all backup codes after password confirmation.
+    Régénère tous les codes de secours après confirmation du mot de passe.
 
-    This view is a security-sensitive operation: generating a new batch
-    immediately invalidates **all** existing backup codes (used or not).
-    Password confirmation is required to prevent an attacker with a hijacked
-    authenticated session from silently invalidating the user's recovery codes.
+    Cette vue est une opération sensible à la sécurité : générer un nouveau
+    lot invalide immédiatement **tous** les codes de secours existants
+    (utilisés ou non). La confirmation du mot de passe est requise pour
+    empêcher un attaquant disposant d'une session authentifiée détournée
+    d'invalider silencieusement les codes de récupération de l'utilisateur.
 
     GET
-        Render the password-confirmation form.
+        Affiche le formulaire de confirmation du mot de passe.
 
     POST
-        Validate the submitted password.  On failure, log the attempt at
-        WARNING severity and return the form with an error (HTTP 400).
-        On success, generate a new batch of backup codes, store the
-        plaintext codes in the session for one-shot display, log the
-        action, and redirect to ``backup_codes_view``.
+        Valide le mot de passe soumis. En cas d'échec, journalise la
+        tentative en gravité WARNING et retourne le formulaire avec une
+        erreur (HTTP 400). En cas de succès, génère un nouveau lot de codes
+        de secours, stocke les codes en clair dans la session pour un
+        affichage unique, journalise l'action et redirige vers
+        ``backup_codes_view``.
 
-    Parameters:
-        request: The authenticated HTTP request (GET or POST).
+    Paramètres :
+        request : la requête HTTP authentifiée (GET ou POST).
 
-    Returns:
-        HttpResponse: The confirmation form, a redirect to ``backup_codes_view``
-                      on success, or a redirect to the profile if 2FA is not
-                      enabled.
+    Retour :
+        HttpResponse : le formulaire de confirmation, une redirection vers
+                       ``backup_codes_view`` en cas de succès, ou une
+                       redirection vers le profil si la 2FA n'est pas activée.
     """
     user = request.user
 
-    # Guard: regeneration only makes sense when 2FA is active.
+    # Garde : la régénération n'a de sens que lorsque la 2FA est active.
     if not user.two_factor_enabled:
         messages.info(request, "Activez d'abord l'authentification a deux facteurs.")
         return redirect("accounts:profile")
@@ -142,7 +149,7 @@ def regenerate_backup_codes(request):
     if request.method == "POST":
         password = request.POST.get("password", "")
         if not password or not user.check_password(password):
-            # Log the failed attempt for the security audit trail.
+            # Journalise la tentative échouée pour la piste d'audit de sécurité.
             log_action(
                 user,
                 "Tentative de regeneration des codes de secours avec mot de passe incorrect",
@@ -159,9 +166,9 @@ def regenerate_backup_codes(request):
                 status=400,
             )
 
-        # Generate a new batch — all existing codes are deleted atomically.
+        # Génère un nouveau lot — tous les codes existants sont supprimés atomiquement.
         new_codes = _generate_backup_codes(user)
-        # Store plaintext codes in the session for a single display round-trip.
+        # Stocke les codes en clair dans la session pour un seul aller-retour d'affichage.
         request.session[BACKUP_CODES_SESSION_KEY] = new_codes
 
         log_action(

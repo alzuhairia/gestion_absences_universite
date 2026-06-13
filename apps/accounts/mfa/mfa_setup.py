@@ -1,38 +1,40 @@
 """
-2FA activation and deactivation views for the UniAbsences MFA system.
+Vues d'activation et de désactivation 2FA pour le système MFA d'UniAbsences.
 
-This module handles the two lifecycle operations for TOTP-based two-factor
-authentication: enabling it (``setup_2fa``) and disabling it (``disable_2fa``).
+Ce module gère les deux opérations de cycle de vie pour l'authentification à
+deux facteurs basée sur TOTP : son activation (``setup_2fa``) et sa
+désactivation (``disable_2fa``).
 
-Views
------
+Vues
+----
 ``setup_2fa``
-    Two-step activation wizard.
-    GET  — generates a random TOTP secret, stores it temporarily in the
-           session (not in the database), and renders a QR code the user
-           must scan with their authenticator app.
-    POST — verifies the first TOTP code produced by the app.  On success,
-           persists the secret to the database, generates backup codes, and
-           redirects to the one-shot backup-code display page.
-    The secret is intentionally not persisted until the user proves they can
-    produce a valid code — this avoids "half-setup" accounts.
+    Assistant d'activation en deux étapes.
+    GET  — génère un secret TOTP aléatoire, le stocke temporairement dans la
+           session (pas en base de données) et affiche un QR code que
+           l'utilisateur doit scanner avec son application d'authentification.
+    POST — vérifie le premier code TOTP produit par l'application. En cas de
+           succès, persiste le secret en base, génère les codes de secours et
+           redirige vers la page d'affichage unique des codes de secours.
+    Le secret n'est volontairement pas persisté tant que l'utilisateur n'a
+    pas prouvé qu'il peut produire un code valide — cela évite les comptes
+    « à moitié configurés ».
 
 ``disable_2fa``
-    Deactivation after password confirmation.
-    GET  — render the password-confirmation form.
-    POST — validate the password, clear the TOTP secret and the
-           ``two_factor_enabled`` flag, delete all backup codes, and
-           redirect to the profile page.
-    Password confirmation prevents a hijacked session from silently
-    downgrading the user's account security.
+    Désactivation après confirmation du mot de passe.
+    GET  — affiche le formulaire de confirmation du mot de passe.
+    POST — valide le mot de passe, efface le secret TOTP et le drapeau
+           ``two_factor_enabled``, supprime tous les codes de secours et
+           redirige vers la page de profil.
+    La confirmation du mot de passe empêche qu'une session détournée
+    n'abaisse silencieusement la sécurité du compte.
 
 Helpers
 -------
 ``_role_base_template``
-    Returns the name of the base Jinja2/Django template that matches the
-    user's role so every 2FA page inherits the correct sidebar.
+    Retourne le nom du template Jinja2/Django de base correspondant au rôle
+    de l'utilisateur afin que chaque page 2FA hérite de la bonne sidebar.
 
-Part of the UniAbsences accounts / MFA system.
+Fait partie du système accounts / MFA d'UniAbsences.
 """
 
 import logging
@@ -63,19 +65,20 @@ logger = logging.getLogger(__name__)
 
 def _role_base_template(user) -> str:
     """
-    Return the role-appropriate base template name for 2FA pages.
+    Retourne le nom du template de base adapté au rôle pour les pages 2FA.
 
-    Each 2FA page must extend the correct base layout so it renders within
-    the right sidebar (admin, secretary, instructor, or student).  If the
-    user object does not carry a ``Role`` attribute (e.g. during testing with
-    a mock user), the generic ``base.html`` is returned as a safe fallback.
+    Chaque page 2FA doit étendre le bon layout de base afin de s'afficher
+    dans la bonne sidebar (admin, secrétaire, professeur ou étudiant). Si
+    l'objet utilisateur ne possède pas d'attribut ``Role`` (ex. lors de
+    tests avec un utilisateur factice), le ``base.html`` générique est
+    retourné comme repli sûr.
 
-    Parameters:
-        user: The authenticated ``User`` instance (or any object with
-              ``role`` and ``Role`` attributes).
+    Paramètres :
+        user : l'instance ``User`` authentifiée (ou tout objet possédant
+               les attributs ``role`` et ``Role``).
 
-    Returns:
-        str: The template name to pass as ``base_template`` in context.
+    Retour :
+        str : le nom du template à passer comme ``base_template`` dans le contexte.
     """
     role = getattr(user, "role", None)
     Role = getattr(user, "Role", None)
@@ -96,54 +99,57 @@ def _role_base_template(user) -> str:
 @require_http_methods(["GET", "POST"])
 def setup_2fa(request):
     """
-    Two-step TOTP activation wizard.
+    Assistant d'activation TOTP en deux étapes.
 
-    Step 1 — GET request
-        A random 32-character Base32 TOTP secret is generated with
-        ``pyotp.random_base32()`` and stored temporarily in the session under
-        ``SETUP_SECRET_SESSION_KEY``.  A provisioning URI and QR-code data
-        URI are rendered so the user can scan the code with their authenticator
-        app (Google Authenticator, Authy, etc.).  The secret is **not** written
-        to the database at this point.
+    Étape 1 — Requête GET
+        Un secret TOTP Base32 aléatoire de 32 caractères est généré avec
+        ``pyotp.random_base32()`` et stocké temporairement dans la session
+        sous ``SETUP_SECRET_SESSION_KEY``. Une URI de provisionnement et un
+        data URI de QR code sont affichés afin que l'utilisateur puisse
+        scanner le code avec son application d'authentification
+        (Google Authenticator, Authy, etc.). Le secret **n'est pas** écrit
+        en base à ce stade.
 
-    Step 2 — POST request
-        The user submits the 6-digit TOTP code displayed by their app.  The
-        submitted token is normalised (whitespace / non-digits stripped) and
-        verified against the session-stored secret with a ±1 window (±30 s
-        clock drift tolerance).
+    Étape 2 — Requête POST
+        L'utilisateur soumet le code TOTP à 6 chiffres affiché par son
+        application. Le token soumis est normalisé (espaces / non-chiffres
+        supprimés) et vérifié contre le secret stocké en session avec une
+        fenêtre ±1 (tolérance de dérive d'horloge de ±30 s).
 
-        On success (inside a single atomic transaction):
-        1. The secret is persisted to ``user.two_factor_secret``.
-        2. ``user.two_factor_enabled`` is set to ``True``.
-        3. A fresh batch of backup codes is generated.
-        4. The session secret is cleared, ``VERIFIED_SESSION_KEY`` is set to
-           ``True``, and the plaintext backup codes are placed in the session
-           for one-shot display.
-        5. The session auth hash is rotated via ``update_session_auth_hash``.
-        6. The action is recorded in the audit log.
+        En cas de succès (dans une seule transaction atomique) :
+        1. Le secret est persisté dans ``user.two_factor_secret``.
+        2. ``user.two_factor_enabled`` est mis à ``True``.
+        3. Un nouveau lot de codes de secours est généré.
+        4. Le secret de session est effacé, ``VERIFIED_SESSION_KEY`` est mis à
+           ``True``, et les codes de secours en clair sont placés dans la
+           session pour un affichage unique.
+        5. Le hash d'authentification de session est tourné via
+           ``update_session_auth_hash``.
+        6. L'action est enregistrée dans le journal d'audit.
 
-    Parameters:
-        request: The authenticated HTTP request (GET or POST).
+    Paramètres :
+        request : la requête HTTP authentifiée (GET ou POST).
 
-    Returns:
-        HttpResponse: The QR-code setup page (GET), a redirect to the profile
-                      (already enabled), or a redirect to the backup-codes
-                      display page (successful activation).
+    Retour :
+        HttpResponse : la page de configuration du QR code (GET), une
+                       redirection vers le profil (déjà activé), ou une
+                       redirection vers la page d'affichage des codes de
+                       secours (activation réussie).
     """
     user = request.user
 
-    # If 2FA is already active, there is nothing to set up.
+    # Si la 2FA est déjà active, il n'y a rien à configurer.
     if user.two_factor_enabled:
         messages.info(request, "L'authentification a deux facteurs est deja activee.")
         return redirect("accounts:profile")
 
     if request.method == "POST":
-        # Retrieve the provisional secret stored in the session during the GET step.
+        # Récupère le secret provisoire stocké dans la session lors de l'étape GET.
         secret = request.session.get(SETUP_SECRET_SESSION_KEY)
         token = _normalize_token(request.POST.get("token", ""))
 
         if not secret:
-            # Session expired between the QR display and the code submission.
+            # Session expirée entre l'affichage du QR et la soumission du code.
             messages.error(request, "La session de configuration a expire. Reessayez.")
             return redirect("accounts:setup_2fa")
 
@@ -152,8 +158,8 @@ def setup_2fa(request):
             return redirect("accounts:setup_2fa")
 
         totp = pyotp.TOTP(secret)
-        # valid_window=1 allows a ±30 s tolerance for clock skew between the
-        # server and the user's authenticator device.
+        # valid_window=1 autorise une tolérance de ±30 s pour la dérive
+        # d'horloge entre le serveur et l'appareil d'authentification de l'utilisateur.
         if not totp.verify(token, valid_window=1):
             messages.error(
                 request,
@@ -161,22 +167,22 @@ def setup_2fa(request):
             )
             return redirect("accounts:setup_2fa")
 
-        # Persist the secret and enable 2FA atomically so there is no state
-        # where the flag is set but the secret is absent (or vice versa).
+        # Persiste le secret et active la 2FA atomiquement pour qu'il n'y
+        # ait pas d'état où le drapeau est posé mais le secret absent (ou l'inverse).
         with transaction.atomic():
             user.two_factor_secret = secret
             user.two_factor_enabled = True
             user.save(update_fields=["two_factor_secret", "two_factor_enabled"])
             new_codes = _generate_backup_codes(user)
 
-        # Clean up the provisional secret from the session.
+        # Nettoie le secret provisoire de la session.
         request.session.pop(SETUP_SECRET_SESSION_KEY, None)
-        # Mark this session as 2FA-verified so the middleware stops redirecting.
+        # Marque cette session comme vérifiée 2FA pour que le middleware cesse de rediriger.
         request.session[VERIFIED_SESSION_KEY] = True
-        # Store plaintext codes for the one-shot backup-code display page.
+        # Stocke les codes en clair pour la page d'affichage unique des codes de secours.
         request.session[BACKUP_CODES_SESSION_KEY] = new_codes
-        # Rotate the session auth hash to keep the session valid after this
-        # security-relevant change.
+        # Tourne le hash d'authentification de session pour garder la session
+        # valide après ce changement à incidence sécurité.
         update_session_auth_hash(request, user)
 
         log_action(
@@ -191,14 +197,14 @@ def setup_2fa(request):
         messages.success(request, "Authentification a deux facteurs activee avec succes.")
         return redirect("accounts:backup_codes")
 
-    # GET — generate a new provisional secret and render the QR code.
+    # GET — génère un nouveau secret provisoire et affiche le QR code.
     secret = pyotp.random_base32()
-    # Store the secret in the session so it can be verified on the next POST.
+    # Stocke le secret dans la session afin qu'il puisse être vérifié au prochain POST.
     request.session[SETUP_SECRET_SESSION_KEY] = secret
 
     totp = pyotp.TOTP(secret)
     provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name=TOTP_ISSUER)
-    # Convert the provisioning URI to an inline base64 data URI for the <img> tag.
+    # Convertit l'URI de provisionnement en data URI base64 inline pour la balise <img>.
     qr_data_uri = _generate_qr_data_uri(provisioning_uri)
 
     return render(
@@ -206,7 +212,7 @@ def setup_2fa(request):
         "accounts/setup_2fa.html",
         {
             "qr_data_uri": qr_data_uri,
-            "secret": secret,           # shown as a manual entry fallback
+            "secret": secret,           # affiché comme repli de saisie manuelle
             "issuer": TOTP_ISSUER,
             "base_template": _role_base_template(user),
         },
@@ -217,39 +223,40 @@ def setup_2fa(request):
 @require_http_methods(["GET", "POST"])
 def disable_2fa(request):
     """
-    Deactivate TOTP 2FA after the user confirms their current password.
+    Désactive la 2FA TOTP après confirmation du mot de passe courant par l'utilisateur.
 
-    The password confirmation step prevents an attacker with a valid but
-    hijacked session (e.g. unattended browser) from silently downgrading
-    the account's security posture.
+    L'étape de confirmation du mot de passe empêche un attaquant disposant
+    d'une session valide mais détournée (ex. navigateur laissé sans
+    surveillance) d'abaisser silencieusement le niveau de sécurité du compte.
 
     GET
-        Render the confirmation form.
+        Affiche le formulaire de confirmation.
 
     POST
-        Validate the submitted password.  On failure, log a WARNING audit
-        event and return the form with an error (HTTP 400) so the client
-        can retry.
+        Valide le mot de passe soumis. En cas d'échec, journalise un événement
+        d'audit WARNING et retourne le formulaire avec une erreur (HTTP 400)
+        pour que le client puisse réessayer.
 
-        On success (inside a single atomic transaction):
-        1. ``user.two_factor_secret`` is cleared.
-        2. ``user.two_factor_enabled`` is set to ``False``.
-        3. All ``TwoFactorBackupCode`` records for the user are deleted.
-        4. ``VERIFIED_SESSION_KEY`` is removed from the session.
-        5. The session auth hash is rotated via ``update_session_auth_hash``.
-        6. The action is recorded in the audit log at WARNING severity.
+        En cas de succès (dans une seule transaction atomique) :
+        1. ``user.two_factor_secret`` est effacé.
+        2. ``user.two_factor_enabled`` est mis à ``False``.
+        3. Tous les enregistrements ``TwoFactorBackupCode`` de l'utilisateur sont supprimés.
+        4. ``VERIFIED_SESSION_KEY`` est retiré de la session.
+        5. Le hash d'authentification de session est tourné via
+           ``update_session_auth_hash``.
+        6. L'action est enregistrée dans le journal d'audit en gravité WARNING.
 
-    Parameters:
-        request: The authenticated HTTP request (GET or POST).
+    Paramètres :
+        request : la requête HTTP authentifiée (GET ou POST).
 
-    Returns:
-        HttpResponse: The confirmation form, a redirect to the profile on
-                      success, or a redirect to the profile if 2FA is not
-                      currently enabled.
+    Retour :
+        HttpResponse : le formulaire de confirmation, une redirection vers le
+                       profil en cas de succès, ou une redirection vers le
+                       profil si la 2FA n'est pas actuellement activée.
     """
     user = request.user
 
-    # Guard: nothing to disable if 2FA is not active.
+    # Garde : rien à désactiver si la 2FA n'est pas active.
     if not user.two_factor_enabled:
         messages.info(request, "L'authentification a deux facteurs n'est pas activee.")
         return redirect("accounts:profile")
@@ -257,8 +264,8 @@ def disable_2fa(request):
     if request.method == "POST":
         password = request.POST.get("password", "")
         if not password or not user.check_password(password):
-            # Audit a failed attempt — repeated failures could indicate
-            # an attacker trying to weaken the account's 2FA protection.
+            # Audite une tentative échouée — des échecs répétés peuvent
+            # indiquer un attaquant cherchant à affaiblir la protection 2FA du compte.
             log_action(
                 user,
                 "Tentative de desactivation 2FA avec mot de passe incorrect",
@@ -276,17 +283,17 @@ def disable_2fa(request):
             )
 
         with transaction.atomic():
-            # Clear all 2FA fields atomically to leave no half-disabled state.
+            # Efface atomiquement tous les champs 2FA pour ne laisser aucun état semi-désactivé.
             user.two_factor_secret = ""
             user.two_factor_enabled = False
             user.save(update_fields=["two_factor_secret", "two_factor_enabled"])
-            # Invalidate all backup codes — they are only valid while 2FA is on.
+            # Invalide tous les codes de secours — ils ne sont valides que tant que la 2FA est active.
             TwoFactorBackupCode.objects.filter(user=user).delete()
 
-        # Remove the 2FA verification flag so the middleware reflects the
-        # new state immediately for any subsequent request in this session.
+        # Retire le drapeau de vérification 2FA pour que le middleware reflète
+        # immédiatement le nouvel état pour toute requête ultérieure dans cette session.
         request.session.pop(VERIFIED_SESSION_KEY, None)
-        # Rotate the session auth hash after this security-relevant change.
+        # Tourne le hash d'authentification de session après ce changement à incidence sécurité.
         update_session_auth_hash(request, user)
 
         log_action(

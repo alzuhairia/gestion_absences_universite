@@ -45,7 +45,7 @@ def _health_allowlist_networks_cached(cidrs_tuple):
             networks.append(ipaddress.ip_network(cidr, strict=False))
         except ValueError:
             logger.warning(
-                "Ignoring invalid HEALTHCHECK_ALLOWLIST_CIDRS entry: %s", cidr
+                "Entrée HEALTHCHECK_ALLOWLIST_CIDRS invalide ignorée : %s", cidr
             )
     return tuple(networks)
 
@@ -105,7 +105,7 @@ def health_check(request):
     ]
     if not valid_tokens:
         logger.error(
-            "HEALTHCHECK_TOKEN is not configured; refusing health endpoint access."
+            "HEALTHCHECK_TOKEN n'est pas configuré ; accès à l'endpoint de santé refusé."
         )
         response = JsonResponse({"status": "error", "error": "Forbidden"}, status=403)
         response["Cache-Control"] = "no-store"
@@ -132,7 +132,7 @@ def health_check(request):
         response["Cache-Control"] = "no-store"
         return response
     except Exception:
-        logger.exception("Health check failed")
+        logger.exception("Health check en échec")
         response = JsonResponse(
             {
                 "status": "error",
