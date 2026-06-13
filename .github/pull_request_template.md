@@ -1,40 +1,40 @@
-## Summary
+## Résumé
 
-Describe clearly what this PR changes and why.
+Décrire clairement ce que cette PR change et pourquoi.
 
-## Type Of Change
+## Type de changement
 
-- [ ] `feat` (new feature)
-- [ ] `fix` (bug fix)
+- [ ] `feat` (nouvelle fonctionnalité)
+- [ ] `fix` (correction de bug)
 - [ ] `refactor`
 - [ ] `test`
 - [ ] `docs`
 - [ ] `chore`
 
-## Scope
+## Portée
 
-Example: `dashboard`, `absences`, `accounts`, `ci`, etc.
+Exemple : `dashboard`, `absences`, `accounts`, `ci`, etc.
 
 ## Checklist
 
-- [ ] Branch is based on `Dev`
-- [ ] Commits follow conventional format: `<type>(<scope>): <message>`
-- [ ] Local tests pass (`python -m pytest --tb=short -q`)
-- [ ] Linting passes (`black --check . && isort --check-only .`)
-- [ ] CI checks pass
+- [ ] La branche est basée sur `Dev`
+- [ ] Les commits suivent le format conventionnel : `<type>(<scope>): <message>`
+- [ ] Les tests locaux passent (`python -m pytest --tb=short -q`)
+- [ ] Le linting passe (`black --check . && isort --check-only .`)
+- [ ] Les vérifications CI passent
 
-## Testing Notes
+## Notes de test
 
-Commands executed and key results:
+Commandes exécutées et résultats clés :
 
 ```bash
 python -m pytest --tb=short -q
 ```
 
-## Screenshots (if UI changes)
+## Captures d'écran (si changements d'interface)
 
-Add before/after screenshots if relevant.
+Ajouter des captures avant/après si pertinent.
 
-## Related Issue
+## Issue liée
 
 Closes #

@@ -1,41 +1,41 @@
-# Security Policy
+# Politique de sécurité
 
-## Supported Versions
+## Versions prises en charge
 
-| Version | Supported          |
+| Version | Prise en charge    |
 |---------|--------------------|
 | 1.0.x   | :white_check_mark: |
 
-## Reporting a Vulnerability
+## Signaler une vulnérabilité
 
-If you discover a security vulnerability in this project, please report it responsibly.
+Si vous découvrez une vulnérabilité de sécurité dans ce projet, merci de la signaler de manière responsable.
 
-**Do NOT open a public GitHub issue.**
+**N'ouvrez PAS d'issue publique sur GitHub.**
 
-Instead, send an email to **alzuhairia@proton.me** with:
+Envoyez plutôt un email à **alzuhairia@proton.me** avec :
 
-- A description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- Une description de la vulnérabilité
+- Les étapes de reproduction
+- L'impact potentiel
+- Un correctif suggéré (le cas échéant)
 
-We will acknowledge receipt within **48 hours** and aim to release a fix within **7 days** for critical issues.
+Nous accuserons réception sous **48 heures** et viserons une publication de correctif sous **7 jours** pour les problèmes critiques.
 
-## Security Measures
+## Mesures de sécurité
 
-This project implements the following security practices:
+Ce projet implémente les pratiques de sécurité suivantes :
 
-- **CI/CD security gates**: Bandit (SAST), pip-audit (dependency vulnerabilities), Gitleaks (secret scanning), Trivy (container scanning), CodeQL (semantic analysis)
-- **Runtime hardening**: CSRF protection, rate limiting, SRI on CDN assets, nonce-based CSP, HSTS, secure cookies
-- **Session security**: Inactivity timeout, session expiration, cookie hardening (Secure, HttpOnly, SameSite)
-- **Access control**: Role-based decorators, server-side permission checks, forced password change on first login, HTTP method enforcement on all views
-- **QR attendance anti-fraud**: GPS verification with configurable radius, scan audit logging, distance-based suspicion flagging
-- **Audit trail**: All sensitive actions are logged with user, timestamp, and action details
-- **Container security**: Non-root user, read-only filesystem, no-new-privileges, minimal base image
+- **Portes de sécurité CI/CD** : Bandit (SAST), pip-audit (vulnérabilités des dépendances), Gitleaks (scan des secrets), Trivy (scan de conteneur), CodeQL (analyse sémantique)
+- **Durcissement à l'exécution** : protection CSRF, rate limiting, SRI sur les ressources CDN, CSP basée sur nonce, HSTS, cookies sécurisés
+- **Sécurité des sessions** : timeout d'inactivité, expiration de session, durcissement des cookies (Secure, HttpOnly, SameSite)
+- **Contrôle d'accès** : décorateurs basés sur les rôles, vérifications de permissions côté serveur, changement de mot de passe forcé à la première connexion, application des méthodes HTTP sur toutes les vues
+- **Anti-fraude présence QR** : vérification GPS avec rayon configurable, journalisation d'audit des scans, marquage de suspicion basé sur la distance
+- **Piste d'audit** : toutes les actions sensibles sont journalisées avec l'utilisateur, l'horodatage et les détails de l'action
+- **Sécurité des conteneurs** : utilisateur non-root, système de fichiers en lecture seule, no-new-privileges, image de base minimale
 
-## Dependencies
+## Dépendances
 
-Dependencies are monitored via:
-- `pip-audit` in CI (blocks on fixable vulnerabilities, allowlist for known exceptions)
-- Trivy container scanning (OS + library CVEs)
-- Dependency review action on pull requests (blocks high-severity additions)
+Les dépendances sont surveillées via :
+- `pip-audit` en CI (bloque sur les vulnérabilités corrigibles, allowlist pour les exceptions connues)
+- Scan de conteneur Trivy (CVE OS + bibliothèques)
+- Action de revue de dépendances sur les pull requests (bloque les ajouts à sévérité élevée)

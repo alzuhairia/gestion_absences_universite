@@ -1,37 +1,37 @@
-# Contributing Guide
+# Guide de contribution
 
-This project follows a simple and strict Git workflow so the repository stays clean and easy to review.
+Ce projet suit un workflow Git simple et strict afin que le dépôt reste propre et facile à relire.
 
-## 1. Branch Strategy
+## 1. Stratégie de branches
 
-- `Dev`: integration branch for validated development work.
-- `main`: production branch, must stay stable.
-- `feature/*`: one branch per feature or fix.
+- `Dev` : branche d'intégration pour le travail de développement validé.
+- `main` : branche de production, doit rester stable.
+- `feature/*` : une branche par fonctionnalité ou correctif.
 
-Examples:
+Exemples :
 
 - `feature/cache-systemsettings`
 - `feature/pagination-admin`
 - `feature/fix-trivy-docker`
 
-## 2. Commit Rules
+## 2. Règles de commit
 
-Each commit should contain one logical change only.
+Chaque commit doit contenir un seul changement logique.
 
-Use Conventional Commit style:
+Utilisez le style Conventional Commit :
 
 ```text
-<type>(<scope>): <short message>
+<type>(<scope>): <message court>
 ```
 
-Examples:
+Exemples :
 
-- `feat(dashboard): add caching for SystemSettings.get_settings()`
-- `fix(admin): add pagination on faculties and departments`
-- `style(settings): update language and timezone defaults`
-- `docs(api): add docstrings for get_departments and health_check`
+- `feat(dashboard): ajouter le cache sur SystemSettings.get_settings()`
+- `fix(admin): ajouter la pagination sur les facultés et départements`
+- `style(settings): mettre à jour la langue et le fuseau horaire par défaut`
+- `docs(api): ajouter les docstrings de get_departments et health_check`
 
-Allowed commit `type` values:
+Valeurs autorisées pour `type` :
 
 - `feat`
 - `fix`
@@ -41,72 +41,72 @@ Allowed commit `type` values:
 - `test`
 - `chore`
 
-## 3. Save Work In Progress
+## 3. Mettre de côté le travail en cours
 
-Before switching branch or pulling changes:
+Avant de changer de branche ou de récupérer des modifications :
 
 ```bash
 git add -A
-git stash push -m "WIP: short description"
+git stash push -m "WIP: description courte"
 ```
 
-Restore later:
+Restaurer plus tard :
 
 ```bash
 git stash pop
 ```
 
-## 4. Sync With Dev
+## 4. Synchroniser avec Dev
 
 ```bash
 git checkout Dev
 git pull origin Dev
 ```
 
-Then return to your feature branch and continue.
+Puis revenir à votre branche de fonctionnalité et continuer.
 
-## 5. Feature Workflow
+## 5. Workflow d'une fonctionnalité
 
-Create branch from `Dev`:
+Créer une branche à partir de `Dev` :
 
 ```bash
 git checkout Dev
 git pull origin Dev
-git checkout -b feature/<feature-name>
+git checkout -b feature/<nom-fonctionnalite>
 ```
 
-After coding and tests:
+Après le codage et les tests :
 
 ```bash
-git push -u origin feature/<feature-name>
+git push -u origin feature/<nom-fonctionnalite>
 ```
 
-Open a PR to `Dev`.
+Ouvrir une PR vers `Dev`.
 
-## 6. PR Quality
+## 6. Qualité d'une PR
 
-Each PR should include:
+Chaque PR doit inclure :
 
-- clear summary of changes
-- testing notes (what was run)
-- screenshots for UI changes
-- related issue link if available
+- un résumé clair des changements
+- les notes de test (ce qui a été exécuté)
+- des captures d'écran pour les changements d'interface
+- un lien vers une issue liée si disponible
 
-## 7. Issue and Label Usage
+## 7. Utilisation des issues et des labels
 
-- Use GitHub Issues for tasks and bugs.
-- Link PRs to Issues for traceability.
-- Use labels (`feature`, `bugfix`, `docs`, `ci`, etc.).
+- Utiliser les Issues GitHub pour les tâches et bugs.
+- Lier les PRs aux Issues pour la traçabilité.
+- Utiliser les labels (`feature`, `bugfix`, `docs`, `ci`, etc.).
 
-## 8. Local Checks Before Commit
+## 8. Vérifications locales avant commit
 
-Required:
+Obligatoire :
 
 ```bash
 python -m pytest --tb=short -q
 ```
 
-Optional quality checks:
+Vérifications de qualité optionnelles :
 
 ```bash
 black --check .
@@ -114,10 +114,10 @@ isort --profile black --check-only .
 ruff check .
 ```
 
-## 9. Practical Summary
+## 9. Résumé pratique
 
-- Stash if needed -> Pull -> Pop stash
-- One branch per feature/fix
-- Atomic conventional commits
-- Push -> PR -> Merge into `Dev`
-- Run tests before every push
+- Stash si nécessaire -> Pull -> Pop stash
+- Une branche par fonctionnalité/correctif
+- Commits atomiques au format conventionnel
+- Push -> PR -> Merge dans `Dev`
+- Exécuter les tests avant chaque push
