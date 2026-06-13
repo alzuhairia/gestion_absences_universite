@@ -1,23 +1,23 @@
 """
-Absence Statistics Service — apps/absences/services/absence_service.py
+Service de statistiques d'absences — apps/absences/services/absence_service.py
 
-Part of the UniAbsences university attendance management system.
+Fait partie du système universitaire de gestion des présences UniAbsences.
 
-This module provides the core calculation layer for absence statistics.
-It is the single source of truth for computing absence hours, rates, and
-alert detection for a given course enrolment.
+Ce module fournit la couche de calcul centrale pour les statistiques
+d'absences. Il est la source unique de vérité pour calculer les heures
+d'absence, les taux et la détection d'alerte pour une inscription à un cours.
 
-Main responsibilities:
-  - ``calculer_absence_stats``      : compute raw absence stats for one enrolment
-  - ``get_absences_queryset``       : return an N+1-safe queryset for displaying absences
-  - ``calculer_pourcentage_absence``: compute real hour-based absence/presence percentages
-  - ``etudiants_en_alerte``         : list students whose absence rate exceeds the course threshold
+Principales responsabilités :
+  - ``calculer_absence_stats``      : calcule les stats brutes d'absence pour une inscription
+  - ``get_absences_queryset``       : retourne un queryset anti-N+1 pour l'affichage des absences
+  - ``calculer_pourcentage_absence``: calcule les pourcentages réels d'absence/présence basés sur les heures
+  - ``etudiants_en_alerte``         : liste les étudiants dont le taux d'absence dépasse le seuil du cours
 
-Business rules enforced here:
-  - Only NON_JUSTIFIEE absences count against the student.
-    EN_ATTENTE (justification submitted but not yet reviewed) does NOT penalise.
-  - Only past sessions (date <= today) are counted; future sessions are excluded.
-  - Absence rate = total unjustified absence hours / total scheduled course hours.
+Règles métier appliquées ici :
+  - Seules les absences NON_JUSTIFIEE comptent contre l'étudiant.
+    EN_ATTENTE (justificatif soumis mais pas encore examiné) NE pénalise PAS.
+  - Seules les séances passées (date <= aujourd'hui) sont comptées ; les séances futures sont exclues.
+  - Taux d'absence = heures d'absence non justifiée / total des heures de cours planifiées.
 """
 import logging
 
@@ -31,26 +31,26 @@ logger = logging.getLogger(__name__)
 
 def calculer_absence_stats(inscription):
     """
-    Compute the absence statistics for a single course enrolment.
+    Calcule les statistiques d'absence pour une seule inscription à un cours.
 
-    Only NON_JUSTIFIEE absences from past sessions (date <= today) are
-    included, so that a pending justification (EN_ATTENTE) does not
-    penalise the student before the secretary has reviewed it.
+    Seules les absences NON_JUSTIFIEE des séances passées (date <= aujourd'hui)
+    sont incluses, afin qu'un justificatif en attente (EN_ATTENTE) ne pénalise
+    pas l'étudiant avant que le secrétariat ne l'ait examiné.
 
-    Args:
-        inscription: ``apps.enrollments.models.Inscription`` instance whose
-            related ``id_cours`` must already be accessible.
+    Args :
+        inscription : instance ``apps.enrollments.models.Inscription`` dont le
+            ``id_cours`` relié doit déjà être accessible.
 
-    Returns:
-        dict with the following keys:
+    Retour :
+        dict avec les clés suivantes :
 
-        - ``total_absence`` (float): total unjustified absence hours.
-        - ``taux`` (float): absence rate as a percentage (0–100), capped at 100.
-        - ``total_periodes`` (int): total planned course hours (denominator).
+        - ``total_absence`` (float) : total des heures d'absence non justifiée.
+        - ``taux`` (float) : taux d'absence en pourcentage (0–100), plafonné à 100.
+        - ``total_periodes`` (int) : total des heures de cours prévues (dénominateur).
     """
-    # Only NON_JUSTIFIEE absences for PAST sessions count.
-    # EN_ATTENTE = justificatif soumis, should not penalise the student
-    # until the secretary makes a decision.
+    # Seules les absences NON_JUSTIFIEE des séances PASSÉES comptent.
+    # EN_ATTENTE = justificatif soumis, ne doit pas pénaliser l'étudiant
+    # jusqu'à ce que le secrétariat prenne une décision.
     today = timezone.localdate()
     total_absence = float(
         Absence.objects.filter(
@@ -62,7 +62,7 @@ def calculer_absence_stats(inscription):
     )
 
     total_periodes = inscription.id_cours.nombre_total_periodes or 0
-    # Cap at 100 % to avoid displaying rates above 100 in edge cases.
+    # Plafonné à 100 % pour éviter d'afficher des taux supérieurs à 100 dans les cas limites.
     taux = min((total_absence / total_periodes) * 100, 100) if total_periodes else 0
 
     return {
@@ -74,17 +74,18 @@ def calculer_absence_stats(inscription):
 
 def get_absences_queryset(inscription):
     """
-    Return an optimised queryset of all absences for a given enrolment.
+    Retourne un queryset optimisé de toutes les absences pour une inscription donnée.
 
-    Uses ``select_related`` to avoid N+1 queries when accessing session
-    and justification data in the template layer.  Results are ordered
-    most-recent session first.
+    Utilise ``select_related`` pour éviter les requêtes N+1 lors de l'accès aux
+    données de séance et de justification dans la couche template. Les résultats
+    sont triés par séance la plus récente en premier.
 
-    Args:
-        inscription: ``apps.enrollments.models.Inscription`` instance.
+    Args :
+        inscription : instance ``apps.enrollments.models.Inscription``.
 
-    Returns:
-        ``QuerySet[Absence]``: absence records ordered by ``-id_seance__date_seance``.
+    Retour :
+        ``QuerySet[Absence]`` : enregistrements d'absences triés par
+        ``-id_seance__date_seance``.
     """
     return (
         Absence.objects.filter(id_inscription=inscription)
@@ -95,37 +96,37 @@ def get_absences_queryset(inscription):
 
 def calculer_pourcentage_absence(etudiant, cours):
     """
-    Compute real hour-based absence and presence percentages for one student
-    in a given course.
+    Calcule les pourcentages réels d'absence et de présence basés sur les heures pour un étudiant donné dans un cours donné.
 
-    Design decisions:
-      - No ``Absence`` record means the student was PRESENT (absence-by-exception model).
-      - Only NON_JUSTIFIEE absences count (EN_ATTENTE does not penalise).
-      - Only past sessions (date <= today) are counted.
-      - If the student is not actively enrolled, the presence rate is 100 %.
+    Décisions de conception :
+      - L'absence d'un enregistrement ``Absence`` signifie que l'étudiant était PRÉSENT
+        (modèle d'absence par exception).
+      - Seules les absences NON_JUSTIFIEE comptent (EN_ATTENTE ne pénalise pas).
+      - Seules les séances passées (date <= aujourd'hui) sont comptées.
+      - Si l'étudiant n'est pas activement inscrit, le taux de présence est de 100 %.
 
-    Args:
-        etudiant: ``apps.accounts.models.User`` instance (student).
-        cours: ``apps.academics.models.Cours`` instance.
+    Args :
+        etudiant : instance ``apps.accounts.models.User`` (étudiant).
+        cours : instance ``apps.academics.models.Cours``.
 
-    Returns:
-        dict with the following keys:
+    Retour :
+        dict avec les clés suivantes :
 
-        - ``total_heures_cours`` (float): total hours of past sessions.
-        - ``total_heures_absence`` (float): total unjustified absence hours.
-        - ``pourcentage_absence`` (float): absence rate 0–100, rounded to 2 d.p.
-        - ``pourcentage_presence`` (float): presence rate 0–100, rounded to 2 d.p.
+        - ``total_heures_cours`` (float) : total des heures des séances passées.
+        - ``total_heures_absence`` (float) : total des heures d'absence non justifiée.
+        - ``pourcentage_absence`` (float) : taux d'absence 0–100, arrondi à 2 décimales.
+        - ``pourcentage_presence`` (float) : taux de présence 0–100, arrondi à 2 décimales.
 
-        All values are 0.0 / 100.0 when no sessions have taken place yet.
+        Toutes les valeurs valent 0.0 / 100.0 quand aucune séance n'a encore eu lieu.
     """
     from apps.academic_sessions.models import Seance
     from apps.enrollments.models import Inscription
 
     today = timezone.localdate()
 
-    # Total course hours = sum of (heure_fin - heure_debut) for all PAST sessions.
-    # ExpressionWrapper is required because Django cannot directly sum DurationField
-    # values computed from time differences.
+    # Total des heures de cours = somme de (heure_fin - heure_debut) pour toutes les séances PASSÉES.
+    # ExpressionWrapper est nécessaire car Django ne peut pas additionner directement les valeurs
+    # DurationField calculées à partir de différences d'heures.
     raw = Seance.objects.filter(
         id_cours=cours, date_seance__lte=today
     ).aggregate(
@@ -138,7 +139,7 @@ def calculer_pourcentage_absence(etudiant, cours):
     )["total"]
     total_heures_cours = round(raw.total_seconds() / 3600.0, 2) if raw else 0.0
 
-    # Guard: no past sessions yet — return all-zero dict.
+    # Garde : aucune séance passée pour l'instant — retourne un dict à zéro.
     if total_heures_cours == 0:
         return {
             "total_heures_cours": 0.0,
@@ -153,7 +154,7 @@ def calculer_pourcentage_absence(etudiant, cours):
         status=Inscription.Status.EN_COURS,
     ).first()
 
-    # Student is not actively enrolled → treat as 100 % present.
+    # L'étudiant n'est pas activement inscrit → considéré comme 100 % présent.
     if not inscription:
         return {
             "total_heures_cours": round(total_heures_cours, 2),
@@ -171,7 +172,7 @@ def calculer_pourcentage_absence(etudiant, cours):
         or 0
     )
 
-    # Cap absence percentage at 100 % to handle data inconsistencies gracefully.
+    # Plafonne le pourcentage d'absence à 100 % pour gérer proprement les incohérences de données.
     pourcentage_absence = min(round((total_heures_absence / total_heures_cours) * 100, 2), 100)
     pourcentage_presence = round(100 - pourcentage_absence, 2)
 
@@ -185,40 +186,40 @@ def calculer_pourcentage_absence(etudiant, cours):
 
 def etudiants_en_alerte(cours, seuil=None):
     """
-    Return a list of all enrolled students whose absence rate meets or exceeds
-    the course threshold.
+    Retourne la liste de tous les étudiants inscrits dont le taux d'absence atteint ou dépasse le seuil du cours.
 
-    The function uses a single bulk aggregation query for all enrolments (rather
-    than one query per student) to keep the operation O(1) in database round-trips
-    regardless of class size.
+    La fonction utilise une seule requête d'agrégation en lot pour toutes les
+    inscriptions (au lieu d'une requête par étudiant) afin de garder
+    l'opération en O(1) en termes d'allers-retours vers la base de données,
+    quelle que soit la taille de la classe.
 
-    Args:
-        cours: ``apps.academics.models.Cours`` instance.
-        seuil (int | float | None): absence threshold percentage (0–100).
-            Defaults to ``cours.get_seuil_absence()`` if the method exists,
-            otherwise falls back to 20 %.
+    Args :
+        cours : instance ``apps.academics.models.Cours``.
+        seuil (int | float | None) : seuil d'absence en pourcentage (0–100).
+            Par défaut ``cours.get_seuil_absence()`` si la méthode existe,
+            sinon repli sur 20 %.
 
-    Returns:
-        list[dict]: one dict per at-risk student, sorted by
-        ``pourcentage_absence`` descending.  Each dict contains:
+    Retour :
+        list[dict] : un dict par étudiant à risque, triés par
+        ``pourcentage_absence`` décroissant. Chaque dict contient :
 
-        - ``etudiant``: User instance.
-        - ``inscription``: Inscription instance.
-        - ``pourcentage_absence`` (float): current unjustified absence rate.
-        - ``total_heures_absence`` (float): total unjustified absence hours.
-        - ``total_heures_cours`` (float): total past session hours for the course.
-        - ``depasse_seuil`` (bool): always True (only at-risk students are returned).
+        - ``etudiant`` : instance User.
+        - ``inscription`` : instance Inscription.
+        - ``pourcentage_absence`` (float) : taux actuel d'absence non justifiée.
+        - ``total_heures_absence`` (float) : total des heures d'absence non justifiée.
+        - ``total_heures_cours`` (float) : total des heures de séances passées du cours.
+        - ``depasse_seuil`` (bool) : toujours True (seuls les étudiants à risque sont retournés).
     """
     from apps.academic_sessions.models import Seance
     from apps.enrollments.models import Inscription
 
     if seuil is None:
-        # Prefer the course's own threshold method; fall back to a sensible default.
+        # Privilégier la méthode de seuil propre au cours ; repli sur un défaut raisonnable.
         seuil = cours.get_seuil_absence() if hasattr(cours, "get_seuil_absence") else 20
 
     today = timezone.localdate()
 
-    # Step 1: compute total hours for past sessions of this course.
+    # Étape 1 : calcule le total des heures pour les séances passées de ce cours.
     raw = Seance.objects.filter(
         id_cours=cours, date_seance__lte=today
     ).aggregate(
@@ -231,18 +232,18 @@ def etudiants_en_alerte(cours, seuil=None):
     )["total"]
     total_heures_cours = round(raw.total_seconds() / 3600.0, 2) if raw else 0.0
 
-    # No sessions have taken place — nobody can be at risk yet.
+    # Aucune séance n'a encore eu lieu — personne ne peut être à risque pour l'instant.
     if total_heures_cours == 0:
         return []
 
-    # Step 2: fetch all active enrolments for this course.
+    # Étape 2 : récupère toutes les inscriptions actives pour ce cours.
     inscriptions = Inscription.objects.filter(
         id_cours=cours,
         status=Inscription.Status.EN_COURS,
     ).select_related("id_etudiant")
 
-    # Step 3: bulk-aggregate unjustified absence hours per enrolment.
-    # This avoids a per-student query loop (N+1 prevention).
+    # Étape 3 : agrégation en lot des heures d'absence non justifiée par inscription.
+    # Cela évite une boucle de requête par étudiant (prévention N+1).
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscriptions,
@@ -254,7 +255,7 @@ def etudiants_en_alerte(cours, seuil=None):
         .values_list("id_inscription", "total")
     )
 
-    # Step 4: classify each enrolment as at-risk or not.
+    # Étape 4 : classifie chaque inscription comme à risque ou non.
     alertes = []
     for ins in inscriptions:
         total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
@@ -269,6 +270,6 @@ def etudiants_en_alerte(cours, seuil=None):
                 "depasse_seuil": True,
             })
 
-    # Return highest-risk students first.
+    # Retourne d'abord les étudiants les plus à risque.
     alertes.sort(key=lambda x: x["pourcentage_absence"], reverse=True)
     return alertes

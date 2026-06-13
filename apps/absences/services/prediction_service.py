@@ -1,21 +1,22 @@
 """
-Predictive Risk-Detection Service — apps/absences/services/prediction_service.py
+Service prédictif de détection des risques — apps/absences/services/prediction_service.py
 
-Part of the UniAbsences university attendance management system.
+Fait partie du système universitaire de gestion des présences UniAbsences.
 
-This module projects a student's end-of-semester absence rate using linear
-extrapolation from current absence data and classifies the result into one
-of four risk levels (HIGH / MEDIUM / LOW / NONE).
+Ce module projette le taux d'absence de fin de semestre d'un étudiant à
+l'aide d'une extrapolation linéaire à partir des données d'absence courantes
+et classe le résultat dans l'un des quatre niveaux de risque
+(HIGH / MEDIUM / LOW / NONE).
 
-Algorithm
----------
-1. Compute the current absence rate from past sessions (NON_JUSTIFIEE only).
-2. Compute the recent trend rate from the last 30 days.
-3. Extrapolate to semester end via linear interpolation using the ratio
-   of elapsed / total session hours.
-4. Compare the projected rate against 75 % and 50 % of the effective
-   threshold (course threshold + exemption margin if applicable) to assign
-   HIGH, MEDIUM, LOW, or NONE risk.
+Algorithme
+----------
+1. Calcule le taux d'absence courant à partir des séances passées (NON_JUSTIFIEE uniquement).
+2. Calcule le taux de tendance récente des 30 derniers jours.
+3. Extrapole jusqu'à la fin du semestre via une interpolation linéaire en
+   utilisant le ratio heures écoulées / heures totales de séances.
+4. Compare le taux projeté à 75 % et 50 % du seuil effectif (seuil du cours +
+   marge d'exemption le cas échéant) pour attribuer un risque HIGH, MEDIUM,
+   LOW ou NONE.
 """
 import datetime
 import logging
@@ -29,8 +30,8 @@ from .eligibility_service import get_system_threshold
 
 logger = logging.getLogger(__name__)
 
-# Predictive risk level constants — returned in each result dict.
-# Callers should compare against these constants, not raw strings.
+# Constantes de niveau de risque prédictif — retournées dans chaque dict de résultat.
+# Les appelants doivent comparer à ces constantes, pas à des chaînes brutes.
 RISK_HIGH = "HIGH"
 RISK_MEDIUM = "MEDIUM"
 RISK_LOW = "LOW"
@@ -39,50 +40,53 @@ RISK_NONE = "NONE"
 
 def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None):
     """
-    Perform predictive risk detection for a collection of enrolments.
+    Effectue la détection prédictive de risque pour une collection d'inscriptions.
 
-    For each enrolment this function:
-      1. Computes the student's current unjustified absence rate.
-      2. Computes a 30-day recent rate and a previous 30-day rate to determine
-         the absence trend (up / stable / down).
-      3. Linearly extrapolates the projected rate to the end of the semester
-         by multiplying the recent daily absence pace by the days remaining.
-      4. Classifies the enrolment into one of four risk levels by comparing
-         both the current and projected rates against fractions of the
-         effective threshold (75 % and 50 % trigger MEDIUM / LOW respectively).
+    Pour chaque inscription, cette fonction :
+      1. Calcule le taux d'absence non justifiée courant de l'étudiant.
+      2. Calcule un taux récent sur 30 jours et un taux des 30 jours précédents
+         pour déterminer la tendance d'absence (en hausse / stable / en baisse).
+      3. Extrapole linéairement le taux projeté à la fin du semestre en
+         multipliant la cadence journalière récente d'absence par les jours
+         restants.
+      4. Classe l'inscription dans l'un des quatre niveaux de risque en
+         comparant à la fois le taux courant et le taux projeté à des
+         fractions du seuil effectif (75 % et 50 % déclenchent respectivement
+         MEDIUM / LOW).
 
-    All absence queries are batched into three aggregation queries upfront
-    (total, recent 30 days, previous 30 days) to avoid N+1 patterns.
+    Toutes les requêtes d'absence sont regroupées en trois requêtes
+    d'agrégation en amont (total, 30 derniers jours, 30 jours précédents)
+    pour éviter les motifs N+1.
 
-    Args:
-        inscriptions (list[Inscription]): enrolments to evaluate.  The
-            related ``id_cours`` field must already be loaded.
-        academic_year (AnneeAcademique | None): academic year instance used to
-            determine the semester date range (first and last session dates).
-            When None, ``days_remaining`` is set to 0 and the projected rate
-            equals the current rate.
-        system_threshold (int | float | None): pre-loaded system-wide default
-            absence threshold.  If None, it is fetched via
+    Args :
+        inscriptions (list[Inscription]) : inscriptions à évaluer. Le champ
+            ``id_cours`` relié doit déjà être chargé.
+        academic_year (AnneeAcademique | None) : instance d'année académique
+            utilisée pour déterminer la plage de dates du semestre (premières
+            et dernières dates de séance). Si None, ``days_remaining`` est
+            mis à 0 et le taux projeté est égal au taux courant.
+        system_threshold (int | float | None) : seuil d'absence par défaut au
+            niveau système pré-chargé. Si None, il est récupéré via
             ``get_system_threshold()``.
 
-    Returns:
-        list[dict]: one dict per enrolment, ordered to match the input list.
-        Each dict contains:
+    Retour :
+        list[dict] : un dict par inscription, ordonnés comme la liste d'entrée.
+        Chaque dict contient :
 
-        - ``inscription``: the ``Inscription`` instance.
-        - ``risk_level`` (str): one of ``RISK_HIGH``, ``RISK_MEDIUM``,
-          ``RISK_LOW``, or ``RISK_NONE``.
-        - ``current_rate`` (float): current unjustified absence rate (0-100).
-        - ``recent_rate`` (float): absence rate accumulated in the last 30 days.
-        - ``projected_rate`` (float): linearly extrapolated end-of-semester rate.
-        - ``course_avg_rate`` (float): mean absence rate across all enrolled
-          students in the same course (used as a peer benchmark).
-        - ``seuil`` (int | float): base course threshold (before exemption).
-        - ``total_abs`` (float): total unjustified absence hours to date.
-        - ``recent_abs`` (float): unjustified absence hours in the last 30 days.
-        - ``days_remaining`` (int): calendar days until the last session.
-        - ``trend`` (str): ``"up"``, ``"down"``, or ``"stable"`` based on the
-          change in absence hours between the previous and current 30-day window.
+        - ``inscription`` : l'instance ``Inscription``.
+        - ``risk_level`` (str) : l'une des valeurs ``RISK_HIGH``, ``RISK_MEDIUM``,
+          ``RISK_LOW`` ou ``RISK_NONE``.
+        - ``current_rate`` (float) : taux courant d'absence non justifiée (0-100).
+        - ``recent_rate`` (float) : taux d'absence cumulé sur les 30 derniers jours.
+        - ``projected_rate`` (float) : taux projeté extrapolé linéairement en fin de semestre.
+        - ``course_avg_rate`` (float) : taux d'absence moyen de tous les étudiants
+          inscrits au même cours (utilisé comme référence de comparaison).
+        - ``seuil`` (int | float) : seuil de base du cours (avant exemption).
+        - ``total_abs`` (float) : total des heures d'absence non justifiée à ce jour.
+        - ``recent_abs`` (float) : heures d'absence non justifiée des 30 derniers jours.
+        - ``days_remaining`` (int) : jours calendaires jusqu'à la dernière séance.
+        - ``trend`` (str) : ``"up"``, ``"down"`` ou ``"stable"`` selon le changement
+          des heures d'absence entre la fenêtre précédente et la fenêtre courante de 30 jours.
     """
     if system_threshold is None:
         system_threshold = get_system_threshold()
@@ -95,10 +99,10 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     sixty_days_ago = today - datetime.timedelta(days=60)
 
     inscription_ids = [ins.id_inscription for ins in inscriptions]
-    # Use a list so the filter uses __in rather than exact match.
+    # Utilise une liste afin que le filtre emploie __in plutôt qu'une correspondance exacte.
     _non_justified = [Absence.Statut.NON_JUSTIFIEE]
 
-    # --- Batch query 1: total unjustified absence hours up to today ---
+    # --- Requête en lot 1 : total des heures d'absence non justifiée jusqu'à aujourd'hui ---
     total_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -110,7 +114,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         .values_list("id_inscription", "total")
     )
 
-    # --- Batch query 2: recent window (last 30 days) absence hours ---
+    # --- Requête en lot 2 : fenêtre récente (30 derniers jours) d'heures d'absence ---
     recent_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -123,7 +127,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         .values_list("id_inscription", "total")
     )
 
-    # --- Batch query 3: previous window (30-60 days ago) for trend calculation ---
+    # --- Requête en lot 3 : fenêtre précédente (30 à 60 jours en arrière) pour le calcul de tendance ---
     prev_abs_map = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -136,9 +140,9 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         .values_list("id_inscription", "total")
     )
 
-    # Compute the mean absence rate per course to use as a peer benchmark.
-    # Students whose recent rate significantly exceeds the course average are
-    # flagged as MEDIUM risk even if their projected rate is below 75 % of threshold.
+    # Calcule le taux moyen d'absence par cours pour servir de référence de comparaison.
+    # Les étudiants dont le taux récent dépasse nettement la moyenne du cours sont
+    # signalés en risque MEDIUM même si leur taux projeté est sous 75 % du seuil.
     course_inscriptions = defaultdict(list)
     for ins in inscriptions:
         course_inscriptions[ins.id_cours_id].append(ins)
@@ -155,7 +159,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         ]
         course_avg_map[course_id] = sum(rates) / len(rates) if rates else 0.0
 
-    # Determine the semester time bounds from actual session records.
+    # Détermine les bornes temporelles du semestre à partir des séances réellement enregistrées.
     from apps.academic_sessions.models import Seance
     if academic_year:
         last_session = (
@@ -170,10 +174,10 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
             .values_list("date_seance", flat=True)
             .first()
         )
-        # days_remaining is 0 when the last session is today or in the past.
+        # days_remaining vaut 0 quand la dernière séance est aujourd'hui ou dans le passé.
         days_remaining = (last_session - today).days if last_session and last_session > today else 0
     else:
-        # No academic year provided — projection is disabled.
+        # Aucune année académique fournie — la projection est désactivée.
         last_session = first_session = None
         days_remaining = 0
 
@@ -182,7 +186,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         cours = ins.id_cours
         total_periodes = cours.nombre_total_periodes or 0
 
-        # No planned hours — risk cannot be computed; emit a safe NONE result.
+        # Aucune heure planifiée — le risque ne peut pas être calculé ; émet un résultat NONE sûr.
         if total_periodes == 0:
             results.append({
                 "inscription": ins,
@@ -198,7 +202,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
             })
             continue
 
-        # Effective threshold: add the exemption margin for exempted students.
+        # Seuil effectif : ajoute la marge d'exemption pour les étudiants exemptés.
         seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
         seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
 
@@ -209,34 +213,34 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
         current_rate = min((total_abs / total_periodes) * 100, 100)
 
-        # Compute how many days have elapsed since the first session to normalise
-        # the recent window size (avoids artificially high rates at semester start).
+        # Calcule combien de jours se sont écoulés depuis la première séance pour normaliser
+        # la taille de la fenêtre récente (évite des taux artificiellement élevés en début de semestre).
         window_days = min(30, max((today - first_session).days, 1)) if first_session else 30
         recent_daily_rate = recent_abs / window_days if window_days > 0 else 0
 
-        # Linear extrapolation: project absence hours to semester end.
+        # Extrapolation linéaire : projette les heures d'absence jusqu'à la fin du semestre.
         projected_hours = total_abs + (recent_daily_rate * days_remaining)
         projected_rate = (projected_hours / total_periodes) * 100 if days_remaining > 0 else current_rate
         recent_rate = min((recent_abs / total_periodes) * 100, 100)
 
-        # Trend: compare recent 30-day window against the previous 30-day window.
-        # A > 10 % relative increase is flagged as "up"; > 10 % decrease as "down".
+        # Tendance : compare la fenêtre récente de 30 jours à la fenêtre précédente de 30 jours.
+        # Une hausse relative > 10 % est signalée comme "up" ; une baisse > 10 % comme "down".
         if prev_abs > 0:
             change_ratio = (recent_abs - prev_abs) / prev_abs
             trend = "up" if change_ratio > 0.10 else ("down" if change_ratio < -0.10 else "stable")
         elif recent_abs > 0:
-            # No previous window data but absences are accumulating — trend is up.
+            # Aucune donnée pour la fenêtre précédente mais les absences s'accumulent — tendance à la hausse.
             trend = "up"
         else:
             trend = "stable"
 
-        # --- Risk classification ---
-        # HIGH:   already at or above threshold, OR projected to exceed threshold,
-        #         OR currently at 75 % of threshold (imminent breach).
-        # MEDIUM: projected to reach 75 % of threshold, OR recent rate is more
-        #         than double the course average (outlier behaviour).
-        # LOW:    projected to reach 50 % of threshold AND rate exceeds course avg.
-        # NONE:   none of the above conditions are met.
+        # --- Classification du risque ---
+        # HIGH :   déjà au seuil ou au-dessus, OU projection au-dessus du seuil,
+        #          OU déjà à 75 % du seuil (dépassement imminent).
+        # MEDIUM : projection à 75 % du seuil, OU taux récent plus que double
+        #          de la moyenne du cours (comportement atypique).
+        # LOW :    projection à 50 % du seuil ET taux supérieur à la moyenne du cours.
+        # NONE :   aucune des conditions ci-dessus n'est remplie.
         if current_rate >= seuil_effectif:
             risk_level = RISK_HIGH
         elif projected_rate >= seuil_effectif or current_rate >= seuil_effectif * 0.75:

@@ -1,26 +1,27 @@
 """
-Student absence views — apps/absences/views/student_views.py
+Vues d'absence pour l'étudiant — apps/absences/views/student_views.py
 
-Provides the student-facing absence management interface.
+Fournit l'interface de gestion des absences côté étudiant.
 
-Views
------
+Vues
+----
 ``absence_details``
-    Display the student's own absences for a given enrollment with their
-    current justification status.
+    Affiche les propres absences de l'étudiant pour une inscription donnée
+    avec leur statut de justification courant.
 
 ``upload_justification``
-    Submit a supporting document for a specific absence.  Validates the file
-    via ``utils_upload.validate_justification_file`` and transitions the
-    absence status to EN_ATTENTE.
+    Soumet un document justificatif pour une absence spécifique. Valide le
+    fichier via ``utils_upload.validate_justification_file`` et fait
+    transiter le statut de l'absence vers EN_ATTENTE.
 
 ``download_justification``
-    Download a justification document; access is scoped by role — students
-    may only download their own documents, secretaries may access any.
+    Télécharge un document justificatif ; l'accès est délimité par le rôle —
+    les étudiants ne peuvent télécharger que leurs propres documents, le
+    secrétariat peut accéder à tout document.
 
-Security controls:
-  - ``@student_required`` on student-only views.
-  - Students are limited to their own absence records at the queryset level.
+Contrôles de sécurité :
+  - ``@student_required`` sur les vues exclusivement étudiantes.
+  - Les étudiants sont limités à leurs propres enregistrements d'absence au niveau du queryset.
 """
 import logging
 from pathlib import Path

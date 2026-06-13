@@ -1,30 +1,32 @@
 """
-Session creation and validation views — apps/absences/views/professor_session.py
+Vues de création et de validation de séance — apps/absences/views/professor_session.py
 
-Provides the professor-facing session lifecycle management:
+Fournit la gestion du cycle de vie d'une séance côté professeur :
 
 ``session_create``
-    Unified entry point where the professor creates a session (or retrieves an
-    existing one for the same date and course) and then chooses the attendance
-    input mode — manual form or QR code scanner.  The ``Seance`` record is
-    persisted to the database before the mode redirect so that both paths share
-    a single source of truth.
+    Point d'entrée unifié où le professeur crée une séance (ou récupère une
+    séance existante pour la même date et le même cours) puis choisit le
+    mode de saisie de présence — formulaire manuel ou scanner de QR code.
+    L'enregistrement ``Seance`` est persisté en base avant la redirection
+    de mode pour que les deux chemins partagent une source de vérité unique.
 
 ``validate_session``
-    Permanently locks a session.  After validation the professor can no longer
-    modify absences for that session; the record becomes read-only.
+    Verrouille définitivement une séance. Après validation, le professeur
+    ne peut plus modifier les absences pour cette séance ; l'enregistrement
+    devient en lecture seule.
 
-Design notes
-------------
-- ``session_create`` deactivates any existing active QR tokens for the session
-  before creating a new one, ensuring only one active token exists at a time.
-- ``validate_session`` uses ``select_for_update()`` to prevent two simultaneous
-  requests from double-validating the same session.
-- GPS coordinates and the ``verify_location`` flag are passed through from the
-  form to the new ``QRAttendanceToken`` so that the QR scan endpoint can
-  enforce campus proximity checking.
+Notes de conception
+-------------------
+- ``session_create`` désactive tout token QR actif existant pour la séance
+  avant d'en créer un nouveau, garantissant qu'un seul token actif existe
+  à la fois.
+- ``validate_session`` utilise ``select_for_update()`` pour empêcher deux
+  requêtes simultanées de double-valider la même séance.
+- Les coordonnées GPS et le drapeau ``verify_location`` sont transmis du
+  formulaire au nouveau ``QRAttendanceToken`` afin que le point d'entrée
+  de scan QR puisse imposer la vérification de proximité au campus.
 
-Part of the UniAbsences absences system.
+Fait partie du système d'absences UniAbsences.
 """
 import datetime
 import logging
@@ -52,51 +54,53 @@ logger = logging.getLogger(__name__)
 @require_http_methods(["GET", "POST"])
 def session_create(request, course_id):
     """
-    Unified session creation entry point for professors.
+    Point d'entrée unifié de création de séance pour les professeurs.
 
     GET
-        Render the session creation form with today's date and default times
-        pre-filled.  The professor selects the date, start/end times, and the
-        attendance input mode (manual or QR).
+        Affiche le formulaire de création de séance avec la date du jour et
+        les horaires par défaut pré-remplis. Le professeur sélectionne la
+        date, les horaires de début/fin et le mode de saisie de présence
+        (manuel ou QR).
 
     POST
-        1. Validate the submitted date and times.
-        2. Create or update the ``Seance`` record for the given date and course.
-        3. Redirect based on the chosen mode:
-           - ``manual`` → redirect to ``mark_absence`` (full-page form).
-           - ``qr``     → create (or resume) a ``QRAttendanceToken`` and
-                          redirect to ``qr_dashboard``.
+        1. Valide la date et les horaires soumis.
+        2. Crée ou met à jour l'enregistrement ``Seance`` pour la date et le
+           cours donnés.
+        3. Redirige selon le mode choisi :
+           - ``manual`` → redirige vers ``mark_absence`` (formulaire pleine page).
+           - ``qr``     → crée (ou reprend) un ``QRAttendanceToken`` et
+                          redirige vers ``qr_dashboard``.
 
-    QR mode details
-    ---------------
-    - If an active, non-expired token already exists for the session, the
-      professor is redirected to resume it rather than creating a duplicate.
-    - Any previously active tokens for the session are deactivated before a
-      new token is created (one active token per session at a time).
-    - GPS coordinates and the ``verify_location`` flag are forwarded to the
-      new token if provided by the client.
+    Détails du mode QR
+    ------------------
+    - Si un token actif et non expiré existe déjà pour la séance, le
+      professeur est redirigé pour le reprendre plutôt que d'en créer un en doublon.
+    - Tout token actif antérieur pour la séance est désactivé avant la
+      création d'un nouveau token (un seul token actif par séance à la fois).
+    - Les coordonnées GPS et le drapeau ``verify_location`` sont transmis au
+      nouveau token s'ils sont fournis par le client.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming HTTP request.
+        La requête HTTP entrante.
     course_id : int
-        Primary key of the ``Cours`` for which the session is being created.
+        Clé primaire du ``Cours`` pour lequel la séance est créée.
 
-    Returns
-    -------
-    HttpResponse
-        Rendered form on GET, or redirect to the appropriate attendance view
-        on POST.
-
-    Raises
+    Retour
     ------
+    HttpResponse
+        Formulaire rendu sur GET, ou redirection vers la vue de présence
+        appropriée sur POST.
+
+    Lève
+    ----
     Http404
-        When no ``Cours`` with ``course_id`` exists.
+        Quand aucun ``Cours`` n'existe avec ``course_id``.
     """
     course = get_object_or_404(Cours, id_cours=course_id)
 
-    # Ownership check — the decorator only verifies the PROFESSEUR role.
+    # Contrôle de propriété — le décorateur ne vérifie que le rôle PROFESSEUR.
     if course.professeur is None or course.professeur.pk != request.user.pk:
         messages.error(request, "Accès non autorisé à ce cours.")
         return redirect("dashboard:instructor_dashboard")
@@ -116,7 +120,7 @@ def session_create(request, course_id):
             messages.error(request, "Veuillez remplir tous les champs obligatoires.")
             return redirect("absences:session_create", course_id=course_id)
 
-        # Validate time format before touching the database.
+        # Valide le format des horaires avant de toucher à la base de données.
         try:
             fmt = "%H:%M"
             t_debut = datetime.datetime.strptime(heure_debut, fmt)
@@ -129,10 +133,10 @@ def session_create(request, course_id):
             messages.error(request, "L'heure de fin doit être postérieure à l'heure de début.")
             return redirect("absences:session_create", course_id=course_id)
 
-        # Retrieve an existing session for this date or create a new one.
+        # Récupère une séance existante pour cette date ou en crée une nouvelle.
         try:
             seance = Seance.objects.get(id_cours=course, date_seance=date_seance)
-            # Update times only if they differ to avoid unnecessary DB writes.
+            # Met à jour les horaires uniquement s'ils diffèrent pour éviter des écritures inutiles.
             updated_fields = []
             if seance.heure_debut != t_debut.time():
                 seance.heure_debut = heure_debut
@@ -152,14 +156,14 @@ def session_create(request, course_id):
                 id_annee=academic_year,
             )
 
-        # Prevent any modifications to an already-validated session.
+        # Empêche toute modification sur une séance déjà validée.
         if seance.validated:
             messages.error(request, "Cette séance est déjà validée et verrouillée.")
             return redirect("dashboard:instructor_course_detail", course_id)
 
         if mode == "qr":
-            # Resume an active token if one already exists for this session,
-            # rather than creating a duplicate token.
+            # Reprend un token actif s'il en existe déjà un pour cette séance,
+            # plutôt que d'en créer un en doublon.
             existing_token = (
                 QRAttendanceToken.objects.filter(
                     seance=seance,
@@ -177,7 +181,7 @@ def session_create(request, course_id):
             sys_settings = SystemSettings.get_settings()
             verify_location = request.POST.get("verify_location") == "on"
 
-            # Deactivate any stale active tokens before creating the new one.
+            # Désactive tout token actif obsolète avant de créer le nouveau.
             QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
             token_kwargs = {
@@ -187,8 +191,8 @@ def session_create(request, course_id):
                 "verify_location": verify_location,
             }
 
-            # Attach GPS coordinates to the token only if both lat and lng are provided
-            # and can be parsed as floats; silently ignore invalid values.
+            # Attache les coordonnées GPS au token uniquement si lat et lng sont fournies
+            # et peuvent être analysées comme floats ; ignore silencieusement les valeurs invalides.
             try:
                 lat = request.POST.get("latitude")
                 lng = request.POST.get("longitude")
@@ -209,7 +213,7 @@ def session_create(request, course_id):
             )
             return redirect("absences:qr_dashboard", token=new_token.token)
         else:
-            # Manual mode — send the professor directly to the attendance form.
+            # Mode manuel — envoie directement le professeur vers le formulaire de présence.
             log_action(
                 request.user,
                 f"Séance créée (manuel) — {course.code_cours} {date_seance}",
@@ -222,7 +226,7 @@ def session_create(request, course_id):
                 f"{reverse('absences:mark_absence', args=[course_id])}?date={date_seance}"
             )
 
-    # GET — render the form with today's date and sensible default times.
+    # GET — rend le formulaire avec la date du jour et des horaires par défaut raisonnables.
     today = timezone.localdate().isoformat()
     return render(request, "absences/session_create.html", {
         "course": course,
@@ -237,43 +241,43 @@ def session_create(request, course_id):
 @require_POST
 def validate_session(request, seance_id):
     """
-    Permanently lock a session so that its attendance records become read-only.
+    Verrouille définitivement une séance afin que ses enregistrements de présence deviennent en lecture seule.
 
-    Once validated, the professor can no longer create, update, or delete
-    absences for the session.  This action is irreversible through the normal
-    UI.
+    Une fois validée, le professeur ne peut plus créer, mettre à jour ou
+    supprimer des absences pour la séance. Cette action est irréversible
+    via l'interface normale.
 
-    A ``select_for_update()`` lock is acquired inside the transaction to prevent
-    two concurrent requests from double-validating the same session (e.g., the
-    professor clicking "Validate" twice in quick succession).
+    Un verrou ``select_for_update()`` est acquis dans la transaction pour
+    empêcher deux requêtes concurrentes de double-valider la même séance
+    (ex. le professeur clique deux fois sur « Valider » en succession rapide).
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming POST request.
+        La requête POST entrante.
     seance_id : int
-        Primary key of the ``Seance`` to validate.
+        Clé primaire de la ``Seance`` à valider.
 
-    Returns
-    -------
-    HttpResponse
-        Redirect to the attendance form for the session's course on success or
-        if the session was already validated.
-
-    Raises
+    Retour
     ------
+    HttpResponse
+        Redirige vers le formulaire de présence pour le cours de la séance
+        en cas de succès ou si la séance était déjà validée.
+
+    Lève
+    ----
     Http404
-        When no ``Seance`` with ``seance_id`` exists.
+        Quand aucune ``Seance`` n'existe avec ``seance_id``.
     """
     seance = get_object_or_404(Seance, pk=seance_id)
 
-    # Verify the professor owns this session's course.
+    # Vérifie que le professeur est propriétaire du cours de cette séance.
     if seance.id_cours.professeur != request.user:
         messages.error(request, "Accès non autorisé à cette séance.")
         return redirect("dashboard:instructor_dashboard")
 
     with transaction.atomic():
-        # Re-fetch with a row-level lock to prevent concurrent double-validation.
+        # Recharge avec un verrou au niveau ligne pour empêcher la double-validation concurrente.
         seance = Seance.objects.select_for_update().get(pk=seance_id)
         if seance.validated:
             messages.info(request, "Cette séance est déjà validée.")

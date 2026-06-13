@@ -1,15 +1,15 @@
 """
-Internal utilities for the QR code attendance system.
+Utilitaires internes pour le système de présence par QR code.
 
-Functions:
-  - GPS calculations (Haversine) and coordinate validation
-  - QR code generation as base64 data URI
-  - SHA-256 hashing of QR tokens for audit logs
-  - Logging of scan attempts (QRScanLog)
+Fonctions :
+  - Calculs GPS (Haversine) et validation des coordonnées
+  - Génération de QR code en data URI base64
+  - Hashage SHA-256 des tokens QR pour les journaux d'audit
+  - Journalisation des tentatives de scan (QRScanLog)
 
-These helpers are imported by qr_professor.py and qr_student.py.
+Ces helpers sont importés par qr_professor.py et qr_student.py.
 
-Part of the UniAbsences attendance system.
+Fait partie du système de présence UniAbsences.
 """
 import hashlib
 import math
@@ -25,16 +25,16 @@ from ..models import QRScanLog
 
 def _haversine(lat1, lon1, lat2, lon2):
     """
-    Calculate the distance in meters between two GPS points using the Haversine formula.
-    
-    Parameters:
-        lat1 (float): Latitude of the first point in degrees.
-        lon1 (float): Longitude of the first point in degrees.
-        lat2 (float): Latitude of the second point in degrees.
-        lon2 (float): Longitude of the second point in degrees.
-    
-    Returns:
-        float: Distance in meters.
+    Calcule la distance en mètres entre deux points GPS via la formule de Haversine.
+
+    Paramètres :
+        lat1 (float) : latitude du premier point, en degrés.
+        lon1 (float) : longitude du premier point, en degrés.
+        lat2 (float) : latitude du second point, en degrés.
+        lon2 (float) : longitude du second point, en degrés.
+
+    Retour :
+        float : distance en mètres.
     """
     R = 6_371_000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -46,15 +46,15 @@ def _haversine(lat1, lon1, lat2, lon2):
 
 def _is_valid_coordinate(coord):
     """
-    Check if a coordinate is valid (not None and not near Null Island).
-    
-    Prevents GPS spoofing with null coordinates.
-    
-    Parameters:
-        coord (float or None): The coordinate to validate.
-    
-    Returns:
-        bool: True if valid, False otherwise.
+    Vérifie qu'une coordonnée est valide (non None et non proche de Null Island).
+
+    Empêche l'usurpation GPS avec des coordonnées nulles.
+
+    Paramètres :
+        coord (float ou None) : la coordonnée à valider.
+
+    Retour :
+        bool : True si valide, False sinon.
     """
     if coord is None:
         return False
@@ -63,10 +63,10 @@ def _is_valid_coordinate(coord):
 
 def _get_establishment_gps():
     """
-    Retrieve GPS settings (latitude, longitude, radius) from SystemSettings.
-    
-    Returns:
-        tuple: (latitude, longitude, radius_meters)
+    Récupère les paramètres GPS (latitude, longitude, rayon) depuis SystemSettings.
+
+    Retour :
+        tuple : (latitude, longitude, rayon_metres)
     """
     from apps.dashboard.models import SystemSettings
     s = SystemSettings.get_settings()
@@ -75,15 +75,16 @@ def _get_establishment_gps():
 
 def _hash_qr_token(raw_token):
     """
-    Return a SHA-256 hash of the QR token, or empty string if absent.
-    
-    Audit logs never store raw tokens to prevent replay attacks.
-    
-    Parameters:
-        raw_token (str or None): The raw QR token.
-    
-    Returns:
-        str: Hashed token in format 'sha256:<hex>' or empty string.
+    Retourne un hash SHA-256 du token QR, ou une chaîne vide si absent.
+
+    Les journaux d'audit ne stockent jamais les tokens bruts afin d'empêcher
+    les attaques par rejeu.
+
+    Paramètres :
+        raw_token (str ou None) : le token QR brut.
+
+    Retour :
+        str : token haché au format 'sha256:<hex>' ou chaîne vide.
     """
     if not raw_token:
         return ""
@@ -91,23 +92,23 @@ def _hash_qr_token(raw_token):
     return f"sha256:{digest}"
 
 
-# ── Logging ───────────────────────────────────────────────────────────────────
+# ── Journalisation ────────────────────────────────────────────────────────────
 
 
 def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
                       latitude=None, longitude=None, distance=None):
     """
-    Log each QR scan attempt with hashed token for audit purposes.
-    
-    Parameters:
-        request: The HTTP request object.
-        seance: The Seance model instance.
-        qr_token: The QRAttendanceToken instance or None.
-        gps_status (str): GPS validation status.
-        scan_result (str): Result of the scan attempt.
-        latitude (float, optional): Latitude from the scan.
-        longitude (float, optional): Longitude from the scan.
-        distance (float, optional): Distance in meters from establishment.
+    Journalise chaque tentative de scan QR avec le token haché à des fins d'audit.
+
+    Paramètres :
+        request : l'objet de requête HTTP.
+        seance : l'instance du modèle Seance.
+        qr_token : l'instance QRAttendanceToken ou None.
+        gps_status (str) : statut de validation GPS.
+        scan_result (str) : résultat de la tentative de scan.
+        latitude (float, optionnel) : latitude relevée lors du scan.
+        longitude (float, optionnel) : longitude relevée lors du scan.
+        distance (float, optionnel) : distance en mètres par rapport à l'établissement.
     """
     QRScanLog.objects.create(
         etudiant=request.user,

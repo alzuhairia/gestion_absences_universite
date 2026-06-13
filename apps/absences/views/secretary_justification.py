@@ -1,33 +1,34 @@
 """
-Secretary justification views — apps/absences/views/secretary_justification.py
+Vues de justification pour le secrétariat — apps/absences/views/secretary_justification.py
 
-Handles the absence justification review and approval workflow for the
-secretariat role.
+Gère le workflow d'examen et d'approbation des justificatifs d'absence
+pour le rôle secrétariat.
 
-Views
------
+Vues
+----
 ``review_justification``
-    Display a single absence alongside its submitted justification document
-    and allow the secretary to add a management comment.
+    Affiche une seule absence aux côtés de son document justificatif soumis
+    et permet au secrétariat d'ajouter un commentaire de gestion.
 
 ``validation_list``
-    Filterable list of absences by justification status
+    Liste filtrable des absences par statut de justification
     (NON_JUSTIFIEE / EN_ATTENTE / JUSTIFIEE).
 
 ``process_justification``
-    Approve or reject a pending justification; transitions the ``Justification``
-    state machine and updates the parent ``Absence`` status accordingly.
+    Approuve ou refuse un justificatif en attente ; fait transiter la
+    machine à états de la ``Justification`` et met à jour le statut de
+    l'``Absence`` parente en conséquence.
 
 ``justified_absences_list``
-    List of absences that have been justified (status = JUSTIFIEE) and were
-    encoded directly by the secretariat.
+    Liste des absences qui ont été justifiées (statut = JUSTIFIEE) et
+    encodées directement par le secrétariat.
 
-Security controls:
-  - ``@secretary_required`` on all views.
-  - ``select_for_update()`` on both ``Justification`` and ``Absence`` records
-    inside a transaction to prevent concurrent double-processing.
+Contrôles de sécurité :
+  - ``@secretary_required`` sur toutes les vues.
+  - ``select_for_update()`` sur les enregistrements ``Justification`` et
+    ``Absence`` dans une transaction pour empêcher le double-traitement concurrent.
 
-Part of the UniAbsences absences system.
+Fait partie du système d'absences UniAbsences.
 """
 import logging
 from pathlib import Path
@@ -78,7 +79,7 @@ def _send_justification_decision_emails(absence, approved, motif=""):
             )
             send_notification_email(professor, subj, body, html_body)
     except Exception:
-        logger.exception("Failed to send justification decision emails for absence %s", getattr(absence, "pk", "?"))
+        logger.exception("Échec d'envoi des emails de décision de justification pour l'absence %s", getattr(absence, "pk", "?"))
 
 
 @login_required
@@ -340,7 +341,7 @@ def justified_absences_list(request):
         })
     except Exception:
         messages.error(request, "Une erreur interne est survenue.")
-        logger.exception("Error in justified_absences_list")
+        logger.exception("Erreur dans justified_absences_list")
         return render(request, "absences/justified_absences_list.html", {
             "page_obj": None,
             "student_filter": "",

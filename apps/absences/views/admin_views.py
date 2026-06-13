@@ -1,28 +1,34 @@
 """
-Admin / secretary direct-edit views — apps/absences/views/admin_views.py
+Vues d'édition directe admin / secrétariat — apps/absences/views/admin_views.py
 
-Provides the secretariat with the ability to directly modify an existing
-absence record (type, status, duration) while enforcing a mandatory audit
-reason.  Every change is written to the audit log via ``log_action``.
+Fournit au secrétariat la possibilité de modifier directement un
+enregistrement d'absence existant (type, statut, durée) en imposant un
+motif d'audit obligatoire. Chaque changement est écrit dans le journal
+d'audit via ``log_action``.
 
-Key design decisions
---------------------
-- ``_VALID_TYPES`` and ``_VALID_STATUTS`` are module-level constants so that
-  validation logic does not construct new sets on every request.
-- ``select_for_update()`` inside the transaction prevents a TOCTOU race
-  condition where two secretaries could edit the same record simultaneously.
-- The ``Justification`` state machine is kept in sync whenever the absence
-  status changes, so the two models never diverge.
-- Emails are deliberately *not* sent here; the secretary is making an
-  administrative correction, not responding to a student submission.
+Décisions de conception clés
+----------------------------
+- ``_VALID_TYPES`` et ``_VALID_STATUTS`` sont des constantes au niveau du
+  module afin que la logique de validation ne construise pas de nouveaux
+  ensembles à chaque requête.
+- ``select_for_update()`` à l'intérieur de la transaction empêche une
+  condition de course TOCTOU où deux secrétaires pourraient éditer le même
+  enregistrement simultanément.
+- La machine à états de la ``Justification`` est tenue synchrone à chaque
+  changement de statut de l'absence, afin que les deux modèles ne
+  divergent jamais.
+- Les emails ne sont volontairement *pas* envoyés ici ; le secrétariat
+  effectue une correction administrative, il ne répond pas à une
+  soumission étudiante.
 
-Security controls
------------------
-- ``@secretary_required`` — only the secretariat role may access this view.
-- ``select_for_update()`` — row-level lock prevents concurrent edits.
-- Full model validation and whitelist checks run before any DB write.
+Contrôles de sécurité
+---------------------
+- ``@secretary_required`` — seul le rôle secrétariat peut accéder à cette vue.
+- ``select_for_update()`` — verrou au niveau ligne empêche les éditions concurrentes.
+- Validation complète du modèle et contrôles par liste blanche avant toute
+  écriture en base.
 
-Part of the UniAbsences absences system.
+Fait partie du système d'absences UniAbsences.
 """
 import logging
 from decimal import Decimal, ROUND_HALF_UP
@@ -41,34 +47,35 @@ from ..models import Absence, Justification
 
 logger = logging.getLogger(__name__)
 
-# Whitelist of absence types that the secretary is permitted to set directly.
+# Liste blanche des types d'absence que le secrétariat est autorisé à définir directement.
 _VALID_TYPES = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
 
-# Whitelist of all valid absence status values, derived from the model enum.
+# Liste blanche de toutes les valeurs de statut d'absence valides, dérivée de l'enum du modèle.
 _VALID_STATUTS = set(Absence.Statut.values)
 
 
 def _get_seance_duration(seance):
     """
-    Calculate the duration of a session in decimal hours for display and validation.
+    Calcule la durée d'une séance en heures décimales pour l'affichage et la validation.
 
-    Combines ``heure_debut`` and ``heure_fin`` with an arbitrary date so that
-    Python's ``timedelta`` arithmetic can be applied to ``time`` objects.
+    Combine ``heure_debut`` et ``heure_fin`` avec une date arbitraire afin
+    que l'arithmétique ``timedelta`` de Python puisse être appliquée à des
+    objets ``time``.
 
-    Parameters
+    Paramètres
     ----------
     seance : Seance
-        The session whose start/end times are inspected.
+        La séance dont les horaires début/fin sont inspectés.
 
-    Returns
-    -------
+    Retour
+    ------
     tuple[float | None, str | None]
-        A ``(decimal_hours, "HH:MM")`` pair, or ``(None, None)`` when the
-        session has no valid time range.
+        Une paire ``(heures_decimales, "HH:MM")``, ou ``(None, None)`` quand
+        la séance n'a pas de plage horaire valide.
     """
     if seance.heure_debut and seance.heure_fin:
         from datetime import datetime, date
-        # Use an arbitrary date so we can subtract two time objects via datetime.
+        # Utilise une date arbitraire pour pouvoir soustraire deux objets time via datetime.
         dt_debut = datetime.combine(date.today(), seance.heure_debut)
         dt_fin = datetime.combine(date.today(), seance.heure_fin)
         total_seconds = (dt_fin - dt_debut).seconds
@@ -85,49 +92,53 @@ def _get_seance_duration(seance):
 @require_http_methods(["GET", "POST"])
 def edit_absence(request, pk):
     """
-    Allow the secretariat to directly modify an existing absence record.
+    Permet au secrétariat de modifier directement un enregistrement d'absence existant.
 
-    A non-empty reason (``reason``) is mandatory for every change; the
-    motivation is written to the audit log so that any modification is fully
-    traceable.
+    Un motif (``reason``) non vide est obligatoire pour chaque changement ;
+    la motivation est écrite dans le journal d'audit afin que toute
+    modification soit entièrement traçable.
 
     GET
-        Render the edit form pre-populated with the current absence values and
-        the computed session duration for reference.
+        Affiche le formulaire d'édition pré-rempli avec les valeurs courantes
+        de l'absence et la durée calculée de la séance pour référence.
 
     POST
-        Validate all submitted fields, acquire a row-level lock, apply changes
-        atomically, keep the ``Justification`` state machine in sync, write an
-        audit entry, and redirect to the validation list.
+        Valide tous les champs soumis, acquiert un verrou au niveau ligne,
+        applique les changements atomiquement, tient à jour la machine à
+        états de la ``Justification``, écrit une entrée d'audit, et
+        redirige vers la liste de validation.
 
-    Business rules enforced
-    -----------------------
-    - An absence with status ``JUSTIFIEE`` cannot be edited directly; the
-      secretary must first change its status through the justification workflow.
-    - The new duration must be positive and must not exceed the session duration.
-    - Type and status values are validated against server-side whitelists.
+    Règles métier appliquées
+    ------------------------
+    - Une absence au statut ``JUSTIFIEE`` ne peut pas être éditée directement ;
+      le secrétariat doit d'abord changer son statut via le workflow de
+      justification.
+    - La nouvelle durée doit être positive et ne doit pas dépasser la durée
+      de la séance.
+    - Les valeurs de type et de statut sont validées contre des listes
+      blanches côté serveur.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming HTTP request.
+        La requête HTTP entrante.
     pk : int
-        Primary key of the ``Absence`` record to edit.
+        Clé primaire de l'enregistrement ``Absence`` à éditer.
 
-    Returns
-    -------
-    HttpResponse
-        Rendered form on GET or validation error, redirect on success.
-
-    Raises
+    Retour
     ------
+    HttpResponse
+        Formulaire rendu sur GET ou erreur de validation, redirection sur succès.
+
+    Lève
+    ----
     Http404
-        When no ``Absence`` with the given ``pk`` exists.
+        Quand aucune ``Absence`` n'existe avec la ``pk`` donnée.
     """
     absence = get_object_or_404(Absence.objects.select_related("id_seance"), pk=pk)
 
-    # Prevent direct edits to already-justified absences; those must go through
-    # the justification workflow to preserve the audit trail.
+    # Empêche les éditions directes sur les absences déjà justifiées ; celles-ci doivent passer
+    # par le workflow de justification pour préserver la piste d'audit.
     if absence.statut == Absence.Statut.JUSTIFIEE:
         messages.error(
             request,
@@ -136,11 +147,11 @@ def edit_absence(request, pk):
         )
         return redirect("absences:validation_list")
 
-    # Pre-compute session duration so the form can display it as a ceiling value.
+    # Pré-calcule la durée de la séance pour que le formulaire puisse l'afficher comme valeur plafond.
     seance_duration, seance_duration_display = _get_seance_duration(absence.id_seance)
 
     if request.method == "POST":
-        # Bundle context early so every early-return path can re-render the form.
+        # Constitue le contexte tôt pour que chaque chemin de sortie anticipée puisse ré-afficher le formulaire.
         ctx = {
             "absence": absence,
             "seance_duration": seance_duration,
@@ -151,22 +162,22 @@ def edit_absence(request, pk):
         new_type = request.POST.get("type_absence", "")
         new_statut = request.POST.get("statut", "")
 
-        # Reason is mandatory — reject silently submitting with no justification.
+        # Le motif est obligatoire — rejette une soumission silencieuse sans justification.
         if not reason:
             messages.error(request, "Un motif est obligatoire pour modifier une absence.")
             return render(request, "absences/edit_absence.html", ctx)
 
-        # Validate type against the server-side whitelist (not just the form widget).
+        # Valide le type contre la liste blanche côté serveur (pas seulement le widget de formulaire).
         if new_type not in _VALID_TYPES:
             messages.error(request, "Type d'absence invalide.")
             return render(request, "absences/edit_absence.html", ctx)
 
-        # Validate status against all known enum values.
+        # Valide le statut contre toutes les valeurs d'enum connues.
         if new_statut not in _VALID_STATUTS:
             messages.error(request, "Statut invalide.")
             return render(request, "absences/edit_absence.html", ctx)
 
-        # Parse and quantize the duration to exactly 2 decimal places.
+        # Analyse et quantifie la durée à exactement 2 décimales.
         try:
             raw_duree = request.POST.get("duree_absence") or "0"
             new_duree = Decimal(str(raw_duree)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -178,7 +189,7 @@ def edit_absence(request, pk):
             messages.error(request, "La durée doit être supérieure à zéro.")
             return render(request, "absences/edit_absence.html", ctx)
 
-        # Ensure the declared duration does not exceed the actual session length.
+        # Garantit que la durée déclarée ne dépasse pas la durée réelle de la séance.
         if seance_duration and new_duree > seance_duration:
             messages.error(
                 request,
@@ -187,8 +198,8 @@ def edit_absence(request, pk):
             return render(request, "absences/edit_absence.html", ctx)
 
         with transaction.atomic():
-            # Re-fetch with select_for_update to hold a row-level lock for the
-            # duration of the transaction and prevent concurrent double-edits.
+            # Recharge avec select_for_update pour tenir un verrou au niveau ligne pendant
+            # la durée de la transaction et empêcher les doubles éditions concurrentes.
             absence = (
                 Absence.objects
                 .select_related("id_seance__id_cours", "id_inscription__id_etudiant")
@@ -196,21 +207,21 @@ def edit_absence(request, pk):
                 .get(pk=pk)
             )
 
-            # Another secretary may have justified this absence between our GET
-            # and this POST — check again inside the transaction.
+            # Un autre secrétaire peut avoir justifié cette absence entre notre GET
+            # et ce POST — vérifie à nouveau à l'intérieur de la transaction.
             if absence.statut == Absence.Statut.JUSTIFIEE:
                 messages.error(request, "Cette absence a été justifiée entre-temps et ne peut plus être modifiée.")
                 return redirect("absences:validation_list")
 
-            # Capture old values to build a diff for the audit log.
+            # Capture les anciennes valeurs pour construire un diff pour le log d'audit.
             old_statut = absence.statut
             old_duree = float(absence.duree_absence or 0)
             old_type = absence.type_absence
 
-            change_desc = f"Absence {pk} UPDATED. "
+            change_desc = f"Absence {pk} MODIFIÉE. "
             changed = False
 
-            # Build a human-readable diff description for each changed field.
+            # Construit une description de diff lisible par humain pour chaque champ modifié.
             if old_statut != new_statut:
                 change_desc += f"Statut: {old_statut} -> {new_statut}. "
                 changed = True
@@ -229,23 +240,23 @@ def edit_absence(request, pk):
                 absence.statut = new_statut
                 absence.save()
 
-                # Keep the Justification state machine in sync whenever the
-                # parent Absence status changes, so both models remain consistent.
+                # Tient la machine à états de la Justification synchrone à chaque changement de statut
+                # de l'absence parente, afin que les deux modèles restent cohérents.
                 if old_statut != new_statut:
                     justification = Justification.objects.filter(id_absence=absence).first()
                     if justification:
                         if new_statut == Absence.Statut.JUSTIFIEE:
-                            # Secretary is manually marking as justified.
+                            # Le secrétariat marque manuellement comme justifiée.
                             justification.state = Justification.State.ACCEPTEE
                             justification.validee_par = request.user
                             justification.date_validation = timezone.now()
                         elif new_statut == Absence.Statut.NON_JUSTIFIEE:
-                            # Secretary is explicitly rejecting the justification.
+                            # Le secrétariat rejette explicitement la justification.
                             justification.state = Justification.State.REFUSEE
                             justification.validee_par = request.user
                             justification.date_validation = timezone.now()
                         elif new_statut == Absence.Statut.EN_ATTENTE:
-                            # Reset to pending so the student can re-submit.
+                            # Réinitialise en attente pour que l'étudiant puisse re-soumettre.
                             justification.state = Justification.State.EN_ATTENTE
                             justification.validee_par = None
                             justification.date_validation = None
@@ -269,7 +280,7 @@ def edit_absence(request, pk):
 
         return redirect("absences:validation_list")
 
-    # GET — render the form with the current values.
+    # GET — affiche le formulaire avec les valeurs courantes.
     return render(request, "absences/edit_absence.html", {
         "absence": absence,
         "seance_duration": seance_duration,

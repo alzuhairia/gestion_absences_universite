@@ -1,18 +1,19 @@
 """
-Management Command: cleanup_qr_logs — apps/absences/management/commands/cleanup_qr_logs.py
+Commande de gestion : cleanup_qr_logs — apps/absences/management/commands/cleanup_qr_logs.py
 
-Part of the UniAbsences university attendance management system.
+Fait partie du système universitaire de gestion des présences UniAbsences.
 
-This command purges stale ``QRScanLog`` records from the database to prevent
-unbounded table growth over time.  It is intended to be executed periodically
-via a cron job or a task scheduler (e.g. Celery Beat, systemd timer).
+Cette commande purge les enregistrements ``QRScanLog`` obsolètes de la base
+de données afin d'éviter une croissance non bornée de la table dans le
+temps. Elle est destinée à être exécutée périodiquement via une tâche cron
+ou un planificateur de tâches (ex. Celery Beat, timer systemd).
 
-Usage::
+Utilisation ::
 
-    # Delete all QR scan logs older than 90 days (default):
+    # Supprime tous les journaux de scan QR de plus de 90 jours (par défaut) :
     python manage.py cleanup_qr_logs
 
-    # Delete logs older than 30 days:
+    # Supprime les journaux de plus de 30 jours :
     python manage.py cleanup_qr_logs --days 30
 """
 
@@ -26,49 +27,49 @@ from apps.absences.models import QRScanLog
 
 class Command(BaseCommand):
     """
-    Django management command that deletes old ``QRScanLog`` entries.
+    Commande de gestion Django qui supprime les entrées ``QRScanLog`` anciennes.
 
-    Attributes:
-        help (str): Short description shown by ``manage.py help cleanup_qr_logs``.
+    Attributs :
+        help (str) : description courte affichée par ``manage.py help cleanup_qr_logs``.
     """
 
-    help = "Delete QRScanLog entries older than N days (default 90)."
+    help = "Supprime les entrées QRScanLog de plus de N jours (90 par défaut)."
 
     def add_arguments(self, parser):
         """
-        Register command-line arguments for this command.
+        Déclare les arguments en ligne de commande pour cette commande.
 
-        Args:
-            parser (argparse.ArgumentParser): the argument parser provided by
-                Django's management framework.
+        Args :
+            parser (argparse.ArgumentParser) : le parser d'arguments fourni
+                par le framework de gestion de Django.
         """
         parser.add_argument(
             "--days",
             type=int,
             default=90,
-            help="Delete logs older than this many days (default: 90).",
+            help="Supprime les journaux de plus de N jours (par défaut : 90).",
         )
 
     def handle(self, *args, **options):
         """
-        Execute the cleanup: delete all ``QRScanLog`` rows whose ``timestamp``
-        is older than the specified number of days.
+        Exécute le nettoyage : supprime toutes les lignes ``QRScanLog`` dont le
+        ``timestamp`` est antérieur au nombre de jours spécifié.
 
-        The deletion is performed in a single bulk SQL ``DELETE`` statement via
-        Django's ORM, so no per-row Python overhead is incurred.
+        La suppression est effectuée en un seul ``DELETE`` SQL en lot via
+        l'ORM de Django, donc aucun surcoût Python par ligne n'est encouru.
 
-        Args:
-            *args: positional arguments (unused; required by the base class).
-            **options (dict): parsed command options.  Expected keys:
+        Args :
+            *args : arguments positionnels (inutilisés ; requis par la classe de base).
+            **options (dict) : options de commande analysées. Clés attendues :
 
-                - ``days`` (int): records older than this many days are deleted.
+                - ``days`` (int) : les enregistrements de plus de N jours sont supprimés.
 
-        Side effects:
-            Writes a success message (including the number of deleted rows) to
-            ``self.stdout`` using Django's styled output.
+        Effets de bord :
+            Écrit un message de succès (incluant le nombre de lignes supprimées) sur
+            ``self.stdout`` en utilisant la sortie stylisée de Django.
         """
         days = options["days"]
-        # Calculate the cutoff timestamp: records before this moment are stale.
+        # Calcule l'horodatage de coupure : les enregistrements antérieurs à ce moment sont obsolètes.
         cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = QRScanLog.objects.filter(timestamp__lt=cutoff).delete()
-        self.stdout.write(self.style.SUCCESS(f"Deleted {deleted} QRScanLog entries older than {days} days."))
+        self.stdout.write(self.style.SUCCESS(f"{deleted} entrées QRScanLog de plus de {days} jours supprimées."))

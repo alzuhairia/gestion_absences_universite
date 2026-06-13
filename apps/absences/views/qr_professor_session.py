@@ -1,34 +1,36 @@
 """
-QR session lifecycle views — apps/absences/views/qr_professor_session.py
+Vues de cycle de vie d'une séance QR — apps/absences/views/qr_professor_session.py
 
-Manages the active QR attendance session after the initial token has been
-created by ``qr_generate``.
+Gère la séance de présence QR active après la création du token initial
+par ``qr_generate``.
 
 ``qr_dashboard``
-    Real-time scan dashboard.  Displays the QR image and a live list of
-    students who have scanned, refreshed via HTMX polling.  When called with
-    an ``HX-Request`` header the view returns only the ``_qr_scan_list.html``
-    partial instead of the full page (HTMX swap).
+    Tableau de bord des scans en temps réel. Affiche l'image du QR et la liste
+    en direct des étudiants ayant scanné, rafraîchie par polling HTMX. Quand
+    l'en-tête ``HX-Request`` est présent, la vue retourne seulement le partiel
+    ``_qr_scan_list.html`` au lieu de la page complète (swap HTMX).
 
 ``qr_refresh_token``
-    Token rotation endpoint.  Invalidates the current token, generates a fresh
-    signed token with the same GPS settings, and returns either a JSON payload
-    (AJAX call) or a redirect (regular form submit).  Existing scan records are
-    preserved — only the URL that students scan changes.
+    Point d'entrée de rotation du token. Invalide le token en cours, génère un
+    nouveau token signé avec les mêmes paramètres GPS, et retourne soit une
+    charge utile JSON (appel AJAX), soit une redirection (soumission de
+    formulaire classique). Les enregistrements de scans existants sont
+    préservés — seule l'URL que les étudiants scannent change.
 
 ``qr_finalize``
-    Session close endpoint.  Marks every enrolled student who did not scan as
-    ABSENT, deactivates all remaining QR tokens, and locks the session.  Runs
-    entirely inside a single atomic transaction to guarantee consistency.
+    Point d'entrée de clôture de la séance. Marque comme ABSENT chaque
+    étudiant inscrit n'ayant pas scanné, désactive tous les tokens QR
+    restants, et verrouille la séance. S'exécute entièrement dans une seule
+    transaction atomique pour garantir la cohérence.
 
-Security controls
------------------
-- ``@professor_required`` on all three views.
-- Ownership check: ``course.professeur == request.user`` on every request.
-- ``select_for_update()`` in ``qr_finalize`` prevents a concurrent duplicate
-  finalization from creating duplicate absences.
+Contrôles de sécurité
+---------------------
+- ``@professor_required`` sur les trois vues.
+- Contrôle de propriété : ``course.professeur == request.user`` à chaque requête.
+- ``select_for_update()`` dans ``qr_finalize`` empêche qu'une finalisation
+  concurrente en doublon ne crée des absences en doublon.
 
-Part of the UniAbsences absences system.
+Fait partie du système d'absences UniAbsences.
 """
 import logging
 from datetime import timedelta
@@ -57,52 +59,54 @@ logger = logging.getLogger(__name__)
 @require_GET
 def qr_dashboard(request, token):
     """
-    Real-time QR attendance dashboard for the professor.
+    Tableau de bord en temps réel de la présence QR pour le professeur.
 
-    Renders the QR code image alongside two student lists: those who have
-    already scanned and those who have not yet scanned.  Suspicious scans
-    (students whose GPS position was far from the classroom) are highlighted.
+    Rend l'image du QR code aux côtés de deux listes d'étudiants : ceux qui
+    ont déjà scanné et ceux qui n'ont pas encore scanné. Les scans suspects
+    (étudiants dont la position GPS était éloignée de la salle de cours) sont
+    mis en évidence.
 
-    HTMX polling
+    Polling HTMX
     ------------
-    When the request carries an ``HX-Request`` header (i.e., a periodic HTMX
-    poll from the dashboard page), only the ``_qr_scan_list.html`` partial is
-    returned so the browser can swap the scan list in-place without a full
-    reload.
+    Quand la requête porte un en-tête ``HX-Request`` (c.-à-d. un polling HTMX
+    périodique depuis la page du tableau de bord), seul le partiel
+    ``_qr_scan_list.html`` est retourné afin que le navigateur puisse
+    remplacer la liste des scans sur place sans rechargement complet.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming GET request.
+        La requête GET entrante.
     token : UUID
-        The ``QRAttendanceToken.token`` value from the URL.
+        La valeur ``QRAttendanceToken.token`` issue de l'URL.
 
-    Returns
-    -------
-    HttpResponse
-        Full dashboard page, or the ``_qr_scan_list.html`` partial for HTMX.
-
-    Raises
+    Retour
     ------
+    HttpResponse
+        Page complète du tableau de bord, ou partiel ``_qr_scan_list.html``
+        pour HTMX.
+
+    Lève
+    ----
     Http404
-        When no token with the given UUID exists.
+        Quand aucun token n'existe avec l'UUID fourni.
     """
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
     seance = qr_token.seance
     course = seance.id_cours
 
-    # Ownership check — prevent a professor from viewing another course's dashboard.
+    # Contrôle de propriété — empêche un professeur de consulter le tableau de bord d'un autre cours.
     if course.professeur is None or course.professeur.pk != request.user.pk:
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:instructor_dashboard")
 
-    # Build the absolute scan URL that will be encoded into the QR image.
+    # Construit l'URL de scan absolue qui sera encodée dans l'image du QR.
     scan_url = request.build_absolute_uri(
         reverse("absences:qr_scan", kwargs={"token": str(token)})
     )
     qr_data_uri = _generate_qr_data_uri(scan_url)
 
-    # Fetch all enrollments for this course and academic year.
+    # Récupère toutes les inscriptions pour ce cours et cette année académique.
     inscriptions = list(
         Inscription.objects.filter(
             id_cours=course,
@@ -111,20 +115,20 @@ def qr_dashboard(request, token):
         ).select_related("id_etudiant")
     )
 
-    # Build a dict of scan records keyed by enrollment PK for O(1) lookup.
+    # Construit un dictionnaire des scans indexé par la PK d'inscription pour des lookups O(1).
     scan_records = {
         sr.inscription.pk if sr.inscription else None: sr
         for sr in QRScanRecord.objects.filter(seance=seance).select_related("inscription")
     }
     scanned_ids = set(scan_records.keys())
 
-    # Partition enrollments into scanned / not-scanned lists and count suspicions.
+    # Partitionne les inscriptions en listes scanné/non scanné et compte les suspicions.
     scanned = []
     suspicious_count = 0
     for ins in inscriptions:
         if ins.id_inscription in scanned_ids:
             sr = scan_records[ins.id_inscription]
-            # Attach the scan record so the template can access GPS and timestamp.
+            # Attache l'enregistrement de scan pour que le template puisse accéder au GPS et à l'horodatage.
             setattr(ins, "scan_record", sr)
             if sr.is_suspicious:
                 suspicious_count += 1
@@ -148,11 +152,11 @@ def qr_dashboard(request, token):
         "is_expired": qr_token.is_expired,
         "has_gps": qr_token.latitude is not None,
         "verify_location": qr_token.verify_location,
-        # Pass the configured QR duration so JavaScript can render a countdown.
+        # Transmet la durée configurée du QR pour que le JavaScript puisse afficher un compte à rebours.
         "qr_duration_seconds": sys_settings.qr_token_duration_seconds,
     }
 
-    # HTMX partial response: return only the scan list fragment when polled.
+    # Réponse partielle HTMX : ne retourne que le fragment de liste des scans en cas de polling.
     if request.headers.get("HX-Request"):
         return render(request, "absences/_qr_scan_list.html", ctx)
 
@@ -164,36 +168,37 @@ def qr_dashboard(request, token):
 @require_POST
 def qr_refresh_token(request, token):
     """
-    Rotate the active QR token to prevent students from sharing the QR image.
+    Effectue la rotation du token QR actif pour empêcher les étudiants de partager l'image du QR.
 
-    Deactivates the current token and creates a fresh signed token with the
-    same GPS settings.  Existing ``QRScanRecord`` entries are preserved because
-    they are linked to the session, not the token.
+    Désactive le token en cours et crée un nouveau token signé avec les mêmes
+    paramètres GPS. Les entrées ``QRScanRecord`` existantes sont préservées
+    car elles sont liées à la séance, et non au token.
 
-    Response format
-    ---------------
-    - ``XMLHttpRequest`` (AJAX) — returns a JSON payload containing the new
-      token UUID, a freshly rendered QR data URI, all relevant dashboard URLs,
-      and the new expiry timestamp.
-    - Regular POST (no ``X-Requested-With: XMLHttpRequest`` header) — redirects
-      to the updated ``qr_dashboard``.
+    Format de réponse
+    -----------------
+    - ``XMLHttpRequest`` (AJAX) — retourne une charge utile JSON contenant
+      l'UUID du nouveau token, un data URI du QR fraîchement rendu, toutes les
+      URLs pertinentes du tableau de bord, et le nouvel horodatage d'expiration.
+    - POST classique (sans en-tête ``X-Requested-With: XMLHttpRequest``) —
+      redirige vers le ``qr_dashboard`` mis à jour.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming POST request.
+        La requête POST entrante.
     token : UUID
-        The current ``QRAttendanceToken.token`` value.
+        La valeur ``QRAttendanceToken.token`` en cours.
 
-    Returns
-    -------
-    JsonResponse | HttpResponseRedirect
-        JSON with new token data for AJAX callers, or a redirect for form submits.
-
-    Raises
+    Retour
     ------
+    JsonResponse | HttpResponseRedirect
+        JSON avec les données du nouveau token pour les appels AJAX, ou
+        redirection pour les soumissions de formulaires.
+
+    Lève
+    ----
     Http404
-        When no token with the given UUID exists.
+        Quand aucun token n'existe avec l'UUID fourni.
     """
     from apps.dashboard.models import SystemSettings
 
@@ -201,7 +206,7 @@ def qr_refresh_token(request, token):
     seance = qr_token.seance
     course = seance.id_cours
 
-    # Ownership check — return 403 JSON for AJAX callers, redirect for others.
+    # Contrôle de propriété — retourne un JSON 403 pour les appels AJAX, une redirection pour les autres.
     if course.professeur_id != request.user.pk:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"error": "Accès non autorisé."}, status=403)
@@ -210,12 +215,12 @@ def qr_refresh_token(request, token):
 
     sys_settings = SystemSettings.get_settings()
 
-    # Preserve GPS settings from the old token so location enforcement continues.
+    # Préserve les paramètres GPS de l'ancien token pour que l'application de la localisation continue.
     old_verify_location = qr_token.verify_location
     old_lat = qr_token.latitude
     old_lng = qr_token.longitude
 
-    # Deactivate all active tokens for this session before issuing the new one.
+    # Désactive tous les tokens actifs pour cette séance avant d'en émettre un nouveau.
     QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
     new_token = QRAttendanceToken.objects.create(
@@ -227,8 +232,8 @@ def qr_refresh_token(request, token):
         longitude=old_lng,
     )
 
-    # AJAX path: return JSON so the JavaScript on the dashboard can update the
-    # QR image and countdown timer without a page reload.
+    # Chemin AJAX : retourne du JSON pour que le JavaScript du tableau de bord puisse mettre
+    # à jour l'image du QR et le compte à rebours sans rechargement de page.
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         scan_url = request.build_absolute_uri(
             reverse("absences:qr_scan", kwargs={"token": str(new_token.token)})
@@ -239,13 +244,13 @@ def qr_refresh_token(request, token):
             "qr_data_uri": qr_data_uri,
             "scan_url": scan_url,
             "expires_at": new_token.expires_at.isoformat(),
-            # Pre-built URLs so the client can update all links in the DOM at once.
+            # URLs pré-construites pour que le client puisse mettre à jour tous les liens du DOM en une fois.
             "refresh_url": reverse("absences:qr_refresh_token", kwargs={"token": str(new_token.token)}),
             "dashboard_url": reverse("absences:qr_dashboard", kwargs={"token": str(new_token.token)}),
             "finalize_url": reverse("absences:qr_finalize", kwargs={"token": str(new_token.token)}),
         })
 
-    # Fallback for non-AJAX form submit: redirect to the updated dashboard.
+    # Repli pour soumission de formulaire non-AJAX : redirige vers le tableau de bord mis à jour.
     messages.success(request, "QR code rafraîchi avec un nouveau token.")
     return redirect("absences:qr_dashboard", token=new_token.token)
 
@@ -255,53 +260,55 @@ def qr_refresh_token(request, token):
 @require_POST
 def qr_finalize(request, token):
     """
-    Close the QR attendance session and lock it permanently.
+    Clôture la séance de présence QR et la verrouille définitivement.
 
-    Steps performed inside a single atomic transaction:
+    Étapes réalisées dans une seule transaction atomique :
 
-    1. Acquire a row-level lock on the ``Seance`` record.
-    2. Collect the set of enrollment IDs that have a ``QRScanRecord``
-       (i.e., students who scanned successfully).
-    3. For every enrolled student **not** in that set, create an ``Absence``
-       record with ``note_professeur = "Absent (QR non scanné)"``.
-    4. Deactivate all remaining active tokens for the session.
-    5. Mark the session as validated (permanently locked).
+    1. Acquérir un verrou au niveau de la ligne sur l'enregistrement ``Seance``.
+    2. Collecter l'ensemble des identifiants d'inscriptions ayant un
+       ``QRScanRecord`` (c.-à-d. les étudiants ayant scanné avec succès).
+    3. Pour chaque étudiant inscrit **n'étant pas** dans cet ensemble, créer
+       un enregistrement ``Absence`` avec
+       ``note_professeur = "Absent (QR non scanné)"``.
+    4. Désactiver tous les tokens actifs restants pour la séance.
+    5. Marquer la séance comme validée (verrouillée définitivement).
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming POST request.
+        La requête POST entrante.
     token : UUID
-        The ``QRAttendanceToken.token`` value identifying the session.
+        La valeur ``QRAttendanceToken.token`` identifiant la séance.
 
-    Returns
-    -------
-    HttpResponseRedirect
-        Redirect to the instructor course detail page after finalization, or to
-        the dashboard if the session was already validated.
-
-    Raises
+    Retour
     ------
+    HttpResponseRedirect
+        Redirection vers la page de détail du cours pour l'instructeur après
+        la finalisation, ou vers le tableau de bord si la séance était déjà
+        validée.
+
+    Lève
+    ----
     Http404
-        When no token with the given UUID exists.
+        Quand aucun token n'existe avec l'UUID fourni.
     """
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
     course = qr_token.seance.id_cours
 
-    # Ownership check.
+    # Contrôle de propriété.
     if course.professeur is None or course.professeur.pk != request.user.pk:
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:instructor_dashboard")
 
     with transaction.atomic():
-        # Lock the session row to prevent a concurrent finalization.
+        # Verrouille la ligne de séance pour empêcher une finalisation concurrente.
         seance = Seance.objects.select_for_update().get(pk=qr_token.seance.pk)
 
         if seance.validated:
             messages.warning(request, "Cette séance est déjà validée.")
             return redirect("dashboard:instructor_course_detail", course.id_cours)
 
-        # Load all active enrollments for the course and academic year.
+        # Charge toutes les inscriptions actives pour le cours et l'année académique.
         inscriptions = list(
             Inscription.objects.filter(
                 id_cours=course,
@@ -310,19 +317,19 @@ def qr_finalize(request, token):
             ).select_related("id_etudiant", "id_cours")
         )
 
-        # Collect all enrollment PKs that have a successful scan record.
+        # Collecte toutes les PK d'inscriptions ayant un enregistrement de scan réussi.
         scanned_ids = set(
             QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
         )
 
-        # Deactivate all tokens now — no more scanning allowed after finalization.
+        # Désactive tous les tokens dès maintenant — aucun scan n'est plus autorisé après la finalisation.
         QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
-        # Create an absence record for each student who did not scan.
+        # Crée un enregistrement d'absence pour chaque étudiant n'ayant pas scanné.
         absent_count = 0
         for ins in inscriptions:
             if ins.id_inscription not in scanned_ids:
-                # Use the computed session duration; fall back to 2h if unavailable.
+                # Utilise la durée calculée de la séance ; replie sur 2h si indisponible.
                 duree = seance.duree_heures() or 2.0
                 _absence, created = Absence.objects.get_or_create(
                     id_inscription=ins,
@@ -338,7 +345,7 @@ def qr_finalize(request, token):
                 if created:
                     absent_count += 1
 
-        # Lock the session permanently.
+        # Verrouille la séance définitivement.
         seance.validated = True
         seance.validated_by = request.user
         seance.date_validated = timezone.now()

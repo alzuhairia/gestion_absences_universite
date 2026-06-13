@@ -1,41 +1,41 @@
 """
-Justification Deadline Service — apps/absences/services/justification_service.py
+Service de délai de justification — apps/absences/services/justification_service.py
 
-Part of the UniAbsences university attendance management system.
+Fait partie du système universitaire de gestion des présences UniAbsences.
 
-Single responsibility: calculate and check the submission deadline for a
-student's absence justification document.
+Responsabilité unique : calculer et vérifier le délai de soumission du
+justificatif d'absence d'un étudiant.
 
-Business rule:
-    A student has ``JUSTIFICATION_DEADLINE_DAYS`` calendar days after the
-    session date to submit a supporting document.  After this deadline the
-    submission window is closed and the absence can no longer be justified.
-    The deadline is inclusive — a student may submit on the last day itself.
+Règle métier :
+    Un étudiant dispose de ``JUSTIFICATION_DEADLINE_DAYS`` jours calendaires
+    après la date de la séance pour soumettre un document justificatif. Passé
+    ce délai, la fenêtre de soumission est fermée et l'absence ne peut plus
+    être justifiée. Le délai est inclusif — un étudiant peut soumettre le
+    dernier jour lui-même.
 """
 import datetime
 
 from django.utils import timezone
 
-# Number of calendar days after the session date during which the student
-# may submit a justification document.  After this window the absence is
-# permanently treated as unjustified.
+# Nombre de jours calendaires après la date de la séance pendant lesquels
+# l'étudiant peut soumettre un document justificatif. Passé cette fenêtre,
+# l'absence est traitée définitivement comme non justifiée.
 JUSTIFICATION_DEADLINE_DAYS = 3
 
 
 def get_justification_deadline(absence):
     """
-    Return the last date on which the student may submit a justification
-    document for a given absence.
+    Retourne la dernière date à laquelle l'étudiant peut soumettre un document justificatif pour une absence donnée.
 
-    The deadline is calculated as:
-        deadline = session_date + JUSTIFICATION_DEADLINE_DAYS
+    Le délai est calculé comme :
+        deadline = date_seance + JUSTIFICATION_DEADLINE_DAYS
 
-    Args:
-        absence: ``apps.absences.models.Absence`` instance whose related
-            ``id_seance`` must be accessible (provides ``date_seance``).
+    Args :
+        absence : instance ``apps.absences.models.Absence`` dont le ``id_seance``
+            relié doit être accessible (fournit ``date_seance``).
 
-    Returns:
-        datetime.date: the inclusive deadline date for document submission.
+    Retour :
+        datetime.date : la date inclusive de fin de délai pour la soumission du document.
     """
     return absence.id_seance.date_seance + datetime.timedelta(
         days=JUSTIFICATION_DEADLINE_DAYS
@@ -44,20 +44,21 @@ def get_justification_deadline(absence):
 
 def is_justification_expired(absence):
     """
-    Return whether the justification submission window has closed for an absence.
+    Indique si la fenêtre de soumission de justificatif est fermée pour une absence.
 
-    The deadline day is inclusive: a student who submits on the deadline date
-    itself is still within the allowed window.
+    Le jour limite est inclusif : un étudiant qui soumet le jour même du délai
+    se trouve encore dans la fenêtre autorisée.
 
-    Args:
-        absence: ``apps.absences.models.Absence`` instance whose related
-            ``id_seance`` must be accessible.
+    Args :
+        absence : instance ``apps.absences.models.Absence`` dont le ``id_seance``
+            relié doit être accessible.
 
-    Returns:
-        bool: True if today is strictly after the deadline date (window closed),
-        False if the student may still submit a justification document.
+    Retour :
+        bool : True si aujourd'hui est strictement après la date limite
+        (fenêtre fermée), False si l'étudiant peut encore soumettre un
+        document justificatif.
     """
     deadline = get_justification_deadline(absence)
     today = timezone.localdate()
-    # Strict comparison: today > deadline means the window is closed.
+    # Comparaison stricte : today > deadline signifie que la fenêtre est fermée.
     return today > deadline
