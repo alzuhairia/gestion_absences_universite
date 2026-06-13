@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================
-# Container entrypoint for UniAbsences
+# Point d'entrée du conteneur pour UniAbsences
 # ============================================
 set -euo pipefail
 
-echo "[entrypoint] Starting UniAbsences container..."
+echo "[entrypoint] Démarrage du conteneur UniAbsences..."
 
 if [ "$(id -u)" -eq 0 ]; then
   mkdir -p /app/staticfiles /app/media /app/logs /tmp
@@ -26,7 +26,7 @@ else
   }
 fi
 
-echo "[entrypoint] Waiting for PostgreSQL and ensuring target database exists..."
+echo "[entrypoint] Attente de PostgreSQL et vérification de l'existence de la base de données cible..."
 python - <<'PY'
 import os
 import sys
@@ -60,31 +60,31 @@ for attempt in range(1, max_attempts + 1):
             cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
             if cur.fetchone() is None:
                 cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
-                print(f"[entrypoint] Database '{db_name}' created.")
+                print(f"[entrypoint] Base de données '{db_name}' créée.")
             else:
-                print(f"[entrypoint] Database '{db_name}' already exists.")
+                print(f"[entrypoint] Base de données '{db_name}' déjà existante.")
 
         conn.close()
-        print("[entrypoint] PostgreSQL is ready.")
+        print("[entrypoint] PostgreSQL est prêt.")
         break
     except OperationalError as exc:
         if attempt == max_attempts:
-            print(f"[entrypoint] PostgreSQL unavailable after {max_attempts} attempts: {exc}")
+            print(f"[entrypoint] PostgreSQL indisponible après {max_attempts} tentatives : {exc}")
             sys.exit(1)
         print(
-            f"[entrypoint] PostgreSQL not ready (attempt {attempt}/{max_attempts}), "
-            f"retrying in {sleep_seconds:.0f}s..."
+            f"[entrypoint] PostgreSQL pas encore prêt (tentative {attempt}/{max_attempts}), "
+            f"nouvelle tentative dans {sleep_seconds:.0f}s..."
         )
         time.sleep(sleep_seconds)
 PY
 
-echo "[entrypoint] Running migrations..."
+echo "[entrypoint] Application des migrations..."
 run_as_app python manage.py migrate --noinput
 
-echo "[entrypoint] Collecting static files..."
+echo "[entrypoint] Collecte des fichiers statiques..."
 run_as_app python manage.py collectstatic --noinput --clear
 
-echo "[entrypoint] Launching application process..."
+echo "[entrypoint] Lancement du processus applicatif..."
 if [ "$(id -u)" -eq 0 ]; then
   if command -v runuser >/dev/null 2>&1; then
     exec runuser -u django -- "$@"

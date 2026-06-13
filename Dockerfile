@@ -1,9 +1,9 @@
 # ============================================
-# Dockerfile for UniAbsences - Django app
+# Dockerfile pour UniAbsences - Application Django
 # ============================================
 
 # ============================================
-# STAGE 1: Base Python image
+# ÉTAPE 1 : Image Python de base
 # ============================================
 FROM python:3.13-slim AS base
 
@@ -12,9 +12,9 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# System deps needed at runtime.
-# Keep this list minimal to reduce OS-level CVE surface in image scans.
-# psycopg2-binary bundles PostgreSQL client libs, so no postgresql-client/libpq-dev.
+# Dépendances système nécessaires à l'exécution.
+# Liste maintenue minimale pour réduire la surface des CVE au niveau de l'OS lors des scans d'image.
+# psycopg2-binary intègre les bibliothèques client PostgreSQL, donc pas besoin de postgresql-client/libpq-dev.
 RUN apt-get update \
     && apt-get -y upgrade \
     && apt-get install -y --no-install-recommends \
@@ -23,7 +23,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================
-# STAGE 2: Python dependencies
+# ÉTAPE 2 : Dépendances Python
 # ============================================
 FROM base AS dependencies
 
@@ -35,7 +35,7 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 # ============================================
-# STAGE 3: Production image
+# ÉTAPE 3 : Image de production
 # ============================================
 FROM dependencies AS production
 
@@ -49,9 +49,9 @@ RUN mkdir -p /app/staticfiles /app/media /app/logs && \
 COPY --chown=django:django . /app/
 RUN sed -i 's/\r$//g' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# USER django is NOT set here intentionally.
-# The entrypoint runs as root to chown mounted volumes,
-# then drops to the django user via runuser/exec.
+# USER django n'est volontairement PAS défini ici.
+# L'entrypoint s'exécute en tant que root pour ajuster les permissions des volumes montés,
+# puis bascule vers l'utilisateur django via runuser/exec.
 
 EXPOSE 8000
 

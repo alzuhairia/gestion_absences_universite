@@ -1,11 +1,11 @@
 """
-Pytest configuration for the UniAbsences project.
+Configuration pytest pour le projet UniAbsences.
 
-This file contains pytest hooks and fixtures for test setup and teardown.
-It ensures Django is properly configured and handles database connection cleanup
-for PostgreSQL test databases.
+Ce fichier contient les hooks et fixtures pytest pour la mise en place et le
+démontage des tests. Il garantit que Django est correctement configuré et gère
+le nettoyage des connexions à la base pour les bases de tests PostgreSQL.
 
-Part of the UniAbsences test infrastructure.
+Fait partie de l'infrastructure de tests UniAbsences.
 """
 import django
 from django.conf import settings
@@ -13,14 +13,15 @@ from django.conf import settings
 
 def pytest_configure(config):
     """
-    Ensure Django is set up before test collection.
-    
-    Also configures logging to suppress file output during tests and
-    terminates stale database connections to prevent test interference.
+    Garantit que Django est configuré avant la collecte des tests.
+
+    Configure également la journalisation pour supprimer la sortie fichier
+    pendant les tests et termine les connexions obsolètes à la base afin
+    d'empêcher toute interférence entre tests.
     """
     settings.LOGGING["handlers"]["file"]["class"] = "logging.NullHandler"
 
-    # Kill stale connections to the test database before pytest-django tries to create/drop it.
+    # Termine les connexions obsolètes vers la base de tests avant que pytest-django ne tente de la créer/supprimer.
     import psycopg2
 
     db = settings.DATABASES["default"]
@@ -43,4 +44,4 @@ def pytest_configure(config):
             )
         conn.close()
     except Exception:
-        pass  # If postgres is unreachable, let Django handle the error later
+        pass  # Si postgres est injoignable, laisser Django gérer l'erreur plus tard

@@ -1,10 +1,10 @@
 # ============================================
-# Docker Compose - Production Configuration
+# Docker Compose - Configuration de production
 # ============================================
-# STACK: Django + Nginx + PostgreSQL + Redis + Uptime Kuma
+# STACK : Django + Nginx + PostgreSQL + Redis + Uptime Kuma
 services:
   # ============================================
-  # SERVICE: PostgreSQL
+  # SERVICE : PostgreSQL
   # ============================================
   db:
     image: postgres:16-alpine
@@ -28,7 +28,7 @@ services:
         ipv4_address: 172.30.0.12
 
   # ============================================
-  # SERVICE: Redis (shared cache for distributed ratelimiting)
+  # SERVICE : Redis (cache partagé pour le rate limiting distribué)
   # ============================================
   redis:
     image: redis:7-alpine
@@ -52,7 +52,7 @@ services:
         ipv4_address: 172.30.0.13
 
   # ============================================
-  # SERVICE: Django (Gunicorn)
+  # SERVICE : Django (Gunicorn)
   # ============================================
   web:
     build:
@@ -91,7 +91,7 @@ services:
       start_period: 30s
 
   # ============================================
-  # SERVICE: Nginx (Reverse Proxy)
+  # SERVICE : Nginx (reverse proxy)
   # ============================================
   nginx:
     build:
@@ -127,8 +127,8 @@ services:
       retries: 3
 
   # ============================================
-  # SERVICE: Certbot (Let's Encrypt SSL)
-  # One-shot container, run via: scripts/init-ssl.sh or scripts/renew-ssl.sh
+  # SERVICE : Certbot (SSL Let's Encrypt)
+  # Conteneur à exécution unique, lancé via : scripts/init-ssl.sh ou scripts/renew-ssl.sh
   # ============================================
   certbot:
     image: certbot/certbot
@@ -142,8 +142,8 @@ services:
       unabsences_network:
 
   # ============================================
-  # SERVICE: Uptime Kuma (Monitoring)
-  # Accessible only from localhost (127.0.0.1:3001)
+  # SERVICE : Uptime Kuma (monitoring)
+  # Accessible uniquement depuis localhost (127.0.0.1:3001)
   # ============================================
   uptime-kuma:
     image: louislam/uptime-kuma:1

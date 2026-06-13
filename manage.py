@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """
-Django management entry point for the UniAbsences project.
+Point d'entrée de gestion Django pour le projet UniAbsences.
 
-This script is the standard Django command-line utility. It bootstraps
-Django's settings module and delegates execution to Django's management
-command infrastructure.
+Ce script est l'utilitaire en ligne de commande standard de Django. Il initialise
+le module de paramètres de Django et délègue l'exécution à l'infrastructure
+de commandes de gestion de Django.
 
-Part of the UniAbsences project root.
+Situé à la racine du projet UniAbsences.
 """
 
 import os
@@ -15,24 +15,25 @@ import sys
 
 def main():
     """
-    Configure Django settings and execute the requested management command.
+    Configure les paramètres Django et exécute la commande de gestion demandée.
 
-    Sets the DJANGO_SETTINGS_MODULE environment variable to the project's
-    settings package if it has not already been set, then hands off to
-    Django's ``execute_from_command_line`` with the original ``sys.argv``.
+    Définit la variable d'environnement DJANGO_SETTINGS_MODULE sur le package
+    de paramètres du projet si elle n'a pas encore été définie, puis passe le
+    relais à la fonction ``execute_from_command_line`` de Django avec le
+    ``sys.argv`` d'origine.
 
-    Raises:
-        ImportError: If Django is not installed or the virtual environment
-            is not activated.
+    Lève :
+        ImportError : si Django n'est pas installé ou si l'environnement
+            virtuel n'est pas activé.
     """
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
         raise ImportError(
-            "Couldn't import Django. Are you sure it's installed and "
-            "available on your PYTHONPATH environment variable? Did you "
-            "forget to activate a virtual environment?"
+            "Impossible d'importer Django. Êtes-vous sûr qu'il est bien installé et "
+            "disponible dans votre variable d'environnement PYTHONPATH ? Avez-vous "
+            "oublié d'activer un environnement virtuel ?"
         ) from exc
     execute_from_command_line(sys.argv)
 

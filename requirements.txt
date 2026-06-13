@@ -1,5 +1,5 @@
 # ============================================
-# Dependencies — UniAbsences
+# Dépendances — UniAbsences
 # ============================================
 
 # Framework
@@ -13,27 +13,27 @@ django-csp>=4.0,<5
 django-ratelimit==4.1.0
 django-redis==6.0.0
 
-# Database
+# Base de données
 psycopg2-binary==2.9.11
 
-# Environment
+# Environnement
 python-dotenv==1.2.2
 
-# WSGI server
+# Serveur WSGI
 gunicorn==25.1.0
 
 # PDF / Excel
 reportlab==4.4.10
 openpyxl==3.1.5
 
-# Utilities
+# Utilitaires
 Pillow>=12.1.1,<13
 qrcode>=8.0,<9
 python-magic==0.4.27
 pyotp==2.9.0
 redis==7.3.0
 
-# Test
+# Tests
 pytest>=9.0,<10
 pytest-django>=4.12,<5
 pytest-cov>=6.0,<7

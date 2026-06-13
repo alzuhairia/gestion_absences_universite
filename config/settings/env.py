@@ -43,12 +43,12 @@ def env_bool(name: str, default: bool = False) -> bool:
     Valeurs vraies acceptées (insensible à la casse) : ``1``, ``true``, ``yes``, ``on``.
     Toute autre chaîne non vide est traitée comme ``False``.
 
-    Parameters:
-        name (str): Nom de la variable d'environnement.
-        default (bool): Valeur retournée lorsque la variable n'est pas définie.
+    Paramètres :
+        name (str) : nom de la variable d'environnement.
+        default (bool) : valeur retournée lorsque la variable n'est pas définie.
 
-    Returns:
-        bool: Valeur booléenne analysée ou ``default``.
+    Retour :
+        bool : valeur booléenne analysée ou ``default``.
     """
     value = os.getenv(name)
     if value is None:
@@ -60,15 +60,15 @@ def env_int(name: str, default: int) -> int:
     """
     Analyse une variable d'environnement comme un entier.
 
-    Parameters:
-        name (str): Nom de la variable d'environnement.
-        default (int): Valeur retournée lorsque la variable n'est pas définie.
+    Paramètres :
+        name (str) : nom de la variable d'environnement.
+        default (int) : valeur retournée lorsque la variable n'est pas définie.
 
-    Returns:
-        int: Valeur entière analysée ou ``default``.
+    Retour :
+        int : valeur entière analysée ou ``default``.
 
-    Raises:
-        ImproperlyConfigured: Si la variable est définie mais ne peut être
+    Lève :
+        ImproperlyConfigured : si la variable est définie mais ne peut être
             convertie en entier.
     """
     value = os.getenv(name)
@@ -86,13 +86,13 @@ def env_list(name: str, default: str = "") -> list[str]:
 
     Les segments vides (ex. virgules en fin) sont supprimés.
 
-    Parameters:
-        name (str): Nom de la variable d'environnement.
-        default (str): Valeur par défaut brute séparée par des virgules,
+    Paramètres :
+        name (str) : nom de la variable d'environnement.
+        default (str) : valeur par défaut brute séparée par des virgules,
             utilisée lorsque la variable n'est pas définie.
 
-    Returns:
-        list[str]: Liste des valeurs non vides, nettoyées.
+    Retour :
+        list[str] : liste des valeurs non vides, nettoyées.
     """
     raw = os.getenv(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
@@ -102,16 +102,16 @@ def env_cidr_list(name: str, default: str = "") -> list[str]:
     """
     Analyse une liste séparée par des virgules de blocs réseau CIDR avec validation IP.
 
-    Parameters:
-        name (str): Nom de la variable d'environnement.
-        default (str): Valeur par défaut brute séparée par des virgules,
+    Paramètres :
+        name (str) : nom de la variable d'environnement.
+        default (str) : valeur par défaut brute séparée par des virgules,
             utilisée lorsque la variable n'est pas définie.
 
-    Returns:
-        list[str]: Chaînes CIDR validées (ex. ``["10.0.0.0/8", "::1/128"]``).
+    Retour :
+        list[str] : chaînes CIDR validées (ex. ``["10.0.0.0/8", "::1/128"]``).
 
-    Raises:
-        ImproperlyConfigured: Si l'une des valeurs n'est pas un réseau IP
+    Lève :
+        ImproperlyConfigured : si l'une des valeurs n'est pas un réseau IP
             valide en notation CIDR.
     """
     values = env_list(name, default)

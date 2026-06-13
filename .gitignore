@@ -1,9 +1,9 @@
-# Virtual environments
+# Environnements virtuels
 venv/
 .venv/
 env/
 
-# Environment variables
+# Variables d'environnement
 .env
 .env.production
 .env.local
@@ -23,7 +23,7 @@ db.sqlite3
 media/
 staticfiles/
 
-# Logs
+# Journaux
 *.log
 logs/
 
@@ -34,12 +34,12 @@ logs/
 *.swo
 *~
 
-# OS
+# Système d'exploitation
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Testing / caching
+# Tests / cache
 .pytest_cache/
 .ruff_cache/
 htmlcov/
@@ -52,7 +52,7 @@ coverage.xml
 # Docker
 .dockerignore
 
-# Misc
+# Divers
 backups/
 cookies.txt
 *.bak
