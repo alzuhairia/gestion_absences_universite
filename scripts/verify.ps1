@@ -7,14 +7,15 @@ function Log-Info {
     Write-Host "[INFO] $Msg" -ForegroundColor Cyan
 }
 
-Write-Host "--- VERIFICATION UNIABSENCES ---" -ForegroundColor Magenta
+Write-Host "--- VÉRIFICATION UNIABSENCES ---" -ForegroundColor Magenta
 
 # 1. Vérification des statuts
-Log-Info "--- ETAT DES CONTENEURS ---"
+Log-Info "--- ÉTAT DES CONTENEURS ---"
 docker compose ps
 
 # 2. Vérification rapide des logs Django
 Log-Info "--- DERNIERS LOGS WEB (Django) ---"
+
 docker logs unabsences_web --tail 10
 
 # 3. Vérification Uptime Kuma
@@ -50,5 +51,5 @@ if ($Autoheal) {
     docker logs unabsences_autoheal --tail 5
 } else {
     Write-Host "
-[TIP] Pour tester la réparation automatique, lancez : .\verify.ps1 -Autoheal" -ForegroundColor Gray
+[ASTUCE] Pour tester la réparation automatique, lancez : .\verify.ps1 -Autoheal" -ForegroundColor Gray
 }

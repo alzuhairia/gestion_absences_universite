@@ -1,7 +1,7 @@
 FROM nginx:alpine
 
-# OpenSSL is used to generate a fallback self-signed certificate
-# when real certificates are not provided yet.
+# OpenSSL est utilisé pour générer un certificat auto-signé de repli
+# lorsque les vrais certificats ne sont pas encore fournis.
 RUN apk add --no-cache openssl
 
 COPY nginx.conf /etc/nginx/nginx.conf

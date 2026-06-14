@@ -6,16 +6,16 @@ DOMAIN="${DOMAIN:-}"
 LE_LIVE="/etc/letsencrypt/live/${DOMAIN}"
 
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "localhost" ]; then
-    echo "[nginx] No DOMAIN set, skipping Let's Encrypt cert linking."
+    echo "[nginx] Aucun DOMAIN défini, liaison du certificat Let's Encrypt ignorée."
     exit 0
 fi
 
 if [ -f "${LE_LIVE}/fullchain.pem" ] && [ -f "${LE_LIVE}/privkey.pem" ]; then
-    echo "[nginx] Found Let's Encrypt certificate for ${DOMAIN}, copying..."
+    echo "[nginx] Certificat Let's Encrypt trouvé pour ${DOMAIN}, copie en cours..."
     mkdir -p "$CERT_DIR"
     cp -L "${LE_LIVE}/fullchain.pem" "${CERT_DIR}/fullchain.pem"
     cp -L "${LE_LIVE}/privkey.pem" "${CERT_DIR}/privkey.pem"
-    echo "[nginx] Let's Encrypt certificate installed."
+    echo "[nginx] Certificat Let's Encrypt installé."
 else
-    echo "[nginx] No Let's Encrypt cert for ${DOMAIN} yet. Self-signed will be used."
+    echo "[nginx] Pas encore de certificat Let's Encrypt pour ${DOMAIN}. Le certificat auto-signé sera utilisé."
 fi

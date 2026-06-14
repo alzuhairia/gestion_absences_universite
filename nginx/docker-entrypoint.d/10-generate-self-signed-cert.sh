@@ -8,7 +8,7 @@ SELF_SIGNED_CN="${SSL_SELF_SIGNED_CN:-localhost}"
 SELF_SIGNED_DAYS="${SSL_SELF_SIGNED_DAYS:-365}"
 
 if [ ! -s "$CERT_FILE" ] || [ ! -s "$KEY_FILE" ]; then
-  echo "[nginx] TLS certificate not found. Generating fallback self-signed certificate for ${SELF_SIGNED_CN}."
+  echo "[nginx] Certificat TLS introuvable. Génération d'un certificat auto-signé de repli pour ${SELF_SIGNED_CN}."
   mkdir -p "$CERT_DIR"
   openssl req -x509 -nodes -newkey rsa:2048 \
     -keyout "$KEY_FILE" \

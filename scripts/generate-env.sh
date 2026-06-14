@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================
-# Generate production .env file with secure random secrets
-# Usage: bash scripts/generate-env.sh [domain]
+# Génère un fichier .env de production avec des secrets aléatoires sécurisés
+# Utilisation : bash scripts/generate-env.sh [domaine]
 # ============================================
 set -euo pipefail
 
@@ -9,12 +9,12 @@ DOMAIN="${1:-absences.infotechno.eu}"
 ENV_FILE=".env"
 
 if [ -f "$ENV_FILE" ]; then
-    echo "ERROR: .env already exists."
-    echo "Rename or delete it before running this script."
+    echo "ERREUR : .env existe déjà."
+    echo "Renommez-le ou supprimez-le avant d'exécuter ce script."
     exit 1
 fi
 
-# Generate cryptographically secure random values
+# Génère des valeurs aléatoires cryptographiquement sûres
 SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(50))")
 DB_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
 REDIS_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
@@ -22,11 +22,11 @@ HEALTHCHECK_TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 cat > "$ENV_FILE" << EOF
 # ============================================
-# Production environment — generated $(date +%Y-%m-%d)
-# Domain: ${DOMAIN}
+# Environnement de production — généré le $(date +%Y-%m-%d)
+# Domaine : ${DOMAIN}
 # ============================================
 
-# Django core
+# Cœur Django
 SECRET_KEY=${SECRET_KEY}
 DEBUG=False
 ALLOWED_HOSTS=${DOMAIN}
@@ -43,7 +43,7 @@ SECURE_HSTS_PRELOAD=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
 
-# Database
+# Base de données
 DB_NAME=unabsences_db
 DB_USER=unabsences
 DB_PASSWORD=${DB_PASSWORD}
@@ -56,7 +56,7 @@ REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
 REDIS_MAX_CONNECTIONS=100
 REDIS_CACHE_TIMEOUT=300
 
-# Rate limits
+# Limites de débit
 HEALTHCHECK_RATE_LIMIT=12/m
 LOGIN_RATE_LIMIT_IP=20/5m
 LOGIN_RATE_LIMIT_COMBINED=5/5m
@@ -66,18 +66,18 @@ HEALTHCHECK_TOKEN=${HEALTHCHECK_TOKEN}
 HEALTHCHECK_TOKEN_PREVIOUS=
 HEALTHCHECK_ALLOWLIST_CIDRS=127.0.0.1/32,::1/128,172.30.0.14/32
 
-# Domain (used by nginx + SSL scripts)
+# Domaine (utilisé par nginx + scripts SSL)
 DOMAIN=${DOMAIN}
 EOF
 
 echo ""
-echo "=== .env generated successfully ==="
-echo "  Domain:   ${DOMAIN}"
-echo "  DB User:  unabsences"
-echo "  Secrets:  randomly generated"
+echo "=== .env généré avec succès ==="
+echo "  Domaine          : ${DOMAIN}"
+echo "  Utilisateur BDD  : unabsences"
+echo "  Secrets          : générés aléatoirement"
 echo ""
-echo "Next steps:"
+echo "Étapes suivantes :"
 echo "  1. docker compose up -d --build"
-echo "  2. bash scripts/init-ssl.sh your@email.com"
-echo "  3. Visit https://${DOMAIN}/setup/ to create admin account"
+echo "  2. bash scripts/init-ssl.sh votre@email.com"
+echo "  3. Aller sur https://${DOMAIN}/setup/ pour créer le compte admin"
 echo ""
