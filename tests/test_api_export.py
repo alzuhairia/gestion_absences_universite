@@ -64,10 +64,10 @@ class PdfExportTests(TestCase):
 
     def test_pdf_export_with_large_dataset_does_not_crash(self):
         """
-        PDF export with many absences (multi-page) completes without error.
-        Verifies the 500-row cap and page-break logic handle volume.
+        L'export PDF avec de nombreuses absences (multi-pages) se termine sans erreur.
+        Vérifie que le cap de 500 lignes et la logique de saut de page gèrent le volume.
         """
-        # Create 60 seances + absences — enough to span multiple PDF pages
+        # Crée 60 séances + absences — assez pour couvrir plusieurs pages PDF
         seances = Seance.objects.bulk_create(
             [
                 Seance(
@@ -104,12 +104,12 @@ class PdfExportTests(TestCase):
         self.assertIn(b"%PDF", response.content[:10])
 
     def test_pdf_export_error_returns_500_json(self):
-        """If PDF generation crashes, return a clean 500, not an unhandled exception."""
+        """Si la génération PDF plante, retourner un 500 propre, pas une exception non gérée."""
         self.client.force_login(self.secretary)
         url = reverse("api:export-student-pdf", args=[self.student.pk])
 
         with patch(
-            "apps.api.views._build_student_pdf",
+            "apps.api.views.export_views._build_student_pdf",
             side_effect=RuntimeError("canvas exploded"),
         ):
             response = self.client.get(url, secure=True)

@@ -179,7 +179,7 @@ class CourseDeletionTests(BaseAbsenceTestCase):
             {self.inscription1},
         )
         with patch.object(Cours, "delete", side_effect=protected_err), \
-             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+             patch("apps.dashboard.views_secretary_courses.messages") as mock_messages:
             response = self.client.post(url, secure=True)
 
         self.assertEqual(response.status_code, 302)
@@ -203,7 +203,7 @@ class CourseDeletionTests(BaseAbsenceTestCase):
         url = reverse("dashboard:secretary_course_delete", args=[course_pk])
 
         with patch.object(Cours, "delete", side_effect=RuntimeError("DB connection lost")), \
-             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+             patch("apps.dashboard.views_secretary_courses.messages") as mock_messages:
             response = self.client.post(url, secure=True)
 
         self.assertEqual(response.status_code, 302)

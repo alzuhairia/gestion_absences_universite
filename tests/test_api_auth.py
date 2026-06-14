@@ -178,7 +178,7 @@ class ApiAuthContractTests(TestCase):
         self.client.force_login(self.secretary)
 
         with patch(
-            "apps.enrollments.views.Departement.objects.filter",
+            "apps.enrollments.enrollment_api.Departement.objects.filter",
             side_effect=RuntimeError("secret-db-error"),
         ):
             response = self.client.get(self.url, self.query, secure=True)
