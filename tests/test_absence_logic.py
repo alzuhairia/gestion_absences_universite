@@ -41,7 +41,7 @@ class AbsenceLogicBaseTestCase(TestCase):
             role=User.Role.ETUDIANT,
         )
 
-        # Course: Python — 60h total (15 sessions of 4h)
+        # Cours : Python — 60h au total (15 séances de 4h)
         self.cours = Cours.objects.create(
             code_cours="PYTHON",
             nom_cours="Python",
@@ -58,7 +58,7 @@ class AbsenceLogicBaseTestCase(TestCase):
             id_annee=self.annee,
         )
 
-        # Create 15 sessions of 4h each
+        # Crée 15 séances de 4h chacune
         self.seances = []
         for day in range(1, 16):
             seance = Seance.objects.create(

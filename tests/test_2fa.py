@@ -1,18 +1,18 @@
 """
-Tests for Two-Factor Authentication (TOTP) in the UniAbsences project.
+Tests pour l'authentification à deux facteurs (TOTP) dans le projet UniAbsences.
 
-Coverage:
-  - TwoFactorSetupTests     : enrolment flow (GET generates QR + secret,
-                              valid/invalid POST, already-enabled redirect).
-  - TwoFactorVerifyTests    : middleware gate, valid/invalid codes,
-                              rate-limit lockout after MAX_VERIFY_ATTEMPTS.
-  - TwoFactorDisableTests   : password-confirmation disablement.
-  - TwoFactorLoginFlowTests : full login → redirect-to-verify integration.
+Couverture :
+  - TwoFactorSetupTests     : flux d'activation (GET génère le QR + secret,
+                              POST valide/invalide, redirection si déjà activé).
+  - TwoFactorVerifyTests    : portail middleware, codes valides/invalides,
+                              verrouillage après MAX_VERIFY_ATTEMPTS.
+  - TwoFactorDisableTests   : désactivation après confirmation du mot de passe.
+  - TwoFactorLoginFlowTests : intégration login complet → redirection vers verify.
 
-All test classes suppress SSL redirect via @override_settings so that
-the test client does not need to use ``secure=True`` on every request.
+Toutes les classes de tests désactivent la redirection SSL via @override_settings
+afin que le client de test n'ait pas besoin d'utiliser ``secure=True`` à chaque requête.
 
-Part of the UniAbsences test suite.
+Fait partie de la suite de tests UniAbsences.
 """
 
 import pyotp
@@ -31,15 +31,15 @@ from apps.accounts.mfa.mfa_service import (
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TwoFactorSetupTests(TestCase):
     """
-    Tests for the 2FA enrolment view (setup_2fa).
+    Tests pour la vue d'activation 2FA (setup_2fa).
 
-    Verifies that the setup page generates a TOTP secret and QR code on GET,
-    activates 2FA on a valid POST, rejects an invalid code, and redirects
-    away when 2FA is already enabled.
+    Vérifie que la page de configuration génère un secret TOTP et un QR code
+    sur GET, active la 2FA sur un POST valide, rejette un code invalide, et
+    redirige ailleurs lorsque la 2FA est déjà activée.
     """
 
     def setUp(self):
-        """Create a student user and log them in before each test."""
+        """Crée un utilisateur étudiant et le connecte avant chaque test."""
         self.user = User.objects.create_user(
             email="totp-setup@example.com",
             nom="Setup",
@@ -51,20 +51,20 @@ class TwoFactorSetupTests(TestCase):
         self.url = reverse("accounts:setup_2fa")
 
     def test_get_setup_generates_secret_and_qr(self):
-        """GET /accounts/2fa/setup/ must render a QR code and store a secret in the session."""
+        """GET /accounts/2fa/setup/ doit rendre un QR code et stocker un secret dans la session."""
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("qr_data_uri", response.context)
         self.assertTrue(response.context["qr_data_uri"].startswith("data:image/png;base64,"))
         self.assertIn(SETUP_SECRET_SESSION_KEY, self.client.session)
-        # Secret must NOT be persisted to DB until the user validates the code.
+        # Le secret ne doit PAS être persisté en BDD tant que l'utilisateur n'a pas validé le code.
         self.user.refresh_from_db()
         self.assertEqual(self.user.two_factor_secret, "")
         self.assertFalse(self.user.two_factor_enabled)
 
     def test_post_valid_token_activates_2fa(self):
-        """POST with a valid TOTP code must activate 2FA and persist the secret to the DB."""
-        # GET first to generate the session secret.
+        """POST avec un code TOTP valide doit activer la 2FA et persister le secret en BDD."""
+        # GET d'abord pour générer le secret de session.
         self.client.get(self.url)
         secret = self.client.session[SETUP_SECRET_SESSION_KEY]
         valid_token = pyotp.TOTP(secret).now()
@@ -75,16 +75,16 @@ class TwoFactorSetupTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.two_factor_enabled)
         self.assertEqual(self.user.two_factor_secret, secret)
-        # Session must be marked as 2FA-verified and the setup secret must be cleared.
+        # La session doit être marquée comme 2FA-vérifiée et le secret de setup doit être effacé.
         self.assertTrue(self.client.session.get(VERIFIED_SESSION_KEY))
         self.assertNotIn(SETUP_SECRET_SESSION_KEY, self.client.session)
 
     def test_post_invalid_token_does_not_activate_2fa(self):
-        """POST with an invalid TOTP code must NOT enable 2FA."""
+        """POST avec un code TOTP invalide ne doit PAS activer la 2FA."""
         self.client.get(self.url)
 
         response = self.client.post(self.url, {"token": "000000"})
-        # Redirects back to setup with an error message.
+        # Redirige vers la page de setup avec un message d'erreur.
         self.assertEqual(response.status_code, 302)
 
         self.user.refresh_from_db()
@@ -92,7 +92,7 @@ class TwoFactorSetupTests(TestCase):
         self.assertEqual(self.user.two_factor_secret, "")
 
     def test_already_enabled_redirects_to_profile(self):
-        """If 2FA is already active, the setup view must redirect to the profile page."""
+        """Si la 2FA est déjà active, la vue setup doit rediriger vers la page de profil."""
         self.user.two_factor_secret = pyotp.random_base32()
         self.user.two_factor_enabled = True
         self.user.save()
@@ -105,15 +105,16 @@ class TwoFactorSetupTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TwoFactorVerifyTests(TestCase):
     """
-    Tests for the post-login 2FA verification view (verify_2fa) and middleware.
+    Tests pour la vue de vérification 2FA post-login (verify_2fa) et le middleware.
 
-    Verifies that the middleware blocks protected views, that a valid code
-    marks the session as verified, that invalid codes increment the attempt
-    counter, and that exceeding MAX_VERIFY_ATTEMPTS logs the user out.
+    Vérifie que le middleware bloque les vues protégées, qu'un code valide
+    marque la session comme vérifiée, que les codes invalides incrémentent
+    le compteur de tentatives, et que dépasser MAX_VERIFY_ATTEMPTS
+    déconnecte l'utilisateur.
     """
 
     def setUp(self):
-        """Create a user with 2FA already enabled and store the secret for TOTP generation."""
+        """Crée un utilisateur avec 2FA déjà activée et stocke le secret pour la génération TOTP."""
         self.secret = pyotp.random_base32()
         self.user = User.objects.create_user(
             email="totp-verify@example.com",
@@ -128,14 +129,14 @@ class TwoFactorVerifyTests(TestCase):
         self.url = reverse("accounts:verify_2fa")
 
     def test_middleware_blocks_dashboard_until_verified(self):
-        """Without 2FA verification, accessing the dashboard must redirect to verify_2fa."""
+        """Sans vérification 2FA, l'accès au tableau de bord doit rediriger vers verify_2fa."""
         self.client.force_login(self.user)
         response = self.client.get(reverse("dashboard:index"))
         self.assertEqual(response.status_code, 302)
         self.assertIn("verify", response.url)
 
     def test_post_valid_token_marks_session_verified(self):
-        """A valid TOTP code must set the 2fa_verified flag in the session."""
+        """Un code TOTP valide doit positionner le drapeau 2fa_verified dans la session."""
         self.client.force_login(self.user)
         valid_token = pyotp.TOTP(self.secret).now()
 
@@ -144,7 +145,7 @@ class TwoFactorVerifyTests(TestCase):
         self.assertTrue(self.client.session.get(VERIFIED_SESSION_KEY))
 
     def test_post_invalid_token_increments_attempts(self):
-        """An invalid TOTP code must increment the attempt counter and return HTTP 400."""
+        """Un code TOTP invalide doit incrémenter le compteur de tentatives et retourner HTTP 400."""
         self.client.force_login(self.user)
 
         response = self.client.post(self.url, {"token": "000000"})
@@ -154,11 +155,11 @@ class TwoFactorVerifyTests(TestCase):
 
     def test_too_many_failed_attempts_logs_user_out(self):
         """
-        After MAX_VERIFY_ATTEMPTS failures, the user must be logged out and
-        redirected to the login page.
+        Après MAX_VERIFY_ATTEMPTS échecs, l'utilisateur doit être déconnecté
+        et redirigé vers la page de connexion.
         """
         self.client.force_login(self.user)
-        # Pre-seed the session with the maximum number of prior failures.
+        # Pré-amorce la session avec le nombre maximal d'échecs antérieurs.
         session = self.client.session
         session[ATTEMPTS_SESSION_KEY] = MAX_VERIFY_ATTEMPTS
         session.save()
@@ -166,7 +167,7 @@ class TwoFactorVerifyTests(TestCase):
         response = self.client.post(self.url, {"token": "000000"})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("accounts:login"))
-        # Confirm the user is actually logged out by checking a protected page.
+        # Confirme que l'utilisateur est bien déconnecté en testant une page protégée.
         response2 = self.client.get(reverse("dashboard:index"))
         self.assertEqual(response2.status_code, 302)
         self.assertIn("login", response2.url)
@@ -175,16 +176,16 @@ class TwoFactorVerifyTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TwoFactorDisableTests(TestCase):
     """
-    Tests for the 2FA disablement view (disable_2fa).
+    Tests pour la vue de désactivation 2FA (disable_2fa).
 
-    Verifies that submitting the correct password disables 2FA and that
-    a wrong password is rejected without altering the 2FA state.
+    Vérifie que la soumission du bon mot de passe désactive la 2FA et qu'un
+    mauvais mot de passe est rejeté sans altérer l'état de la 2FA.
     """
 
     def setUp(self):
         """
-        Create a user with 2FA enabled, log them in, and mark the session
-        as already 2FA-verified so the middleware does not block the test.
+        Crée un utilisateur avec 2FA activée, le connecte, et marque la session
+        comme déjà 2FA-vérifiée pour que le middleware ne bloque pas le test.
         """
         self.password = "StrongPass123!"
         self.user = User.objects.create_user(
@@ -198,14 +199,14 @@ class TwoFactorDisableTests(TestCase):
         self.user.two_factor_enabled = True
         self.user.save()
         self.client.force_login(self.user)
-        # Bypass the 2FA middleware by marking the session as already verified.
+        # Contourne le middleware 2FA en marquant la session comme déjà vérifiée.
         session = self.client.session
         session[VERIFIED_SESSION_KEY] = True
         session.save()
         self.url = reverse("accounts:disable_2fa")
 
     def test_disable_with_correct_password(self):
-        """Correct password submission must disable 2FA and clear the secret."""
+        """La soumission du bon mot de passe doit désactiver la 2FA et effacer le secret."""
         response = self.client.post(self.url, {"password": self.password})
         self.assertEqual(response.status_code, 302)
 
@@ -214,7 +215,7 @@ class TwoFactorDisableTests(TestCase):
         self.assertEqual(self.user.two_factor_secret, "")
 
     def test_disable_with_wrong_password_fails(self):
-        """An incorrect password must be rejected and 2FA must remain enabled."""
+        """Un mot de passe incorrect doit être rejeté et la 2FA doit rester activée."""
         response = self.client.post(self.url, {"password": "WrongPass!"})
         self.assertEqual(response.status_code, 400)
 
@@ -226,18 +227,20 @@ class TwoFactorDisableTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TwoFactorLoginFlowTests(TestCase):
     """
-    Integration tests for the complete login flow when 2FA is enabled.
+    Tests d'intégration pour le flux de connexion complet quand la 2FA est activée.
 
-    Verifies that after a successful credential check the user is redirected
-    to the 2FA verification page rather than directly to the dashboard, and
-    that the session is not prematurely marked as verified.
+    Vérifie qu'après une vérification d'identifiants réussie, l'utilisateur
+    est redirigé vers la page de vérification 2FA plutôt que directement
+    vers le tableau de bord, et que la session n'est pas prématurément
+    marquée comme vérifiée.
     """
 
     def test_login_with_2fa_redirects_to_verify(self):
         """
-        After a successful login, a user with 2FA enabled must be redirected
-        to verify_2fa — NOT to the dashboard — and the session must NOT be
-        marked as verified until the TOTP code is submitted.
+        Après une connexion réussie, un utilisateur avec 2FA activée doit être
+        redirigé vers verify_2fa — PAS vers le tableau de bord — et la session
+        ne doit PAS être marquée comme vérifiée tant que le code TOTP n'est
+        pas soumis.
         """
         secret = pyotp.random_base32()
         user = User.objects.create_user(
@@ -258,5 +261,5 @@ class TwoFactorLoginFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn("verify", response.url)
-        # Session must NOT be marked as 2FA-verified before the code is submitted.
+        # La session ne doit PAS être marquée comme 2FA-vérifiée avant la soumission du code.
         self.assertFalse(self.client.session.get(VERIFIED_SESSION_KEY))

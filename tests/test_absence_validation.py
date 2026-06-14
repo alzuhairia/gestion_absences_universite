@@ -22,7 +22,7 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
     """Tests de validation au niveau modèle ``Absence`` (méthode ``clean``)."""
 
     def test_duration_cannot_exceed_seance(self):
-        """duree_absence > seance duration raises ValidationError."""
+        """duree_absence > durée de la séance lève ValidationError."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],  # 4h session
@@ -36,7 +36,7 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
         self.assertIn("duree_absence", ctx.exception.message_dict)
 
     def test_duration_equal_to_seance_is_valid(self):
-        """duree_absence == seance duration is valid."""
+        """duree_absence == durée de la séance est valide."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],  # 4h session
@@ -45,10 +45,10 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
             statut=Absence.Statut.NON_JUSTIFIEE,
             encodee_par=self.prof,
         )
-        absence.clean()  # Should not raise
+        absence.clean()  # Ne doit pas lever
 
     def test_partiel_requires_positive_duration(self):
-        """PARTIEL type with zero or missing duration raises ValidationError."""
+        """Le type PARTIEL avec une durée nulle ou manquante lève ValidationError."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
@@ -61,7 +61,7 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
             absence.clean()
 
     def test_partiel_with_valid_duration(self):
-        """PARTIEL with valid partial duration passes validation."""
+        """PARTIEL avec une durée partielle valide passe la validation."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],  # 4h session
@@ -70,15 +70,15 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
             statut=Absence.Statut.NON_JUSTIFIEE,
             encodee_par=self.prof,
         )
-        absence.clean()  # Should not raise
+        absence.clean()  # Ne doit pas lever
 
     def test_absent_type_choices(self):
-        """Only ABSENT and PARTIEL are the primary type choices."""
+        """Seuls ABSENT et PARTIEL sont les choix de type principaux."""
         self.assertEqual(Absence.TypeAbsence.ABSENT, "ABSENT")
         self.assertEqual(Absence.TypeAbsence.PARTIEL, "PARTIEL")
 
     def test_absence_exceeds_seance_duration(self):
-        """Creating an absence with duration > seance duration raises ValidationError."""
+        """Créer une absence avec une durée > durée de la séance lève ValidationError."""
         with self.assertRaises(ValidationError) as ctx:
             Absence.objects.create(
                 id_inscription=self.inscription,
@@ -91,7 +91,7 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
         self.assertIn("duree_absence", ctx.exception.message_dict)
 
     def test_partiel_equal_to_seance_duration_rejected(self):
-        """PARTIEL with duration == seance duration is invalid (should use ABSENT)."""
+        """PARTIEL avec une durée == durée de la séance est invalide (utiliser ABSENT)."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],  # 4h session
@@ -105,7 +105,7 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
         self.assertIn("duree_absence", ctx.exception.message_dict)
 
     def test_partiel_just_under_seance_duration_valid(self):
-        """PARTIEL with duration slightly less than seance duration is valid."""
+        """PARTIEL avec une durée légèrement inférieure à celle de la séance est valide."""
         absence = Absence(
             id_inscription=self.inscription,
             id_seance=self.seances[0],  # 4h session
@@ -114,18 +114,18 @@ class AbsenceValidationTest(AbsenceLogicBaseTestCase):
             statut=Absence.Statut.NON_JUSTIFIEE,
             encodee_par=self.prof,
         )
-        absence.clean()  # Should not raise
+        absence.clean()  # Ne doit pas lever
 
 
 class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
-    """Tests that absence rate is capped at 100% even with corrupt data."""
+    """Tests : le taux d'absence est plafonné à 100 % même avec des données corrompues."""
 
     def test_calculer_absence_stats_capped_at_100(self):
         """
-        If total absence hours somehow exceed total periods,
-        taux should be capped at 100%.
+        Si le total d'heures d'absence dépasse d'une manière ou d'une autre
+        le total des périodes, le taux doit être plafonné à 100 %.
         """
-        # Course with only 2h total periods but we create a 4h absence
+        # Cours avec seulement 2h de périodes totales mais on crée une absence de 4h
         small_course = Cours.objects.create(
             code_cours="TINY",
             nom_cours="Tiny Course",
@@ -141,13 +141,13 @@ class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
             id_annee=self.annee,
         )
         seance = Seance.objects.create(
-            date_seance=date(2026, 1, 5),  # past date so it counts after future-filter fix
+            date_seance=date(2026, 1, 5),  # date passée pour qu'elle compte après le correctif de filtre futur
             heure_debut=time(8, 0),
             heure_fin=time(12, 0),
             id_cours=small_course,
             id_annee=self.annee,
         )
-        # Bypass model clean to simulate corrupt data (duree > total_periodes)
+        # Contourne le clean du modèle pour simuler des données corrompues (duree > total_periodes)
         Absence.objects.bulk_create([
             Absence(
                 id_inscription=inscription,
@@ -178,19 +178,19 @@ class EnAttenteExcludedFromThresholdTest(AbsenceLogicBaseTestCase):
         )
 
     def test_calculer_absence_stats_excludes_en_attente(self):
-        """calculer_absence_stats only counts NON_JUSTIFIEE."""
+        """calculer_absence_stats ne compte que les NON_JUSTIFIEE."""
         self._create_absence(0, Absence.Statut.NON_JUSTIFIEE)
         self._create_absence(1, Absence.Statut.EN_ATTENTE)
         self._create_absence(2, Absence.Statut.JUSTIFIEE)
 
         stats = calculer_absence_stats(self.inscription)
-        # Only the NON_JUSTIFIEE absence (4h / 60 periods)
+        # Seule l'absence NON_JUSTIFIEE compte (4h / 60 périodes)
         self.assertEqual(stats["total_absence"], 4.0)
         self.assertAlmostEqual(stats["taux"], 6.67, places=2)
 
     def test_etudiants_en_alerte_excludes_en_attente(self):
-        """etudiants_en_alerte ignores EN_ATTENTE absences."""
-        # 3 NON_JUSTIFIEE (12h/60 = 20%) — at threshold
+        """etudiants_en_alerte ignore les absences EN_ATTENTE."""
+        # 3 NON_JUSTIFIEE (12h/60 = 20 %) — au seuil
         for i in range(3):
             self._create_absence(i, Absence.Statut.NON_JUSTIFIEE)
         # 3 EN_ATTENTE — should NOT push above threshold
@@ -214,8 +214,8 @@ class EnAttenteExcludedFromThresholdTest(AbsenceLogicBaseTestCase):
             id_inscription=self.inscription.id_inscription
         ).select_related("id_cours")
         count, sums = get_at_risk_count_for_queryset(qs, system_threshold=21)
-        # 12h / 60 = 20% < 21% → not at risk
+        # 12h / 60 = 20 % < 21 % → pas à risque
         self.assertEqual(count, 0)
-        # Only NON_JUSTIFIEE hours in the sums
+        # Seules les heures NON_JUSTIFIEE figurent dans les sommes
         total = sums.get(self.inscription.id_inscription, 0) or 0
         self.assertEqual(float(total), 12.0)

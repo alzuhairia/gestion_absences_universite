@@ -66,7 +66,7 @@ class CommentEscapingTest(TestCase):
         )
 
     def test_justification_comment_escaped_in_review_page(self):
-        """Justification comments must be HTML-escaped in the review page."""
+        """Les commentaires de justification doivent être échappés en HTML dans la page de revue."""
         self.client.force_login(self.secretary)
         url = reverse(
             "absences:review_justification",
@@ -74,13 +74,13 @@ class CommentEscapingTest(TestCase):
         )
         response = self.client.get(url, secure=True)
         content = response.content.decode()
-        # Raw <script> must NOT appear — Django auto-escaping converts it
+        # Le <script> brut ne doit PAS apparaître — l'auto-échappement Django le convertit
         self.assertNotIn(self.xss_payload, content)
-        # The escaped version must be present (commentaire + commentaire_gestion + note_professeur)
+        # La version échappée doit être présente (commentaire + commentaire_gestion + note_professeur)
         self.assertIn("&lt;script&gt;", content)
 
     def test_no_safe_filter_on_templates(self):
-        """No template should use |safe on user-generated content."""
+        """Aucun template ne doit utiliser |safe sur du contenu généré par l'utilisateur."""
         import pathlib
 
         templates_dir = pathlib.Path("templates")

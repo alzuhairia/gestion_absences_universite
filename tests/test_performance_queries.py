@@ -124,8 +124,8 @@ class QueryBudgetTests(TestCase):
             if hasattr(response, "render") and callable(response.render):
                 response.render()
 
-        # Exclude session housekeeping queries (SELECT/UPDATE django_session)
-        # so the budget focuses on business logic only.
+        # Exclut les requêtes de maintenance de session (SELECT/UPDATE django_session)
+        # afin que le budget se concentre uniquement sur la logique métier.
         business_queries = [
             q for q in captured.captured_queries if "django_session" not in q["sql"]
         ]

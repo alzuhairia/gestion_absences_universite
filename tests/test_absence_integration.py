@@ -1,23 +1,23 @@
 """
-Integration and cross-cutting edge-case tests for the absence subsystem.
+Tests d'intégration et de cas limites transverses pour le sous-système des absences.
 
-Test classes:
-  - FutureSessionsExcludedTest       : future séances must be excluded from all
-                                       absence statistics, at-risk counts, and
-                                       percentage calculations.
-  - SignalLoopProtectionTest         : the post_save signal on Absence must be
-                                       bounded — never recursive (BUG guard).
-  - AcademicYearDeactivationTests    : deactivating a year transitions EN_COURS
-                                       inscriptions to NON_VALIDE.
-  - QRFinalizeDurationGuardTest      : when duree_heures() returns 0 the QR
-                                       finalize logic falls back to 2.0 h.
-  - JustificationEmailNeverRaisesTest: decision e-mail helper must never
-                                       propagate exceptions to the caller.
-  - StudentViewsFallbackFilterTest   : without an active year the student
-                                       dashboard/absences views filter EN_COURS
-                                       inscriptions only.
+Classes de tests :
+  - FutureSessionsExcludedTest       : les séances futures doivent être exclues
+                                       de toutes les statistiques d'absence,
+                                       compteurs de risque et calculs de pourcentage.
+  - SignalLoopProtectionTest         : le signal post_save sur Absence doit être
+                                       borné — jamais récursif (garde anti-bug).
+  - AcademicYearDeactivationTests    : désactiver une année fait transiter les
+                                       inscriptions EN_COURS vers NON_VALIDE.
+  - QRFinalizeDurationGuardTest      : quand duree_heures() retourne 0, la
+                                       finalisation QR replie sur 2,0 h.
+  - JustificationEmailNeverRaisesTest: le helper d'email de décision ne doit
+                                       jamais propager d'exception à l'appelant.
+  - StudentViewsFallbackFilterTest   : sans année active, les vues
+                                       dashboard/absences de l'étudiant filtrent
+                                       uniquement les inscriptions EN_COURS.
 
-Part of the UniAbsences test suite.
+Fait partie de la suite de tests UniAbsences.
 """
 from datetime import date, time, timedelta
 from decimal import Decimal
@@ -40,18 +40,19 @@ from apps.enrollments.models import Inscription
 
 class FutureSessionsExcludedTest(TestCase):
     """
-    Absences linked to future séances must be excluded from ALL absence rate
-    calculations (stats, at-risk, percentage).
+    Les absences liées à des séances futures doivent être exclues de TOUS
+    les calculs de taux d'absence (stats, étudiants à risque, pourcentage).
 
-    Rationale: a student cannot be penalised for a class that has not yet
-    taken place, and future absences would distort threshold comparisons.
+    Justification : un étudiant ne peut pas être pénalisé pour un cours qui
+    n'a pas encore eu lieu, et les absences futures fausseraient les
+    comparaisons au seuil.
     """
 
     def setUp(self):
         """
-        Create one past séance (with an absence) and one future séance
-        (also with an absence) for the same student/course so that the
-        tests can verify only the past absence is counted.
+        Crée une séance passée (avec une absence) et une séance future (avec
+        une absence aussi) pour le même étudiant/cours afin que les tests
+        puissent vérifier que seule l'absence passée est comptée.
         """
         self.faculte = Faculte.objects.create(nom_faculte="Faculte F")
         self.departement = Departement.objects.create(
@@ -89,7 +90,7 @@ class FutureSessionsExcludedTest(TestCase):
             heure_debut=time(8, 0), heure_fin=time(10, 0),
             id_cours=self.cours, id_annee=self.annee,
         )
-        # Past absence: 2h — should count toward the rate.
+        # Absence passée : 2h — doit compter dans le taux.
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.past_seance,
@@ -98,7 +99,7 @@ class FutureSessionsExcludedTest(TestCase):
             statut=Absence.Statut.NON_JUSTIFIEE,
             encodee_par=self.prof,
         )
-        # Future absence: 2h — must NOT count toward the rate.
+        # Absence future : 2h — ne doit PAS compter dans le taux.
         Absence.objects.bulk_create([
             Absence(
                 id_inscription=self.inscription,
@@ -111,41 +112,41 @@ class FutureSessionsExcludedTest(TestCase):
         ])
 
     def test_future_sessions_excluded_from_absence_calculation(self):
-        """calculer_absence_stats must only count the past absence (2h, not 4h)."""
+        """calculer_absence_stats ne doit compter que l'absence passée (2h, pas 4h)."""
         stats = calculer_absence_stats(self.inscription)
-        # Only the past absence (2h) should count, not both (4h).
+        # Seule l'absence passée (2h) doit compter, pas les deux (4h).
         self.assertEqual(stats["total_absence"], 2.0)
         self.assertAlmostEqual(stats["taux"], 5.0, places=1)  # 2/40 * 100
 
     def test_future_sessions_excluded_from_at_risk_count(self):
-        """get_at_risk_count_for_queryset must not include future-séance absences."""
+        """get_at_risk_count_for_queryset ne doit pas inclure les absences de séances futures."""
         qs = Inscription.objects.filter(
             id_inscription=self.inscription.id_inscription
         ).select_related("id_cours")
         _, sums = get_at_risk_count_for_queryset(qs, system_threshold=40)
         total = float(sums.get(self.inscription.id_inscription, 0) or 0)
-        # Only 2h (past absence), not 4h (past + future).
+        # Seulement 2h (absence passée), pas 4h (passée + future).
         self.assertEqual(total, 2.0)
 
     def test_future_sessions_excluded_from_pourcentage(self):
-        """calculer_pourcentage_absence must exclude future séances from both numerator and denominator."""
+        """calculer_pourcentage_absence doit exclure les séances futures du numérateur et du dénominateur."""
         result = calculer_pourcentage_absence(self.student, self.cours)
-        # Only the past séance counts: 2h total course time, 2h absent.
+        # Seule la séance passée compte : 2h de cours total, 2h d'absence.
         self.assertEqual(result["total_heures_cours"], 2.0)
         self.assertEqual(result["total_heures_absence"], 2.0)
 
 
 class SignalLoopProtectionTest(TestCase):
     """
-    Verify that creating, modifying, and deleting Absence objects does not
-    cause infinite signal loops via:
-      post_save → recalculer_eligibilite → Inscription.save → (repeat).
+    Vérifie que créer, modifier et supprimer des objets Absence ne provoque
+    pas de boucle infinie de signaux via :
+      post_save → recalculer_eligibilite → Inscription.save → (répéter).
 
-    Each save/delete must trigger _schedule_eligibility_recalc exactly once.
+    Chaque save/delete doit déclencher _schedule_eligibility_recalc exactement une fois.
     """
 
     def setUp(self):
-        """Import recalculer_eligibilite to ensure signal wiring is active."""
+        """Importe recalculer_eligibilite pour s'assurer que le câblage des signaux est actif."""
         from apps.absences.services import recalculer_eligibilite  # noqa: F401
 
         self.faculte = Faculte.objects.create(nom_faculte="Fac Signal")
@@ -176,9 +177,9 @@ class SignalLoopProtectionTest(TestCase):
 
     def test_absence_save_does_not_trigger_infinite_signal_loop(self):
         """
-        Perform 1 create + 5 updates + 1 delete and confirm that
-        _schedule_eligibility_recalc is called exactly 7 times — once per
-        operation — proving the signal is bounded and not recursive.
+        Effectue 1 création + 5 mises à jour + 1 suppression et confirme que
+        _schedule_eligibility_recalc est appelé exactement 7 fois — une fois
+        par opération — prouvant que le signal est borné et non récursif.
         """
         seance = Seance.objects.create(
             date_seance=date(2026, 1, 10),
@@ -189,7 +190,7 @@ class SignalLoopProtectionTest(TestCase):
         with patch(
             "apps.absences.signals._schedule_eligibility_recalc",
         ) as mock_schedule:
-            # Create: 1 call expected.
+            # Création : 1 appel attendu.
             absence = Absence.objects.create(
                 id_inscription=self.inscription,
                 id_seance=seance,
@@ -199,29 +200,30 @@ class SignalLoopProtectionTest(TestCase):
                 encodee_par=self.prof,
             )
 
-            # Modify 5 times: 5 more calls expected.
+            # Modifie 5 fois : 5 appels supplémentaires attendus.
             for i in range(5):
                 absence.duree_absence = Decimal(f"1.{i:02d}")
                 absence.save(update_fields=["duree_absence"])
 
-            # Delete: 1 more call expected.
+            # Suppression : 1 appel supplémentaire attendu.
             absence.delete()
 
-            # Total: exactly 7 (1 create + 5 updates + 1 delete), never recursive.
+            # Total : exactement 7 (1 création + 5 mises à jour + 1 suppression), jamais récursif.
             self.assertEqual(mock_schedule.call_count, 7)
-            # Every call must receive the correct inscription primary key.
+            # Chaque appel doit recevoir la bonne clé primaire d'inscription.
             for call in mock_schedule.call_args_list:
                 self.assertEqual(call[0][0], self.inscription.pk)
 
 
 class AcademicYearDeactivationTests(TestCase):
     """
-    Tests for BUG #35: deactivating an academic year must transition its
-    EN_COURS inscriptions to NON_VALIDE while leaving VALIDE ones untouched.
+    Tests pour le BUG #35 : désactiver une année académique doit faire
+    transiter ses inscriptions EN_COURS vers NON_VALIDE tout en laissant
+    les VALIDE intactes.
     """
 
     def setUp(self):
-        """Create an active year with one EN_COURS inscription."""
+        """Crée une année active avec une inscription EN_COURS."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac Year")
         self.dept = Departement.objects.create(
             nom_departement="Dept Year", id_faculte=self.faculte
@@ -245,7 +247,7 @@ class AcademicYearDeactivationTests(TestCase):
         )
 
     def test_deactivating_year_closes_enrollments(self):
-        """Setting active=False on the year must set EN_COURS inscriptions to NON_VALIDE."""
+        """Mettre active=False sur l'année doit passer les inscriptions EN_COURS à NON_VALIDE."""
         self.assertEqual(self.inscription.status, "EN_COURS")
 
         self.annee.active = False
@@ -255,7 +257,7 @@ class AcademicYearDeactivationTests(TestCase):
         self.assertEqual(self.inscription.status, "NON_VALIDE")
 
     def test_already_validated_inscription_unchanged(self):
-        """VALIDE inscriptions must not be affected by year deactivation."""
+        """Les inscriptions VALIDE ne doivent pas être affectées par la désactivation de l'année."""
         self.inscription.status = "VALIDE"
         self.inscription.save(update_fields=["status"])
 
@@ -267,32 +269,33 @@ class AcademicYearDeactivationTests(TestCase):
 
     def test_activating_new_year_does_not_close_inscriptions(self):
         """
-        Activating a new year deactivates the old one via bulk update() which
-        does NOT trigger the model's save() signal, so the old year's EN_COURS
-        inscriptions are not affected by the new year's activation alone.
+        Activer une nouvelle année désactive l'ancienne via un update() en lot
+        qui ne déclenche PAS le signal save() du modèle, donc les inscriptions
+        EN_COURS de l'ancienne année ne sont pas affectées par la seule
+        activation de la nouvelle année.
         """
         new_annee = AnneeAcademique(libelle="2026-2027", active=True)
         new_annee.save()
 
-        # Old year is now inactive.
+        # L'ancienne année est maintenant inactive.
         self.annee.refresh_from_db()
         self.assertFalse(self.annee.active)
 
-        # The old year's inscription is NOT closed because AnneeAcademique.save()
-        # deactivates the previous year via .update(active=False), bypassing save()
-        # and therefore not triggering the inscription-closure signal.
+        # L'inscription de l'ancienne année n'est PAS fermée car AnneeAcademique.save()
+        # désactive l'année précédente via .update(active=False), qui contourne save()
+        # et ne déclenche donc pas le signal de fermeture d'inscription.
         self.inscription.refresh_from_db()
         self.assertEqual(self.inscription.status, "EN_COURS")
 
 
 class QRFinalizeDurationGuardTest(TestCase):
     """
-    Bug fix guard: QR-based finalization must not create absences with
-    duree_absence=0 when Seance.duree_heures() returns zero.
+    Garde anti-régression : la finalisation par QR ne doit pas créer
+    d'absences avec duree_absence=0 quand Seance.duree_heures() retourne zéro.
     """
 
     def setUp(self):
-        """Create minimal fixtures (course, séance, inscription) for duration tests."""
+        """Crée des fixtures minimales (cours, séance, inscription) pour les tests de durée."""
         self.faculte = Faculte.objects.create(nom_faculte="Fac QR")
         self.dept = Departement.objects.create(
             nom_departement="Dept QR", id_faculte=self.faculte
@@ -321,56 +324,60 @@ class QRFinalizeDurationGuardTest(TestCase):
         )
 
     def test_duree_heures_zero_fallback(self):
-        """When duree_heures() returns 0, the ``or 2.0`` fallback must apply."""
+        """Quand duree_heures() retourne 0, le repli ``or 2.0`` doit s'appliquer."""
         with patch.object(Seance, "duree_heures", return_value=0.0):
             duree = self.seance.duree_heures() or 2.0
         self.assertEqual(duree, 2.0)
 
     def test_duree_heures_normal(self):
-        """When duree_heures() returns a positive value, it must be used as-is."""
+        """Quand duree_heures() retourne une valeur positive, elle doit être utilisée telle quelle."""
         duree = self.seance.duree_heures() or 2.0
         self.assertEqual(duree, 2.0)  # 08:00–10:00 = 2 h
 
 
 class JustificationEmailNeverRaisesTest(TestCase):
     """
-    Bug fix guard: ``_send_justification_decision_emails`` must catch all
-    exceptions internally and never propagate them to the caller.
+    Garde anti-régression : ``_send_justification_decision_emails`` doit
+    intercepter toutes les exceptions en interne et ne jamais les propager
+    à l'appelant.
 
-    If the e-mail helper crashes (e.g. missing attributes on None), the HTTP
-    response must still succeed so that the secretary's decision is persisted.
+    Si le helper d'email plante (par exemple attributs manquants sur None),
+    la réponse HTTP doit tout de même réussir afin que la décision du
+    secrétariat soit persistée.
     """
 
     def test_email_function_does_not_raise(self):
         """
-        Passing None as the justification object causes attribute access to
-        fail inside the helper.  The function must catch the exception silently.
+        Passer None comme objet de justification fait échouer l'accès aux
+        attributs à l'intérieur du helper. La fonction doit intercepter
+        l'exception silencieusement.
         """
-        from apps.absences.views.secretary_views import _send_justification_decision_emails
+        from apps.absences.views.secretary_justification import _send_justification_decision_emails
 
-        # Pass None — any attribute access will raise AttributeError, but
-        # the function should catch it and return normally.
+        # On passe None — tout accès d'attribut lèvera AttributeError, mais
+        # la fonction doit l'intercepter et retourner normalement.
         _send_justification_decision_emails(None, approved=True)
-        # Reaching this line means no exception was propagated — test passes.
+        # Atteindre cette ligne signifie qu'aucune exception n'a été propagée — test passé.
 
 
 class StudentViewsFallbackFilterTest(TestCase):
     """
-    Bug fix guard: when no academic year is active, student dashboard and
-    absence views must fall back to filtering EN_COURS inscriptions only —
-    not all inscriptions for the student.
+    Garde anti-régression : lorsqu'aucune année académique n'est active,
+    les vues dashboard et absences de l'étudiant doivent replier sur le
+    filtrage des inscriptions EN_COURS uniquement — pas toutes les
+    inscriptions de l'étudiant.
     """
 
     def setUp(self):
         """
-        Create fixtures with no active year and two inscriptions for the same
-        student: one EN_COURS and one NON_VALIDE.
+        Crée des fixtures sans année active et deux inscriptions pour le
+        même étudiant : une EN_COURS et une NON_VALIDE.
         """
         self.faculte = Faculte.objects.create(nom_faculte="Fac Fallback")
         self.dept = Departement.objects.create(
             nom_departement="Dept Fallback", id_faculte=self.faculte
         )
-        # No active year — triggers the fallback code path.
+        # Pas d'année active — déclenche le chemin de code de repli.
         self.annee = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
         self.prof = User.objects.create_user(
             email="prof-fb@test.com", nom="Prof", prenom="FB",
@@ -385,12 +392,12 @@ class StudentViewsFallbackFilterTest(TestCase):
             nombre_total_periodes=40, id_departement=self.dept,
             professeur=self.prof, id_annee=self.annee, niveau=1,
         )
-        # Active inscription — should appear in the fallback view.
+        # Inscription active — doit apparaître dans la vue de repli.
         self.active_ins = Inscription.objects.create(
             id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
             status=Inscription.Status.EN_COURS,
         )
-        # Archived inscription — must NOT appear in the fallback view.
+        # Inscription archivée — ne doit PAS apparaître dans la vue de repli.
         self.archived_ins = Inscription.objects.create(
             id_etudiant=self.student, id_cours=Cours.objects.create(
                 code_cours="FB2", nom_cours="Archived Course",
@@ -401,15 +408,15 @@ class StudentViewsFallbackFilterTest(TestCase):
         )
 
     def test_student_dashboard_fallback_filters_en_cours(self):
-        """Student dashboard fallback must show exactly 1 course (the EN_COURS one)."""
+        """Le repli du dashboard étudiant doit afficher exactement 1 cours (le EN_COURS)."""
         self.client.force_login(self.student)
         response = self.client.get("/dashboard/student/", secure=True)
         self.assertEqual(response.status_code, 200)
-        # Should show 1 course (the active EN_COURS inscription), not 2.
+        # Doit afficher 1 cours (l'inscription active EN_COURS), pas 2.
         self.assertEqual(response.context["total_courses"], 1)
 
     def test_student_absences_fallback_filters_en_cours(self):
-        """Student absence view fallback must only return EN_COURS inscriptions."""
+        """Le repli de la vue absences étudiant ne doit retourner que les inscriptions EN_COURS."""
         self.client.force_login(self.student)
         response = self.client.get("/dashboard/student/absences/", secure=True)
         self.assertEqual(response.status_code, 200)

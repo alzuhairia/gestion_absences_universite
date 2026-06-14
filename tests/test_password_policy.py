@@ -88,19 +88,20 @@ class PasswordPolicyFormTests(TestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class InitialSetupTests(TestCase):
-    """Tests for the one-time initial admin setup page."""
+    """Tests pour la page d'initialisation unique de l'admin."""
 
     def test_initial_setup_prevents_double_admin(self):
         """
-        If an admin is created between loading the form (GET) and submitting
-        it (POST), the select_for_update guard must reject the second creation.
+        Si un admin est créé entre le chargement du formulaire (GET) et sa
+        soumission (POST), la garde select_for_update doit refuser la
+        seconde création.
         """
-        # No admin exists yet — GET succeeds
+        # Aucun admin n'existe encore — le GET réussit
         url = reverse("setup")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-        # Meanwhile, another admin is created (simulates concurrent request)
+        # Entre-temps, un autre admin est créé (simule une requête concurrente)
         User.objects.create_superuser(
             email="first-admin@example.com",
             nom="First",
@@ -111,7 +112,7 @@ class InitialSetupTests(TestCase):
             User.objects.filter(role=User.Role.ADMIN).count(), 1
         )
 
-        # POST arrives — must be rejected (404) since an admin now exists
+        # Le POST arrive — doit être rejeté (404) car un admin existe désormais
         response = self.client.post(url, {
             "prenom": "Second",
             "nom": "Admin",
@@ -121,7 +122,7 @@ class InitialSetupTests(TestCase):
         })
         self.assertEqual(response.status_code, 404)
 
-        # Only the first admin should exist
+        # Seul le premier admin doit exister
         self.assertEqual(
             User.objects.filter(role=User.Role.ADMIN).count(), 1
         )
@@ -130,7 +131,7 @@ class InitialSetupTests(TestCase):
         )
 
     def test_initial_setup_returns_404_when_admin_exists(self):
-        """Both GET and POST return 404 if an admin already exists."""
+        """GET et POST renvoient tous les deux 404 si un admin existe déjà."""
         User.objects.create_superuser(
             email="existing-admin@example.com",
             nom="Existing",
@@ -190,7 +191,7 @@ class AdminPasswordResetPolicyTests(TestCase):
 
 
 class PasswordResetTokenTests(TestCase):
-    """Verify password reset token one-time use and inactive-user guard."""
+    """Vérifie l'usage unique du jeton de reset et la garde sur les utilisateurs inactifs."""
 
     def setUp(self):
         """Crée un utilisateur étudiant cible pour générer puis valider un jeton de reset."""
@@ -203,7 +204,7 @@ class PasswordResetTokenTests(TestCase):
         )
 
     def _get_reset_url(self):
-        """Generate a valid password-reset URL for self.user."""
+        """Génère une URL de reset de mot de passe valide pour self.user."""
         from django.contrib.auth.tokens import default_token_generator
         from django.utils.encoding import force_bytes
         from django.utils.http import urlsafe_base64_encode
@@ -216,14 +217,14 @@ class PasswordResetTokenTests(TestCase):
         )
 
     def test_password_reset_token_cannot_be_reused(self):
-        """After a successful reset, the same token must be invalid."""
+        """Après un reset réussi, le même jeton doit être invalide."""
         url = self._get_reset_url()
-        # First visit sets the token in the session and redirects
+        # La première visite place le jeton dans la session et redirige
         resp1 = self.client.get(url, secure=True, follow=True)
         self.assertEqual(resp1.status_code, 200)
         self.assertTrue(resp1.context.get("validlink", False))
 
-        # Submit the new password
+        # Soumet le nouveau mot de passe
         post_url = resp1.request["PATH_INFO"]
         resp2 = self.client.post(
             post_url,
@@ -234,14 +235,14 @@ class PasswordResetTokenTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("NewStrong123!"))
 
-        # Re-using the original token must fail
+        # La réutilisation du jeton initial doit échouer
         resp3 = self.client.get(url, secure=True, follow=True)
         self.assertFalse(resp3.context.get("validlink", True))
 
     def test_inactive_user_cannot_reset_password(self):
-        """A deactivated user with a valid token must be blocked."""
+        """Un utilisateur désactivé avec un jeton valide doit être bloqué."""
         url = self._get_reset_url()
-        # Deactivate after token generation
+        # Désactivation après génération du jeton
         self.user.actif = False
         self.user.save(update_fields=["actif"])
 

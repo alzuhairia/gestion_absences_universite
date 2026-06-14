@@ -64,7 +64,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
         self.assertIsNotNone(justification.date_validation)
 
     def test_valider_justificatif_recalculates_eligibility(self):
-        """Approving a justification triggers eligibility recalculation via signal."""
+        """L'approbation d'une justification déclenche le recalcul d'éligibilité via signal."""
         absence, justification = self._create_absence_with_justification()
         self.inscription1.eligible_examen = False
         self.inscription1.save(update_fields=["eligible_examen"])
@@ -100,7 +100,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
         self.assertEqual(justification.commentaire_gestion, "Document illisible")
 
     def test_reject_without_comment_is_refused(self):
-        """Rejecting a justification without a motif is refused."""
+        """Refuser une justification sans motif est rejeté."""
         absence, justification = self._create_absence_with_justification()
 
         self.client.force_login(self.secretary)
@@ -112,7 +112,7 @@ class JustificationStateTests(BaseAbsenceTestCase):
         self.assertEqual(justification.state, "EN_ATTENTE")
 
     def test_reprocessing_already_handled_justification(self):
-        """Processing an already-handled justification shows a warning."""
+        """Traiter une justification déjà gérée affiche un avertissement."""
         absence, justification = self._create_absence_with_justification()
         justification.state = "ACCEPTEE"
         justification.save(update_fields=["state"])

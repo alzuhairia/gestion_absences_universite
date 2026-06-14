@@ -19,19 +19,19 @@ from .test_absence_logic import AbsenceLogicBaseTestCase
 
 
 class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
-    """Tests for calculer_pourcentage_absence()."""
+    """Tests pour calculer_pourcentage_absence()."""
 
     def test_no_absences_returns_zero(self):
-        """Student with no absences has 0% absence, 100% presence."""
+        """Un étudiant sans absence a 0 % d'absence, 100 % de présence."""
         result = calculer_pourcentage_absence(self.student, self.cours)
         self.assertEqual(result["total_heures_absence"], 0.0)
         self.assertEqual(result["pourcentage_absence"], 0.0)
         self.assertEqual(result["pourcentage_presence"], 100.0)
-        # 15 sessions * 4h = 60h total
+        # 15 séances * 4h = 60h au total
         self.assertEqual(result["total_heures_cours"], 60.0)
 
     def test_one_full_absence(self):
-        """One full absence of 4h → 4/60 = 6.67%."""
+        """Une absence complète de 4h → 4/60 = 6,67 %."""
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
@@ -47,12 +47,12 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
 
     def test_mixed_absent_and_partiel(self):
         """
-        Example from requirements:
-        - 1 full absence = 4h
+        Exemple tiré du cahier des charges :
+        - 1 absence complète = 4h
         - 2 absences partielles = 1h + 2h = 3h
-        - Total = 7h → 7/60 = 11.67%
+        - Total = 7h → 7/60 = 11,67 %
         """
-        # Full absence
+        # Absence complète
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
@@ -86,7 +86,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         self.assertAlmostEqual(result["pourcentage_presence"], 88.33, places=2)
 
     def test_justified_absences_not_counted(self):
-        """Justified absences should NOT be counted in the percentage."""
+        """Les absences justifiées ne doivent PAS être comptées dans le pourcentage."""
         # 1 absence non justifiée (4h)
         Absence.objects.create(
             id_inscription=self.inscription,
@@ -107,12 +107,12 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         )
 
         result = calculer_pourcentage_absence(self.student, self.cours)
-        self.assertEqual(result["total_heures_absence"], 4.0)  # Only the unjustified one
+        self.assertEqual(result["total_heures_absence"], 4.0)  # Seule la non justifiée
         self.assertAlmostEqual(result["pourcentage_absence"], 6.67, places=2)
 
     def test_pending_justification_does_not_count_as_unjustified(self):
-        """EN_ATTENTE absences must NOT count toward the threshold — justification submitted."""
-        # 1 absence NON_JUSTIFIEE (4h) — counts
+        """Les absences EN_ATTENTE ne doivent PAS compter dans le seuil — justificatif soumis."""
+        # 1 absence NON_JUSTIFIEE (4h) — compte
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
@@ -121,7 +121,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             statut=Absence.Statut.NON_JUSTIFIEE,
             encodee_par=self.prof,
         )
-        # 1 absence EN_ATTENTE (4h) — must NOT count
+        # 1 absence EN_ATTENTE (4h) — ne doit PAS compter
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[1],
@@ -131,12 +131,12 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             encodee_par=self.prof,
         )
         result = calculer_pourcentage_absence(self.student, self.cours)
-        # Only the NON_JUSTIFIEE absence should count (4h, not 8h)
+        # Seule l'absence NON_JUSTIFIEE doit compter (4h, pas 8h)
         self.assertEqual(result["total_heures_absence"], 4.0)
         self.assertAlmostEqual(result["pourcentage_absence"], 6.67, places=2)
 
     def test_no_inscription_returns_zero(self):
-        """Non-enrolled student returns 0% absence."""
+        """Un étudiant non inscrit retourne 0 % d'absence."""
         other_student = User.objects.create_user(
             email="other@test.com",
             nom="Other",
@@ -149,7 +149,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         self.assertEqual(result["pourcentage_absence"], 0.0)
 
     def test_zero_seances_returns_zero_percent(self):
-        """Course with no séances → 0h total, 0% absence, 0% presence."""
+        """Un cours sans séance → 0h au total, 0 % d'absence, 0 % de présence."""
         empty_cours = Cours.objects.create(
             code_cours="EMPTY",
             nom_cours="Empty Course",
@@ -171,7 +171,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         self.assertEqual(result["pourcentage_presence"], 0.0)
 
     def test_future_seances_excluded(self):
-        """Séances in the future should NOT be counted in total hours."""
+        """Les séances futures ne doivent PAS être comptées dans le total d'heures."""
         future_cours = Cours.objects.create(
             code_cours="FUTURE",
             nom_cours="Future Course",
@@ -187,7 +187,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             id_annee=self.annee,
         )
         today = timezone.localdate()
-        # 1 past séance (2h)
+        # 1 séance passée (2h)
         past_seance = Seance.objects.create(
             date_seance=today - timedelta(days=5),
             heure_debut=time(10, 0),
@@ -195,7 +195,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             id_cours=future_cours,
             id_annee=self.annee,
         )
-        # 1 future séance (3h) — should be excluded
+        # 1 séance future (3h) — doit être exclue
         Seance.objects.create(
             date_seance=today + timedelta(days=5),
             heure_debut=time(9, 0),
@@ -203,7 +203,7 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             id_cours=future_cours,
             id_annee=self.annee,
         )
-        # Absent on the past séance
+        # Absent à la séance passée
         Absence.objects.create(
             id_inscription=future_inscription,
             id_seance=past_seance,
@@ -213,13 +213,13 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
             encodee_par=self.prof,
         )
         result = calculer_pourcentage_absence(self.student, future_cours)
-        # Only the past séance counts: 2h total, 2h absent → 100%
+        # Seule la séance passée compte : 2h au total, 2h d'absence → 100 %
         self.assertEqual(result["total_heures_cours"], 2.0)
         self.assertEqual(result["total_heures_absence"], 2.0)
         self.assertAlmostEqual(result["pourcentage_absence"], 100.0, places=2)
 
     def test_student_without_absence_full_presence(self):
-        """Student enrolled but with zero absences → 100% presence."""
+        """Un étudiant inscrit mais sans absence → 100 % de présence."""
         result = calculer_pourcentage_absence(self.student, self.cours)
         self.assertEqual(result["pourcentage_presence"], 100.0)
         self.assertEqual(result["pourcentage_absence"], 0.0)
@@ -227,16 +227,16 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
 
 
 class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
-    """Tests for etudiants_en_alerte()."""
+    """Tests pour etudiants_en_alerte()."""
 
     def test_no_absences_no_alerts(self):
-        """No absences → no students in alert."""
+        """Aucune absence → aucun étudiant en alerte."""
         alertes = etudiants_en_alerte(self.cours, seuil=20)
         self.assertEqual(len(alertes), 0)
 
     def test_above_threshold_triggers_alert(self):
-        """Student above 20% threshold appears in alert list."""
-        # Create 4 full absences (4 * 4h = 16h → 16/60 = 26.7%)
+        """Un étudiant au-dessus du seuil de 20 % apparaît dans la liste d'alerte."""
+        # Crée 4 absences complètes (4 * 4h = 16h → 16/60 = 26,7 %)
         for i in range(4):
             Absence.objects.create(
                 id_inscription=self.inscription,
@@ -254,8 +254,8 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
         self.assertTrue(alertes[0]["depasse_seuil"])
 
     def test_below_threshold_no_alert(self):
-        """Student below threshold does not appear."""
-        # 1 absence (4/60 = 6.67% < 20%)
+        """Un étudiant sous le seuil n'apparaît pas."""
+        # 1 absence (4/60 = 6,67 % < 20 %)
         Absence.objects.create(
             id_inscription=self.inscription,
             id_seance=self.seances[0],
@@ -268,8 +268,8 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
         self.assertEqual(len(alertes), 0)
 
     def test_custom_threshold(self):
-        """Custom threshold (10%) triggers alert at lower rate."""
-        # 2 absences (8/60 = 13.33% > 10%)
+        """Un seuil personnalisé (10 %) déclenche l'alerte à un taux plus bas."""
+        # 2 absences (8/60 = 13,33 % > 10 %)
         for i in range(2):
             Absence.objects.create(
                 id_inscription=self.inscription,
@@ -283,7 +283,7 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
         self.assertEqual(len(alertes), 1)
 
     def test_multiple_students_sorted_by_rate(self):
-        """Multiple students sorted by descending absence rate."""
+        """Plusieurs étudiants triés par taux d'absence décroissant."""
         student2 = User.objects.create_user(
             email="stu2@test.com",
             nom="Student",
@@ -297,7 +297,7 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
             id_annee=self.annee,
         )
 
-        # Student 1: 4 absences (26.67%)
+        # Étudiant 1 : 4 absences (26,67 %)
         for i in range(4):
             Absence.objects.create(
                 id_inscription=self.inscription,
@@ -308,7 +308,7 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
                 encodee_par=self.prof,
             )
 
-        # Student 2: 5 absences (33.33%)
+        # Étudiant 2 : 5 absences (33,33 %)
         for i in range(5):
             Absence.objects.create(
                 id_inscription=inscription2,
@@ -321,6 +321,6 @@ class EtudiantsEnAlerteTest(AbsenceLogicBaseTestCase):
 
         alertes = etudiants_en_alerte(self.cours, seuil=20)
         self.assertEqual(len(alertes), 2)
-        # Highest rate first
+        # Taux le plus élevé en premier
         self.assertEqual(alertes[0]["etudiant"], student2)
         self.assertEqual(alertes[1]["etudiant"], self.student)

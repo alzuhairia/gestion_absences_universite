@@ -37,7 +37,7 @@ class JustificationDeadlineTests(BaseAbsenceTestCase):
         )
 
     def test_justification_upload_after_deadline_rejected(self):
-        """Upload is rejected when the 3-day deadline has passed."""
+        """L'upload est rejeté quand le délai de 3 jours est dépassé."""
         absence = self._create_old_absence(days_ago=10)
         self.client.force_login(self.student1)
 
@@ -48,7 +48,7 @@ class JustificationDeadlineTests(BaseAbsenceTestCase):
         self.assertFalse(Justification.objects.filter(id_absence=absence).exists())
 
     def test_justification_upload_within_deadline_allowed(self):
-        """Upload page is accessible when within the 3-day deadline."""
+        """La page d'upload est accessible tant que le délai de 3 jours n'est pas dépassé."""
         absence = self._create_old_absence(days_ago=1)
         self.client.force_login(self.student1)
 
@@ -83,7 +83,7 @@ class EditAbsenceTests(BaseAbsenceTestCase):
         )
 
     def test_edit_justified_absence_rejected_get(self):
-        """GET on an already-justified absence redirects with error."""
+        """GET sur une absence déjà justifiée redirige avec une erreur."""
         absence = self._create_absence(statut="JUSTIFIEE")
         self.client.force_login(self.secretary)
 
@@ -95,7 +95,7 @@ class EditAbsenceTests(BaseAbsenceTestCase):
         self.assertEqual(absence.statut, "JUSTIFIEE")
 
     def test_edit_justified_absence_rejected_post(self):
-        """POST on an already-justified absence redirects with error."""
+        """POST sur une absence déjà justifiée redirige avec une erreur."""
         absence = self._create_absence(statut="JUSTIFIEE")
         self.client.force_login(self.secretary)
 

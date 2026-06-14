@@ -52,15 +52,15 @@ class MaxSessionsPerUserTests(TestCase):
             client, key = self._login_new_client()
             sessions.append((client, key))
 
-        # Only 3 UserSession rows remain
+        # Seules 3 lignes UserSession subsistent
         active = UserSession.objects.filter(user=self.user).order_by("-created_at")
         self.assertEqual(active.count(), UserSession.MAX_SESSIONS_PER_USER)
 
-        # The oldest session (sessions[0]) was evicted from Django sessions table
+        # La session la plus ancienne (sessions[0]) a été évincée de la table des sessions Django
         oldest_key = sessions[0][1]
         self.assertFalse(Session.objects.filter(session_key=oldest_key).exists())
 
-        # The 3 most recent sessions are still valid
+        # Les 3 sessions les plus récentes restent valides
         for _, key in sessions[1:]:
             self.assertTrue(Session.objects.filter(session_key=key).exists())
 
@@ -75,6 +75,6 @@ class MaxSessionsPerUserTests(TestCase):
             UserSession.objects.filter(user=self.user).count(),
             UserSession.MAX_SESSIONS_PER_USER,
         )
-        # The 2 oldest are gone
+        # Les 2 plus anciennes ont disparu
         for key in keys[:2]:
             self.assertFalse(Session.objects.filter(session_key=key).exists())

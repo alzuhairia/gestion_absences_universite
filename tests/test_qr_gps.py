@@ -50,7 +50,7 @@ class BaseQRTestCase(TestCase):
             id_etudiant=self.student, id_cours=self.course,
             id_annee=self.annee, status=Inscription.Status.EN_COURS,
         )
-        # Set up GPS coords for the establishment
+        # Configure les coordonnées GPS de l'établissement
         settings = SystemSettings.get_settings()
         settings.gps_latitude = 36.75250
         settings.gps_longitude = 3.04200

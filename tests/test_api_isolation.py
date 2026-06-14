@@ -57,7 +57,7 @@ class AbsenceApiIsolationTests(TestCase):
             role=User.Role.ETUDIANT,
         )
 
-        # Course 1 → prof1
+        # Cours 1 → prof1
         self.course1 = Cours.objects.create(
             code_cours="ISO1",
             nom_cours="Course One",
@@ -67,7 +67,7 @@ class AbsenceApiIsolationTests(TestCase):
             id_annee=self.annee,
             niveau=1,
         )
-        # Course 2 → prof2
+        # Cours 2 → prof2
         self.course2 = Cours.objects.create(
             code_cours="ISO2",
             nom_cours="Course Two",
@@ -191,7 +191,7 @@ class StudentApiIsolationTests(TestCase):
             role=User.Role.ETUDIANT,
         )
 
-        # Course taught by prof — student1 enrolled
+        # Cours enseigné par prof — student1 inscrit
         self.course = Cours.objects.create(
             code_cours="STU1",
             nom_cours="Course Stu",
@@ -288,14 +288,14 @@ class ApiAcademicYearIsolationTests(TestCase):
             niveau=1,
         )
 
-        # Old enrollment (should NOT be visible)
+        # Ancienne inscription (ne doit PAS être visible)
         self.old_inscription = Inscription.objects.create(
             id_etudiant=self.student,
             id_cours=self.course,
             id_annee=self.old_year,
             status=Inscription.Status.EN_COURS,
         )
-        # Current enrollment (should be visible)
+        # Inscription courante (doit être visible)
         self.current_inscription = Inscription.objects.create(
             id_etudiant=self.student,
             id_cours=self.course,

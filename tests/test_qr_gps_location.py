@@ -25,9 +25,9 @@ class GPSRefusedVerificationEnabledTest(BaseQRTestCase):
         resp = self.client.post(url, {"gps_status": "refused"}, secure=True)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "localisation est obligatoire")
-        # No scan record created
+        # Aucun enregistrement de scan créé
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
-        # But a log was created
+        # Mais un log a bien été créé
         log = QRScanLog.objects.filter(seance=self.seance).first()
         self.assertIsNotNone(log)
         self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_GPS)

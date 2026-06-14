@@ -127,12 +127,12 @@ class UploadValidationTests(BaseAbsenceTestCase):
 
 
 class UploadSizeGuardTests(TestCase):
-    """Unit tests for validate_uploaded_file size/IO guards."""
+    """Tests unitaires des garde-fous de taille/IO de validate_uploaded_file."""
 
     def test_oversized_file_rejected_before_read(self):
         """
-        Size check must happen BEFORE read(). A file-like whose read()
-        would raise proves the size guard fires first.
+        La vérification de taille doit avoir lieu AVANT read(). Un file-like dont
+        le read() lèverait une exception prouve que le garde de taille s'applique en premier.
         """
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
@@ -156,7 +156,7 @@ class UploadSizeGuardTests(TestCase):
         self.assertIn("trop volumineux", str(ctx.exception))
 
     def test_read_io_error_handled_gracefully(self):
-        """IOError during read() raises UploadValidationError, not 500."""
+        """Une IOError pendant read() lève UploadValidationError, pas une 500."""
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
         class BadReadFile:
@@ -168,7 +168,7 @@ class UploadSizeGuardTests(TestCase):
 
             def read(self, n=-1):
                 """Simule une panne de lecture en levant ``IOError``."""
-                raise IOError("disk failure")
+                raise IOError("panne disque")
 
             def seek(self, pos):
                 """No-op : aucun déplacement réel attendu sur ce stub."""
@@ -179,7 +179,7 @@ class UploadSizeGuardTests(TestCase):
         self.assertIn("lecture", str(ctx.exception))
 
     def test_missing_size_attribute_handled(self):
-        """File object without .size attribute raises UploadValidationError."""
+        """Un objet fichier sans attribut .size lève UploadValidationError."""
         from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
 
         class FakeFile:

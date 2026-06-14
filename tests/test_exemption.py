@@ -49,7 +49,7 @@ class ExemptionBaseTestCase(TestCase):
             role=User.Role.ETUDIANT,
         )
 
-        # Course with 20h total → seuil default 40% → blocked at 8h+
+        # Cours avec 20h au total → seuil par défaut 40 % → bloqué à partir de 8h
         self.course = Cours.objects.create(
             code_cours="C1",
             nom_cours="Course 1",
@@ -100,7 +100,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         """
         self._create_absences(10)  # 50% rate
 
-        # Recalculate to set blocked state
+        # Recalcule pour positionner l'état bloqué
         recalculer_eligibilite(self.inscription)
         self.inscription.refresh_from_db()
         self.assertFalse(self.inscription.eligible_examen)
@@ -125,9 +125,9 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         Étudiant en dispense (éligible malgré 50 % de taux).
         Retrait de la dispense → seuil ramené à 40 % → 50 % ≥ 40 % → bloqué.
         """
-        self._create_absences(10)  # 50% rate
+        self._create_absences(10)  # taux de 50 %
 
-        # Set up exempted state
+        # Positionne l'état dispensé
         self.inscription.exemption_40 = True
         self.inscription.motif_exemption = "Raison médicale"
         self.inscription.exemption_margin = 15
@@ -136,14 +136,14 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         self.inscription.refresh_from_db()
         self.assertTrue(self.inscription.eligible_examen)
 
-        # Revoke exemption via the view
+        # Révoque la dispense via la vue
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
         response = self.client.post(url, {"action": "revoke"}, secure=True)
 
         self.assertEqual(response.status_code, 302)
         self.inscription.refresh_from_db()
-        # Revoked: seuil_effectif = 40%, taux = 50% → blocked
+        # Révoquée : seuil_effectif = 40 %, taux = 50 % → bloqué
         self.assertFalse(self.inscription.eligible_examen)
         self.assertFalse(self.inscription.exemption_40)
 
@@ -158,7 +158,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         with patch(
             "apps.enrollments.views_rules.send_with_dedup"
         ) as mock_send:
-            # captureOnCommitCallbacks forces on_commit callbacks to execute
+            # captureOnCommitCallbacks force l'exécution des callbacks on_commit
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(url, {
                     "action": "grant",
@@ -168,9 +168,9 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
 
             mock_send.assert_called_once()
             call_kwargs = mock_send.call_args
-            # Verify recipient is the student
+            # Vérifie que le destinataire est l'étudiant
             self.assertEqual(call_kwargs[0][0], self.student)
-            # Verify event_type
+            # Vérifie event_type
             self.assertEqual(call_kwargs[1]["event_type"], "exemption_granted")
 
     def test_grant_requires_motif(self):
