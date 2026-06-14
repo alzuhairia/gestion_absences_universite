@@ -135,24 +135,25 @@ class CustomPasswordResetForm(PasswordResetForm):
 
 class CustomSetPasswordForm(SetPasswordForm):
     """
-    "Set new password" form displayed after a valid password-reset link is clicked.
+    Formulaire « Définir un nouveau mot de passe » affiché après un clic sur un lien de réinitialisation valide.
 
-    Applies Bootstrap ``form-control form-control-lg`` styling and French
-    labels/placeholders to both password fields.  Password complexity validation
-    is delegated to Django's ``AUTH_PASSWORD_VALIDATORS`` pipeline (which
-    includes ``SystemSettingsPasswordValidator``).
+    Applique le style Bootstrap ``form-control form-control-lg`` et des
+    labels/placeholders en français aux deux champs de mot de passe. La
+    validation de complexité du mot de passe est déléguée au pipeline
+    ``AUTH_PASSWORD_VALIDATORS`` de Django (qui inclut
+    ``SystemSettingsPasswordValidator``).
     """
 
     def __init__(self, *args, **kwargs):
         """
-        Initialise the form and apply Bootstrap styling to both password fields.
+        Initialise le formulaire et applique le style Bootstrap aux deux champs de mot de passe.
 
-        Parameters:
-            *args: Positional arguments forwarded to ``SetPasswordForm.__init__``.
-            **kwargs: Keyword arguments forwarded to ``SetPasswordForm.__init__``.
+        Paramètres :
+            *args : arguments positionnels transmis à ``SetPasswordForm.__init__``.
+            **kwargs : arguments nommés transmis à ``SetPasswordForm.__init__``.
         """
         super().__init__(*args, **kwargs)
-        # Style the new-password field.
+        # Style du champ nouveau mot de passe.
         self.fields["new_password1"].label = "Nouveau mot de passe"
         self.fields["new_password1"].help_text = (
             "Votre nouveau mot de passe doit contenir au moins 8 caractères"
@@ -164,7 +165,7 @@ class CustomSetPasswordForm(SetPasswordForm):
                 "autocomplete": "new-password",
             }
         )
-        # Style the confirmation field.
+        # Style du champ de confirmation.
         self.fields["new_password2"].label = "Confirmer le nouveau mot de passe"
         self.fields["new_password2"].help_text = (
             "Entrez à nouveau le nouveau mot de passe pour confirmation"
@@ -180,23 +181,24 @@ class CustomSetPasswordForm(SetPasswordForm):
 
 class CustomPasswordChangeForm(PasswordChangeForm):
     """
-    Authenticated password-change form with Bootstrap styling and an extra
-    cross-field rule: the new password must differ from the old one.
+    Formulaire de changement de mot de passe authentifié avec style Bootstrap
+    et une règle inter-champs supplémentaire : le nouveau mot de passe doit
+    être différent de l'ancien.
 
-    Used by ``CustomPasswordChangeView`` which also clears the
-    ``must_change_password`` flag on successful submission.
+    Utilisé par ``CustomPasswordChangeView`` qui efface aussi le drapeau
+    ``must_change_password`` lors d'une soumission réussie.
     """
 
     def __init__(self, *args, **kwargs):
         """
-        Initialise the form and apply Bootstrap styling to all three password fields.
+        Initialise le formulaire et applique le style Bootstrap aux trois champs de mot de passe.
 
-        Parameters:
-            *args: Positional arguments forwarded to ``PasswordChangeForm.__init__``.
-            **kwargs: Keyword arguments forwarded to ``PasswordChangeForm.__init__``.
+        Paramètres :
+            *args : arguments positionnels transmis à ``PasswordChangeForm.__init__``.
+            **kwargs : arguments nommés transmis à ``PasswordChangeForm.__init__``.
         """
         super().__init__(*args, **kwargs)
-        # Style the current-password field.
+        # Style du champ mot de passe actuel.
         self.fields["old_password"].label = "Ancien mot de passe"
         self.fields["old_password"].help_text = "Entrez votre mot de passe actuel"
         self.fields["old_password"].widget.attrs.update(
@@ -206,7 +208,7 @@ class CustomPasswordChangeForm(PasswordChangeForm):
                 "autocomplete": "current-password",
             }
         )
-        # Style the new-password field.
+        # Style du champ nouveau mot de passe.
         self.fields["new_password1"].label = "Nouveau mot de passe"
         self.fields["new_password1"].help_text = (
             "Votre nouveau mot de passe doit contenir au moins 8 caractères"
@@ -218,7 +220,7 @@ class CustomPasswordChangeForm(PasswordChangeForm):
                 "autocomplete": "new-password",
             }
         )
-        # Style the confirmation field.
+        # Style du champ de confirmation.
         self.fields["new_password2"].label = "Confirmer le nouveau mot de passe"
         self.fields["new_password2"].help_text = (
             "Entrez à nouveau le nouveau mot de passe pour confirmation"
@@ -233,22 +235,22 @@ class CustomPasswordChangeForm(PasswordChangeForm):
 
     def clean_new_password1(self):
         """
-        Validate that the new password differs from the current password.
+        Valide que le nouveau mot de passe diffère du mot de passe actuel.
 
-        Called automatically by Django's form validation pipeline after the
-        individual field validators have run.
+        Appelée automatiquement par le pipeline de validation de formulaires
+        de Django après l'exécution des validateurs de champ individuels.
 
-        Returns:
-            str: The validated new password if it differs from the old one.
+        Retour :
+            str : le nouveau mot de passe validé s'il diffère de l'ancien.
 
-        Raises:
-            forms.ValidationError: If the new password is identical to the
-                                   current password.
+        Lève :
+            forms.ValidationError : si le nouveau mot de passe est identique
+                                    au mot de passe actuel.
         """
         old_password = self.cleaned_data.get("old_password")
         new_password1 = self.cleaned_data.get("new_password1")
-        # Reject if both fields are present and identical — same password is
-        # not a meaningful change and reduces security hygiene.
+        # Rejette si les deux champs sont présents et identiques — le même mot
+        # de passe n'est pas un vrai changement et dégrade l'hygiène de sécurité.
         if old_password and new_password1 and old_password == new_password1:
             raise forms.ValidationError(
                 "Le nouveau mot de passe doit être différent de l'ancien."

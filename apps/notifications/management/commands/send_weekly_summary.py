@@ -48,24 +48,24 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         today = timezone.localdate()
 
-        # Week = Monday to Sunday ending yesterday (or today if run on Monday)
+        # Semaine = lundi à dimanche se terminant hier (ou aujourd'hui si exécuté un lundi)
         week_end = today - datetime.timedelta(days=1)
         week_start = week_end - datetime.timedelta(days=6)
 
         active_year = AnneeAcademique.objects.filter(active=True).first()
         if not active_year:
-            self.stderr.write("No active academic year found. Aborting.")
+            self.stderr.write("Aucune année académique active trouvée. Abandon.")
             return
 
-        # 1. Total absences recorded this week
+        # 1. Total des absences enregistrées cette semaine
         total_absences = Absence.objects.filter(
             id_seance__date_seance__gte=week_start,
             id_seance__date_seance__lte=week_end,
         ).count()
 
-        # 2. New blocks this week (inscriptions that became ineligible)
-        #    We approximate by counting inscriptions where eligible_examen=False
-        #    and have an absence recorded this week.
+        # 2. Nouveaux blocages de la semaine (inscriptions devenues non éligibles)
+        #    Approximation : on compte les inscriptions où eligible_examen=False
+        #    et qui ont une absence enregistrée cette semaine.
         blocked_inscriptions = Inscription.objects.filter(
             id_annee=active_year,
             status=Inscription.Status.EN_COURS,
@@ -76,13 +76,13 @@ class Command(BaseCommand):
             absences__id_seance__date_seance__lte=week_end,
         ).distinct().count()
 
-        # 3. Pending justifications
+        # 3. Justifications en attente
         pending_justifications = Absence.objects.filter(
             statut=Absence.Statut.EN_ATTENTE,
             id_inscription__id_annee=active_year,
         ).count()
 
-        # 4. Courses with at-risk students
+        # 4. Cours avec étudiants à risque
         system_threshold = get_system_threshold()
         active_inscriptions = (
             Inscription.objects.filter(
@@ -92,7 +92,7 @@ class Command(BaseCommand):
             .select_related("id_cours")
         )
 
-        # Aggregate non-justified absences per inscription
+        # Agrège les absences non justifiées par inscription
         abs_sums = dict(
             Absence.objects.filter(
                 id_inscription__id_annee=active_year,
@@ -104,7 +104,7 @@ class Command(BaseCommand):
             .values_list("id_inscription", "total")
         )
 
-        # Group by course
+        # Regroupe par cours
         course_risk = {}  # course_name -> count
         for ins in active_inscriptions:
             cours = ins.id_cours
@@ -137,7 +137,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {key}: {val}")
             return
 
-        # Send to all active secretaries
+        # Envoi à tous les secrétaires actifs
         secretaries = User.objects.filter(
             role=User.Role.SECRETAIRE,
             actif=True,

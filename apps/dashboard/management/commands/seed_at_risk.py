@@ -150,11 +150,11 @@ class Command(BaseCommand):
         seuil = cours.get_seuil_absence()
         total_periodes = cours.nombre_total_periodes
 
-        # Target: rate strictly above seuil -> needed hours > seuil * total / 100.
-        # Add small safety margin (+2%) to clearly cross the line.
+        # Cible : taux strictement supérieur au seuil -> heures nécessaires > seuil * total / 100.
+        # Ajoute une petite marge de sécurité (+2 %) pour franchir clairement la limite.
         needed_hours = (Decimal(seuil + 2) * Decimal(total_periodes)) / Decimal(100)
 
-        # Count current NON_JUSTIFIEE hours for this inscription
+        # Compte les heures NON_JUSTIFIEE actuelles pour cette inscription
         current_hours = Decimal("0")
         for a in Absence.objects.filter(
             id_inscription=inscription,
@@ -163,9 +163,9 @@ class Command(BaseCommand):
             current_hours += a.duree_absence
 
         if current_hours >= needed_hours:
-            return 0  # already over
+            return 0  # déjà au-dessus
 
-        # Walk seances in chronological order; create missing absences
+        # Parcourt les séances dans l'ordre chronologique ; crée les absences manquantes
         seances = Seance.objects.filter(
             id_cours=cours,
             id_annee=inscription.id_annee,
@@ -176,14 +176,14 @@ class Command(BaseCommand):
             for seance in seances:
                 if current_hours >= needed_hours:
                     break
-                # Skip seances already having an absence for this inscription
+                # Ignore les séances ayant déjà une absence pour cette inscription
                 existing = Absence.objects.filter(
                     id_inscription=inscription,
                     id_seance=seance,
                 ).first()
                 if existing is not None:
                     if existing.statut != Absence.Statut.NON_JUSTIFIEE:
-                        # Convert to NON_JUSTIFIEE full absence to count it
+                        # Convertit en absence NON_JUSTIFIEE complète pour la comptabiliser
                         existing.statut = Absence.Statut.NON_JUSTIFIEE
                         existing.type_absence = Absence.TypeAbsence.ABSENT
                         existing.duree_absence = Decimal(str(seance.duree_heures()))

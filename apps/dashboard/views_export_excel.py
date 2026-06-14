@@ -156,8 +156,8 @@ def export_at_risk_excel(request):
                 else:
                     statut = "BLOQUÉ"
 
-                # All string cells are passed through excel_safe_cell to strip
-                # or prefix any leading formula-trigger characters (=, +, -, @).
+                # Toutes les cellules de type chaîne passent par excel_safe_cell pour supprimer
+                # ou préfixer tout caractère déclencheur de formule en tête (=, +, -, @).
                 ws.append([
                     excel_safe_cell(ins.id_etudiant.nom),
                     excel_safe_cell(ins.id_etudiant.prenom),
@@ -168,7 +168,7 @@ def export_at_risk_excel(request):
                     statut,
                 ])
 
-    # Audit trail: log the export action for traceability.
+    # Piste d'audit : journalise l'action d'export pour la traçabilité.
     log_action(
         request.user,
         "Secrétaire a exporté la liste des étudiants à risque au format Excel",

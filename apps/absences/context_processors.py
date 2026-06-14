@@ -75,16 +75,16 @@ def active_qr_session(request):
     if not user or not user.is_authenticated:
         return empty
 
-    # Skip all DB queries for roles that never have attendance sessions.
+    # Évite toutes les requêtes DB pour les rôles qui n'ont jamais de séances de présence.
     if getattr(user, "role", None) != "PROFESSEUR":
         return empty
 
     from apps.absences.models import QRAttendanceToken
     from apps.academic_sessions.models import Seance
 
-    # Fetch the most recent non-expired active token for this professor.
-    # expires_at__gt=now() is the authoritative expiry check; is_expired
-    # (computed property) is not used here to stay within a single DB query.
+    # Récupère le token actif non expiré le plus récent pour ce professeur.
+    # expires_at__gt=now() est la vérification d'expiration faisant autorité ;
+    # is_expired (propriété calculée) n'est pas utilisée ici pour rester en une seule requête DB.
     token = (
         QRAttendanceToken.objects.filter(
             created_by_id=user.pk,
@@ -96,8 +96,8 @@ def active_qr_session(request):
         .first()
     )
 
-    # Exclude the session already covered by the QR token to prevent a
-    # duplicate "Resume" banner appearing for both QR and manual modes.
+    # Exclut la séance déjà couverte par le token QR pour empêcher l'affichage
+    # en double d'une bannière « Reprendre » pour les modes QR et manuel.
     excluded_seance_id = token.seance.pk if token else None
 
     today = timezone.localdate()
@@ -107,7 +107,7 @@ def active_qr_session(request):
         validated=False,
     ).select_related("id_cours")
     if excluded_seance_id:
-        # Exclude the session that already has an active QR token.
+        # Exclut la séance qui dispose déjà d'un token QR actif.
         manual_qs = manual_qs.exclude(id_seance=excluded_seance_id)
     manual_seance = manual_qs.order_by("-id_seance").first()
 

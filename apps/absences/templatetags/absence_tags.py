@@ -99,5 +99,5 @@ def justification_deadline_iso(absence):
         <span data-deadline="{{ absence|justification_deadline_iso }}"></span>
     """
     deadline = get_justification_deadline(absence)
-    # Append end-of-day time so the JS countdown expires at 23:59:59 on the deadline date.
+    # Ajoute l'heure de fin de journée pour que le compte à rebours JS expire à 23:59:59 à la date butoir.
     return f"{deadline.isoformat()}T23:59:59"

@@ -85,11 +85,11 @@ def instructor_sessions(request):
         )
 
     paginator = Paginator(sessions, 25)
-    # ``safe_get_page`` clamps the page number to the valid range so invalid
-    # or out-of-range ``?page=`` values do not raise a 404.
+    # ``safe_get_page`` borne le numéro de page à la plage valide afin que les
+    # valeurs ``?page=`` invalides ou hors plage ne lèvent pas un 404.
     page_obj = safe_get_page(paginator, request.GET.get("page"))
 
-    # Group the sessions on the current page by their parent course object.
+    # Regroupe les séances de la page courante par l'objet cours parent.
     sessions_by_course = defaultdict(list)
     for session in page_obj:
         sessions_by_course[session.id_cours].append(session)
@@ -111,38 +111,39 @@ def instructor_sessions(request):
 @require_GET
 def instructor_statistics(request):
     """
-    Render the per-course statistics page for the authenticated professor.
+    Rend la page de statistiques par cours pour le professeur authentifié.
 
-    For each active course the view computes:
-        - Number of enrolled students (EN_COURS, active year).
-        - Number of students at or above their effective absence threshold.
-        - Total number of absence events (all statuses).
-        - Average unjustified absence rate across enrolled students.
+    Pour chaque cours actif, la vue calcule :
+        - Le nombre d'étudiants inscrits (EN_COURS, année active).
+        - Le nombre d'étudiants au niveau ou au-dessus de leur seuil d'absence effectif.
+        - Le nombre total d'événements d'absence (tous statuts).
+        - Le taux moyen d'absences non justifiées parmi les étudiants inscrits.
 
-    Overall totals and a cross-course at-risk percentage are also derived.
+    Les totaux globaux et un pourcentage transversal d'étudiants à risque
+    sont également dérivés.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        Must be a GET request from an authenticated professor.
+        Doit être une requête GET émise par un professeur authentifié.
 
-    Returns
-    -------
+    Retour
+    ------
     HttpResponse
-        Renders ``dashboard/instructor_statistics.html`` with:
+        Rend ``dashboard/instructor_statistics.html`` avec :
 
-        ``academic_year`` : AnneeAcademique or None
+        ``academic_year`` : AnneeAcademique ou None
         ``course_stats`` : list[dict]
-            Each dict has keys: course, students_count, at_risk_count,
-            absences_count, avg_rate.
+            Chaque dict comporte les clés : course, students_count,
+            at_risk_count, absences_count, avg_rate.
         ``total_students`` : int
-            Sum of enrolled students across all courses.
+            Somme des étudiants inscrits sur tous les cours.
         ``total_at_risk`` : int
-            Sum of at-risk students across all courses.
+            Somme des étudiants à risque sur tous les cours.
         ``total_absences`` : int
-            Sum of absence events across all courses.
+            Somme des événements d'absence sur tous les cours.
         ``overall_at_risk_rate`` : float
-            Percentage of at-risk students over total students (0 if no students).
+            Pourcentage d'étudiants à risque sur le total (0 si aucun étudiant).
     """
     academic_year = AnneeAcademique.objects.filter(active=True).first()
     if not academic_year:
@@ -152,7 +153,7 @@ def instructor_statistics(request):
 
     course_ids = list(courses.values_list("id_cours", flat=True))
 
-    # Retrieve all active enrolments for all courses in one query.
+    # Récupère toutes les inscriptions actives de tous les cours en une seule requête.
     if academic_year:
         all_inscriptions = list(
             Inscription.objects.filter(
@@ -169,7 +170,7 @@ def instructor_statistics(request):
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
     today = timezone.localdate()
 
-    # Aggregate unjustified hours per enrollment (past sessions only).
+    # Agrège les heures non justifiées par inscription (séances passées uniquement).
     absence_sums = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
@@ -181,7 +182,7 @@ def instructor_statistics(request):
         .values_list("id_inscription", "total")
     )
 
-    # Aggregate total absence event count per enrollment (all statuses).
+    # Agrège le nombre total d'événements d'absence par inscription (tous statuts).
     absence_counts = dict(
         Absence.objects.filter(id_inscription__in=inscription_ids)
         .values("id_inscription")
@@ -189,7 +190,7 @@ def instructor_statistics(request):
         .values_list("id_inscription", "total")
     )
 
-    # Group enrollment objects by course PK for O(n) iteration below.
+    # Regroupe les objets d'inscription par PK de cours pour une itération O(n) ci-dessous.
     inscriptions_by_course = defaultdict(list)
     for ins in all_inscriptions:
         inscriptions_by_course[ins.id_cours_id].append(ins)
@@ -203,7 +204,7 @@ def instructor_statistics(request):
         inscriptions = inscriptions_by_course.get(course.id_cours, [])
         course_at_risk = 0
         course_absences = 0
-        rates = []  # Collect per-student rates to compute the course average.
+        rates = []  # Collecte les taux par étudiant pour calculer la moyenne du cours.
 
         for ins in inscriptions:
             total_abs = float(absence_sums.get(ins.id_inscription, 0) or 0)
@@ -216,12 +217,12 @@ def instructor_statistics(request):
             course_absences += absence_counts.get(ins.id_inscription, 0) or 0
 
             seuil = course.get_seuil_absence()
-            # The effective threshold accounts for per-student exemption margins.
+            # Le seuil effectif tient compte des marges d'exemption par étudiant.
             seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
             if rate >= seuil_effectif:
                 course_at_risk += 1
 
-        # Mean absence rate for the course; 0 when there are no enrolments.
+        # Taux d'absence moyen du cours ; 0 lorsqu'il n'y a aucune inscription.
         course_avg_rate = sum(rates) / len(rates) if rates else 0
 
         course_stats.append(
@@ -238,7 +239,7 @@ def instructor_statistics(request):
         total_at_risk += course_at_risk
         total_absences += course_absences
 
-    # Overall at-risk rate: percentage of all enrolled students who are at risk.
+    # Taux global d'étudiants à risque : pourcentage des étudiants inscrits qui sont à risque.
     overall_at_risk_rate = (total_at_risk / total_students * 100) if total_students > 0 else 0
 
     return render(

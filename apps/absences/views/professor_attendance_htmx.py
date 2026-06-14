@@ -1,28 +1,29 @@
 """
-Manual attendance marking — HTMX partial endpoint.
+Pointage manuel de présence — endpoint partiel HTMX.
 
 ``mark_absence_htmx``
-    Processes a single student's attendance update in real time and returns
-    only the refreshed ``<tr>`` row HTML fragment, avoiding a full page reload.
-    Designed to be triggered by HTMX ``hx-post`` attributes in the attendance
-    form template.
+    Traite la mise à jour de présence d'un seul étudiant en temps réel et
+    renvoie uniquement le fragment HTML ``<tr>`` rafraîchi, évitant un
+    rechargement complet de la page. Conçu pour être déclenché par les
+    attributs HTMX ``hx-post`` du template du formulaire de présence.
 
-Critical business rule
+Règle métier critique
 ----------------------
-Absences encoded by the secretariat (status ``JUSTIFIEE`` or ``EN_ATTENTE``)
-are **protected**: the professor can see them but cannot modify or delete them.
-Any request targeting a protected absence is silently ignored and the original
-row is re-rendered unchanged.
+Les absences encodées par le secrétariat (statut ``JUSTIFIEE`` ou
+``EN_ATTENTE``) sont **protégées** : le professeur peut les voir mais ne peut
+pas les modifier ou les supprimer. Toute requête ciblant une absence
+protégée est silencieusement ignorée et la ligne originale est rendue à
+l'identique.
 
-Session lifecycle
+Cycle de vie des séances
 -----------------
-If no ``Seance`` record exists for the submitted date and course, one is
-created automatically so the professor does not have to save session times
-separately before marking individual students.  If a session already exists,
-its times are updated only when they have actually changed, to avoid spurious
-``UPDATE`` statements.
+Si aucun enregistrement ``Seance`` n'existe pour la date et le cours soumis,
+un est créé automatiquement afin que le professeur n'ait pas à enregistrer
+les horaires de séance séparément avant de pointer les étudiants. Si une
+séance existe déjà, ses horaires ne sont mis à jour que lorsqu'ils ont
+effectivement changé, pour éviter des ``UPDATE`` inutiles.
 
-Part of the UniAbsences attendance system.
+Fait partie du système de pointage UniAbsences.
 """
 import datetime
 import logging
@@ -48,38 +49,38 @@ logger = logging.getLogger(__name__)
 @require_POST
 def mark_absence_htmx(request, course_id):
     """
-    HTMX endpoint — update a single student's attendance without a full reload.
+    Endpoint HTMX — met à jour la présence d'un seul étudiant sans rechargement complet.
 
-    Accepts a POST submission containing the enrollment ID, the desired status
-    (``ABSENT`` or ``PRESENT``), and the session date / times.  Returns the
-    updated ``<tr>`` HTML partial for the targeted student row.
+    Accepte une soumission POST contenant l'ID d'inscription, le statut
+    souhaité (``ABSENT`` ou ``PRESENT``) et la date/horaires de la séance.
+    Renvoie le partiel HTML ``<tr>`` mis à jour pour la ligne étudiant ciblée.
 
-    Absence type / duration logic
+    Logique de type / durée d'absence
     ------------------------------
-    - ``ABSENT`` — full session duration is recorded.
-    - ``PARTIEL`` — a custom duration (``duree_<inscription_id>``) is used;
-      falls back to the full session duration if the value is invalid.
-    - Protected absences (``JUSTIFIEE`` / ``EN_ATTENTE``) are left untouched.
+    - ``ABSENT`` — la durée complète de la séance est enregistrée.
+    - ``PARTIEL`` — une durée personnalisée (``duree_<inscription_id>``) est
+      utilisée ; replie sur la durée complète si la valeur est invalide.
+    - Les absences protégées (``JUSTIFIEE`` / ``EN_ATTENTE``) restent intactes.
 
-    Parameters
+    Paramètres
     ----------
     request : HttpRequest
-        The incoming POST request (triggered by HTMX).
+        La requête POST entrante (déclenchée par HTMX).
     course_id : int
-        Primary key of the ``Cours`` whose attendance is being updated.
+        Clé primaire du ``Cours`` dont la présence est mise à jour.
 
-    Returns
-    -------
+    Retour
+    ------
     HttpResponse
-        - ``403`` if the professor does not own this course or the session is
-          already validated.
-        - ``400`` if required fields are missing or times are malformed.
-        - ``404`` if the enrollment does not exist in this course.
-        - The rendered ``absences/_student_row.html`` partial on success.
+        - ``403`` si le professeur ne possède pas ce cours ou si la séance est
+          déjà validée.
+        - ``400`` si des champs requis sont manquants ou si les horaires sont mal formés.
+        - ``404`` si l'inscription n'existe pas dans ce cours.
+        - Le partiel ``absences/_student_row.html`` rendu en cas de succès.
     """
     course = get_object_or_404(Cours, id_cours=course_id)
 
-    # Ownership check — the decorator verifies the role, not the course.
+    # Vérification de propriété — le décorateur vérifie le rôle, pas le cours.
     if course.professeur != request.user:
         return HttpResponse("Accès non autorisé.", status=403)
 
@@ -88,7 +89,7 @@ def mark_absence_htmx(request, course_id):
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
 
-    # Fetch the enrollment, scoped to this course and the active academic year.
+    # Récupère l'inscription, restreinte à ce cours et à l'année académique active.
     ins_qs = Inscription.objects.filter(
         id_inscription=inscription_id,
         id_cours=course,
@@ -108,7 +109,7 @@ def mark_absence_htmx(request, course_id):
     if not date_seance or not heure_debut or not heure_fin:
         return HttpResponse("Date et horaires requis.", status=400)
 
-    # Parse session times in HH:MM format.
+    # Parse les horaires de séance au format HH:MM.
     try:
         fmt = "%H:%M"
         t_debut = datetime.datetime.strptime(heure_debut, fmt)
@@ -119,7 +120,7 @@ def mark_absence_htmx(request, course_id):
     if t_fin <= t_debut:
         return HttpResponse("L'heure de fin doit être après l'heure de début.", status=400)
 
-    # Compute session duration in decimal hours for absence duration defaults.
+    # Calcule la durée de la séance en heures décimales pour les valeurs par défaut d'absence.
     duree_seance = Decimal((t_fin - t_debut).seconds) / Decimal(3600)
     duree_seance = duree_seance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -128,10 +129,10 @@ def mark_absence_htmx(request, course_id):
 
     with transaction.atomic():
         try:
-            # Re-use an existing session record and update its times if needed.
+            # Réutilise un enregistrement de séance existant et met à jour ses horaires si besoin.
             seance = Seance.objects.select_for_update().get(date_seance=date_seance, id_cours=course)
             updated_fields = []
-            # Compare only the HH:MM portion to avoid spurious updates from seconds.
+            # Compare uniquement la portion HH:MM pour éviter des mises à jour inutiles dues aux secondes.
             if str(seance.heure_debut or "")[:5] != heure_debut:
                 seance.heure_debut = heure_debut
                 updated_fields.append("heure_debut")
@@ -141,7 +142,7 @@ def mark_absence_htmx(request, course_id):
             if updated_fields:
                 seance.save(update_fields=updated_fields)
         except Seance.DoesNotExist:
-            # First HTMX update for this date — create the session automatically.
+            # Première mise à jour HTMX pour cette date — crée la séance automatiquement.
             seance = Seance.objects.create(
                 date_seance=date_seance,
                 heure_debut=heure_debut,
@@ -150,11 +151,11 @@ def mark_absence_htmx(request, course_id):
                 id_annee=active_year,
             )
 
-        # Reject updates to locked sessions.
+        # Rejette les mises à jour sur les séances verrouillées.
         if seance.validated:
             return HttpResponse("Séance déjà validée.", status=403)
 
-        # Retrieve any existing absence for this student and session.
+        # Récupère toute absence existante pour cet étudiant et cette séance.
         existing_absence = Absence.objects.filter(
             id_inscription=inscription, id_seance=seance
         ).first()
@@ -163,16 +164,16 @@ def mark_absence_htmx(request, course_id):
             if existing_absence and existing_absence.statut in (
                 Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE
             ):
-                # Protected absence — silently skip; re-render the row unchanged.
+                # Absence protégée — saut silencieux ; la ligne est rendue à l'identique.
                 pass
             else:
-                # Only ABSENT and PARTIEL are valid professor-submitted types.
+                # Seuls ABSENT et PARTIEL sont des types valides côté professeur.
                 _ALLOWED_TYPES_HTMX = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
                 type_absence = request.POST.get(f"type_{inscription_id}", Absence.TypeAbsence.ABSENT)
                 if type_absence not in _ALLOWED_TYPES_HTMX:
                     type_absence = Absence.TypeAbsence.ABSENT
 
-                # Default to full session duration; apply custom duration for PARTIEL.
+                # Durée par défaut = durée complète de la séance ; durée personnalisée pour PARTIEL.
                 duree = duree_seance
                 if type_absence == Absence.TypeAbsence.PARTIEL:
                     try:
@@ -182,7 +183,7 @@ def mark_absence_htmx(request, course_id):
                         if duree <= 0 or duree > duree_seance:
                             raise ValueError
                     except (TypeError, ValueError):
-                        # Invalid custom duration — fall back silently.
+                        # Durée personnalisée invalide — repli silencieux.
                         duree = duree_seance
 
                 note = request.POST.get(f"note_{inscription_id}", "").strip()[:500]
@@ -200,18 +201,18 @@ def mark_absence_htmx(request, course_id):
                 )
 
         elif status == "PRESENT":
-            # Remove the absence record; skip if it is secretary-protected.
+            # Supprime l'enregistrement d'absence ; ignore si elle est protégée par le secrétariat.
             if existing_absence:
                 if existing_absence.statut not in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
                     existing_absence.delete()
 
-    # Re-fetch the final absence state (after all changes) for the partial render.
+    # Recharge l'état final de l'absence (après tous les changements) pour le rendu partiel.
     absence = Absence.objects.select_related(
         "id_inscription__id_etudiant", "id_seance"
     ).filter(id_inscription=inscription, id_seance=seance).first()
 
-    # Attach absence data to the enrollment object so the template can read it
-    # without an extra query — mirrors the structure used in the full-page view.
+    # Attache les données d'absence à l'objet inscription afin que le template puisse les lire
+    # sans requête supplémentaire — reflète la structure utilisée dans la vue page complète.
     if absence:
         setattr(inscription, "absence_data", {
             "type": absence.type_absence,
@@ -223,7 +224,7 @@ def mark_absence_htmx(request, course_id):
     else:
         setattr(inscription, "absence_data", None)
 
-    # Return only the updated student row HTML fragment (HTMX replaces it in-place).
+    # Renvoie uniquement le fragment HTML de la ligne étudiant mise à jour (HTMX la remplace en place).
     return render(request, "absences/_student_row.html", {
         "ins": inscription,
         "is_validated": False,

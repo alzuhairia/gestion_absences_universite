@@ -190,10 +190,10 @@ class Command(BaseCommand):
         ))
 
     # ------------------------------------------------------------------ #
-    #  Academic year                                                     #
+    #  Année académique                                                  #
     # ------------------------------------------------------------------ #
     def _ensure_academic_year(self, label=None):
-        """Return an active AnneeAcademique, creating one if needed."""
+        """Retourne une AnneeAcademique active, en créant une si nécessaire."""
         if label:
             year, created = AnneeAcademique.objects.get_or_create(
                 libelle=label,
@@ -228,10 +228,10 @@ class Command(BaseCommand):
         return year
 
     # ------------------------------------------------------------------ #
-    #  Faculties + departments                                           #
+    #  Facultés + départements                                           #
     # ------------------------------------------------------------------ #
     def _ensure_faculties_and_departments(self):
-        """Create default faculties+departments if none exist."""
+        """Crée les facultés/départements par défaut s'ils n'existent pas."""
         if Departement.objects.filter(actif=True).exists():
             self.stdout.write("Faculties/departments: existing setup detected, skipping.")
             return
@@ -253,12 +253,12 @@ class Command(BaseCommand):
         self.stdout.write(f"  -> {nb_fac} faculties / {nb_dept} departments ready.")
 
     # ------------------------------------------------------------------ #
-    #  Reset                                                             #
+    #  Réinitialisation                                                  #
     # ------------------------------------------------------------------ #
     def _reset_demo_data(self):
         """Supprime les utilisateurs ``demo_*`` et cours ``DEMO_*`` ainsi que leurs dépendances."""
         self.stdout.write("Resetting previous demo data...")
-        # Order matters — Absence -> Inscription -> Seance -> Cours -> User
+        # L'ordre compte — Absence -> Inscription -> Seance -> Cours -> User
         demo_users = User.objects.filter(email__startswith="demo_")
         demo_courses = Cours.objects.filter(code_cours__startswith="DEMO_")
 
@@ -274,7 +274,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING("  previous demo data removed."))
 
     # ------------------------------------------------------------------ #
-    #  Users                                                             #
+    #  Utilisateurs                                                      #
     # ------------------------------------------------------------------ #
     def _create_professors(self, n, departements):
         """Crée ``n`` professeurs ``demo_prof*`` (idempotent via ``get_or_create``)."""
@@ -307,7 +307,7 @@ class Command(BaseCommand):
             first = random.choice(FIRST_NAMES)
             last = random.choice(LAST_NAMES)
             email = f"demo_etu{i + 1:02d}@uni.edu"
-            niveau = (i % 3) + 1  # distribute 1/2/3 evenly
+            niveau = (i % 3) + 1  # répartit 1/2/3 uniformément
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
@@ -325,13 +325,13 @@ class Command(BaseCommand):
         return students
 
     # ------------------------------------------------------------------ #
-    #  Courses                                                           #
+    #  Cours                                                             #
     # ------------------------------------------------------------------ #
     def _create_courses(self, n, departements, profs, year):
         """Crée ``n`` cours répartis sur les départements existants et les niveaux 1/2/3."""
         self.stdout.write(f"Creating {n} courses...")
         courses = []
-        # Spread courses across niveaux 1/2/3
+        # Répartit les cours sur les niveaux 1/2/3
         niveau_order = [1, 2, 3]
         per_niveau = {1: [], 2: [], 3: []}
         for i in range(n):
@@ -351,7 +351,7 @@ class Command(BaseCommand):
                     defaults={
                         "nom_cours": f"{topic_name} (N{niveau})",
                         "nombre_total_periodes": random.choice([30, 40, 50, 60]),
-                        "seuil_absence": None,  # use system default
+                        "seuil_absence": None,  # utilise le défaut système
                         "id_departement": dept,
                         "professeur": prof,
                         "id_annee": year,
@@ -364,7 +364,7 @@ class Command(BaseCommand):
         return courses
 
     # ------------------------------------------------------------------ #
-    #  Enrollments                                                       #
+    #  Inscriptions                                                      #
     # ------------------------------------------------------------------ #
     def _enroll_students(self, students, courses, year):
         """Inscrit chaque étudiant à tous les cours de son niveau pour l'année donnée."""
@@ -372,7 +372,7 @@ class Command(BaseCommand):
         from django.db import IntegrityError
         count = 0
         for student in students:
-            # Each student is enrolled in every course of their own niveau.
+            # Chaque étudiant est inscrit à tous les cours de son propre niveau.
             matching = [c for c in courses if c.niveau == student.niveau]
             for course in matching:
                 try:
@@ -393,14 +393,14 @@ class Command(BaseCommand):
         self.stdout.write(f"  -> {count} enrollments created.")
 
     # ------------------------------------------------------------------ #
-    #  Seances                                                           #
+    #  Séances                                                           #
     # ------------------------------------------------------------------ #
     def _create_seances(self, courses, year, nb_per_course):
         """Crée environ ``nb_per_course`` séances par cours, réparties sur les ~10 dernières semaines."""
         self.stdout.write(f"Creating ~{nb_per_course} seances per course...")
         seances = []
         today = date.today()
-        # Slots (heure_debut, heure_fin) — 2h sessions
+        # Créneaux (heure_debut, heure_fin) — séances de 2h
         slots = [
             (time(8, 0), time(10, 0)),
             (time(10, 15), time(12, 15)),
@@ -408,14 +408,14 @@ class Command(BaseCommand):
             (time(15, 15), time(17, 15)),
         ]
         for course in courses:
-            # Generate unique dates spread across the past ~10 weeks (2/week).
+            # Génère des dates uniques réparties sur les ~10 dernières semaines (2/semaine).
             base_day = today - timedelta(days=nb_per_course * 3)
             offsets = random.sample(range(nb_per_course * 3), nb_per_course)
             offsets.sort()
             for k, offset in enumerate(offsets):
                 seance_date = base_day + timedelta(days=offset)
                 start, end = slots[k % len(slots)]
-                # Skip if already exists (unique cours+date)
+                # Ignore si déjà existant (unique cours+date)
                 if Seance.objects.filter(id_cours=course, date_seance=seance_date).exists():
                     continue
                 seance = Seance.objects.create(
