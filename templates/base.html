@@ -103,7 +103,7 @@
 
 <body>
 
-    <!-- Sidebar -->
+    <!-- Barre latérale -->
     <nav class="sidebar display-flex flex-column flex-shrink-0 p-3" id="sidebar">
         <div class="sidebar-header d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
             <span class="fs-4"><i class="fas fa-university me-2"></i>UniAbsences</span>
@@ -113,7 +113,7 @@
             <li class="nav-item">
                 <a href="{% url 'dashboard:index' %}"
                     class="nav-link {% if request.resolver_match.view_name == 'dashboard:index' %}active{% endif %}">
-                    <i class="fas fa-home"></i> Home
+                    <i class="fas fa-home"></i> Accueil
                 </a>
             </li>
             {% if request.user.is_authenticated %}
@@ -125,16 +125,16 @@
                 </a>
             </li>
             {% endif %}
-            <!-- Role Based Links -->
+            <!-- Liens selon le rôle -->
 
             <li>
                 <a href="{% url 'messaging:index' %}" class="nav-link">
-                    <i class="fas fa-envelope"></i> Messaging
+                    <i class="fas fa-envelope"></i> Messagerie
                 </a>
             </li>
             <li>
                 <a href="{% url 'accounts:profile' %}" class="nav-link">
-                    <i class="fas fa-user"></i> Profile
+                    <i class="fas fa-user"></i> Profil
                 </a>
             </li>
             <hr class="sidebar-divider my-2">
@@ -143,13 +143,13 @@
                     {% csrf_token %}
                 </form>
                 <a href="#" class="nav-link text-danger" id="logout-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
                 </a>
             </li>
             {% else %}
             <li>
                 <a href="{% url 'accounts:login' %}" class="nav-link">
-                    <i class="fas fa-sign-in-alt"></i> Login
+                    <i class="fas fa-sign-in-alt"></i> Connexion
                 </a>
             </li>
             {% endif %}
@@ -164,9 +164,9 @@
         {% endif %}
     </nav>
 
-    <!-- Main Content wrapper -->
+    <!-- Conteneur du contenu principal -->
     <div class="main-content">
-        <!-- Top Mobile Header -->
+        <!-- En-tête mobile en haut -->
         <div class="d-block d-md-none top-navbar rounded">
             <button class="btn btn-primary" id="sidebarToggle">
                 <i class="fas fa-bars"></i>
@@ -174,22 +174,22 @@
             <span class="fw-bold">UniAbsences</span>
         </div>
 
-        <!-- Breadcrumbs & Search -->
+        <!-- Fil d'Ariane et recherche -->
         <div class="row align-items-center mb-4">
             <div class="col-md-6">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
+                        <li class="breadcrumb-item"><a href="#">Accueil</a></li>
                         {% block breadcrumbs %}{% endblock %}
                     </ol>
                 </nav>
             </div>
             <div class="col-md-6 text-end">
-                <input type="text" class="form-control d-inline-block w-50" placeholder="Search...">
+                <input type="text" class="form-control d-inline-block w-50" placeholder="Rechercher...">
             </div>
         </div>
 
-        <!-- Messages/Alerts -->
+        <!-- Messages / alertes -->
         {% if messages %}
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -199,20 +199,20 @@
         {% endfor %}
         {% endif %}
 
-        <!-- Content Block -->
+        <!-- Bloc de contenu -->
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Bootstrap Bundle with Popper -->
+    <!-- Bundle Bootstrap avec Popper -->
     <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 
     <script nonce="{{ request.csp_nonce }}">
-        // Toggle Sidebar on Mobile
+        // Bascule la barre latérale sur mobile
         document.getElementById('sidebarToggle').addEventListener('click', function () {
             document.getElementById('sidebar').classList.toggle('active');
         });
 
-        // Logout handler
+        // Gestionnaire de déconnexion
         document.getElementById('logout-link').addEventListener('click', function(e) {
             e.preventDefault();
             document.getElementById('logout-form').submit();
