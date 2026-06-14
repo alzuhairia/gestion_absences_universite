@@ -1,17 +1,17 @@
 """
-Migration: Update TypeAbsence choices.
+Migration : mise à jour des choix de TypeAbsence.
 
-Schema change:
-- Adds new choices ABSENT, PARTIEL to type_absence field
-- Changes default from SEANCE to ABSENT
+Changement de schéma :
+- Ajoute les nouveaux choix ABSENT, PARTIEL au champ type_absence
+- Change la valeur par défaut de SEANCE à ABSENT
 
-Data migration:
-- Converts SEANCE → ABSENT
-- Converts JOURNEE → ABSENT (with duree_absence = seance duration)
-- Converts HEURE → PARTIEL
-- Converts RETARD → PARTIEL (if any from intermediate state)
+Migration de données :
+- Convertit SEANCE → ABSENT
+- Convertit JOURNEE → ABSENT (avec duree_absence = durée de la séance)
+- Convertit HEURE → PARTIEL
+- Convertit RETARD → PARTIEL (si présent depuis un état intermédiaire)
 
-Design note:
+Note de conception :
 - Pas de record Absence = étudiant présent (absence inexistante = présence)
 - ABSENT = absence complète (durée = durée séance)
 - PARTIEL = toute absence non complète (retard, départ anticipé, etc.)
@@ -21,14 +21,14 @@ from django.db import migrations, models
 
 
 def convert_legacy_types(apps, schema_editor):
-    """Convert legacy absence types to the new ABSENT/PARTIEL types."""
+    """Convertit les anciens types d'absence vers les nouveaux types ABSENT/PARTIEL."""
     Absence = apps.get_model("absences", "Absence")
     from datetime import datetime, timedelta
 
-    # SEANCE → ABSENT (duree_absence already correct — equals seance duration)
+    # SEANCE → ABSENT (duree_absence déjà correcte — égale à la durée de la séance)
     Absence.objects.filter(type_absence="SEANCE").update(type_absence="ABSENT")
 
-    # JOURNEE → ABSENT (set duree_absence = seance duration if it was 8h placeholder)
+    # JOURNEE → ABSENT (positionne duree_absence = durée de la séance si la valeur était un placeholder 8h)
     for absence in Absence.objects.filter(type_absence="JOURNEE").select_related("id_seance"):
         seance = absence.id_seance
         if seance and seance.heure_debut and seance.heure_fin:
@@ -42,15 +42,15 @@ def convert_legacy_types(apps, schema_editor):
         absence.type_absence = "ABSENT"
         absence.save(update_fields=["type_absence", "duree_absence"])
 
-    # HEURE → PARTIEL (duree_absence already has the partial duration)
+    # HEURE → PARTIEL (duree_absence contient déjà la durée partielle)
     Absence.objects.filter(type_absence="HEURE").update(type_absence="PARTIEL")
 
-    # RETARD → PARTIEL (catch any intermediate migration state)
+    # RETARD → PARTIEL (rattrape tout état intermédiaire de migration)
     Absence.objects.filter(type_absence="RETARD").update(type_absence="PARTIEL")
 
 
 def reverse_types(apps, schema_editor):
-    """Reverse: convert new types back to legacy types."""
+    """Inverse : reconvertit les nouveaux types vers les anciens."""
     Absence = apps.get_model("absences", "Absence")
     Absence.objects.filter(type_absence="ABSENT").update(type_absence="SEANCE")
     Absence.objects.filter(type_absence="PARTIEL").update(type_absence="HEURE")
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Step 1: Alter the field to accept both old and new values during migration
+        # Étape 1 : altère le champ pour accepter les anciennes et nouvelles valeurs pendant la migration
         migrations.AlterField(
             model_name="absence",
             name="type_absence",
@@ -82,6 +82,6 @@ class Migration(migrations.Migration):
                 verbose_name="Type d'absence",
             ),
         ),
-        # Step 2: Convert data
+        # Étape 2 : convertit les données
         migrations.RunPython(convert_legacy_types, reverse_types),
     ]

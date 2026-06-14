@@ -6,12 +6,12 @@ from django.db import migrations, models
 
 
 def drop_trigger(apps, schema_editor):
-    """Drop the trigger before altering the column type."""
+    """Supprime le trigger avant l'altération du type de colonne."""
     schema_editor.execute("DROP TRIGGER IF EXISTS trigger_verifier_seuil ON absence;")
 
 
 def recreate_trigger(apps, schema_editor):
-    """Recreate the trigger after altering the column type, updated for NUMERIC."""
+    """Recrée le trigger après l'altération du type de colonne, mis à jour pour NUMERIC."""
     schema_editor.execute("""
         CREATE OR REPLACE FUNCTION public.verifier_seuil_absence()
         RETURNS trigger
@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
             model_name="absence",
             name="absence_duree_absence_non_negative",
         ),
-        # Drop trigger before column type change
+        # Supprime le trigger avant le changement de type de colonne
         migrations.RunPython(drop_trigger, migrations.RunPython.noop),
         migrations.AlterField(
             model_name="absence",
@@ -96,7 +96,7 @@ class Migration(migrations.Migration):
                 verbose_name="Durée (h)",
             ),
         ),
-        # Recreate trigger with NUMERIC types after column change
+        # Recrée le trigger avec types NUMERIC après le changement de colonne
         migrations.RunPython(recreate_trigger, migrations.RunPython.noop),
         migrations.AddConstraint(
             model_name="absence",

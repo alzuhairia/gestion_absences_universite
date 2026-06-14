@@ -1,12 +1,14 @@
 """
-Migration: Fix the legacy CHECK constraint on absence.type_absence.
+Migration : corrige l'ancienne contrainte CHECK sur absence.type_absence.
 
-The old constraint 'absence_type_absence_check' only allowed HEURE, SEANCE, JOURNEE.
-After migration 0016 converted all data to ABSENT/PARTIEL, inserts with the new
-types were rejected by PostgreSQL.
+L'ancienne contrainte « absence_type_absence_check » n'autorisait que HEURE,
+SEANCE, JOURNEE. Après que la migration 0016 a converti toutes les données
+en ABSENT/PARTIEL, les insertions avec les nouveaux types étaient rejetées
+par PostgreSQL.
 
-This migration drops the legacy constraint and replaces it with one that allows
-the current valid values: ABSENT, PARTIEL, plus legacy values for safety.
+Cette migration supprime l'ancienne contrainte et la remplace par une qui
+autorise les valeurs valides actuelles : ABSENT, PARTIEL, plus les valeurs
+anciennes par sécurité.
 """
 
 from django.db import migrations
@@ -19,12 +21,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Drop the legacy constraint
+        # Supprime l'ancienne contrainte
         migrations.RunSQL(
             sql='ALTER TABLE absence DROP CONSTRAINT IF EXISTS "absence_type_absence_check";',
             reverse_sql=migrations.RunSQL.noop,
         ),
-        # Create new constraint allowing current + legacy values
+        # Crée la nouvelle contrainte autorisant valeurs actuelles + anciennes
         migrations.RunSQL(
             sql="""
                 ALTER TABLE absence ADD CONSTRAINT "absence_type_absence_check"
