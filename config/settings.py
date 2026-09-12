@@ -539,16 +539,36 @@ SILENCED_SYSTEM_CHECKS = [
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": ["'self'"],
-        "script-src": ["'self'", NONCE, "cdn.jsdelivr.net"],
+
+        "script-src": [
+            "'self'",
+            NONCE,
+            "cdn.jsdelivr.net",
+            "'unsafe-inline'",  # 🔥 AJOUT
+        ],
+
         "style-src": [
             "'self'",
             "'unsafe-inline'",
             "cdn.jsdelivr.net",
             "cdnjs.cloudflare.com",
         ],
+
         "font-src": ["'self'", "cdnjs.cloudflare.com", "cdn.jsdelivr.net"],
-        "img-src": ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
+
+        "img-src": [
+            "'self'",
+            "data:",
+            "blob:",
+            "cdn.jsdelivr.net",  # 🔥 AJOUT
+        ],
+
+        "connect-src": [
+            "'self'",
+            "cdn.jsdelivr.net",
+            "cdnjs.cloudflare.com",
+        ],
+
         "object-src": ["'none'"],
         "base-uri": ["'self'"],
         "form-action": ["'self'"],

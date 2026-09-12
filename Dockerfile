@@ -5,7 +5,7 @@
 # ============================================
 # STAGE 1: Base Python image
 # ============================================
-FROM python:3.13-slim AS base
+FROM python:3.13-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -25,8 +25,8 @@ RUN echo "apt layer cache key: ${APT_BUILD_DATE}" \
     && apt-get update \
     && apt-get -y upgrade \
     && apt-get install -y --no-install-recommends \
-        curl \
-        libmagic1 \
+    libmagic1 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================
