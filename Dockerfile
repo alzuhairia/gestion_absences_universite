@@ -50,6 +50,9 @@ FROM dependencies AS production
 
 WORKDIR /app
 
+# Keep package installation tools out of the runtime image.
+RUN pip uninstall -y pip setuptools
+
 RUN useradd -m -u 1000 django
 
 RUN mkdir -p /app/staticfiles /app/media /app/logs && \
