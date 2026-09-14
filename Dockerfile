@@ -38,7 +38,9 @@ WORKDIR /app
 
 COPY requirements.txt /app/
 
-RUN pip install --upgrade pip && \
+# The base image bundles setuptools 70.3.0, which is affected by
+# CVE-2025-47273. Pin a patched release for deterministic container scans.
+RUN pip install --no-cache-dir --upgrade pip setuptools==84.0.0 && \
     pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 # ============================================
