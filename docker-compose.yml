@@ -84,7 +84,9 @@ services:
       unabsences_network:
         ipv4_address: 172.30.0.11
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS -H \"Host: ${DOMAIN:-localhost}\" -H \"X-Forwarded-Proto: https\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" http://localhost:8000/api/health/ >/dev/null || exit 1" ]
+      # curl was removed from the runtime image (security hardening); probe with
+      # Python (bundled) instead. Reads DOMAIN / HEALTHCHECK_TOKEN from the env.
+      test: [ "CMD-SHELL", "python -c \"import os,urllib.request as u; req=u.Request('http://localhost:8000/api/health/', headers={'Host':os.environ.get('DOMAIN','localhost'),'X-Forwarded-Proto':'https','X-Healthcheck-Token':os.environ.get('HEALTHCHECK_TOKEN','')}); r=u.urlopen(req,timeout=5); raise SystemExit(0 if r.status==200 else 1)\" || exit 1" ]
       interval: 40s
       timeout: 10s
       retries: 3
