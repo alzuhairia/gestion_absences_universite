@@ -284,7 +284,10 @@ class QRAttendanceToken(models.Model):
     Only the latest active token accepts scans.
     """
 
-    TOKEN_LIFETIME_MINUTES = 15
+    # NOTE: the QR validity duration has a single source of truth —
+    # SystemSettings.qr_token_duration_seconds (configured from the admin UI).
+    # Do not reintroduce a duration constant here: a second value would drift
+    # from the configured one and desync the countdown/expiration.
 
     DISTANCE_THRESHOLD_METERS = 100
 

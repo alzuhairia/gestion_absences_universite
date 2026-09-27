@@ -6,9 +6,20 @@ from datetime import date, time, timedelta
 from unittest.mock import patch
 
 from django.db import IntegrityError
-from django.test import TestCase, RequestFactory
+from django.test import TestCase, RequestFactory, override_settings
 from django.urls import reverse
 from django.utils import timezone
+
+# Isolate the cache from the shared (production) Redis instance: SystemSettings
+# is cached via django.core.cache, and a leaked prod singleton would fail
+# full_clean() against the empty test DB. A per-process locmem cache keeps these
+# tests hermetic without touching the real cache.
+_LOCAL_CACHE = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "qr-gps-tests",
+    }
+}
 
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
 from apps.absences.views import _haversine
@@ -19,6 +30,7 @@ from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
 
 
+@override_settings(CACHES=_LOCAL_CACHE)
 class BaseQRTestCase(TestCase):
     def setUp(self):
         self.faculte = Faculte.objects.create(nom_faculte="Faculte QR")
@@ -298,6 +310,229 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "configuration")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+
+class ProfessorGPSReferenceTest(BaseQRTestCase):
+    """
+    When the establishment GPS is not configured, the reference used must be the
+    professor's position stored ON THE TOKEN (i.e. specific to that seance).
+    """
+
+    def _clear_establishment_gps(self):
+        s = SystemSettings.get_settings()
+        s.gps_latitude = None
+        s.gps_longitude = None
+        s.save()
+
+    def test_professor_gps_used_when_no_establishment_gps(self):
+        self._clear_establishment_gps()
+        token = self._create_token(
+            verify_location=True, latitude=36.75250, longitude=3.04200
+        )
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        resp = self.client.post(url, {
+            "latitude": "36.75250", "longitude": "3.04200",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertContains(resp, "succ")
+        self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+    def test_professor_gps_rejects_far_student(self):
+        self._clear_establishment_gps()
+        token = self._create_token(
+            verify_location=True, latitude=36.75250, longitude=3.04200
+        )
+        self.client.login(email="stu_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_scan", kwargs={"token": token.token})
+        # Paris — ~1500 km from the professor position
+        resp = self.client.post(url, {
+            "latitude": "48.8566", "longitude": "2.3522",
+            "gps_status": "accepted",
+        }, secure=True)
+        self.assertContains(resp, "zone autoris")
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+
+class QRGenerationGPSGuardTest(BaseQRTestCase):
+    """
+    verify_location=ON must never create a token without an available GPS
+    reference — otherwise every student scan fails with a config error.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        self.gen_url = reverse(
+            "absences:qr_generate", kwargs={"course_id": self.course.id_cours}
+        )
+
+    def _post(self, **extra):
+        data = {
+            "date_seance": date.today().isoformat(),
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+        }
+        data.update(extra)
+        return self.client.post(self.gen_url, data, secure=True, follow=True)
+
+    def _clear_establishment_gps(self):
+        s = SystemSettings.get_settings()
+        s.gps_latitude = None
+        s.gps_longitude = None
+        s.save()
+
+    def test_verify_location_without_any_reference_blocks_generation(self):
+        self._clear_establishment_gps()
+        resp = self._post(verify_location="on")
+        self.assertFalse(QRAttendanceToken.objects.filter(seance=self.seance).exists())
+        self.assertContains(resp, "aucune position de r")
+
+    def test_verify_location_with_establishment_gps_creates_token(self):
+        # Establishment GPS is configured in BaseQRTestCase.setUp
+        self._post(verify_location="on")
+        token = QRAttendanceToken.objects.filter(seance=self.seance).first()
+        self.assertIsNotNone(token)
+        self.assertTrue(token.verify_location)
+
+    def test_verify_location_with_professor_gps_creates_token(self):
+        self._clear_establishment_gps()
+        self._post(verify_location="on", latitude="36.75250", longitude="3.04200")
+        token = QRAttendanceToken.objects.filter(seance=self.seance).first()
+        self.assertIsNotNone(token)
+        self.assertTrue(token.verify_location)
+        self.assertAlmostEqual(token.latitude, 36.75250, places=4)
+
+    def test_no_verify_location_creates_token_without_gps(self):
+        """GPS disabled → existing behavior preserved even with no coords anywhere."""
+        self._clear_establishment_gps()
+        self._post()  # verify_location omitted
+        token = QRAttendanceToken.objects.filter(seance=self.seance).first()
+        self.assertIsNotNone(token)
+        self.assertFalse(token.verify_location)
+
+
+class QRTokenExpirationDurationTest(BaseQRTestCase):
+    """Token expiration uses the configured duration and is the single source of truth."""
+
+    def test_token_created_with_configured_duration(self):
+        s = SystemSettings.get_settings()
+        s.qr_token_duration_seconds = 30
+        s.save()
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        self.client.post(
+            reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
+            {"date_seance": date.today().isoformat(),
+             "heure_debut": "08:00", "heure_fin": "10:00"},
+            secure=True, follow=True,
+        )
+        token = QRAttendanceToken.objects.filter(seance=self.seance).latest("created_at")
+        delta = (token.expires_at - token.created_at).total_seconds()
+        self.assertAlmostEqual(delta, 30, delta=2)
+
+    def test_token_valid_before_expiry(self):
+        token = self._create_token()  # +60s
+        self.assertFalse(token.is_expired)
+        self.assertTrue(token.is_usable)
+
+    def test_token_refused_after_expiry(self):
+        token = self._create_token(expired=True)
+        self.assertTrue(token.is_expired)
+        self.assertFalse(token.is_usable)
+
+
+class QRRefreshTokenTest(BaseQRTestCase):
+    """Regeneration creates a brand-new token with its own fresh expiration."""
+
+    def test_refresh_creates_new_token_with_own_expiration(self):
+        s = SystemSettings.get_settings()
+        s.qr_token_duration_seconds = 30
+        s.save()
+        old = self._create_token(verify_location=False)  # helper sets +60s
+        old_expires = old.expires_at
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        url = reverse("absences:qr_refresh_token", kwargs={"token": old.token})
+        resp = self.client.post(
+            url, secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        # A different token is issued
+        self.assertNotEqual(data["token"], str(old.token))
+        # Old token is deactivated
+        old.refresh_from_db()
+        self.assertFalse(old.is_active)
+        # New token is active with a fresh expiration derived from the config
+        new = QRAttendanceToken.objects.get(token=data["token"])
+        self.assertTrue(new.is_active)
+        now = timezone.now()
+        self.assertAlmostEqual((new.expires_at - now).total_seconds(), 30, delta=3)
+        # The OLD expiration (+60s) must NOT be reused
+        self.assertNotEqual(new.expires_at, old_expires)
+
+    def test_refresh_json_exposes_source_of_truth_values(self):
+        s = SystemSettings.get_settings()
+        s.qr_token_duration_seconds = 30
+        s.save()
+        old = self._create_token(verify_location=False)
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        resp = self.client.post(
+            reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
+            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        data = resp.json()
+        self.assertEqual(data["duration_seconds"], 30)
+        self.assertLessEqual(data["remaining_seconds"], 30)
+        self.assertGreaterEqual(data["remaining_seconds"], 27)
+
+
+class QRDashboardFrontendValuesTest(BaseQRTestCase):
+    """
+    The dashboard sends SECONDS (not milliseconds) and a server-computed remaining
+    time, so a 30s validity can never render as 1:45 / 2:00.
+    """
+
+    def _dashboard(self, duration_seconds):
+        s = SystemSettings.get_settings()
+        s.qr_token_duration_seconds = duration_seconds
+        s.save()
+        token = QRAttendanceToken.objects.create(
+            seance=self.seance, created_by=self.prof,
+            expires_at=timezone.now() + timedelta(seconds=duration_seconds),
+        )
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        return self.client.get(
+            reverse("absences:qr_dashboard", kwargs={"token": token.token}),
+            secure=True,
+        )
+
+    def test_30s_values_are_seconds_under_a_minute(self):
+        resp = self._dashboard(30)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["qr_duration_seconds"], 30)
+        remaining = resp.context["qr_remaining_seconds"]
+        self.assertLessEqual(remaining, 30)
+        self.assertGreaterEqual(remaining, 28)
+        # 30 seconds must never be interpreted as minutes (1:45 / 2:00).
+        self.assertLess(remaining, 60)
+
+    def test_short_duration_values_are_seconds_not_milliseconds(self):
+        resp = self._dashboard(5)
+        self.assertEqual(resp.context["qr_duration_seconds"], 5)
+        remaining = resp.context["qr_remaining_seconds"]
+        self.assertLessEqual(remaining, 5)
+        # If seconds were confused with ms, remaining would be ~5000.
+        self.assertLess(remaining, 10)
+
+    def test_progress_bar_percentage_never_exceeds_100(self):
+        """remaining <= duration guarantees (remaining/duration)*100 <= 100."""
+        resp = self._dashboard(30)
+        remaining = resp.context["qr_remaining_seconds"]
+        duration = resp.context["qr_duration_seconds"]
+        pct = (remaining / duration) * 100
+        self.assertLessEqual(pct, 100)
+        self.assertGreaterEqual(pct, 0)
 
 
 class DuplicateQRScanTest(BaseQRTestCase):

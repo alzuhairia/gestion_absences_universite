@@ -76,7 +76,7 @@
                 <div class="mb-3">
                     <div class="countdown {% if is_expired %}expired{% else %}text-success{% endif %}"
                          id="countdown"
-                         data-expires="{{ qr_token.expires_at|date:'c' }}"
+                         data-remaining="{{ qr_remaining_seconds }}"
                          data-duration="{{ qr_duration_seconds }}">
                         --:--
                     </div>
@@ -162,25 +162,34 @@
     var refreshForm = document.getElementById('refresh-form');
     var finalizeForm = document.getElementById('finalize-form');
 
-    /* --- State --- */
-    var expires = new Date(countdownEl.dataset.expires).getTime();
-    var totalDuration = parseInt(countdownEl.dataset.duration) || 60;
+    /* --- State ---
+       The backend is the single source of truth for expiration: it sends the
+       remaining seconds at render time. We count down using ELAPSED time on the
+       browser's own clock (delta from a fixed start reference), never comparing
+       the browser clock to an absolute server timestamp. This makes the counter
+       and progress bar immune to clock skew between server and browser. */
+    var totalDuration = parseInt(countdownEl.dataset.duration, 10) || 60;
+    var remaining = parseInt(countdownEl.dataset.remaining, 10);
+    if (isNaN(remaining)) { remaining = totalDuration; }
+    var startTs = Date.now();  /* client-side reference for elapsed time */
     var csrfTokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
     var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
     var refreshUrl = refreshForm.action;
     var refreshing = false;  /* guard against concurrent fetches */
 
-    console.log('[QR] Timer started:', totalDuration, 'seconds, expires:', new Date(expires).toLocaleTimeString(), 'refreshUrl:', refreshUrl);
+    console.log('[QR] Timer started:', totalDuration, 's total,', remaining, 's remaining, refreshUrl:', refreshUrl);
 
     /* --- Countdown tick — runs every second, never stops --- */
     setInterval(function() {
-        var now = Date.now();
-        var diff = Math.max(0, Math.floor((expires - now) / 1000));
+        var elapsed = (Date.now() - startTs) / 1000;
+        var diff = Math.max(0, Math.ceil(remaining - elapsed));
         var m = Math.floor(diff / 60);
         var s = diff % 60;
 
         countdownEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        refreshBar.style.width = Math.max(0, (diff / totalDuration) * 100) + '%';
+        /* Clamp to [0, 100] so the bar can never overflow its container. */
+        var pct = Math.min(100, Math.max(0, (diff / totalDuration) * 100));
+        refreshBar.style.width = pct + '%';
 
         if (diff <= 0 && !refreshing) {
             refreshing = true;
@@ -234,15 +243,18 @@
                 if (typeof htmx !== 'undefined') htmx.process(scanList);
             }
 
-            /* Reset timer state */
-            expires = new Date(data.expires_at).getTime();
-            totalDuration = Math.max(1, Math.round((expires - Date.now()) / 1000));
+            /* Reset timer state from server-provided values (source of truth).
+               Never derive duration from the browser clock. */
+            totalDuration = parseInt(data.duration_seconds, 10) || totalDuration;
+            remaining = parseInt(data.remaining_seconds, 10);
+            if (isNaN(remaining)) { remaining = totalDuration; }
+            startTs = Date.now();
             countdownEl.classList.remove('expired');
             countdownEl.classList.add('text-success');
             countdownLabel.textContent = 'Nouveau QR dans...';
             refreshBar.style.width = '100%';
             refreshing = false;
-            console.log('[QR] QR refreshed successfully, new expiry:', new Date(expires).toLocaleTimeString());
+            console.log('[QR] QR refreshed successfully, new duration:', totalDuration, 's');
         })
         .catch(function(err) {
             console.error('[QR] QR refresh failed:', err);

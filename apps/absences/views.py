@@ -517,6 +517,21 @@ def session_create(request, course_id):
             qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
             verify_location = request.POST.get("verify_location") == "on"
+            prof_lat_f, prof_lng_f = _parse_gps(
+                request.POST.get("latitude"), request.POST.get("longitude")
+            )
+
+            # Invariant: verify_location ON requires an available GPS reference
+            # (see qr_generate for rationale).
+            if verify_location and not _reference_gps_available(prof_lat_f, prof_lng_f):
+                messages.error(
+                    request,
+                    "Vérification GPS impossible : aucune position de référence "
+                    "n'est disponible. Configurez les coordonnées GPS de "
+                    "l'établissement dans les paramètres système, ou autorisez "
+                    "la capture de votre position avant de générer le QR.",
+                )
+                return redirect("absences:session_create", course_id=course_id)
 
             QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
@@ -526,14 +541,9 @@ def session_create(request, course_id):
                 "expires_at": timezone.now() + timedelta(seconds=qr_duration_seconds),
                 "verify_location": verify_location,
             }
-            try:
-                lat = request.POST.get("latitude")
-                lng = request.POST.get("longitude")
-                if lat and lng:
-                    token_kwargs["latitude"] = float(lat)
-                    token_kwargs["longitude"] = float(lng)
-            except (ValueError, TypeError):
-                pass
+            if prof_lat_f is not None and prof_lng_f is not None:
+                token_kwargs["latitude"] = prof_lat_f
+                token_kwargs["longitude"] = prof_lng_f
 
             new_token = QRAttendanceToken.objects.create(**token_kwargs)
 
@@ -1332,9 +1342,23 @@ def qr_generate(request, course_id):
             return redirect("absences:qr_dashboard", token=existing_token.token)
 
         # GPS anti-fraud: professor's location (optional, sent by JS)
-        prof_lat = request.POST.get("latitude")
-        prof_lng = request.POST.get("longitude")
+        prof_lat_f, prof_lng_f = _parse_gps(
+            request.POST.get("latitude"), request.POST.get("longitude")
+        )
         verify_location = request.POST.get("verify_location") == "on"
+
+        # Invariant: if GPS verification is enabled, a reference position MUST be
+        # available (establishment coords or the professor's own position),
+        # otherwise every student scan would be refused with a config error.
+        if verify_location and not _reference_gps_available(prof_lat_f, prof_lng_f):
+            messages.error(
+                request,
+                "Vérification GPS impossible : aucune position de référence n'est "
+                "disponible. Configurez les coordonnées GPS de l'établissement "
+                "dans les paramètres système, ou autorisez la capture de votre "
+                "position avant de générer le QR.",
+            )
+            return redirect("absences:qr_generate", course_id=course_id)
 
         # Use system-configured QR duration if available
         from apps.dashboard.models import SystemSettings
@@ -1350,12 +1374,9 @@ def qr_generate(request, course_id):
             "expires_at": timezone.now() + timedelta(seconds=qr_duration_seconds),
             "verify_location": verify_location,
         }
-        try:
-            if prof_lat and prof_lng:
-                token_kwargs["latitude"] = float(prof_lat)
-                token_kwargs["longitude"] = float(prof_lng)
-        except (ValueError, TypeError):
-            pass  # GPS optional — skip silently
+        if prof_lat_f is not None and prof_lng_f is not None:
+            token_kwargs["latitude"] = prof_lat_f
+            token_kwargs["longitude"] = prof_lng_f
 
         token = QRAttendanceToken.objects.create(**token_kwargs)
 
@@ -1440,6 +1461,12 @@ def qr_dashboard(request, token):
         "has_gps": qr_token.latitude is not None,
         "verify_location": qr_token.verify_location,
         "qr_duration_seconds": sys_settings.qr_token_duration_seconds,
+        # Server is the source of truth for expiration: the frontend counts down
+        # from this remaining value instead of comparing its own clock to an
+        # absolute server timestamp (avoids clock-skew bugs on the countdown/bar).
+        "qr_remaining_seconds": max(
+            0, int((qr_token.expires_at - timezone.now()).total_seconds())
+        ),
     }
 
     # HTMX partial refresh (student list only)
@@ -1497,6 +1524,11 @@ def qr_refresh_token(request, token):
             "qr_data_uri": qr_data_uri,
             "scan_url": scan_url,
             "expires_at": new_token.expires_at.isoformat(),
+            # Source-of-truth values for the frontend countdown (see qr_dashboard).
+            "duration_seconds": qr_duration_seconds,
+            "remaining_seconds": max(
+                0, int((new_token.expires_at - timezone.now()).total_seconds())
+            ),
             "refresh_url": reverse("absences:qr_refresh_token", kwargs={"token": str(new_token.token)}),
             "dashboard_url": reverse("absences:qr_dashboard", kwargs={"token": str(new_token.token)}),
             "finalize_url": reverse("absences:qr_finalize", kwargs={"token": str(new_token.token)}),
@@ -1630,6 +1662,33 @@ def _is_valid_coordinate(coord):
     if coord is None:
         return False
     return abs(coord) >= 0.01
+
+
+def _parse_gps(lat_raw, lng_raw):
+    """Parse a (lat, lng) pair of request strings into floats, or (None, None)."""
+    try:
+        if lat_raw and lng_raw:
+            return float(lat_raw), float(lng_raw)
+    except (ValueError, TypeError):
+        pass
+    return None, None
+
+
+def _reference_gps_available(prof_lat=None, prof_lng=None):
+    """
+    Return True if a valid GPS reference exists for distance checks.
+
+    The reference used at scan time is, in priority order, the establishment
+    coordinates (SystemSettings) then the professor's captured position stored
+    on the token. Enabling ``verify_location`` without any of these would make
+    every student scan fail with a "no reference position" configuration error,
+    so this guard lets the generation views refuse the inconsistent state up
+    front instead of creating a broken token.
+    """
+    etab_lat, etab_lng, _radius = _get_establishment_gps()
+    if _is_valid_coordinate(etab_lat) and _is_valid_coordinate(etab_lng):
+        return True
+    return _is_valid_coordinate(prof_lat) and _is_valid_coordinate(prof_lng)
 
 
 # ========================================================================== #
@@ -1789,12 +1848,18 @@ def qr_scan(request, token):
                     "radius": QRAttendanceToken.DISTANCE_THRESHOLD_METERS,
                 })
         else:
-            # Neither establishment nor professor GPS configured — system misconfiguration
+            # Neither establishment nor professor GPS configured — system misconfiguration.
+            # Generation-time guards now prevent this, but legacy tokens created
+            # before the guard existed can still reach here; log the attempt.
             logger.warning(
                 "GPS verification enabled but no reference coordinates configured "
                 "(establishment: %s/%s, professor QR: %s/%s) for seance %s",
                 etab_lat, etab_lng, qr_token.latitude, qr_token.longitude, seance.id_seance,
             )
+            _log_scan_attempt(request, seance, qr_token,
+                              QRScanLog.GPSStatus.ACCEPTED,
+                              QRScanLog.ScanResult.REJECTED_GPS,
+                              stu_lat_f, stu_lng_f)
             return render(request, "absences/qr_scan_result.html", {
                 **error_ctx, "scan_status": "error",
                 "message": "Erreur de configuration : la vérification GPS est activée "
