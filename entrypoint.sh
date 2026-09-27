@@ -81,6 +81,13 @@ PY
 echo "[entrypoint] Running migrations..."
 run_as_app python manage.py migrate --noinput
 
+# Invalidate the cached SystemSettings singleton on every deploy. The cache can
+# hold a model instance pickled by a previous image (e.g. a different Django
+# version), which would otherwise be served stale for up to the cache TTL after
+# an upgrade. Targeted delete only (never cache.clear()/FLUSHDB, disabled in prod).
+echo "[entrypoint] Invalidating cached settings..."
+run_as_app python manage.py shell -c "from django.core.cache import cache; from apps.dashboard.models import SYSTEM_SETTINGS_CACHE_KEY; cache.delete(SYSTEM_SETTINGS_CACHE_KEY); print('[entrypoint] settings cache invalidated')" || echo "[entrypoint] WARN: settings cache invalidation skipped"
+
 echo "[entrypoint] Collecting static files..."
 run_as_app python manage.py collectstatic --noinput --clear
 
