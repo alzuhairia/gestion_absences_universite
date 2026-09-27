@@ -379,6 +379,27 @@ def build_absence_recorded_email(student, course_name, absence_date, taux):
     return subject, body, html_body
 
 
+def build_device_verification_email(user, code, ttl_minutes):
+    """Email sent to a student when a new device must be verified (OTP)."""
+    subject = "[UniAbsences] Vérification d'un nouvel appareil"
+    context = {
+        "student_name": user.get_full_name(),
+        "code": code,
+        "ttl_minutes": ttl_minutes,
+    }
+    body = (
+        f"Bonjour {context['student_name']},\n\n"
+        f"Un nouvel appareil tente de valider votre présence sur UniAbsences.\n"
+        f"Votre code de vérification est : {code}\n\n"
+        f"Ce code expire dans {ttl_minutes} minutes.\n"
+        f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail "
+        f"et changez votre mot de passe.\n\n"
+        f"— UniAbsences Notification System"
+    )
+    html_body = _render_html("emails/device_verification.html", context)
+    return subject, body, html_body
+
+
 def build_weekly_summary_email(secretary, summary_data):
     """
     Email sent to secretaries with weekly absence statistics.

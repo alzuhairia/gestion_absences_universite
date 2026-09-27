@@ -14,7 +14,6 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -27,22 +26,23 @@ from apps.accounts.models import StudentDevice
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import roles_required, student_required
 from apps.dashboard.models import SystemSettings
+from apps.notifications.email import (
+    build_device_verification_email,
+    send_notification_email,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _send_device_otp(user, code):
-    """Envoie le code OTP de vérification d'appareil par e-mail."""
-    subject = "UniAbsences — Vérification d'un nouvel appareil"
-    body = (
-        f"Bonjour {user.get_short_name()},\n\n"
-        f"Un nouvel appareil tente de valider votre présence sur UniAbsences.\n"
-        f"Votre code de vérification est : {code}\n\n"
-        f"Ce code expire dans {StudentDevice.OTP_TTL_SECONDS // 60} minutes.\n"
-        f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail "
-        f"et changez votre mot de passe.\n"
+    """
+    Envoie le code OTP de vérification d'appareil, via le même système de
+    notification (template HTML + fallback texte) que les autres e-mails.
+    """
+    subject, body, html_body = build_device_verification_email(
+        user, code, StudentDevice.OTP_TTL_SECONDS // 60
     )
-    send_mail(subject, body, None, [user.email], fail_silently=False)
+    send_notification_email(user, subject, body, html_body)
 
 
 @login_required

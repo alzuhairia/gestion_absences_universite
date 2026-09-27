@@ -1,0 +1,25 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Vérification d'un nouvel appareil{% endblock %}
+{% block subtitle %}Sécurité du compte{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<p>Un <strong>nouvel appareil</strong> tente de valider votre présence sur UniAbsences.
+Pour confirmer qu'il s'agit bien de vous, saisissez le code ci-dessous&nbsp;:</p>
+
+<div class="alert-box alert-info" style="text-align: center;">
+    <span style="display:block; font-size:13px; margin-bottom:6px;">Votre code de vérification</span>
+    <span style="font-size:32px; font-weight:700; letter-spacing:6px; font-family:'Courier New', monospace;">{{ code }}</span>
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Validité du code</span>
+    <span class="stat-value">{{ ttl_minutes }} minutes</span>
+</div>
+
+<div class="alert-box alert-warning" style="margin-top: 20px;">
+    <strong>&#9888; Vous n'êtes pas à l'origine de cette demande&nbsp;?</strong><br>
+    Ignorez cet e-mail et changez votre mot de passe sans tarder.
+</div>
+{% endblock %}
