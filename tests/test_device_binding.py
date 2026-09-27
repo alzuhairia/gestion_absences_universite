@@ -279,3 +279,32 @@ class RequireRegisteredDeviceToggleTest(BaseDeviceTestCase):
         resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+
+class SecretariatRevokedDeviceRecoveryTest(BaseDeviceTestCase):
+    """A revoked device must be visible to — and reactivatable by — the secretariat."""
+
+    def setUp(self):
+        super().setUp()
+        self.secretary = User.objects.create_user(
+            email="sec_dev@example.com", nom="Sec", prenom="Dev",
+            password="pass1234", role=User.Role.SECRETAIRE,
+        )
+
+    def test_revoked_device_listed_and_reactivatable(self):
+        dev = self._make_device("dev-R", StudentDevice.Status.REVOKED)
+        self.client.login(email="sec_dev@example.com", password="pass1234")
+
+        # It shows up in the secretariat screen (previously only PENDING did).
+        resp = self.client.get(reverse("accounts:secretariat_devices"), secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Révoqué")
+        self.assertContains(resp, "Réactiver")
+
+        # Reactivation (action=approve) restores it to APPROVED.
+        resp = self.client.post(
+            reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}),
+            {"action": "approve"}, secure=True, follow=True,
+        )
+        dev.refresh_from_db()
+        self.assertEqual(dev.status, StudentDevice.Status.APPROVED)

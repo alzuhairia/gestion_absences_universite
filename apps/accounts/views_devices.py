@@ -217,11 +217,17 @@ def secretariat_device_action(request, device_pk):
 @roles_required("SECRETAIRE", "ADMIN")
 @require_http_methods(["GET"])
 def secretariat_devices(request):
-    """Liste des appareils en attente d'approbation (fallback secrétariat)."""
-    pending = list(
-        StudentDevice.objects.filter(status=StudentDevice.Status.PENDING)
-        .select_related("user")
+    """
+    Appareils nécessitant une action du secrétariat : en attente (PENDING) ET
+    révoqués (REVOKED), afin qu'un appareil révoqué puisse être réactivé
+    (approuvé) — sinon le message « contactez le secrétariat » serait un cul-de-sac.
+    """
+    devices = list(
+        StudentDevice.objects.filter(
+            status__in=[StudentDevice.Status.PENDING, StudentDevice.Status.REVOKED]
+        ).select_related("user")
     )
     return render(request, "accounts/secretariat_devices.html", {
-        "pending_devices": pending,
+        "devices": devices,
+        "Status": StudentDevice.Status,
     })
