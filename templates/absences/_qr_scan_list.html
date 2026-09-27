@@ -40,8 +40,8 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
 <!-- Suspicious alert -->
 {% if suspicious_count > 0 %}
 <div class="alert alert-danger py-2 mb-3">
-    <i class="fas fa-map-marker-alt me-1"></i>
-    <strong>{{ suspicious_count }}</strong> scan(s) suspect(s) — distance > 100 m de la salle
+    <i class="fas fa-triangle-exclamation me-1"></i>
+    <strong>{{ suspicious_count }}</strong> scan(s) suspect(s) — distance ou anomalie détectée
 </div>
 {% endif %}
 
@@ -65,11 +65,14 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
             <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-0 border-0">
                 <span>
                     {% if ins.scan_record.is_suspicious %}
-                    <i class="fas fa-exclamation-triangle text-danger me-2" title="Scan suspect ({{ ins.scan_record.distance_meters|floatformat:0 }} m)"></i>
+                    <i class="fas fa-exclamation-triangle text-danger me-2" title="Scan suspect{% if ins.anomaly_labels %} — {{ ins.anomaly_labels|join:', ' }}{% endif %}"></i>
                     {% else %}
                     <i class="fas fa-user-check text-success me-2"></i>
                     {% endif %}
                     {{ ins.id_etudiant.get_full_name }}
+                    {% for label in ins.anomaly_labels %}
+                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">{{ label }}</span>
+                    {% endfor %}
                 </span>
                 {% if has_gps and ins.scan_record.distance_meters != None %}
                 <span class="badge {% if ins.scan_record.is_suspicious %}bg-danger{% else %}bg-light text-muted{% endif %}">

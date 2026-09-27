@@ -420,6 +420,23 @@ class QRScanLog(models.Model):
     qr_token_used = models.CharField(max_length=255, blank=True, default="")
     user_agent = models.TextField(blank=True, default="")
     timestamp = models.DateTimeField(auto_now_add=True)
+    # --- Anti-fraude : appareil + détection d'anomalies (non bloquant) ---
+    device_id_hash = models.CharField(
+        max_length=64, blank=True, default="",
+        help_text="Hash de l'appareil utilisé pour ce scan (jamais le secret).",
+    )
+    device_recognized = models.BooleanField(
+        default=False,
+        help_text="True si le scan provient d'un appareil APPROVED lié au compte.",
+    )
+    risk_score = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Score d'anomalie 0–100 (informatif, ne bloque pas la présence).",
+    )
+    anomaly_flags = models.JSONField(
+        default=list, blank=True,
+        help_text="Liste des drapeaux d'anomalie déclenchés (ex. multi_account_device).",
+    )
 
     class Meta:
         db_table = "qr_scan_log"
@@ -429,6 +446,8 @@ class QRScanLog(models.Model):
             models.Index(fields=["seance", "etudiant", "-timestamp"]),
             models.Index(fields=["etudiant", "-timestamp"]),
             models.Index(fields=["scan_result"]),
+            models.Index(fields=["device_id_hash"]),
+            models.Index(fields=["-risk_score", "-timestamp"]),
         ]
 
     def __str__(self):

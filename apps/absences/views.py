@@ -1433,12 +1433,23 @@ def qr_dashboard(request, token):
     }
     scanned_ids = set(scan_records.keys())
 
+    # Anomaly flags per student for this seance (labels for the ⚠️ tooltip).
+    from apps.absences.anomaly import flag_label
+    anomaly_by_student = {}
+    for log in QRScanLog.objects.filter(
+        seance=seance, scan_result=QRScanLog.ScanResult.VALIDATED
+    ).exclude(anomaly_flags=[]).order_by("etudiant_id", "-timestamp"):
+        anomaly_by_student.setdefault(
+            log.etudiant_id, [flag_label(f) for f in (log.anomaly_flags or [])]
+        )
+
     scanned = []
     suspicious_count = 0
     for ins in inscriptions:
         if ins.id_inscription in scanned_ids:
             sr = scan_records[ins.id_inscription]
             ins.scan_record = sr
+            ins.anomaly_labels = anomaly_by_student.get(ins.id_etudiant_id, [])
             if sr.is_suspicious:
                 suspicious_count += 1
             scanned.append(ins)
@@ -1631,7 +1642,9 @@ def _hash_qr_token(raw_token):
 
 
 def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
-                      latitude=None, longitude=None, distance=None):
+                      latitude=None, longitude=None, distance=None,
+                      device_id_hash="", device_recognized=False,
+                      risk_score=0, anomaly_flags=None):
     """Log every QR scan attempt for audit. Token is hashed (SHA-256) before storage."""
     QRScanLog.objects.create(
         etudiant=request.user,
@@ -1644,6 +1657,10 @@ def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
         scan_result=scan_result,
         qr_token_used=_hash_qr_token(qr_token.token if qr_token else None),
         user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
+        device_id_hash=device_id_hash or "",
+        device_recognized=device_recognized,
+        risk_score=risk_score,
+        anomaly_flags=anomaly_flags or [],
     )
 
 
@@ -1908,6 +1925,26 @@ def qr_scan(request, token):
             })
         # CAS A: GPS OK + within radius → proceed to record
 
+    # --- Anomaly detection (DETECTIVE only — never blocks an APPROVED device) ---
+    # An approved device that passed QR + GPS is always recorded present; we merely
+    # flag/audit suspicious signals (multi-account device, new IP, geo-velocity...).
+    from apps.absences.anomaly import evaluate_scan_risk, SUSPICIOUS_THRESHOLD
+
+    accuracy_raw = request.POST.get("accuracy", "").strip()
+    try:
+        accuracy_val = float(accuracy_raw) if accuracy_raw else None
+    except (ValueError, TypeError):
+        accuracy_val = None
+
+    risk_score, anomaly_flags = 0, []
+    if sys_settings.anomaly_detection_enabled:
+        risk_score, anomaly_flags = evaluate_scan_risk(
+            user=request.user, device=device, device_id_hash=device.device_id_hash,
+            ip_address=get_client_ip(request),
+            latitude=stu_lat_f, longitude=stu_lng_f,
+            accuracy=accuracy_val, settings_obj=sys_settings,
+        )
+
     # --- Build scan record (inside transaction to prevent double-scan race) ---
     scan_kwargs = {
         "seance": seance,
@@ -1915,7 +1952,7 @@ def qr_scan(request, token):
         "inscription": inscription,
         "ip_address": get_client_ip(request),
     }
-    is_suspicious = False
+    is_suspicious = risk_score >= SUSPICIOUS_THRESHOLD
     if stu_lat_f is not None and stu_lng_f is not None:
         scan_kwargs["latitude"] = stu_lat_f
         scan_kwargs["longitude"] = stu_lng_f
@@ -1924,8 +1961,8 @@ def qr_scan(request, token):
             distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
         if distance is not None:
             scan_kwargs["distance_meters"] = round(distance, 1)
-            is_suspicious = distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
-            scan_kwargs["is_suspicious"] = is_suspicious
+            is_suspicious = is_suspicious or distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
+    scan_kwargs["is_suspicious"] = is_suspicious
 
     try:
         with transaction.atomic():
@@ -1961,13 +1998,57 @@ def qr_scan(request, token):
     _log_scan_attempt(request, seance, qr_token,
                       gps_log_status,
                       QRScanLog.ScanResult.VALIDATED,
-                      stu_lat_f, stu_lng_f, distance)
+                      stu_lat_f, stu_lng_f, distance,
+                      device_id_hash=device.device_id_hash,
+                      device_recognized=device.is_approved,
+                      risk_score=risk_score,
+                      anomaly_flags=anomaly_flags)
 
     result_ctx = {**error_ctx, "scan_status": "success"}
-    if is_suspicious:
+    if distance is not None and distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS:
         result_ctx["message"] = "Présence enregistrée, mais votre position est éloignée de la salle."
         result_ctx["distance"] = round(distance, 0)
     else:
         result_ctx["message"] = "Présence enregistrée avec succès !"
 
     return render(request, "absences/qr_scan_result.html", result_ctx)
+
+
+# ========================================================================== #
+#              REVUE DES ANOMALIES DE PRÉSENCE (SECRÉTARIAT)                  #
+# ========================================================================== #
+
+
+@login_required
+@roles_required("SECRETAIRE", "ADMIN")
+@require_GET
+def qr_anomaly_review(request):
+    """
+    Écran de revue des scans QR signalés comme suspects (score de risque > 0
+    ou drapeaux d'anomalie). Purement informatif : aucune présence n'est modifiée.
+    Met en avant le signal « même appareil → plusieurs comptes ».
+    """
+    from apps.absences.anomaly import FLAG_MULTI_ACCOUNT_DEVICE, flag_label
+
+    only_multi = request.GET.get("multi") == "1"
+
+    logs = (
+        QRScanLog.objects.filter(scan_result=QRScanLog.ScanResult.VALIDATED)
+        .exclude(anomaly_flags=[])
+        .select_related("etudiant", "seance", "seance__id_cours")
+        .order_by("-risk_score", "-timestamp")
+    )
+    if only_multi:
+        logs = logs.filter(anomaly_flags__contains=[FLAG_MULTI_ACCOUNT_DEVICE])
+    logs = list(logs[:200])
+
+    # Attache les libellés humains des drapeaux pour l'affichage.
+    for log in logs:
+        log.flag_labels = [flag_label(f) for f in (log.anomaly_flags or [])]
+        log.is_multi_account = FLAG_MULTI_ACCOUNT_DEVICE in (log.anomaly_flags or [])
+
+    return render(request, "absences/qr_anomaly_review.html", {
+        "logs": logs,
+        "only_multi": only_multi,
+        "multi_flag": FLAG_MULTI_ACCOUNT_DEVICE,
+    })

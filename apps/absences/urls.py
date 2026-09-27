@@ -63,4 +63,6 @@ urlpatterns = [
     path("qr/refresh/<uuid:token>/", views.qr_refresh_token, name="qr_refresh_token"),
     path("qr/finalize/<uuid:token>/", views.qr_finalize, name="qr_finalize"),
     path("qr/scan/<uuid:token>/", views.qr_scan, name="qr_scan"),
+    # --- Revue des anomalies de présence (Secrétariat / Admin) ---
+    path("qr/anomalies/", views.qr_anomaly_review, name="qr_anomaly_review"),
 ]

@@ -91,6 +91,23 @@ class SystemSettings(models.Model):
         help_text="Ex. : 2 = téléphone + tablette. Les appareils PENDING/REVOKED ne comptent pas.",
     )
 
+    # Détection d'anomalies (couche détective — ne bloque jamais une présence)
+    anomaly_detection_enabled = models.BooleanField(
+        default=True,
+        verbose_name="Activer la détection d'anomalies de présence",
+        help_text="Signale et audite les scans suspects (même appareil multi-comptes, IP/vélocité...) sans bloquer.",
+    )
+    geo_velocity_max_kmh = models.PositiveIntegerField(
+        default=900,
+        verbose_name="Vitesse maximale plausible entre deux scans (km/h)",
+        help_text="Au-delà, le déplacement est jugé physiquement impossible (anomalie).",
+    )
+    gps_accuracy_max_meters = models.PositiveIntegerField(
+        default=1000,
+        verbose_name="Précision GPS maximale acceptée (mètres)",
+        help_text="Une précision annoncée pire que ce seuil déclenche une anomalie (informatif).",
+    )
+
     # GDPR Compliance
     data_retention_days = models.IntegerField(
         default=365,

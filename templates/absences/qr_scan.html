@@ -121,6 +121,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="latitude" id="stu-lat">
                 <input type="hidden" name="longitude" id="stu-lng">
+                <input type="hidden" name="accuracy" id="stu-accuracy">
                 <input type="hidden" name="gps_status" id="gps-status-field" value="">
                 <button type="submit" class="btn btn-confirm" id="confirm-btn"
                         {% if gps_required %}disabled{% endif %}>
@@ -177,6 +178,8 @@
             /* CAS A: GPS accepted */
             latInput.value = pos.coords.latitude;
             lngInput.value = pos.coords.longitude;
+            var accInput = document.getElementById('stu-accuracy');
+            if (accInput && pos.coords.accuracy != null) { accInput.value = pos.coords.accuracy; }
             gpsStatusField.value = 'accepted';
             gpsStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Position acquise</span>';
             confirmBtn.disabled = false;
