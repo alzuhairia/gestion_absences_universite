@@ -1,0 +1,78 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Mes appareils - UniAbsences{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 800px;">
+    <h4 class="fw-bold mb-1"><i class="fas fa-mobile-screen me-2"></i>Mes appareils de confiance</h4>
+    <p class="text-muted">
+        Seuls les appareils <strong>approuvés</strong> peuvent valider votre présence par QR.
+        Vous pouvez avoir jusqu'à <strong>{{ max_devices }}</strong> appareils approuvés
+        (ex. téléphone + tablette).
+    </p>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} py-2">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Appareil</th>
+                        <th>Statut</th>
+                        <th>Dernière activité</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for d in devices %}
+                    <tr>
+                        <td>
+                            {{ d.label|default:"Appareil" }}
+                            {% if d.pk == current_device_pk %}
+                            <span class="badge bg-info text-dark ms-1">Cet appareil</span>
+                            {% endif %}
+                            <div class="small text-muted">{{ d.ip_address|default:"—" }}</div>
+                        </td>
+                        <td>
+                            {% if d.status == Status.APPROVED %}
+                            <span class="badge bg-success">Approuvé</span>
+                            {% elif d.status == Status.PENDING %}
+                            <span class="badge bg-warning text-dark">En attente</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Révoqué</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">{{ d.last_seen_at|date:"d/m/Y H:i" }}</td>
+                        <td class="text-end">
+                            {% if d.status == Status.PENDING and d.pk == current_device_pk %}
+                            <a href="{% url 'accounts:verify_device' %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-check me-1"></i>Vérifier
+                            </a>
+                            {% endif %}
+                            {% if d.status != Status.REVOKED %}
+                            <form method="POST" action="{% url 'accounts:my_devices' %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="revoke">
+                                <input type="hidden" name="device_pk" value="{{ d.pk }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('Révoquer cet appareil ?');">
+                                    <i class="fas fa-ban me-1"></i>Révoquer
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">Aucun appareil enregistré.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

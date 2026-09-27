@@ -395,6 +395,7 @@ class QRScanLog(models.Model):
         REJECTED_DUPLICATE = "rejected_duplicate", "Refusé — déjà scanné"
         REJECTED_LOCKED = "rejected_locked", "Refusé — séance verrouillée"
         REJECTED_INACTIVE = "rejected_inactive", "Refusé — QR inactif"
+        REJECTED_DEVICE = "rejected_device", "Refusé — appareil non approuvé"
 
     etudiant = models.ForeignKey(
         settings.AUTH_USER_MODEL,

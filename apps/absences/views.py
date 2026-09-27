@@ -40,6 +40,7 @@ from apps.absences.utils_upload import (
 )
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours
+from apps.accounts.devices import ensure_device_cookie
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import (
@@ -1698,6 +1699,7 @@ def _reference_gps_available(prof_lat=None, prof_lng=None):
 
 @login_required
 @student_required
+@ensure_device_cookie
 @require_http_methods(["GET", "POST"])
 def qr_scan(request, token):
     """Student scans QR → confirmation page (GET) → record attendance (POST)."""
@@ -1766,6 +1768,23 @@ def qr_scan(request, token):
     gps_required = qr_token.verify_location
     etab_lat, etab_lng, etab_radius = _get_establishment_gps()
 
+    # --- Device binding (anti-fraude « présence par procuration ») ---
+    # Le backend est la seule autorité : il résout l'appareil du navigateur et
+    # n'accepte le scan que depuis un appareil APPROVED lié à CE compte. Le tout
+    # premier appareil est auto-approuvé ; un appareil inconnu arrive en PENDING
+    # et doit être vérifié par OTP e-mail. GPS et QR restent inchangés en amont.
+    from apps.accounts.devices import get_or_enroll_device
+    from apps.accounts.models import StudentDevice
+    from apps.dashboard.models import SystemSettings
+
+    sys_settings = SystemSettings.get_settings()
+    device, device_id, is_new_cookie = get_or_enroll_device(request)
+    if is_new_cookie:
+        request._device_id_to_set = device_id
+    device_enforced = sys_settings.require_registered_device
+    device_ok = device.is_approved or not device_enforced
+    verify_device_url = reverse("accounts:verify_device")
+
     # --- GET: show confirmation page ---
     if request.method == "GET":
         return render(request, "absences/qr_scan.html", {
@@ -1773,6 +1792,27 @@ def qr_scan(request, token):
             "course": course,
             "seance": seance,
             "gps_required": gps_required,
+            "device_blocked": not device_ok,
+            "device_status": device.status,
+            "verify_device_url": verify_device_url,
+        })
+
+    # --- Device gate (POST): un appareil non approuvé ne peut pas valider ---
+    if not device_ok:
+        _log_scan_attempt(request, seance, qr_token,
+                          QRScanLog.GPSStatus.NOT_REQUIRED,
+                          QRScanLog.ScanResult.REJECTED_DEVICE)
+        if device.status == StudentDevice.Status.REVOKED:
+            msg = ("Cet appareil a été révoqué. Vérifiez un appareil autorisé "
+                   "ou contactez le secrétariat.")
+        else:
+            msg = ("Nouvel appareil détecté. Pour éviter la fraude, vérifiez cet "
+                   "appareil (un code vous a été/sera envoyé par e-mail) avant de "
+                   "valider votre présence.")
+        return render(request, "absences/qr_scan_result.html", {
+            **error_ctx, "scan_status": "error", "message": msg,
+            "verify_device_url": verify_device_url,
+            "device_status": device.status,
         })
 
     # --- POST: record attendance ---

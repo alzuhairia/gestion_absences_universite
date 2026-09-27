@@ -574,8 +574,10 @@ class DuplicateQRScanTest(BaseQRTestCase):
         # Patch create() to raise IntegrityError — simulates a concurrent insert
         # that happened between the select_for_update check and the create call.
         # No first scan needed: the checks will naturally return None.
+        # Patch ONLY the QRScanRecord manager instance (not the shared Manager
+        # class) so unrelated ORM creates — e.g. device enrolment — are untouched.
         with patch.object(
-            type(QRScanRecord.objects), "create",
+            QRScanRecord.objects, "create",
             side_effect=IntegrityError("UNIQUE constraint failed"),
         ):
             resp = self.client.post(url, {"gps_status": "not_required"}, secure=True)

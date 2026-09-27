@@ -103,6 +103,20 @@
                 <p id="gps-blocked-msg" class="small text-muted mt-1 mb-0"></p>
             </div>
 
+            {% if device_blocked %}
+            <div class="alert alert-warning mt-3 text-center">
+                <i class="fas fa-mobile-screen fa-2x mb-2 d-block text-warning"></i>
+                <strong>Nouvel appareil à vérifier</strong>
+                <p class="small text-muted mt-1 mb-2">
+                    Pour empêcher qu'une autre personne valide une présence avec votre
+                    compte, cet appareil doit être vérifié avant de pouvoir confirmer
+                    votre présence.
+                </p>
+                <a href="{{ verify_device_url }}" class="btn btn-primary">
+                    <i class="fas fa-shield-alt me-1"></i>Vérifier cet appareil
+                </a>
+            </div>
+            {% else %}
             <form method="POST" class="mt-3" id="scan-form">
                 {% csrf_token %}
                 <input type="hidden" name="latitude" id="stu-lat">
@@ -118,6 +132,7 @@
                 <i class="fas fa-shield-alt me-1"></i>
                 Votre adresse IP{% if gps_required %} et position GPS{% endif %} seront enregistrées pour des raisons de sécurité.
             </p>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -133,6 +148,11 @@
     var lngInput = document.getElementById('stu-lng');
     var gpsStatusField = document.getElementById('gps-status-field');
     var confirmBtn = document.getElementById('confirm-btn');
+
+    /* Device not approved: the scan form is not rendered — nothing to wire up. */
+    if (!gpsStatusField || !confirmBtn) {
+        return;
+    }
 
     if (!gpsRequired) {
         /* Mode 1: GPS not required — submit directly */

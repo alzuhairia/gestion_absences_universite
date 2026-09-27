@@ -5,7 +5,7 @@ RESPONSABILITE : Routes URL pour l'authentification et les profils
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views, views_2fa
+from . import views, views_2fa, views_devices
 
 app_name = "accounts"
 
@@ -13,6 +13,19 @@ urlpatterns = [
     path("login/", views.RateLimitedLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("profile/", views.profile_view, name="profile"),
+    # Appareils de confiance (anti-fraude présence par procuration)
+    path("devices/", views_devices.my_devices, name="my_devices"),
+    path("devices/verify/", views_devices.verify_device, name="verify_device"),
+    path(
+        "devices/secretariat/",
+        views_devices.secretariat_devices,
+        name="secretariat_devices",
+    ),
+    path(
+        "devices/secretariat/<int:device_pk>/action/",
+        views_devices.secretariat_device_action,
+        name="secretariat_device_action",
+    ),
     # 2FA TOTP
     path("2fa/setup/", views_2fa.setup_2fa, name="setup_2fa"),
     path("2fa/verify/", views_2fa.verify_2fa, name="verify_2fa"),

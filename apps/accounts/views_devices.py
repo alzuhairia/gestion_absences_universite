@@ -1,0 +1,227 @@
+"""
+FICHIER : apps/accounts/views_devices.py
+RESPONSABILITE : Gestion des appareils de confiance (anti-fraude présence par procuration)
+FONCTIONNALITES PRINCIPALES :
+  - verify_device : vérification d'un nouvel appareil par OTP e-mail (PENDING -> APPROVED)
+  - my_devices    : liste des appareils de l'étudiant + révocation
+  - secretariat_devices / secretariat_device_action : fallback d'approbation par le secrétariat
+SECURITE :
+  - Le backend est la seule autorité sur le statut (APPROVED/PENDING/REVOKED).
+  - Limite d'appareils APPROVED configurable (SystemSettings.max_devices_per_student).
+"""
+
+import logging
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods, require_POST
+
+from apps.accounts.devices import (
+    can_approve_more,
+    ensure_device_cookie,
+    get_or_enroll_device,
+)
+from apps.accounts.models import StudentDevice
+from apps.audits.utils import log_action
+from apps.dashboard.decorators import roles_required, student_required
+from apps.dashboard.models import SystemSettings
+
+logger = logging.getLogger(__name__)
+
+
+def _send_device_otp(user, code):
+    """Envoie le code OTP de vérification d'appareil par e-mail."""
+    subject = "UniAbsences — Vérification d'un nouvel appareil"
+    body = (
+        f"Bonjour {user.get_short_name()},\n\n"
+        f"Un nouvel appareil tente de valider votre présence sur UniAbsences.\n"
+        f"Votre code de vérification est : {code}\n\n"
+        f"Ce code expire dans {StudentDevice.OTP_TTL_SECONDS // 60} minutes.\n"
+        f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail "
+        f"et changez votre mot de passe.\n"
+    )
+    send_mail(subject, body, None, [user.email], fail_silently=False)
+
+
+@login_required
+@student_required
+@ensure_device_cookie
+@require_http_methods(["GET", "POST"])
+def verify_device(request):
+    """
+    Vérifie l'appareil courant via un OTP envoyé par e-mail.
+    PENDING + code correct + sous la limite -> APPROVED.
+    """
+    device, device_id, is_new_cookie = get_or_enroll_device(request)
+    if is_new_cookie:
+        request._device_id_to_set = device_id
+
+    sys_settings = SystemSettings.get_settings()
+
+    if device.is_approved:
+        messages.info(request, "Cet appareil est déjà approuvé.")
+        return redirect("accounts:my_devices")
+
+    if device.status == StudentDevice.Status.REVOKED:
+        messages.error(
+            request,
+            "Cet appareil a été révoqué. Contactez le secrétariat pour le réactiver.",
+        )
+        return redirect("accounts:my_devices")
+
+    # --- POST : soit renvoyer un code, soit vérifier le code saisi ---
+    if request.method == "POST":
+        if request.POST.get("action") == "resend":
+            code = device.set_otp()
+            _send_device_otp(request.user, code)
+            messages.success(request, "Un nouveau code vous a été envoyé par e-mail.")
+            return redirect("accounts:verify_device")
+
+        submitted = request.POST.get("code", "").strip()
+        if device.verify_otp(submitted):
+            # Vérifie la limite d'appareils approuvés AVANT d'approuver.
+            if not can_approve_more(request.user, sys_settings, exclude_pk=device.pk):
+                limit = sys_settings.max_devices_per_student
+                messages.error(
+                    request,
+                    f"Vous avez déjà {limit} appareils approuvés. Révoquez-en un "
+                    f"dans « Mes appareils » (ou demandez au secrétariat) avant "
+                    f"d'ajouter celui-ci.",
+                )
+                return redirect("accounts:my_devices")
+            device.approve()
+            log_action(
+                request.user,
+                "Appareil approuvé via OTP e-mail",
+                request,
+                niveau="INFO",
+                objet_type="AUTRE",
+                objet_id=device.pk,
+            )
+            messages.success(
+                request,
+                "Appareil vérifié et approuvé. Vous pouvez maintenant valider "
+                "votre présence.",
+            )
+            return redirect("accounts:my_devices")
+        messages.error(request, "Code incorrect ou expiré. Réessayez.")
+        return redirect("accounts:verify_device")
+
+    # --- GET : (re)génère un code si nécessaire et l'envoie ---
+    from django.utils import timezone
+
+    needs_code = (
+        not device.otp_hash
+        or device.otp_expires_at is None
+        or timezone.now() > device.otp_expires_at
+    )
+    if needs_code:
+        code = device.set_otp()
+        try:
+            _send_device_otp(request.user, code)
+        except Exception:  # pragma: no cover - dépend du backend mail
+            logger.exception("Envoi OTP appareil échoué pour %s", request.user.pk)
+            messages.warning(
+                request,
+                "Le code n'a pas pu être envoyé. Réessayez ou contactez le secrétariat.",
+            )
+
+    masked = _mask_email(request.user.email)
+    return render(request, "accounts/verify_device.html", {
+        "device": device,
+        "masked_email": masked,
+    })
+
+
+def _mask_email(email):
+    """user@domain -> u***@domain (indice pour l'utilisateur sans tout révéler)."""
+    try:
+        local, domain = email.split("@", 1)
+    except ValueError:
+        return email
+    if len(local) <= 1:
+        return f"{local}***@{domain}"
+    return f"{local[0]}***@{domain}"
+
+
+@login_required
+@student_required
+@ensure_device_cookie
+@require_http_methods(["GET", "POST"])
+def my_devices(request):
+    """Liste des appareils de l'étudiant + révocation."""
+    device, device_id, is_new_cookie = get_or_enroll_device(request)
+    if is_new_cookie:
+        request._device_id_to_set = device_id
+
+    if request.method == "POST" and request.POST.get("action") == "revoke":
+        target = get_object_or_404(
+            StudentDevice, pk=request.POST.get("device_pk"), user=request.user
+        )
+        target.status = StudentDevice.Status.REVOKED
+        target.save(update_fields=["status"])
+        log_action(
+            request.user,
+            "Appareil révoqué par l'étudiant",
+            request,
+            niveau="INFO",
+            objet_type="AUTRE",
+            objet_id=target.pk,
+        )
+        messages.success(request, "Appareil révoqué.")
+        return redirect("accounts:my_devices")
+
+    sys_settings = SystemSettings.get_settings()
+    devices = list(StudentDevice.objects.filter(user=request.user))
+    return render(request, "accounts/my_devices.html", {
+        "devices": devices,
+        "current_device_pk": device.pk,
+        "max_devices": sys_settings.max_devices_per_student,
+        "Status": StudentDevice.Status,
+    })
+
+
+@login_required
+@roles_required("SECRETAIRE", "ADMIN")
+@require_POST
+def secretariat_device_action(request, device_pk):
+    """Fallback : le secrétariat approuve/révoque un appareil (avec contrôle de limite)."""
+    device = get_object_or_404(StudentDevice, pk=device_pk)
+    action = request.POST.get("action")
+    sys_settings = SystemSettings.get_settings()
+
+    if action == "approve":
+        if not can_approve_more(device.user, sys_settings, exclude_pk=device.pk):
+            messages.error(
+                request,
+                f"{device.user.get_full_name()} a déjà atteint la limite "
+                f"({sys_settings.max_devices_per_student}) d'appareils approuvés.",
+            )
+            return redirect("accounts:secretariat_devices")
+        device.approve()
+        log_action(request.user, f"Appareil approuvé (secrétariat) — {device.user.email}",
+                   request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
+        messages.success(request, "Appareil approuvé.")
+    elif action == "revoke":
+        device.status = StudentDevice.Status.REVOKED
+        device.save(update_fields=["status"])
+        log_action(request.user, f"Appareil révoqué (secrétariat) — {device.user.email}",
+                   request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
+        messages.success(request, "Appareil révoqué.")
+    return redirect("accounts:secretariat_devices")
+
+
+@login_required
+@roles_required("SECRETAIRE", "ADMIN")
+@require_http_methods(["GET"])
+def secretariat_devices(request):
+    """Liste des appareils en attente d'approbation (fallback secrétariat)."""
+    pending = list(
+        StudentDevice.objects.filter(status=StudentDevice.Status.PENDING)
+        .select_related("user")
+    )
+    return render(request, "accounts/secretariat_devices.html", {
+        "pending_devices": pending,
+    })

@@ -79,6 +79,18 @@ class SystemSettings(models.Model):
         help_text="Le QR se régénère automatiquement après cette durée (défaut : 60s)",
     )
 
+    # Anti-fraude : liaison d'appareil (présence par procuration)
+    require_registered_device = models.BooleanField(
+        default=True,
+        verbose_name="Exiger un appareil enregistré pour valider une présence",
+        help_text="Si activé, un scan QR n'est accepté que depuis un appareil approuvé lié au compte étudiant.",
+    )
+    max_devices_per_student = models.PositiveSmallIntegerField(
+        default=2,
+        verbose_name="Nombre maximum d'appareils approuvés par étudiant",
+        help_text="Ex. : 2 = téléphone + tablette. Les appareils PENDING/REVOKED ne comptent pas.",
+    )
+
     # GDPR Compliance
     data_retention_days = models.IntegerField(
         default=365,

@@ -426,3 +426,134 @@ class TwoFactorBackupCode(models.Model):
     def __str__(self):
         state = "utilisé" if self.used else "actif"
         return f"BackupCode {self.user.email} ({state})"
+
+
+class StudentDevice(models.Model):
+    """
+    Appareil de confiance lié à un compte étudiant (anti-fraude « présence par
+    procuration »).
+
+    Sécurité :
+      - Le secret d'appareil (device_id) n'est JAMAIS stocké en clair : seul son
+        hash SHA-256 (``device_id_hash``) est persisté. Le secret vit uniquement
+        dans un cookie signé côté navigateur.
+      - Le backend est la seule autorité sur le statut (PENDING/APPROVED/REVOKED).
+      - Un nouvel appareil arrive en PENDING et doit être vérifié par OTP e-mail
+        (ou approuvé par le secrétariat) avant de pouvoir valider une présence.
+      - Le tout premier appareil d'un étudiant est auto-approuvé (UX).
+      - Le nombre d'appareils APPROVED est plafonné (SystemSettings.max_devices_per_student).
+    """
+
+    OTP_LENGTH = 6
+    OTP_TTL_SECONDS = 600  # 10 minutes
+    OTP_MAX_ATTEMPTS = 5
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", _("En attente de vérification")
+        APPROVED = "APPROVED", _("Approuvé")
+        REVOKED = "REVOKED", _("Révoqué")
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="devices",
+        verbose_name=_("Utilisateur"),
+    )
+    # SHA-256 hex digest of the device secret (64 chars). Never the raw secret.
+    device_id_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        verbose_name=_("Empreinte de l'appareil (hash)"),
+    )
+    label = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name=_("Nom de l'appareil"),
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name=_("Statut"),
+    )
+    user_agent = models.TextField(blank=True, default="", verbose_name=_("User-Agent"))
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name=_("Adresse IP")
+    )
+    # Email OTP used to promote a PENDING device to APPROVED.
+    otp_hash = models.CharField(max_length=255, blank=True, default="")
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
+    otp_attempts = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now, verbose_name=_("Créé le"))
+    last_seen_at = models.DateTimeField(default=timezone.now, verbose_name=_("Vu le"))
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Approuvé le"))
+
+    class Meta:
+        db_table = "student_device"
+        app_label = "accounts"
+        verbose_name = _("Appareil étudiant")
+        verbose_name_plural = _("Appareils étudiants")
+        ordering = ["-last_seen_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "device_id_hash"],
+                name="uniq_user_device_hash",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "status"], name="studentdevice_user_status_idx"),
+            models.Index(fields=["device_id_hash"], name="studentdevice_hash_idx"),
+        ]
+
+    def __str__(self):
+        return f"Device {self.device_id_hash[:8]}… — {self.user} ({self.status})"
+
+    @property
+    def is_approved(self):
+        return self.status == self.Status.APPROVED
+
+    def set_otp(self):
+        """Generate a fresh 6-digit OTP, store only its hash, return the raw code."""
+        import secrets
+
+        from django.contrib.auth.hashers import make_password
+
+        code = f"{secrets.randbelow(10 ** self.OTP_LENGTH):0{self.OTP_LENGTH}d}"
+        self.otp_hash = make_password(code)
+        self.otp_expires_at = timezone.now() + timezone.timedelta(seconds=self.OTP_TTL_SECONDS)
+        self.otp_attempts = 0
+        self.save(update_fields=["otp_hash", "otp_expires_at", "otp_attempts"])
+        return code
+
+    def verify_otp(self, raw_code):
+        """
+        Return True if ``raw_code`` matches the active OTP. Increments the attempt
+        counter on failure; refuses once expired or past OTP_MAX_ATTEMPTS.
+        """
+        from django.contrib.auth.hashers import check_password
+
+        if not self.otp_hash or not self.otp_expires_at:
+            return False
+        if timezone.now() > self.otp_expires_at:
+            return False
+        if self.otp_attempts >= self.OTP_MAX_ATTEMPTS:
+            return False
+        if check_password(str(raw_code).strip(), self.otp_hash):
+            return True
+        self.otp_attempts = models.F("otp_attempts") + 1
+        self.save(update_fields=["otp_attempts"])
+        self.refresh_from_db(fields=["otp_attempts"])
+        return False
+
+    def approve(self):
+        """Promote to APPROVED and clear any pending OTP. Caller enforces the limit."""
+        self.status = self.Status.APPROVED
+        self.approved_at = timezone.now()
+        self.otp_hash = ""
+        self.otp_expires_at = None
+        self.otp_attempts = 0
+        self.save(update_fields=[
+            "status", "approved_at", "otp_hash", "otp_expires_at", "otp_attempts",
+        ])
