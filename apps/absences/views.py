@@ -1586,6 +1586,7 @@ def qr_finalize(request, token):
         QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
         absent_count = 0
+        newly_absent = []
         for ins in inscriptions:
             if ins.id_inscription not in scanned_ids:
                 duree = seance.duree_heures() or 2.0  # fallback if times missing
@@ -1602,6 +1603,7 @@ def qr_finalize(request, token):
                 )
                 if created:
                     absent_count += 1
+                    newly_absent.append(ins)
 
         seance.validated = True
         seance.validated_by = request.user
@@ -1617,6 +1619,32 @@ def qr_finalize(request, token):
             objet_type="SEANCE",
             objet_id=seance.id_seance,
         )
+
+    # Notify newly-absent students by email — same notification (with dedup) as the
+    # manual mark_absence flow. QR finalization previously created the Absence rows
+    # but never sent this e-mail. Deferred to on_commit so a rollback sends nothing.
+    def _notify_absent():
+        from apps.absences.services import calculer_absence_stats
+        for ins in newly_absent:
+            try:
+                stats = calculer_absence_stats(ins)
+                student = ins.id_etudiant
+                subj, body, html_body = build_absence_recorded_email(
+                    student, course.nom_cours, seance.date_seance, stats["taux"]
+                )
+                send_with_dedup(
+                    student, subj, body, html_body,
+                    event_type="absence_recorded",
+                    event_key=f"{ins.id_inscription}-{seance.id_seance}",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to send QR-finalize absence email for inscription %s",
+                    ins.id_inscription,
+                )
+
+    if newly_absent:
+        transaction.on_commit(_notify_absent)
 
     messages.success(
         request,

@@ -603,3 +603,48 @@ class DuplicateQRScanTest(BaseQRTestCase):
                 student=self.student,
                 inscription=self.inscription,
             )
+
+
+class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
+    """QR finalization must email newly-absent students, like manual mark_absence."""
+
+    def test_finalize_sends_absence_email_to_non_scanner(self):
+        from django.core import mail
+        from apps.absences.models import Absence
+
+        token = self._create_token(verify_location=False)
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        mail.outbox.clear()
+
+        url = reverse("absences:qr_finalize", kwargs={"token": token.token})
+        # on_commit callbacks only fire when the surrounding transaction commits.
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self.client.post(url, secure=True)
+        self.assertEqual(resp.status_code, 302)
+
+        # The student who did not scan is marked absent...
+        self.assertTrue(
+            Absence.objects.filter(id_inscription=self.inscription, id_seance=self.seance).exists()
+        )
+        # ...and receives the absence-recorded email.
+        recipients = [addr for m in mail.outbox for addr in m.to]
+        self.assertIn(self.student.email, recipients)
+        self.assertTrue(any("Absence" in m.subject for m in mail.outbox))
+
+    def test_finalize_does_not_email_student_who_scanned(self):
+        from django.core import mail
+
+        token = self._create_token(verify_location=False)
+        # Student scanned → present, must NOT be marked absent nor emailed.
+        QRScanRecord.objects.create(
+            seance=self.seance, student=self.student, inscription=self.inscription,
+        )
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        mail.outbox.clear()
+
+        url = reverse("absences:qr_finalize", kwargs={"token": token.token})
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, secure=True)
+
+        recipients = [addr for m in mail.outbox for addr in m.to]
+        self.assertNotIn(self.student.email, recipients)
