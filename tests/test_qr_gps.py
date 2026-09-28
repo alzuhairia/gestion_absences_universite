@@ -764,3 +764,142 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
 
         recipients = [addr for m in mail.outbox for addr in m.to]
         self.assertNotIn(self.student.email, recipients)
+
+
+class ProfessorVisualCheckTest(BaseQRTestCase):
+    """
+    P3 — the professor checks suspicious scans in class. "Pas présent" never
+    deletes the attendance record: it is invalidated (who/when/why), audited,
+    and counted ABSENT at finalization.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.token = self._create_token(verify_location=False)
+        self.record = QRScanRecord.objects.create(
+            seance=self.seance, student=self.student, inscription=self.inscription,
+            is_suspicious=True,
+        )
+        self.log = QRScanLog.objects.create(
+            etudiant=self.student, seance=self.seance,
+            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+            risk_score=30, anomaly_flags=["recently_approved"],
+        )
+        self.url = reverse("absences:qr_record_verify", kwargs={"record_id": self.record.pk})
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+
+    def _post(self, action, **extra):
+        return self.client.post(self.url, {"action": action, **extra}, secure=True)
+
+    def _finalize(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                reverse("absences:qr_finalize", kwargs={"token": self.token.token}), secure=True,
+            )
+
+    def _dashboard_partial(self):
+        return self.client.get(
+            reverse("absences:qr_dashboard", kwargs={"token": self.token.token}),
+            secure=True, HTTP_HX_REQUEST="true",
+        )
+
+    def test_dashboard_lists_suspicious_scan_to_verify(self):
+        resp = self._dashboard_partial()
+        self.assertContains(resp, "À vérifier visuellement (1)")
+        self.assertContains(resp, "Appareil approuvé très récemment")
+
+    def test_seen_in_class_marks_false_positive_and_keeps_presence(self):
+        resp = self._post("seen")
+        self.assertEqual(resp.status_code, 302)
+        self.record.refresh_from_db()
+        self.log.refresh_from_db()
+        self.assertFalse(self.record.invalidated)
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.FALSE_POSITIVE)
+        self.assertEqual(self.log.reviewed_by, self.prof)
+        self.assertNotContains(self._dashboard_partial(), "À vérifier visuellement")
+        self.assertContains(self._dashboard_partial(), "Vérifié")
+
+    def test_confirmation_page_before_invalidation(self):
+        resp = self.client.get(self.url, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.student.get_full_name())
+        self.record.refresh_from_db()
+        self.assertFalse(self.record.invalidated)  # GET changes nothing
+
+    def test_invalidate_keeps_record_and_audits(self):
+        from apps.audits.models import LogAudit
+
+        self._post("invalidate", reason="Place vide à l'appel")
+        self.record.refresh_from_db()
+        self.log.refresh_from_db()
+        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk).exists())  # never deleted
+        self.assertTrue(self.record.invalidated)
+        self.assertEqual(self.record.invalidated_by, self.prof)
+        self.assertIsNotNone(self.record.invalidated_at)
+        self.assertEqual(self.record.invalidation_reason, "Place vide à l'appel")
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.CONFIRMED)
+        audit = LogAudit.objects.filter(action__contains="Présence QR invalidée").get()
+        self.assertEqual(audit.niveau, "WARNING")
+        self.assertIn("Place vide", audit.action)
+
+    def test_invalidated_not_counted_present_on_dashboard(self):
+        self._post("invalidate")
+        resp = self._dashboard_partial()
+        self.assertContains(resp, "Présents (0)")
+        self.assertContains(resp, "Présences invalidées (1)")
+
+    def test_finalize_counts_invalidated_as_absent_and_emails(self):
+        from django.core import mail
+        from apps.absences.models import Absence
+
+        self._post("invalidate", reason="Place vide")
+        mail.outbox.clear()
+        self._finalize()
+        absence = Absence.objects.get(id_inscription=self.inscription, id_seance=self.seance)
+        self.assertIn("invalidée par le professeur", absence.note_professeur)
+        self.assertIn("Place vide", absence.note_professeur)
+        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk).exists())
+        self.assertIn(self.student.email, [a for m in mail.outbox for a in m.to])
+
+    def test_reset_restores_presence(self):
+        from apps.absences.models import Absence
+
+        self._post("invalidate")
+        self._post("reset")
+        self.record.refresh_from_db()
+        self.log.refresh_from_db()
+        self.assertFalse(self.record.invalidated)
+        self.assertIsNone(self.record.invalidated_by)
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
+        self._finalize()
+        self.assertFalse(
+            Absence.objects.filter(id_inscription=self.inscription, id_seance=self.seance).exists()
+        )
+
+    def test_seen_refused_on_invalidated_record(self):
+        self._post("invalidate")
+        self._post("seen")
+        self.record.refresh_from_db()
+        self.assertTrue(self.record.invalidated)
+
+    def test_no_change_after_finalization(self):
+        self._finalize()
+        self._post("invalidate")
+        self.record.refresh_from_db()
+        self.assertFalse(self.record.invalidated)
+
+    def test_other_professor_and_student_cannot_act(self):
+        User.objects.create_user(
+            email="other_prof@example.com", nom="Other", prenom="Prof",
+            password="pass1234", role=User.Role.PROFESSEUR,
+        )
+        for email in ("other_prof@example.com", "stu_qr@example.com"):
+            self.client.login(email=email, password="pass1234")
+            self._post("invalidate")
+            self.record.refresh_from_db()
+            self.assertFalse(self.record.invalidated, email)
+
+    def test_invalid_action_rejected(self):
+        self._post("delete")
+        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk, invalidated=False).exists())

@@ -1441,25 +1441,33 @@ def qr_dashboard(request, token):
     }
     scanned_ids = set(scan_records.keys())
 
-    # Anomaly flags per student for this seance (labels for the ⚠️ tooltip).
+    # Latest validated scan log per student: anomaly labels (⚠️ tooltip) and the
+    # human review status (professor's visual check / secretariat decision).
     from apps.absences.anomaly import flag_label
-    anomaly_by_student = {}
+    log_by_student = {}
     for log in QRScanLog.objects.filter(
         seance=seance, scan_result=QRScanLog.ScanResult.VALIDATED
-    ).exclude(anomaly_flags=[]).order_by("etudiant_id", "-timestamp"):
-        anomaly_by_student.setdefault(
-            log.etudiant_id, [flag_label(f) for f in (log.anomaly_flags or [])]
-        )
+    ).order_by("etudiant_id", "-timestamp"):
+        log_by_student.setdefault(log.etudiant_id, log)
 
     scanned = []
+    invalidated = []
+    to_verify = []
     suspicious_count = 0
     for ins in inscriptions:
         if ins.id_inscription in scanned_ids:
             sr = scan_records[ins.id_inscription]
+            log = log_by_student.get(ins.id_etudiant_id)
             ins.scan_record = sr
-            ins.anomaly_labels = anomaly_by_student.get(ins.id_etudiant_id, [])
+            ins.anomaly_labels = [flag_label(f) for f in (log.anomaly_flags or [])] if log else []
+            ins.review_status = log.review_status if log else QRScanLog.ReviewStatus.TO_REVIEW
+            if sr.invalidated:
+                invalidated.append(ins)
+                continue
             if sr.is_suspicious:
                 suspicious_count += 1
+                if ins.review_status == QRScanLog.ReviewStatus.TO_REVIEW:
+                    to_verify.append(ins)
             scanned.append(ins)
     not_scanned = [ins for ins in inscriptions if ins.id_inscription not in scanned_ids]
 
@@ -1477,6 +1485,9 @@ def qr_dashboard(request, token):
         "total_students": len(inscriptions),
         "scanned_count": len(scanned),
         "suspicious_count": suspicious_count,
+        "invalidated": invalidated,
+        "to_verify": to_verify,
+        "ReviewStatus": QRScanLog.ReviewStatus,
         "is_expired": qr_token.is_expired,
         "has_gps": qr_token.latitude is not None,
         "verify_location": qr_token.verify_location,
@@ -1570,7 +1581,8 @@ def qr_refresh_token(request, token):
 @professor_required
 @require_POST
 def qr_finalize(request, token):
-    """Finalize QR session: students who did NOT scan are marked absent."""
+    """Finalize QR session: students who did NOT scan, or whose QR attendance was
+    invalidated by the professor's visual check, are marked absent."""
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
     course = qr_token.seance.id_cours
 
@@ -1594,8 +1606,15 @@ def qr_finalize(request, token):
             ).select_related("id_etudiant", "id_cours")
         )
 
+        # An attendance invalidated by the professor's visual check is NOT a
+        # presence: the record is kept as evidence, the student is marked absent.
         scanned_ids = set(
-            QRScanRecord.objects.filter(seance=seance).values_list("inscription_id", flat=True)
+            QRScanRecord.objects.filter(seance=seance, invalidated=False)
+            .values_list("inscription_id", flat=True)
+        )
+        invalidated_reasons = dict(
+            QRScanRecord.objects.filter(seance=seance, invalidated=True)
+            .values_list("inscription_id", "invalidation_reason")
         )
 
         # Deactivate token
@@ -1606,6 +1625,13 @@ def qr_finalize(request, token):
         for ins in inscriptions:
             if ins.id_inscription not in scanned_ids:
                 duree = seance.duree_heures() or 2.0  # fallback if times missing
+                if ins.id_inscription in invalidated_reasons:
+                    reason = invalidated_reasons[ins.id_inscription]
+                    note = "Présence QR invalidée par le professeur (contrôle visuel)" + (
+                        f" : {reason}" if reason else ""
+                    )
+                else:
+                    note = "Absent (QR non scanné)"
                 _absence, created = Absence.objects.get_or_create(
                     id_inscription=ins,
                     id_seance=seance,
@@ -1614,7 +1640,7 @@ def qr_finalize(request, token):
                         "duree_absence": duree,
                         "statut": Absence.Statut.NON_JUSTIFIEE,
                         "encodee_par": request.user,
-                        "note_professeur": "Absent (QR non scanné)",
+                        "note_professeur": note,
                     },
                 )
                 if created:
@@ -1629,7 +1655,9 @@ def qr_finalize(request, token):
         log_action(
             request.user,
             f"QR finalisé — {course.code_cours} {seance.date_seance}: "
-            f"{len(scanned_ids)} présent(s), {absent_count} absent(s)",
+            f"{len(scanned_ids)} présent(s), {absent_count} absent(s)"
+            + (f" dont {len(invalidated_reasons)} présence(s) QR invalidée(s)"
+               if invalidated_reasons else ""),
             request,
             niveau="INFO",
             objet_type="SEANCE",
@@ -1667,6 +1695,122 @@ def qr_finalize(request, token):
         f"Séance finalisée : {len(scanned_ids)} présent(s), {absent_count} absent(s).",
     )
     return redirect("dashboard:instructor_course_detail", course.id_cours)
+
+
+def _seance_dashboard_redirect(seance):
+    """Back to the live QR dashboard of the seance (its latest token rotates)."""
+    token = QRAttendanceToken.objects.filter(seance=seance).order_by("-created_at").first()
+    if token is not None:
+        return redirect("absences:qr_dashboard", token=token.token)
+    return redirect("dashboard:instructor_course_detail", seance.id_cours_id)
+
+
+#: Professor visual-check actions on a QR attendance record.
+_VERIFY_ACTIONS = {"seen", "invalidate", "reset"}
+
+
+@login_required
+@professor_required
+@require_http_methods(["GET", "POST"])
+def qr_record_verify(request, record_id):
+    """
+    Visual check by the professor of a (suspicious) QR attendance, in class:
+      - ``seen``       : student seen in class → scan classified as false positive;
+      - ``invalidate`` : student NOT in class → attendance invalidated (record kept,
+                         counted ABSENT at finalization) and anomaly confirmed;
+      - ``reset``      : undo either decision while the seance is not finalized.
+    GET renders the invalidation confirmation page (with an optional reason),
+    outside the auto-refreshing scan list. Every decision is audited.
+    """
+    from apps.absences.anomaly import flag_label
+
+    record = get_object_or_404(
+        QRScanRecord.objects.select_related("seance__id_cours", "student"), pk=record_id
+    )
+    seance = record.seance
+    course = seance.id_cours
+    if course.professeur_id != request.user.pk:
+        messages.error(request, "Accès non autorisé.")
+        return redirect("dashboard:instructor_dashboard")
+    if seance.validated:
+        messages.warning(request, "Séance déjà finalisée : la présence ne peut plus être modifiée.")
+        return _seance_dashboard_redirect(seance)
+
+    log = (
+        QRScanLog.objects.filter(
+            seance=seance, etudiant_id=record.student_id,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+        )
+        .order_by("-timestamp")
+        .first()
+    )
+
+    if request.method == "GET":
+        return render(request, "absences/qr_record_invalidate.html", {
+            "record": record,
+            "seance": seance,
+            "course": course,
+            "anomaly_labels": [flag_label(f) for f in (log.anomaly_flags or [])] if log else [],
+            "back_url": _seance_dashboard_redirect(seance).url,
+        })
+
+    action = request.POST.get("action", "")
+    if action not in _VERIFY_ACTIONS:
+        messages.error(request, "Action invalide.")
+        return _seance_dashboard_redirect(seance)
+
+    student_name = record.student.get_full_name() if record.student else "—"
+    now = timezone.now()
+    with transaction.atomic():
+        if action == "seen":
+            if record.invalidated:
+                messages.error(request, "Présence invalidée : annulez d'abord l'invalidation.")
+                return _seance_dashboard_redirect(seance)
+            review = (QRScanLog.ReviewStatus.FALSE_POSITIVE, "Vu en classe (contrôle visuel du professeur)")
+            audit = (f"Contrôle visuel QR — {student_name} vu en classe", "INFO")
+            flash = f"{student_name} : présence confirmée (vu en classe)."
+        elif action == "invalidate":
+            reason = request.POST.get("reason", "").strip()[:500]
+            record.invalidated = True
+            record.invalidated_by = request.user
+            record.invalidated_at = now
+            record.invalidation_reason = reason
+            record.save(update_fields=[
+                "invalidated", "invalidated_by", "invalidated_at", "invalidation_reason",
+            ])
+            review = (QRScanLog.ReviewStatus.CONFIRMED, reason or "Absent au contrôle visuel du professeur")
+            audit = (
+                f"Présence QR invalidée — {student_name} absent au contrôle visuel"
+                + (f" : {reason}" if reason else ""),
+                "WARNING",
+            )
+            flash = f"{student_name} : présence invalidée, sera compté(e) absent(e) à la finalisation."
+        else:  # reset
+            record.invalidated = False
+            record.invalidated_by = None
+            record.invalidated_at = None
+            record.invalidation_reason = ""
+            record.save(update_fields=[
+                "invalidated", "invalidated_by", "invalidated_at", "invalidation_reason",
+            ])
+            review = (QRScanLog.ReviewStatus.TO_REVIEW, "")
+            audit = (f"Contrôle visuel QR annulé — {student_name}", "INFO")
+            flash = f"{student_name} : décision annulée."
+
+        if log is not None:
+            log.review_status, log.review_note = review
+            if review[0] == QRScanLog.ReviewStatus.TO_REVIEW:
+                log.reviewed_by, log.reviewed_at = None, None
+            else:
+                log.reviewed_by, log.reviewed_at = request.user, now
+            log.save(update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at"])
+
+        log_action(
+            request.user, f"{audit[0]} ({course.code_cours} {seance.date_seance})",
+            request, niveau=audit[1], objet_type="SEANCE", objet_id=seance.id_seance,
+        )
+    messages.success(request, flash)
+    return _seance_dashboard_redirect(seance)
 
 
 def _hash_qr_token(raw_token):

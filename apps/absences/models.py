@@ -363,6 +363,19 @@ class QRScanRecord(models.Model):
     longitude = models.FloatField(null=True, blank=True)
     distance_meters = models.FloatField(null=True, blank=True)
     is_suspicious = models.BooleanField(default=False)
+    # Invalidation by the professor after a visual check ("not in class"). The
+    # record is never deleted: it stays as evidence of the fraudulent scan, and
+    # finalization counts an invalidated record as ABSENT.
+    invalidated = models.BooleanField(default=False, db_index=True)
+    invalidated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="qr_scans_invalidated",
+        null=True,
+        blank=True,
+    )
+    invalidated_at = models.DateTimeField(null=True, blank=True)
+    invalidation_reason = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "qr_scan_record"

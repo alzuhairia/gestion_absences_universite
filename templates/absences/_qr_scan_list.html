@@ -1,6 +1,7 @@
 {% comment %}
 HTMX partial — refreshed every 3s by the QR dashboard.
-Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, has_gps, qr_token
+Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, has_gps, qr_token,
+         to_verify, invalidated, ReviewStatus, seance
 {% endcomment %}
 
 <!-- Big progress indicator -->
@@ -45,6 +46,47 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
 </div>
 {% endif %}
 
+<!-- Visual check by the professor (suspicious scans not yet decided) -->
+{% if to_verify and not seance.validated %}
+<div class="card border-danger mb-3">
+    <div class="card-header bg-danger text-white py-2">
+        <i class="fas fa-eye me-1"></i><strong>À vérifier visuellement ({{ to_verify|length }})</strong>
+        <div class="small">Signaux suspects, pas des preuves : vérifiez que ces étudiants sont bien dans la salle.</div>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for ins in to_verify %}
+        <li class="list-group-item py-2">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                    <strong>{{ ins.id_etudiant.get_full_name }}</strong>
+                    <div>
+                        {% for label in ins.anomaly_labels %}
+                        <span class="badge bg-warning text-dark" style="font-size:0.65rem;">{{ label }}</span>
+                        {% endfor %}
+                        {% if has_gps and ins.scan_record.distance_meters != None %}
+                        <span class="badge bg-light text-muted">{{ ins.scan_record.distance_meters|floatformat:0 }} m</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="d-flex gap-1">
+                    <form method="POST" action="{% url 'absences:qr_record_verify' ins.scan_record.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="seen">
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="fas fa-check me-1"></i>Vu en classe
+                        </button>
+                    </form>
+                    <a href="{% url 'absences:qr_record_verify' ins.scan_record.pk %}" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-xmark me-1"></i>Pas présent
+                    </a>
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <!-- Linear progress bar -->
 {% if total_students > 0 %}
 <div class="progress mb-4" style="height: 10px; border-radius: 5px;">
@@ -73,6 +115,9 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
                     {% for label in ins.anomaly_labels %}
                     <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">{{ label }}</span>
                     {% endfor %}
+                    {% if ins.scan_record.is_suspicious and ins.review_status == ReviewStatus.FALSE_POSITIVE %}
+                    <span class="badge bg-success ms-1" style="font-size:0.65rem;"><i class="fas fa-eye me-1"></i>Vérifié</span>
+                    {% endif %}
                 </span>
                 {% if has_gps and ins.scan_record.distance_meters != None %}
                 <span class="badge {% if ins.scan_record.is_suspicious %}bg-danger{% else %}bg-light text-muted{% endif %}">
@@ -84,6 +129,29 @@ Context: scanned, not_scanned, scanned_count, total_students, suspicious_count, 
         </ul>
         {% else %}
         <p class="text-muted small">Aucun scan pour le moment.</p>
+        {% endif %}
+
+        {% if invalidated %}
+        <h6 class="text-danger fw-bold mt-3"><i class="fas fa-user-xmark me-1"></i>Présences invalidées ({{ invalidated|length }})</h6>
+        <ul class="list-group list-group-flush">
+            {% for ins in invalidated %}
+            <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-0 border-0">
+                <span>
+                    <span class="text-decoration-line-through text-muted">{{ ins.id_etudiant.get_full_name }}</span>
+                    {% if ins.scan_record.invalidation_reason %}
+                    <div class="small text-muted fst-italic">{{ ins.scan_record.invalidation_reason }}</div>
+                    {% endif %}
+                </span>
+                {% if not seance.validated %}
+                <form method="POST" action="{% url 'absences:qr_record_verify' ins.scan_record.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reset">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Annuler</button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
         {% endif %}
     </div>
 
