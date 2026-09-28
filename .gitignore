@@ -50,7 +50,6 @@ coverage.xml
 .claude/
 
 # Docker
-.dockerignore
 
 # Misc
 backups/
