@@ -13,6 +13,8 @@ SIGNAUX :
   - same_device_same_seance : même appareil (hash) ayant validé la présence d'un
     AUTRE compte dans la même séance — le signal le plus direct du « buddy
     punching » ; le scan antérieur est aussi marqué a posteriori.
+  - device_churn       : ≥ 3 appareils APPROUVÉS en 30 jours sur le compte (cycles
+    révocation → nouvel appareil → OTP).
   - geo_velocity        : déplacement physiquement impossible depuis le dernier scan.
   - new_ip             : adresse IP jamais vue pour ce compte.
   - low_gps_accuracy   : précision GPS annoncée trop faible pour être fiable.
@@ -28,6 +30,7 @@ from django.utils import timezone
 # --- Drapeaux (valeurs stables : stockées en base et affichées dans l'UI) ---
 FLAG_MULTI_ACCOUNT_DEVICE = "multi_account_device"
 FLAG_SAME_DEVICE_SAME_SEANCE = "same_device_same_seance"
+FLAG_DEVICE_CHURN = "device_churn"
 FLAG_GEO_VELOCITY = "geo_velocity"
 FLAG_NEW_IP = "new_ip"
 FLAG_LOW_GPS_ACCURACY = "low_gps_accuracy"
@@ -38,6 +41,7 @@ FLAG_RECENTLY_APPROVED = "recently_approved"
 FLAG_WEIGHTS = {
     FLAG_MULTI_ACCOUNT_DEVICE: 50,
     FLAG_SAME_DEVICE_SAME_SEANCE: 60,
+    FLAG_DEVICE_CHURN: 20,
     FLAG_GEO_VELOCITY: 40,
     FLAG_NEW_IP: 15,
     FLAG_LOW_GPS_ACCURACY: 10,
@@ -48,6 +52,7 @@ FLAG_WEIGHTS = {
 FLAG_LABELS = {
     FLAG_MULTI_ACCOUNT_DEVICE: "Même appareil utilisé par plusieurs comptes",
     FLAG_SAME_DEVICE_SAME_SEANCE: "Même appareil a validé un autre étudiant dans cette séance",
+    FLAG_DEVICE_CHURN: "Nombreux appareils approuvés récemment",
     FLAG_GEO_VELOCITY: "Déplacement incohérent depuis le dernier scan",
     FLAG_NEW_IP: "Nouvelle adresse IP",
     FLAG_LOW_GPS_ACCURACY: "Précision GPS faible",
@@ -61,6 +66,11 @@ SUSPICIOUS_THRESHOLD = 30
 #: Poids 30 = seuil suspect à lui seul : c'est la trace du scénario « mot de passe
 #: + OTP transmis à un camarade », même depuis une fenêtre de navigation privée.
 RECENTLY_APPROVED_MAX_AGE_HOURS = 24
+#: device_churn : au moins N appareils approuvés (OTP ou secrétariat) sur la
+#: fenêtre. On compte les APPROBATIONS, pas les créations : un navigateur qui
+#: vide ses cookies crée des appareils PENDING sans que ce soit suspect.
+DEVICE_CHURN_MIN_APPROVALS = 3
+DEVICE_CHURN_WINDOW_DAYS = 30
 
 
 def flag_label(flag):
@@ -123,6 +133,14 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
             .exists()
         ):
             flags.append(FLAG_SAME_DEVICE_SAME_SEANCE)
+
+    # 1c) Rotation d'appareils : approbations répétées sur le compte.
+    churn_since = timezone.now() - timezone.timedelta(days=DEVICE_CHURN_WINDOW_DAYS)
+    if (
+        StudentDevice.objects.filter(user=user, approved_at__gte=churn_since).count()
+        >= DEVICE_CHURN_MIN_APPROVALS
+    ):
+        flags.append(FLAG_DEVICE_CHURN)
 
     # 2) Nouvelle IP pour ce compte (par rapport aux scans validés précédents).
     if ip_address:

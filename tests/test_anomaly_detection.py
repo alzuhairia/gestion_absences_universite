@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.absences.anomaly import (
+    FLAG_DEVICE_CHURN,
     FLAG_GEO_VELOCITY,
     FLAG_LOW_GPS_ACCURACY,
     FLAG_MULTI_ACCOUNT_DEVICE,
@@ -210,6 +211,46 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         )
         self.assertNotIn(FLAG_RECENTLY_APPROVED, flags)
         self.assertNotIn(FLAG_NEW_DEVICE, flags)  # legacy flag is no longer emitted
+
+
+class DeviceChurnTest(BaseAnomalyTestCase):
+    def _approved(self, secret, days_ago, status=StudentDevice.Status.APPROVED):
+        d = self._device(self.student, secret, status=status)
+        when = timezone.now() - timedelta(days=days_ago)
+        StudentDevice.objects.filter(pk=d.pk).update(created_at=when, approved_at=when)
+        d.refresh_from_db()
+        return d
+
+    def _flags(self, device):
+        return evaluate_scan_risk(
+            user=self.student, device=device, device_id_hash=device.device_id_hash,
+            ip_address="1.2.3.4", settings_obj=self.settings,
+        )[1]
+
+    def test_three_approvals_in_30_days_flagged(self):
+        # Revoked devices keep their approved_at: they count.
+        revoked = self._approved("old-1", 20)
+        StudentDevice.objects.filter(pk=revoked.pk).update(status=StudentDevice.Status.REVOKED)
+        self._approved("old-2", 10)
+        current = self._approved("cur", 2)
+        self.assertIn(FLAG_DEVICE_CHURN, self._flags(current))
+
+    def test_two_approvals_not_flagged(self):
+        self._approved("phone", 10)
+        current = self._approved("tablet", 2)
+        self.assertNotIn(FLAG_DEVICE_CHURN, self._flags(current))
+
+    def test_old_approvals_outside_window_ignored(self):
+        self._approved("old-1", 90)
+        self._approved("old-2", 60)
+        current = self._approved("cur", 2)
+        self.assertNotIn(FLAG_DEVICE_CHURN, self._flags(current))
+
+    def test_pending_devices_from_cleared_cookies_ignored(self):
+        for i in range(5):
+            self._device(self.student, f"pending-{i}", status=StudentDevice.Status.PENDING)
+        current = self._approved("cur", 2)
+        self.assertNotIn(FLAG_DEVICE_CHURN, self._flags(current))
 
 
 # --------------------------------------------------------------------------- #
