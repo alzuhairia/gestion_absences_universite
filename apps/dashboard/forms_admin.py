@@ -363,6 +363,7 @@ class SystemSettingsForm(forms.ModelForm):
             "gps_longitude",
             "gps_radius_meters",
             "qr_token_duration_seconds",
+            "qr_gps_required",
         ]
         widgets = {
             "default_absence_threshold": forms.NumberInput(
@@ -397,6 +398,9 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             "qr_token_duration_seconds": forms.NumberInput(
                 attrs={"class": "form-control", "min": "15", "max": "600"}
+            ),
+            "qr_gps_required": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
             ),
         }
         labels = {

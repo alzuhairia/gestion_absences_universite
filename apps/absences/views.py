@@ -517,7 +517,7 @@ def session_create(request, course_id):
             sys_settings = SystemSettings.get_settings()
             qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
-            verify_location = request.POST.get("verify_location") == "on"
+            verify_location = _resolve_verify_location(request, sys_settings)
             prof_lat_f, prof_lng_f = _parse_gps(
                 request.POST.get("latitude"), request.POST.get("longitude")
             )
@@ -572,12 +572,15 @@ def session_create(request, course_id):
             )
 
     # --- GET: render creation form ---
+    from apps.dashboard.models import SystemSettings
+
     today = timezone.localdate().isoformat()
     return render(request, "absences/session_create.html", {
         "course": course,
         "today": today,
         "default_start": "08:30",
         "default_end": "10:30",
+        "gps_forced": SystemSettings.get_settings().qr_gps_required,
     })
 
 
@@ -1342,11 +1345,14 @@ def qr_generate(request, course_id):
             )
             return redirect("absences:qr_dashboard", token=existing_token.token)
 
+        from apps.dashboard.models import SystemSettings
+        sys_settings = SystemSettings.get_settings()
+
         # GPS anti-fraud: professor's location (optional, sent by JS)
         prof_lat_f, prof_lng_f = _parse_gps(
             request.POST.get("latitude"), request.POST.get("longitude")
         )
-        verify_location = request.POST.get("verify_location") == "on"
+        verify_location = _resolve_verify_location(request, sys_settings)
 
         # Invariant: if GPS verification is enabled, a reference position MUST be
         # available (establishment coords or the professor's own position),
@@ -1362,8 +1368,6 @@ def qr_generate(request, course_id):
             return redirect("absences:qr_generate", course_id=course_id)
 
         # Use system-configured QR duration if available
-        from apps.dashboard.models import SystemSettings
-        sys_settings = SystemSettings.get_settings()
         qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
         # Deactivate any previous active tokens for this seance
@@ -1392,12 +1396,15 @@ def qr_generate(request, course_id):
 
         return redirect("absences:qr_dashboard", token=token.token)
 
+    from apps.dashboard.models import SystemSettings
+
     today = timezone.localdate().isoformat()
     return render(request, "absences/qr_generate.html", {
         "course": course,
         "today": today,
         "default_start": "08:00",
         "default_end": "09:30",
+        "gps_forced": SystemSettings.get_settings().qr_gps_required,
     })
 
 
@@ -1513,6 +1520,14 @@ def qr_refresh_token(request, token):
     old_verify_location = qr_token.verify_location
     old_lat = qr_token.latitude
     old_lng = qr_token.longitude
+    # Enforced GPS policy also upgrades a token created before it was enabled,
+    # provided a reference position exists (else every scan would fail).
+    if (
+        not old_verify_location
+        and sys_settings.qr_gps_required
+        and _reference_gps_available(old_lat, old_lng)
+    ):
+        old_verify_location = True
 
     QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
 
@@ -1735,6 +1750,20 @@ def _reference_gps_available(prof_lat=None, prof_lng=None):
     if _is_valid_coordinate(etab_lat) and _is_valid_coordinate(etab_lng):
         return True
     return _is_valid_coordinate(prof_lat) and _is_valid_coordinate(prof_lng)
+
+
+def _resolve_verify_location(request, sys_settings):
+    """
+    Decide server-side whether a new QR token requires GPS verification.
+
+    When ``SystemSettings.qr_gps_required`` is on, GPS is forced regardless of
+    the submitted form: the professor cannot opt out (otherwise a QR relayed to
+    a remote student with an approved device would be accepted). The form
+    checkbox is only honoured when the policy is off.
+    """
+    if sys_settings.qr_gps_required:
+        return True
+    return request.POST.get("verify_location") == "on"
 
 
 # ========================================================================== #

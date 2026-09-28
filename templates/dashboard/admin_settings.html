@@ -154,6 +154,18 @@
                                 {{ form.qr_token_duration_seconds }}
                                 <small class="form-text text-muted">Le QR se régénère automatiquement. Défaut : 60 secondes.</small>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-md-4">
+                                    {{ form.qr_gps_required }}
+                                    <label class="form-check-label" for="{{ form.qr_gps_required.id_for_label }}">
+                                        <strong>Imposer la vérification GPS pour toute séance QR</strong>
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Recommandé. Empêche d'accepter un QR relayé à un étudiant absent.
+                                    Le professeur ne peut pas désactiver la vérification.
+                                </small>
+                            </div>
                         </div>
                         <div class="alert alert-info py-2 small">
                             <i class="fas fa-info-circle me-1"></i>

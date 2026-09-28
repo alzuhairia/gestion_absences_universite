@@ -78,6 +78,12 @@ class SystemSettings(models.Model):
         verbose_name="Durée de validité du QR (secondes)",
         help_text="Le QR se régénère automatiquement après cette durée (défaut : 60s)",
     )
+    qr_gps_required = models.BooleanField(
+        default=True,
+        verbose_name="Imposer la vérification GPS pour toute séance QR",
+        help_text="Si activé, le serveur force la vérification de position sur chaque QR "
+                  "généré : le professeur ne peut pas la désactiver.",
+    )
 
     # Anti-fraude : liaison d'appareil (présence par procuration)
     require_registered_device = models.BooleanField(

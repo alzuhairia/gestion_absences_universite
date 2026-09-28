@@ -5,6 +5,7 @@ Tests for QR code GPS enforcement, token expiration, and scan logging.
 from datetime import date, time, timedelta
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.db import IntegrityError
 from django.test import TestCase, RequestFactory, override_settings
 from django.urls import reverse
@@ -33,6 +34,9 @@ from apps.enrollments.models import Inscription
 @override_settings(CACHES=_LOCAL_CACHE)
 class BaseQRTestCase(TestCase):
     def setUp(self):
+        # The locmem cache outlives each test's DB rollback: drop any cached
+        # SystemSettings left by a previous test so defaults are really defaults.
+        cache.clear()
         self.faculte = Faculte.objects.create(nom_faculte="Faculte QR")
         self.departement = Departement.objects.create(
             nom_departement="Dept QR", id_faculte=self.faculte,
@@ -404,12 +408,116 @@ class QRGenerationGPSGuardTest(BaseQRTestCase):
         self.assertAlmostEqual(token.latitude, 36.75250, places=4)
 
     def test_no_verify_location_creates_token_without_gps(self):
-        """GPS disabled → existing behavior preserved even with no coords anywhere."""
+        """Policy off + GPS unchecked → no GPS, even with no coords anywhere."""
+        s = SystemSettings.get_settings()
+        s.qr_gps_required = False
+        s.save()
         self._clear_establishment_gps()
         self._post()  # verify_location omitted
         token = QRAttendanceToken.objects.filter(seance=self.seance).first()
         self.assertIsNotNone(token)
         self.assertFalse(token.verify_location)
+
+
+class QRGPSRequiredPolicyTest(BaseQRTestCase):
+    """
+    SystemSettings.qr_gps_required (default ON): the server forces GPS on every
+    QR token; the professor cannot opt out through the form.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(email="prof_qr@example.com", password="pass1234")
+        self.form_data = {
+            "date_seance": date.today().isoformat(),
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+        }
+
+    def _set_policy(self, value):
+        s = SystemSettings.get_settings()
+        s.qr_gps_required = value
+        s.save()
+
+    def test_policy_enabled_by_default(self):
+        self.assertTrue(SystemSettings.get_settings().qr_gps_required)
+
+    def test_qr_generate_forces_gps_without_checkbox(self):
+        self.client.post(
+            reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
+            self.form_data, secure=True, follow=True,
+        )
+        token = QRAttendanceToken.objects.get(seance=self.seance)
+        self.assertTrue(token.verify_location)
+
+    def test_session_create_qr_mode_forces_gps_without_checkbox(self):
+        self.client.post(
+            reverse("absences:session_create", kwargs={"course_id": self.course.id_cours}),
+            {**self.form_data, "mode": "qr"}, secure=True, follow=True,
+        )
+        token = QRAttendanceToken.objects.get(seance=self.seance)
+        self.assertTrue(token.verify_location)
+
+    def test_forced_gps_without_reference_blocks_generation(self):
+        s = SystemSettings.get_settings()
+        s.gps_latitude = None
+        s.gps_longitude = None
+        s.save()
+        resp = self.client.post(
+            reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
+            self.form_data, secure=True, follow=True,
+        )
+        self.assertFalse(QRAttendanceToken.objects.filter(seance=self.seance).exists())
+        self.assertContains(resp, "aucune position de r")
+
+    def test_policy_disabled_honours_checkbox(self):
+        self._set_policy(False)
+        self.client.post(
+            reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
+            {**self.form_data, "verify_location": "on"}, secure=True, follow=True,
+        )
+        token = QRAttendanceToken.objects.get(seance=self.seance)
+        self.assertTrue(token.verify_location)
+
+    def test_refresh_upgrades_legacy_token_when_reference_available(self):
+        old = self._create_token(verify_location=False)
+        self.client.post(
+            reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
+            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
+        self.assertTrue(new.verify_location)
+
+    def test_refresh_keeps_legacy_token_without_reference(self):
+        s = SystemSettings.get_settings()
+        s.gps_latitude = None
+        s.gps_longitude = None
+        s.save()
+        old = self._create_token(verify_location=False)
+        self.client.post(
+            reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
+            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
+        self.assertFalse(new.verify_location)
+
+    def test_refresh_policy_disabled_preserves_token_setting(self):
+        self._set_policy(False)
+        old = self._create_token(verify_location=False)
+        self.client.post(
+            reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
+            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
+        self.assertFalse(new.verify_location)
+
+    def test_generate_form_shows_locked_checkbox(self):
+        resp = self.client.get(
+            reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
+            secure=True,
+        )
+        self.assertContains(resp, "Imposé par l'administration")
+        self.assertContains(resp, "checked disabled")
 
 
 class QRTokenExpirationDurationTest(BaseQRTestCase):
