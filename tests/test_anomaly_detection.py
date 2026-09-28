@@ -15,6 +15,8 @@ from apps.absences.anomaly import (
     FLAG_MULTI_ACCOUNT_DEVICE,
     FLAG_NEW_DEVICE,
     FLAG_NEW_IP,
+    FLAG_RECENTLY_APPROVED,
+    SUSPICIOUS_THRESHOLD,
     evaluate_scan_risk,
 )
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
@@ -107,8 +109,8 @@ class BaseAnomalyTestCase(TestCase):
 class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
     def test_clean_scan_no_flags(self):
         dev = self._device(self.student, "phone-A")
-        # Make device "old" so new_device does not fire.
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        # Make device "old" so recently_approved does not fire.
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
@@ -121,7 +123,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
     def test_multi_account_device_flag(self):
         d1 = self._device(self.student, "shared")
         d2 = self._device(self.student2, "shared")
-        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         d1.refresh_from_db()
         score, flags = evaluate_scan_risk(
             user=self.student, device=d1, device_id_hash=d1.device_id_hash,
@@ -132,7 +134,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
 
     def test_new_ip_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         QRScanLog.objects.create(
             etudiant=self.student, seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
@@ -147,7 +149,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
 
     def test_geo_velocity_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         # Prior scan in Paris, 1 minute ago.
         log = QRScanLog.objects.create(
             etudiant=self.student, seance=self.seance,
@@ -167,7 +169,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
 
     def test_low_gps_accuracy_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
@@ -176,13 +178,36 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         )
         self.assertIn(FLAG_LOW_GPS_ACCURACY, flags)
 
-    def test_new_device_flag(self):
-        dev = self._device(self.student, "phone-A")  # created just now
+    def test_recently_approved_flag(self):
+        dev = self._device(self.student, "phone-A")  # approved just now
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
             ip_address="1.2.3.4", settings_obj=self.settings,
         )
-        self.assertIn(FLAG_NEW_DEVICE, flags)
+        self.assertIn(FLAG_RECENTLY_APPROVED, flags)
+        self.assertGreaterEqual(score, SUSPICIOUS_THRESHOLD)  # suspicious on its own
+
+    def test_pre_enrolled_device_approved_today_is_flagged(self):
+        """Enrolled days ago (PENDING), approved just now → still flagged."""
+        dev = self._device(self.student, "phone-A")
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        dev.refresh_from_db()
+        _, flags = evaluate_scan_risk(
+            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4", settings_obj=self.settings,
+        )
+        self.assertIn(FLAG_RECENTLY_APPROVED, flags)
+
+    def test_device_approved_long_ago_not_flagged(self):
+        dev = self._device(self.student, "phone-A")
+        StudentDevice.objects.filter(pk=dev.pk).update(approved_at=timezone.now() - timedelta(hours=25))
+        dev.refresh_from_db()
+        _, flags = evaluate_scan_risk(
+            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4", settings_obj=self.settings,
+        )
+        self.assertNotIn(FLAG_RECENTLY_APPROVED, flags)
+        self.assertNotIn(FLAG_NEW_DEVICE, flags)  # legacy flag is no longer emitted
 
 
 # --------------------------------------------------------------------------- #
@@ -204,7 +229,7 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         # Same physical device (same secret) approved for two students.
         d1 = self._device(self.student, "shared-phone")
         d2 = self._device(self.student2, "shared-phone")
-        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
         token = self._token(verify_location=False)
 
         # Student A scans → present.

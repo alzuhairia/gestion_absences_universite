@@ -13,7 +13,9 @@ SIGNAUX :
   - geo_velocity        : déplacement physiquement impossible depuis le dernier scan.
   - new_ip             : adresse IP jamais vue pour ce compte.
   - low_gps_accuracy   : précision GPS annoncée trop faible pour être fiable.
-  - new_device         : appareil enrôlé très récemment (première utilisation).
+  - recently_approved  : appareil APPROUVÉ très récemment (OTP ou secrétariat).
+    Remplace ``new_device`` (basé sur la création : contourné en pré-enrôlant
+    l'appareil la veille). Le libellé ``new_device`` reste pour les anciens logs.
 """
 
 import math
@@ -25,7 +27,8 @@ FLAG_MULTI_ACCOUNT_DEVICE = "multi_account_device"
 FLAG_GEO_VELOCITY = "geo_velocity"
 FLAG_NEW_IP = "new_ip"
 FLAG_LOW_GPS_ACCURACY = "low_gps_accuracy"
-FLAG_NEW_DEVICE = "new_device"
+FLAG_NEW_DEVICE = "new_device"  # historique : n'est plus émis
+FLAG_RECENTLY_APPROVED = "recently_approved"
 
 #: Poids de chaque drapeau dans le score de risque (0–100, plafonné).
 FLAG_WEIGHTS = {
@@ -33,7 +36,7 @@ FLAG_WEIGHTS = {
     FLAG_GEO_VELOCITY: 40,
     FLAG_NEW_IP: 15,
     FLAG_LOW_GPS_ACCURACY: 10,
-    FLAG_NEW_DEVICE: 10,
+    FLAG_RECENTLY_APPROVED: 30,
 }
 
 #: Libellés humains (pour l'UI prof/secrétariat).
@@ -43,12 +46,15 @@ FLAG_LABELS = {
     FLAG_NEW_IP: "Nouvelle adresse IP",
     FLAG_LOW_GPS_ACCURACY: "Précision GPS faible",
     FLAG_NEW_DEVICE: "Appareil récemment enrôlé",
+    FLAG_RECENTLY_APPROVED: "Appareil approuvé très récemment",
 }
 
 #: Un scan est marqué « suspect » au-delà de ce score.
 SUSPICIOUS_THRESHOLD = 30
-#: Un appareil est « récent » s'il a été créé il y a moins de N heures.
-NEW_DEVICE_MAX_AGE_HOURS = 24
+#: Un appareil est « récemment approuvé » s'il l'a été il y a moins de N heures.
+#: Poids 30 = seuil suspect à lui seul : c'est la trace du scénario « mot de passe
+#: + OTP transmis à un camarade », même depuis une fenêtre de navigation privée.
+RECENTLY_APPROVED_MAX_AGE_HOURS = 24
 
 
 def flag_label(flag):
@@ -129,11 +135,11 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
         except (TypeError, ValueError):
             pass
 
-    # 5) Appareil enrôlé très récemment (première utilisation).
-    if device is not None and getattr(device, "created_at", None) is not None:
-        age_h = (timezone.now() - device.created_at).total_seconds() / 3600.0
-        if age_h < NEW_DEVICE_MAX_AGE_HOURS:
-            flags.append(FLAG_NEW_DEVICE)
+    # 5) Appareil approuvé très récemment (date d'APPROBATION, pas de création).
+    if device is not None and getattr(device, "approved_at", None) is not None:
+        age_h = (timezone.now() - device.approved_at).total_seconds() / 3600.0
+        if age_h < RECENTLY_APPROVED_MAX_AGE_HOURS:
+            flags.append(FLAG_RECENTLY_APPROVED)
 
     risk_score = min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
     return risk_score, flags
