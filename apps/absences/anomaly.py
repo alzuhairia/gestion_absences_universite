@@ -10,6 +10,9 @@ PRINCIPE :
   - Le blocage strict reste réservé aux appareils inconnus/PENDING/REVOKED (dans qr_scan).
 SIGNAUX :
   - multi_account_device : un même appareil (hash) rattaché à ≥ 2 comptes distincts.
+  - same_device_same_seance : même appareil (hash) ayant validé la présence d'un
+    AUTRE compte dans la même séance — le signal le plus direct du « buddy
+    punching » ; le scan antérieur est aussi marqué a posteriori.
   - geo_velocity        : déplacement physiquement impossible depuis le dernier scan.
   - new_ip             : adresse IP jamais vue pour ce compte.
   - low_gps_accuracy   : précision GPS annoncée trop faible pour être fiable.
@@ -24,6 +27,7 @@ from django.utils import timezone
 
 # --- Drapeaux (valeurs stables : stockées en base et affichées dans l'UI) ---
 FLAG_MULTI_ACCOUNT_DEVICE = "multi_account_device"
+FLAG_SAME_DEVICE_SAME_SEANCE = "same_device_same_seance"
 FLAG_GEO_VELOCITY = "geo_velocity"
 FLAG_NEW_IP = "new_ip"
 FLAG_LOW_GPS_ACCURACY = "low_gps_accuracy"
@@ -33,6 +37,7 @@ FLAG_RECENTLY_APPROVED = "recently_approved"
 #: Poids de chaque drapeau dans le score de risque (0–100, plafonné).
 FLAG_WEIGHTS = {
     FLAG_MULTI_ACCOUNT_DEVICE: 50,
+    FLAG_SAME_DEVICE_SAME_SEANCE: 60,
     FLAG_GEO_VELOCITY: 40,
     FLAG_NEW_IP: 15,
     FLAG_LOW_GPS_ACCURACY: 10,
@@ -42,6 +47,7 @@ FLAG_WEIGHTS = {
 #: Libellés humains (pour l'UI prof/secrétariat).
 FLAG_LABELS = {
     FLAG_MULTI_ACCOUNT_DEVICE: "Même appareil utilisé par plusieurs comptes",
+    FLAG_SAME_DEVICE_SAME_SEANCE: "Même appareil a validé un autre étudiant dans cette séance",
     FLAG_GEO_VELOCITY: "Déplacement incohérent depuis le dernier scan",
     FLAG_NEW_IP: "Nouvelle adresse IP",
     FLAG_LOW_GPS_ACCURACY: "Précision GPS faible",
@@ -71,9 +77,14 @@ def _haversine(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def score_flags(flags):
+    """Score de risque (0–100, plafonné) d'une liste de drapeaux."""
+    return min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
+
+
 def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
                        latitude=None, longitude=None, accuracy=None,
-                       settings_obj=None):
+                       settings_obj=None, seance=None):
     """
     Évalue le risque d'un scan qui va être validé. Retourne ``(risk_score, flags)``.
 
@@ -99,6 +110,19 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
         )
         if distinct_users >= 2:
             flags.append(FLAG_MULTI_ACCOUNT_DEVICE)
+
+    # 1b) Même appareil → un AUTRE compte validé dans la MÊME séance.
+    if device_id_hash and seance is not None:
+        if (
+            QRScanLog.objects.filter(
+                seance=seance,
+                device_id_hash=device_id_hash,
+                scan_result=QRScanLog.ScanResult.VALIDATED,
+            )
+            .exclude(etudiant=user)
+            .exists()
+        ):
+            flags.append(FLAG_SAME_DEVICE_SAME_SEANCE)
 
     # 2) Nouvelle IP pour ce compte (par rapport aux scans validés précédents).
     if ip_address:
@@ -141,5 +165,34 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
         if age_h < RECENTLY_APPROVED_MAX_AGE_HOURS:
             flags.append(FLAG_RECENTLY_APPROVED)
 
-    risk_score = min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
-    return risk_score, flags
+    return score_flags(flags), flags
+
+
+def flag_earlier_same_device_scans(*, seance, device_id_hash, user):
+    """
+    Marque a posteriori les scans VALIDÉS antérieurs de la séance faits avec le
+    même appareil par d'autres comptes : au moment où ils ont été enregistrés,
+    rien ne permettait de savoir que l'appareil servirait à un second compte.
+    Met à jour drapeaux, score et QRScanRecord.is_suspicious. Ne bloque rien.
+    """
+    from apps.absences.models import QRScanLog, QRScanRecord
+
+    if not device_id_hash:
+        return
+    earlier = QRScanLog.objects.filter(
+        seance=seance,
+        device_id_hash=device_id_hash,
+        scan_result=QRScanLog.ScanResult.VALIDATED,
+    ).exclude(etudiant=user)
+    for log in earlier:
+        flags = list(log.anomaly_flags or [])
+        if FLAG_SAME_DEVICE_SAME_SEANCE in flags:
+            continue
+        flags.append(FLAG_SAME_DEVICE_SAME_SEANCE)
+        log.anomaly_flags = flags
+        log.risk_score = score_flags(flags)
+        log.save(update_fields=["anomaly_flags", "risk_score"])
+        if log.risk_score >= SUSPICIOUS_THRESHOLD:
+            QRScanRecord.objects.filter(seance=seance, student_id=log.etudiant_id).update(
+                is_suspicious=True
+            )

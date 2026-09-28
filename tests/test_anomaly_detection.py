@@ -16,8 +16,10 @@ from apps.absences.anomaly import (
     FLAG_NEW_DEVICE,
     FLAG_NEW_IP,
     FLAG_RECENTLY_APPROVED,
+    FLAG_SAME_DEVICE_SAME_SEANCE,
     SUSPICIOUS_THRESHOLD,
     evaluate_scan_risk,
+    score_flags,
 )
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
 from apps.accounts.devices import DEVICE_COOKIE_NAME, hash_device_id, sign_device_id
@@ -253,6 +255,63 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         )
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, log_b.anomaly_flags)
         self.assertGreaterEqual(log_b.risk_score, 50)
+
+    def _scan_as(self, email, secret, token):
+        self.client.login(email=email, password="pass1234")
+        self._cookie(secret)
+        return self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+
+    def _aged_shared_device(self):
+        d1 = self._device(self.student, "shared-phone")
+        d2 = self._device(self.student2, "shared-phone")
+        old = timezone.now() - timedelta(days=5)
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=old, approved_at=old)
+
+    def test_same_device_same_seance_flags_both_scans(self):
+        self._aged_shared_device()
+        token = self._token(verify_location=False)
+        self._scan_as("stu_an@example.com", "shared-phone", token)
+        log_a = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
+        self.assertNotIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_a.anomaly_flags)  # nothing known yet
+
+        r2 = self._scan_as("stu2_an@example.com", "shared-phone", token)
+        self.assertContains(r2, "succ")  # never blocks
+        log_b = QRScanLog.objects.get(etudiant=self.student2, scan_result=QRScanLog.ScanResult.VALIDATED)
+        self.assertIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_b.anomaly_flags)
+
+        # The FIRST scan is flagged retroactively, score and record included.
+        log_a.refresh_from_db()
+        self.assertIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_a.anomaly_flags)
+        self.assertEqual(log_a.risk_score, score_flags(log_a.anomaly_flags))
+        for ins in (self.inscription, self.inscription2):
+            self.assertTrue(QRScanRecord.objects.get(seance=self.seance, inscription=ins).is_suspicious)
+
+    def test_same_device_other_seance_not_flagged(self):
+        self._aged_shared_device()
+        other_seance = Seance.objects.create(
+            id_cours=self.course, date_seance=date.today() - timedelta(days=7),
+            heure_debut=time(8, 0), heure_fin=time(10, 0), id_annee=self.annee,
+        )
+        QRScanLog.objects.create(
+            etudiant=self.student, seance=other_seance, device_id_hash=hash_device_id("shared-phone"),
+            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED, scan_result=QRScanLog.ScanResult.VALIDATED,
+        )
+        token = self._token(verify_location=False)
+        self._scan_as("stu2_an@example.com", "shared-phone", token)
+        log_b = QRScanLog.objects.get(etudiant=self.student2, seance=self.seance)
+        self.assertNotIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_b.anomaly_flags)
+
+    def test_different_devices_same_seance_not_flagged(self):
+        """Limit (documented): Chrome for A + Firefox for B = two cookies, no flag."""
+        for user, secret in ((self.student, "chrome"), (self.student2, "firefox")):
+            d = self._device(user, secret)
+            old = timezone.now() - timedelta(days=5)
+            StudentDevice.objects.filter(pk=d.pk).update(created_at=old, approved_at=old)
+        token = self._token(verify_location=False)
+        self._scan_as("stu_an@example.com", "chrome", token)
+        self._scan_as("stu2_an@example.com", "firefox", token)
+        for log in QRScanLog.objects.filter(seance=self.seance):
+            self.assertNotIn(FLAG_SAME_DEVICE_SAME_SEANCE, log.anomaly_flags)
 
     def test_anomaly_detection_disabled_no_flags(self):
         s = SystemSettings.get_settings()

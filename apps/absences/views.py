@@ -1992,7 +1992,12 @@ def qr_scan(request, token):
     # --- Anomaly detection (DETECTIVE only — never blocks an APPROVED device) ---
     # An approved device that passed QR + GPS is always recorded present; we merely
     # flag/audit suspicious signals (multi-account device, new IP, geo-velocity...).
-    from apps.absences.anomaly import evaluate_scan_risk, SUSPICIOUS_THRESHOLD
+    from apps.absences.anomaly import (
+        FLAG_SAME_DEVICE_SAME_SEANCE,
+        SUSPICIOUS_THRESHOLD,
+        evaluate_scan_risk,
+        flag_earlier_same_device_scans,
+    )
 
     accuracy_raw = request.POST.get("accuracy", "").strip()
     try:
@@ -2006,7 +2011,7 @@ def qr_scan(request, token):
             user=request.user, device=device, device_id_hash=device.device_id_hash,
             ip_address=get_client_ip(request),
             latitude=stu_lat_f, longitude=stu_lng_f,
-            accuracy=accuracy_val, settings_obj=sys_settings,
+            accuracy=accuracy_val, settings_obj=sys_settings, seance=seance,
         )
 
     # --- Build scan record (inside transaction to prevent double-scan race) ---
@@ -2066,6 +2071,10 @@ def qr_scan(request, token):
                       **device_log,
                       risk_score=risk_score,
                       anomaly_flags=anomaly_flags)
+    if FLAG_SAME_DEVICE_SAME_SEANCE in anomaly_flags:
+        flag_earlier_same_device_scans(
+            seance=seance, device_id_hash=device.device_id_hash, user=request.user,
+        )
 
     result_ctx = {**error_ctx, "scan_status": "success"}
     if distance is not None and distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS:
