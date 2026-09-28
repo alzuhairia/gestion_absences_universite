@@ -671,3 +671,46 @@ class SecretariatRevokedDeviceRecoveryTest(BaseDeviceTestCase):
         )
         dev.refresh_from_db()
         self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
+
+
+class SecretariatStudentDevicesTest(BaseDeviceTestCase):
+    """Per-student view: ALL devices (approved included) so a lost phone can be revoked."""
+
+    def setUp(self):
+        super().setUp()
+        self.secretary = User.objects.create_user(
+            email="sec_view@example.com", nom="Sec", prenom="View",
+            password="pass1234", role=User.Role.SECRETAIRE,
+        )
+        self.client.login(email="sec_view@example.com", password="pass1234")
+        self.url = reverse("accounts:secretariat_devices")
+
+    def test_default_list_hides_approved_devices(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        resp = self.client.get(self.url, secure=True)
+        self.assertNotContains(resp, "badge bg-success")
+
+    def test_student_filter_lists_approved_devices(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        resp = self.client.get(f"{self.url}?student={self.student.pk}", secure=True)
+        self.assertContains(resp, "Approuvé")
+        self.assertContains(resp, 'value="revoke"')
+
+    def test_search_by_email(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        resp = self.client.get(f"{self.url}?q=stu_dev@", secure=True)
+        self.assertContains(resp, self.student.email)
+
+    def test_revoke_lost_approved_device_keeps_student_filter(self):
+        dev = self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        resp = self.client.post(
+            reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}),
+            {"action": "revoke", "student": str(self.student.pk)}, secure=True,
+        )
+        dev.refresh_from_db()
+        self.assertEqual(dev.status, StudentDevice.Status.REVOKED)
+        self.assertIn(f"student={self.student.pk}", resp["Location"])
+
+    def test_non_numeric_student_param_ignored(self):
+        resp = self.client.get(f"{self.url}?student=abc", secure=True)
+        self.assertEqual(resp.status_code, 200)

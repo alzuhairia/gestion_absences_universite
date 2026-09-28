@@ -28,6 +28,7 @@ from apps.absences.anomaly import (
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
 from apps.accounts.devices import DEVICE_COOKIE_NAME, hash_device_id, sign_device_id
 from apps.accounts.models import StudentDevice, User
+from apps.audits.models import LogAudit
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.dashboard.models import SystemSettings
@@ -556,3 +557,110 @@ class SecretariatReviewTest(BaseAnomalyTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Même appareil")
         self.assertNotContains(resp, "Nouvelle adresse IP")
+
+
+class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
+    """Secretariat classifies flagged scans; decisions are attributed and audited."""
+
+    def setUp(self):
+        super().setUp()
+        self.secretary = User.objects.create_user(
+            email="sec_wf@example.com", nom="Sec", prenom="Wf",
+            password="pass1234", role=User.Role.SECRETAIRE,
+        )
+        self.record = QRScanRecord.objects.create(
+            seance=self.seance, student=self.student, inscription=self.inscription,
+            is_suspicious=True,
+        )
+        self.log = QRScanLog.objects.create(
+            etudiant=self.student, seance=self.seance,
+            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+            risk_score=30, anomaly_flags=[FLAG_RECENTLY_APPROVED],
+        )
+
+    def _decide(self, decision, note="", **extra):
+        return self.client.post(
+            reverse("absences:qr_anomaly_decide", kwargs={"log_id": self.log.pk}),
+            {"decision": decision, "note": note, **extra}, secure=True,
+        )
+
+    def _review_page(self, query=""):
+        return self.client.get(reverse("absences:qr_anomaly_review") + query, secure=True)
+
+    def test_new_flagged_scan_is_to_review_and_listed_by_default(self):
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self.assertContains(self._review_page(), "Appareil approuvé très récemment")
+
+    def test_confirm_records_reviewer_note_and_audit(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self._decide(QRScanLog.ReviewStatus.CONFIRMED, "Absent au contrôle visuel")
+        self.log.refresh_from_db()
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.CONFIRMED)
+        self.assertEqual(self.log.reviewed_by, self.secretary)
+        self.assertIsNotNone(self.log.reviewed_at)
+        self.assertEqual(self.log.review_note, "Absent au contrôle visuel")
+        audit = LogAudit.objects.filter(action__contains=f"Revue anomalie QR #{self.log.pk}").get()
+        self.assertEqual(audit.niveau, "WARNING")
+        self.assertIn("Absent au contrôle visuel", audit.action)
+
+    def test_decision_never_touches_the_presence(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self._decide(QRScanLog.ReviewStatus.CONFIRMED)
+        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk).exists())
+
+    def test_false_positive_leaves_the_queue(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE)
+        self.assertNotContains(self._review_page(), "Appareil approuvé très récemment")
+        self.assertContains(self._review_page("?status=false_positive"), "Appareil approuvé très récemment")
+        self.assertContains(self._review_page("?status=all"), "Appareil approuvé très récemment")
+
+    def test_reopen_clears_reviewer(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self._decide(QRScanLog.ReviewStatus.CONFIRMED)
+        self._decide(QRScanLog.ReviewStatus.TO_REVIEW)
+        self.log.refresh_from_db()
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
+        self.assertIsNone(self.log.reviewed_by)
+        self.assertIsNone(self.log.reviewed_at)
+
+    def test_invalid_decision_rejected(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        self._decide("delete_everything")
+        self.log.refresh_from_db()
+        self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
+
+    def test_redirect_keeps_filters(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        resp = self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE, status="all", multi="1")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("status=all", resp["Location"])
+        self.assertIn("multi=1", resp["Location"])
+
+    def test_unknown_status_filter_falls_back(self):
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        resp = self._review_page("?status=<script>")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "<script>")
+
+    def test_students_and_professors_cannot_decide(self):
+        for email in ("stu_an@example.com", "prof_an@example.com"):
+            self.client.login(email=email, password="pass1234")
+            self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE)
+            self.log.refresh_from_db()
+            self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW, email)
+
+    def test_rejected_scans_cannot_be_decided(self):
+        rejected = QRScanLog.objects.create(
+            etudiant=self.student, seance=self.seance,
+            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
+            scan_result=QRScanLog.ScanResult.REJECTED_DEVICE,
+        )
+        self.client.login(email="sec_wf@example.com", password="pass1234")
+        resp = self.client.post(
+            reverse("absences:qr_anomaly_decide", kwargs={"log_id": rejected.pk}),
+            {"decision": QRScanLog.ReviewStatus.CONFIRMED}, secure=True,
+        )
+        self.assertEqual(resp.status_code, 404)

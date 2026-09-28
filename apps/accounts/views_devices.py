@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.core import get_usage
 
@@ -298,7 +299,7 @@ def secretariat_device_action(request, device_pk):
                 f"{device.user.get_full_name()} a déjà atteint la limite "
                 f"({sys_settings.max_devices_per_student}) d'appareils approuvés.",
             )
-            return redirect("accounts:secretariat_devices")
+            return _back_to_secretariat_devices(request)
         device.approve()
         _notify_device_status(device, "approved_secretariat")
         log_action(request.user, f"Appareil approuvé (secrétariat) — {device.user.email}",
@@ -311,7 +312,21 @@ def secretariat_device_action(request, device_pk):
         log_action(request.user, f"Appareil révoqué (secrétariat) — {device.user.email}",
                    request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
         messages.success(request, "Appareil révoqué.")
-    return redirect("accounts:secretariat_devices")
+    return _back_to_secretariat_devices(request)
+
+
+def _back_to_secretariat_devices(request):
+    """Retour à la liste en conservant le filtre étudiant/recherche éventuel."""
+    from urllib.parse import urlencode
+
+    url = reverse("accounts:secretariat_devices")
+    student_pk = request.POST.get("student", "").strip()
+    q = request.POST.get("q", "").strip()[:100]
+    if student_pk.isdigit():
+        return redirect(f"{url}?{urlencode({'student': student_pk})}")
+    if q:
+        return redirect(f"{url}?{urlencode({'q': q})}")
+    return redirect(url)
 
 
 @login_required
@@ -319,16 +334,36 @@ def secretariat_device_action(request, device_pk):
 @require_http_methods(["GET"])
 def secretariat_devices(request):
     """
-    Appareils nécessitant une action du secrétariat : en attente (PENDING) ET
-    révoqués (REVOKED), afin qu'un appareil révoqué puisse être réactivé
-    (approuvé) — sinon le message « contactez le secrétariat » serait un cul-de-sac.
+    Par défaut : appareils nécessitant une action du secrétariat, en attente
+    (PENDING) ET révoqués (REVOKED), afin qu'un appareil révoqué puisse être
+    réactivé — sinon le message « contactez le secrétariat » serait un cul-de-sac.
+
+    Filtré sur un étudiant (``?student=<pk>`` depuis la revue des anomalies, ou
+    ``?q=`` e-mail/nom) : TOUS ses appareils, y compris APPROVED, pour pouvoir
+    révoquer un téléphone perdu/volé (seul un appareil approuvé peut révoquer
+    un appareil approuvé côté étudiant).
     """
-    devices = list(
-        StudentDevice.objects.filter(
+    from django.db.models import Q
+
+    student_pk = request.GET.get("student", "").strip()
+    q = request.GET.get("q", "").strip()[:100]
+
+    qs = StudentDevice.objects.select_related("user")
+    if student_pk.isdigit():
+        qs = qs.filter(user_id=int(student_pk))
+    elif q:
+        qs = qs.filter(
+            Q(user__email__icontains=q) | Q(user__nom__icontains=q) | Q(user__prenom__icontains=q)
+        )
+    else:
+        qs = qs.filter(
             status__in=[StudentDevice.Status.PENDING, StudentDevice.Status.REVOKED]
-        ).select_related("user")
-    )
+        )
+    filtered = bool(student_pk.isdigit() or q)
     return render(request, "accounts/secretariat_devices.html", {
-        "devices": devices,
+        "devices": list(qs.order_by("user__nom", "user__prenom", "-last_seen_at")[:200]),
         "Status": StudentDevice.Status,
+        "filtered": filtered,
+        "q": q,
+        "student_pk": student_pk if student_pk.isdigit() else "",
     })

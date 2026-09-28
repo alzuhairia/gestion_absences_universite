@@ -438,6 +438,26 @@ class QRScanLog(models.Model):
         help_text="Liste des drapeaux d'anomalie déclenchés (ex. multi_account_device).",
     )
 
+    # --- Revue humaine des anomalies (secrétariat) ---
+    class ReviewStatus(models.TextChoices):
+        TO_REVIEW = "to_review", "À revoir"
+        CONFIRMED = "confirmed", "Anomalie confirmée"
+        FALSE_POSITIVE = "false_positive", "Faux positif"
+
+    review_status = models.CharField(
+        max_length=20, choices=ReviewStatus.choices,
+        default=ReviewStatus.TO_REVIEW, db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="qr_scan_logs_reviewed",
+        null=True,
+        blank=True,
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True, default="")
+
     class Meta:
         db_table = "qr_scan_log"
         app_label = "absences"

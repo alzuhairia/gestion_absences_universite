@@ -19,6 +19,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.db.models import Count
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -2096,25 +2097,50 @@ def qr_scan(request, token):
 # ========================================================================== #
 
 
+#: Filtres de statut de revue acceptés par l'écran (« all » = tous).
+_REVIEW_FILTERS = {"all", *QRScanLog.ReviewStatus.values}
+
+
+def _anomaly_review_query(status, only_multi):
+    """Query string des filtres de l'écran de revue (valeurs déjà validées)."""
+    from urllib.parse import urlencode
+
+    params = {"status": status}
+    if only_multi:
+        params["multi"] = "1"
+    return urlencode(params)
+
+
 @login_required
 @roles_required("SECRETAIRE", "ADMIN")
 @require_GET
 def qr_anomaly_review(request):
     """
-    Écran de revue des scans QR signalés comme suspects (score de risque > 0
-    ou drapeaux d'anomalie). Purement informatif : aucune présence n'est modifiée.
-    Met en avant le signal « même appareil → plusieurs comptes ».
+    Écran de revue des scans QR signalés comme suspects (drapeaux d'anomalie).
+    File de travail : par défaut, seuls les scans « à revoir » sont listés ; le
+    secrétariat les classe en « anomalie confirmée » ou « faux positif ».
+    Aucune présence n'est modifiée ici. Met en avant « même appareil → plusieurs comptes ».
     """
     from apps.absences.anomaly import FLAG_MULTI_ACCOUNT_DEVICE, flag_label
 
     only_multi = request.GET.get("multi") == "1"
+    status = request.GET.get("status", QRScanLog.ReviewStatus.TO_REVIEW)
+    if status not in _REVIEW_FILTERS:
+        status = QRScanLog.ReviewStatus.TO_REVIEW
 
-    logs = (
-        QRScanLog.objects.filter(scan_result=QRScanLog.ScanResult.VALIDATED)
-        .exclude(anomaly_flags=[])
-        .select_related("etudiant", "seance", "seance__id_cours")
-        .order_by("-risk_score", "-timestamp")
+    base = QRScanLog.objects.filter(scan_result=QRScanLog.ScanResult.VALIDATED).exclude(
+        anomaly_flags=[]
     )
+    counts = {
+        row["review_status"]: row["n"]
+        for row in base.values("review_status").annotate(n=Count("id"))
+    }
+
+    logs = base.select_related(
+        "etudiant", "seance", "seance__id_cours", "reviewed_by"
+    ).order_by("-risk_score", "-timestamp")
+    if status != "all":
+        logs = logs.filter(review_status=status)
     if only_multi:
         logs = logs.filter(anomaly_flags__contains=[FLAG_MULTI_ACCOUNT_DEVICE])
     logs = list(logs[:200])
@@ -2128,4 +2154,60 @@ def qr_anomaly_review(request):
         "logs": logs,
         "only_multi": only_multi,
         "multi_flag": FLAG_MULTI_ACCOUNT_DEVICE,
+        "status": status,
+        "ReviewStatus": QRScanLog.ReviewStatus,
+        "status_tabs": [
+            (value, label, counts.get(value, 0))
+            for value, label in QRScanLog.ReviewStatus.choices
+        ],
+        "total_count": sum(counts.values()),
+        "query": _anomaly_review_query(status, only_multi),
     })
+
+
+@login_required
+@roles_required("SECRETAIRE", "ADMIN")
+@require_POST
+def qr_anomaly_decide(request, log_id):
+    """
+    Décision humaine sur un scan signalé : anomalie confirmée, faux positif, ou
+    remise « à revoir ». Horodatée, attribuée et auditée. Ne modifie PAS la
+    présence (l'invalidation d'une présence est une action distincte).
+    """
+    log = get_object_or_404(
+        QRScanLog.objects.select_related("etudiant"),
+        pk=log_id,
+        scan_result=QRScanLog.ScanResult.VALIDATED,
+    )
+    decision = request.POST.get("decision", "")
+    if decision not in QRScanLog.ReviewStatus.values:
+        messages.error(request, "Décision invalide.")
+    else:
+        note = request.POST.get("note", "").strip()[:1000]
+        log.review_status = decision
+        log.review_note = note
+        if decision == QRScanLog.ReviewStatus.TO_REVIEW:
+            log.reviewed_by = None
+            log.reviewed_at = None
+        else:
+            log.reviewed_by = request.user
+            log.reviewed_at = timezone.now()
+        log.save(update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at"])
+        label = QRScanLog.ReviewStatus(decision).label
+        student = log.etudiant.email if log.etudiant else "—"
+        log_action(
+            request.user,
+            f"Revue anomalie QR #{log.pk} ({student}) : {label}"
+            + (f" — {note}" if note else ""),
+            request,
+            niveau="WARNING" if decision == QRScanLog.ReviewStatus.CONFIRMED else "INFO",
+            objet_type="SEANCE",
+            objet_id=log.seance_id,
+        )
+        messages.success(request, f"Scan classé : {label}.")
+
+    status = request.POST.get("status", QRScanLog.ReviewStatus.TO_REVIEW)
+    if status not in _REVIEW_FILTERS:
+        status = QRScanLog.ReviewStatus.TO_REVIEW
+    query = _anomaly_review_query(status, request.POST.get("multi") == "1")
+    return redirect(f"{reverse('absences:qr_anomaly_review')}?{query}")

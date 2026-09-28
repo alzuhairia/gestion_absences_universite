@@ -6,17 +6,42 @@
 <div class="container-fluid">
     <h4 class="fw-bold mb-1"><i class="fas fa-triangle-exclamation me-2 text-warning"></i>Anomalies de présence QR</h4>
     <p class="text-muted">
-        Scans validés présentant un signal suspect. <strong>Informatif</strong> : la présence
-        reste enregistrée, ces éléments servent au contrôle (aucun blocage automatique).
+        Scans validés présentant un signal suspect. <strong>Ce sont des signaux, pas des preuves</strong> :
+        la présence reste enregistrée. Classez chaque scan après vérification
+        (<em>anomalie confirmée</em> ou <em>faux positif</em>) ; chaque décision est horodatée et tracée.
     </p>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} py-2">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <ul class="nav nav-pills mb-2 flex-wrap">
+        {% for value, label, count in status_tabs %}
+        <li class="nav-item">
+            <a class="nav-link py-1 {% if status == value %}active{% endif %}"
+               href="?status={{ value }}{% if only_multi %}&multi=1{% endif %}">
+                {{ label }}
+                <span class="badge {% if status == value %}bg-light text-dark{% else %}bg-secondary{% endif %} ms-1">{{ count }}</span>
+            </a>
+        </li>
+        {% endfor %}
+        <li class="nav-item">
+            <a class="nav-link py-1 {% if status == 'all' %}active{% endif %}"
+               href="?status=all{% if only_multi %}&multi=1{% endif %}">
+                Toutes <span class="badge {% if status == 'all' %}bg-light text-dark{% else %}bg-secondary{% endif %} ms-1">{{ total_count }}</span>
+            </a>
+        </li>
+    </ul>
 
     <div class="mb-3">
         {% if only_multi %}
-        <a href="{% url 'absences:qr_anomaly_review' %}" class="btn btn-sm btn-outline-secondary">
+        <a href="?status={{ status }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-list me-1"></i>Toutes les anomalies
         </a>
         {% else %}
-        <a href="{% url 'absences:qr_anomaly_review' %}?multi=1" class="btn btn-sm btn-danger">
+        <a href="?status={{ status }}&multi=1" class="btn btn-sm btn-danger">
             <i class="fas fa-user-group me-1"></i>Uniquement « même appareil → plusieurs comptes »
         </a>
         {% endif %}
@@ -31,15 +56,23 @@
                         <th>Cours / Séance</th>
                         <th>Anomalies</th>
                         <th>Risque</th>
-                        <th>IP</th>
-                        <th>Appareil</th>
+                        <th>IP / Appareil</th>
                         <th>Date</th>
+                        <th style="min-width: 260px;">Revue</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for log in logs %}
                     <tr {% if log.is_multi_account %}class="table-danger"{% endif %}>
-                        <td>{{ log.etudiant.get_full_name|default:"—" }}<div class="small text-muted">{{ log.etudiant.email }}</div></td>
+                        <td>
+                            {{ log.etudiant.get_full_name|default:"—" }}
+                            <div class="small text-muted">{{ log.etudiant.email }}</div>
+                            {% if log.etudiant %}
+                            <a href="{% url 'accounts:secretariat_devices' %}?student={{ log.etudiant_id }}" class="small">
+                                <i class="fas fa-mobile-screen-button me-1"></i>Appareils
+                            </a>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if log.seance %}
                             {{ log.seance.id_cours.code_cours }}
@@ -52,14 +85,51 @@
                             {% endfor %}
                         </td>
                         <td><span class="badge bg-dark">{{ log.risk_score }}</span></td>
-                        <td class="small text-muted">{{ log.ip_address|default:"—" }}</td>
-                        <td class="small text-muted" title="{{ log.device_id_hash }}">
-                            {{ log.device_id_hash|slice:":12"|default:"—" }}{% if log.device_id_hash %}…{% endif %}
+                        <td class="small text-muted">
+                            {{ log.ip_address|default:"—" }}
+                            <div title="{{ log.device_id_hash }}">
+                                {{ log.device_id_hash|slice:":12"|default:"—" }}{% if log.device_id_hash %}…{% endif %}
+                            </div>
                         </td>
                         <td class="small text-muted">{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if log.review_status == ReviewStatus.CONFIRMED %}
+                            <span class="badge bg-danger">{{ log.get_review_status_display }}</span>
+                            {% elif log.review_status == ReviewStatus.FALSE_POSITIVE %}
+                            <span class="badge bg-success">{{ log.get_review_status_display }}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{{ log.get_review_status_display }}</span>
+                            {% endif %}
+                            {% if log.reviewed_by %}
+                            <div class="small text-muted">
+                                par {{ log.reviewed_by.get_full_name }}, le {{ log.reviewed_at|date:"d/m/Y H:i" }}
+                            </div>
+                            {% endif %}
+                            {% if log.review_note %}
+                            <div class="small fst-italic">« {{ log.review_note }} »</div>
+                            {% endif %}
+                            <form method="POST" action="{% url 'absences:qr_anomaly_decide' log.pk %}" class="mt-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="status" value="{{ status }}">
+                                {% if only_multi %}<input type="hidden" name="multi" value="1">{% endif %}
+                                <input type="text" name="note" maxlength="1000" class="form-control form-control-sm mb-1"
+                                       placeholder="Note (optionnelle)" value="{{ log.review_note }}">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if log.review_status != ReviewStatus.CONFIRMED %}
+                                    <button type="submit" name="decision" value="{{ ReviewStatus.CONFIRMED }}" class="btn btn-outline-danger">Confirmer</button>
+                                    {% endif %}
+                                    {% if log.review_status != ReviewStatus.FALSE_POSITIVE %}
+                                    <button type="submit" name="decision" value="{{ ReviewStatus.FALSE_POSITIVE }}" class="btn btn-outline-success">Faux positif</button>
+                                    {% endif %}
+                                    {% if log.review_status != ReviewStatus.TO_REVIEW %}
+                                    <button type="submit" name="decision" value="{{ ReviewStatus.TO_REVIEW }}" class="btn btn-outline-secondary">Rouvrir</button>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7" class="text-center text-muted py-4">Aucune anomalie enregistrée.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">Aucune anomalie dans cette catégorie.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
