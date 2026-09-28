@@ -122,6 +122,7 @@ services:
     networks:
       unabsences_network:
         ipv4_address: 172.30.0.10
+      frontend:
     healthcheck:
       test: [ "CMD-SHELL", "curl -kfsS -H \"Host: ${DOMAIN:-localhost}\" -H \"X-Healthcheck-Token: ${HEALTHCHECK_TOKEN}\" https://localhost/api/health/ >/dev/null || exit 1" ]
       interval: 30s
@@ -188,3 +189,5 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.0/24
+  frontend:
+    external: true
