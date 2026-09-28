@@ -313,6 +313,73 @@ class RequireRegisteredDeviceToggleTest(BaseDeviceTestCase):
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
 
+class StudentRevocationRulesTest(BaseDeviceTestCase):
+    """Only an APPROVED device may revoke an APPROVED one (password alone is not enough)."""
+
+    def _revoke(self, target):
+        return self.client.post(
+            reverse("accounts:my_devices"),
+            {"action": "revoke", "device_pk": target.pk}, secure=True, follow=True,
+        )
+
+    def test_pending_device_cannot_revoke_approved_device(self):
+        approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-NEW")  # unknown browser → PENDING
+        resp = self._revoke(approved)
+        approved.refresh_from_db()
+        self.assertEqual(approved.status, StudentDevice.Status.APPROVED)
+        self.assertContains(resp, "contactez le secr")
+
+    def test_pending_device_cannot_free_a_slot(self):
+        """Both approved devices survive → the limit still blocks the new one."""
+        a = self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        b = self._make_device("dev-B", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        self._revoke(a)
+        self._revoke(b)
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertEqual({a.status, b.status}, {StudentDevice.Status.APPROVED})
+
+    def test_revoked_device_cannot_revoke_approved_device(self):
+        approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._make_device("dev-R", StudentDevice.Status.REVOKED)
+        self._login()
+        self._set_device_cookie("dev-R")
+        self._revoke(approved)
+        approved.refresh_from_db()
+        self.assertEqual(approved.status, StudentDevice.Status.APPROVED)
+
+    def test_approved_device_can_revoke_other_approved_device(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        other = self._make_device("dev-B", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-A")
+        self._revoke(other)
+        other.refresh_from_db()
+        self.assertEqual(other.status, StudentDevice.Status.REVOKED)
+
+    def test_pending_device_can_revoke_pending_device(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        pending = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        self._revoke(pending)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, StudentDevice.Status.REVOKED)
+
+    def test_revoke_button_hidden_for_approved_devices_on_pending_browser(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        resp = self.client.get(reverse("accounts:my_devices"), secure=True)
+        self.assertContains(resp, "ne peut pas révoquer vos appareils approuvés")
+        # Only the current PENDING device offers a revoke button.
+        self.assertContains(resp, 'name="action" value="revoke"', count=1)
+
+
 class SecretariatRevokedDeviceRecoveryTest(BaseDeviceTestCase):
     """A revoked device must be visible to — and reactivatable by — the secretariat."""
 

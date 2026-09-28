@@ -87,8 +87,8 @@ def verify_device(request):
                 messages.error(
                     request,
                     f"Vous avez déjà {limit} appareils approuvés. Révoquez-en un "
-                    f"dans « Mes appareils » (ou demandez au secrétariat) avant "
-                    f"d'ajouter celui-ci.",
+                    f"depuis l'un de vos appareils approuvés (ou demandez au "
+                    f"secrétariat) avant d'ajouter celui-ci.",
                 )
                 return redirect("accounts:my_devices")
             device.approve()
@@ -160,6 +160,25 @@ def my_devices(request):
         target = get_object_or_404(
             StudentDevice, pk=request.POST.get("device_pk"), user=request.user
         )
+        # Only an APPROVED device may revoke an APPROVED one. Otherwise the
+        # password alone (from a fresh PENDING browser) would be enough to evict
+        # the owner's devices and free a slot for another device.
+        if target.is_approved and not device.is_approved:
+            log_action(
+                request.user,
+                "Révocation d'un appareil approuvé refusée (appareil courant non approuvé)",
+                request,
+                niveau="WARNING",
+                objet_type="AUTRE",
+                objet_id=target.pk,
+            )
+            messages.error(
+                request,
+                "Un appareil approuvé ne peut être révoqué que depuis un autre "
+                "appareil approuvé. Si vous n'y avez plus accès (perte, vol), "
+                "contactez le secrétariat.",
+            )
+            return redirect("accounts:my_devices")
         target.status = StudentDevice.Status.REVOKED
         target.save(update_fields=["status"])
         log_action(
@@ -178,6 +197,7 @@ def my_devices(request):
     return render(request, "accounts/my_devices.html", {
         "devices": devices,
         "current_device_pk": device.pk,
+        "current_device_approved": device.is_approved,
         "max_devices": sys_settings.max_devices_per_student,
         "Status": StudentDevice.Status,
     })
