@@ -1858,6 +1858,13 @@ def qr_scan(request, token):
     device_enforced = sys_settings.require_registered_device
     device_ok = device.is_approved or not device_enforced
     verify_device_url = reverse("accounts:verify_device")
+    # Every attempt logged from here on records the device (hash only, never
+    # the secret), rejected ones included: a "rejected_device → OTP → validated"
+    # sequence can then be correlated in QRScanLog.
+    device_log = {
+        "device_id_hash": device.device_id_hash,
+        "device_recognized": device.is_approved,
+    }
 
     # --- GET: show confirmation page ---
     if request.method == "GET":
@@ -1875,7 +1882,7 @@ def qr_scan(request, token):
     if not device_ok:
         _log_scan_attempt(request, seance, qr_token,
                           QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_DEVICE)
+                          QRScanLog.ScanResult.REJECTED_DEVICE, **device_log)
         if device.status == StudentDevice.Status.REVOKED:
             msg = ("Cet appareil a été révoqué. Vérifiez un appareil autorisé "
                    "ou contactez le secrétariat.")
@@ -1911,7 +1918,7 @@ def qr_scan(request, token):
         if gps_status_val == "refused":
             _log_scan_attempt(request, seance, qr_token,
                               QRScanLog.GPSStatus.REFUSED,
-                              QRScanLog.ScanResult.REJECTED_GPS)
+                              QRScanLog.ScanResult.REJECTED_GPS, **device_log)
             return render(request, "absences/qr_scan_result.html", {
                 **error_ctx, "scan_status": "error",
                 "message": "La localisation est obligatoire pour cette séance. "
@@ -1922,7 +1929,7 @@ def qr_scan(request, token):
         if not _is_valid_coordinate(stu_lat_f) or not _is_valid_coordinate(stu_lng_f):
             _log_scan_attempt(request, seance, qr_token,
                               QRScanLog.GPSStatus.UNAVAILABLE,
-                              QRScanLog.ScanResult.REJECTED_GPS)
+                              QRScanLog.ScanResult.REJECTED_GPS, **device_log)
             return render(request, "absences/qr_scan_result.html", {
                 **error_ctx, "scan_status": "error",
                 "message": "Impossible d'obtenir votre position. "
@@ -1938,7 +1945,7 @@ def qr_scan(request, token):
                 _log_scan_attempt(request, seance, qr_token,
                                   QRScanLog.GPSStatus.ACCEPTED,
                                   QRScanLog.ScanResult.REJECTED_DISTANCE,
-                                  stu_lat_f, stu_lng_f, distance)
+                                  stu_lat_f, stu_lng_f, distance, **device_log)
                 return render(request, "absences/qr_scan_result.html", {
                     **error_ctx, "scan_status": "error",
                     "message": f"Vous n'êtes pas dans la zone autorisée. "
@@ -1953,7 +1960,7 @@ def qr_scan(request, token):
                 _log_scan_attempt(request, seance, qr_token,
                                   QRScanLog.GPSStatus.ACCEPTED,
                                   QRScanLog.ScanResult.REJECTED_DISTANCE,
-                                  stu_lat_f, stu_lng_f, distance)
+                                  stu_lat_f, stu_lng_f, distance, **device_log)
                 return render(request, "absences/qr_scan_result.html", {
                     **error_ctx, "scan_status": "error",
                     "message": f"Vous n'êtes pas dans la zone autorisée. "
@@ -1973,7 +1980,7 @@ def qr_scan(request, token):
             _log_scan_attempt(request, seance, qr_token,
                               QRScanLog.GPSStatus.ACCEPTED,
                               QRScanLog.ScanResult.REJECTED_GPS,
-                              stu_lat_f, stu_lng_f)
+                              stu_lat_f, stu_lng_f, **device_log)
             return render(request, "absences/qr_scan_result.html", {
                 **error_ctx, "scan_status": "error",
                 "message": "Erreur de configuration : la vérification GPS est activée "
@@ -2033,7 +2040,7 @@ def qr_scan(request, token):
             if dup:
                 _log_scan_attempt(request, seance, qr_token,
                                   QRScanLog.GPSStatus.NOT_REQUIRED,
-                                  QRScanLog.ScanResult.REJECTED_DUPLICATE)
+                                  QRScanLog.ScanResult.REJECTED_DUPLICATE, **device_log)
                 return render(request, "absences/qr_scan_result.html", {
                     **error_ctx, "scan_status": "duplicate",
                     "message": "Votre présence a déjà été enregistrée.",
@@ -2056,8 +2063,7 @@ def qr_scan(request, token):
                       gps_log_status,
                       QRScanLog.ScanResult.VALIDATED,
                       stu_lat_f, stu_lng_f, distance,
-                      device_id_hash=device.device_id_hash,
-                      device_recognized=device.is_approved,
+                      **device_log,
                       risk_score=risk_score,
                       anomaly_flags=anomaly_flags)
 

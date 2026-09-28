@@ -318,6 +318,68 @@ class OTPAttemptsAtomicityTest(BaseDeviceTestCase):
         self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
 
 
+class RejectedScanDeviceLoggingTest(BaseDeviceTestCase):
+    """Rejected scans record the device hash too (never the secret)."""
+
+    def _latest_log(self):
+        return QRScanLog.objects.filter(seance=self.seance).latest("timestamp")
+
+    def test_rejected_device_scan_records_device_hash(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        token = self._token(verify_location=False)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        log = self._latest_log()
+        self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_DEVICE)
+        self.assertEqual(log.device_id_hash, hash_device_id("dev-NEW"))
+        self.assertFalse(log.device_recognized)
+        self.assertNotIn("dev-NEW", log.device_id_hash)
+
+    def test_rejected_distance_scan_records_approved_device(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        token = self._token(verify_location=True)
+        self._login()
+        self._set_device_cookie("dev-A")
+        self.client.post(self._scan_url(token), {
+            "gps_status": "ok", "latitude": "48.8566", "longitude": "2.3522",
+        }, secure=True)
+        log = self._latest_log()
+        self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_DISTANCE)
+        self.assertEqual(log.device_id_hash, hash_device_id("dev-A"))
+        self.assertTrue(log.device_recognized)
+
+    def test_rejected_gps_scan_records_device(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        token = self._token(verify_location=True)
+        self._login()
+        self._set_device_cookie("dev-A")
+        self.client.post(self._scan_url(token), {"gps_status": "refused"}, secure=True)
+        log = self._latest_log()
+        self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_GPS)
+        self.assertEqual(log.device_id_hash, hash_device_id("dev-A"))
+
+    def test_rejected_then_otp_then_validated_share_the_device_hash(self):
+        """The trail an investigator needs: same device, refused then accepted."""
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        token = self._token(verify_location=False)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        dev = StudentDevice.objects.get(device_id_hash=hash_device_id("dev-NEW"))
+        code = dev.set_otp()
+        self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
+        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        results = list(
+            QRScanLog.objects.filter(seance=self.seance, device_id_hash=dev.device_id_hash)
+            .order_by("timestamp").values_list("scan_result", "device_recognized")
+        )
+        self.assertEqual(results, [
+            (QRScanLog.ScanResult.REJECTED_DEVICE, False),
+            (QRScanLog.ScanResult.VALIDATED, True),
+        ])
+
+
 class DeviceSecurityEmailsTest(BaseDeviceTestCase):
     """OTP e-mail carries an anti-sharing warning + device details; every
     approval/revocation notifies the student."""
