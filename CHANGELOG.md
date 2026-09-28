@@ -4,6 +4,56 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] - 2026-09-28
+
+Attendance anti-fraud release: trusted devices, anomaly detection, and a human
+review loop (secretariat + professor) for suspicious QR scans. The system does
+not claim to prove who holds the phone; it makes proxy attendance costly,
+detected and traceable, and leaves the final decision to people.
+
+### Added
+- Student device binding: signed, HttpOnly device cookie (only its SHA-256 hash is stored), up to 2 approved devices per student, PENDING / APPROVED / REVOKED lifecycle, "Mes appareils" page
+- New-device verification by e-mail OTP (6 digits, hashed, 10 min, 5 attempts per code), with an HTML template
+- Secretariat device screen: approve / revoke / reactivate, plus a per-student view (search by e-mail or name) listing all devices, approved ones included, to revoke a lost phone
+- Server-side GPS enforcement for QR sessions (`qr_gps_required`, on by default): the professor can no longer untick location checking
+- Attendance anomaly engine (detective only, never blocks an approved device), with a risk score (suspicious from 30): `same_device_same_seance` (retroactively flags the first scan too), `multi_account_device`, `recently_approved`, `device_churn`, `geo_velocity`, `gps_too_perfect`, `new_ip`, `low_gps_accuracy`, `desktop_scan`
+- Anomaly review queue for the secretariat: to review / confirmed / false positive, with reviewer, date and note, all audited
+- Professor visual check on the live QR dashboard: "Vu en classe" / "Pas présent"; an invalidated attendance is kept as evidence (never deleted) and counted absent at finalization
+- Device security e-mails: explicit anti-sharing warning with device, IP and time in the OTP e-mail; notification on every device approval or revocation
+- "Reprendre la séance" banner to resume an active QR or manual roll call
+- Admin: bulk course deletion, force delete for users with linked data, missing department delete button
+- `seed_demo` auto-provisions faculties, departments and the academic year; `seed_at_risk` gains `--year-label`
+- `.dockerignore`: `.env`, `.git`, local virtualenv and database backups are no longer copied into the image (image 414 MB → 294 MB)
+
+### Changed
+- Every new device now requires the OTP, including a student's first one (it was auto-approved)
+- Only an approved device can revoke an approved device; a lost device goes through the secretariat
+- OTP sending capped per user (3/hour, 10/day) and verification capped (10/hour); a refused resend no longer resets the attempt counter
+- `multi_account_device` only counts another account that approved the device and used it within 30 days (no more lifelong flag on a shared family PC)
+- `new_device` replaced by `recently_approved`, based on the approval date (pre-enrolling a device the day before no longer hides it)
+- Rejected QR scans now record the device hash, so a "rejected → OTP → validated" sequence can be traced
+- Native `alert()` / `confirm()` replaced by Bootstrap modals and inline alerts in admin and enrollment screens
+- Web container healthcheck uses a Python probe (curl removed from the runtime image); build tools removed from the runtime image
+
+### Fixed
+- QR: missing GPS reference position, expiration and countdown desync
+- QR finalization now e-mails students marked absent
+- OTP attempt counting is atomic (concurrent requests cannot exceed 5 guesses) and a code superseded by a resend is rejected
+- Stale `SystemSettings` cache purged on every deploy
+- Password change rejects reusing the old password (server-side)
+- Enrollment messages clarified; cross-level full enrollment blocked
+- Auth templates flex layout, e-mail gradient fallback colour, admin sidebar user name, CSP `connect-src` for CDN source maps
+
+### Security
+- Dependencies upgraded to resolve known CVEs and pip-audit findings (Django 6.0.8, Pillow 12.3.0, idna 3.15, setuptools); Windows-only packages removed
+- CI: daily apt layer cache bust so Trivy picks up Debian security patches; SARIF upload permissions; actions updated to v7
+
+### Upgrade notes
+- Migrations (additive only): `accounts.0011`, `absences.0021`–`0024`, `dashboard.0004`–`0006` — applied automatically by `entrypoint.sh`
+- Students without a device will be asked for an e-mail OTP at their next scan: SMTP must be working
+- Configure the establishment GPS coordinates and a realistic radius (e.g. 300 m): with GPS enforced, a QR cannot be generated without a reference position
+- Runtime configuration must come from `env_file` / environment variables: `.env` is no longer baked into the image
+
 ## [1.2.0] - 2026-04-11
 
 ### Added
