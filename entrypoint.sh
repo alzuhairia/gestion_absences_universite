@@ -40,7 +40,7 @@ db_host = os.getenv("DB_HOST", "db")
 db_port = int(os.getenv("DB_PORT", "5432"))
 db_user = os.getenv("DB_USER", "postgres")
 db_password = os.getenv("DB_PASSWORD", "")
-db_name = os.getenv("DB_NAME", "gestion_absences_universite")
+db_name = os.getenv("DB_NAME", "unabsences_db")
 max_attempts = int(os.getenv("DB_WAIT_MAX_ATTEMPTS", "60"))
 sleep_seconds = float(os.getenv("DB_WAIT_SLEEP_SECONDS", "2"))
 
