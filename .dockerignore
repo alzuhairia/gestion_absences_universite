@@ -1,0 +1,28 @@
+# Keep secrets and local/runtime artefacts out of the Docker build context.
+# Runtime configuration reaches the container through docker-compose `env_file`.
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# VCS
+.git
+.gitignore
+
+# Python caches (.dockerignore patterns are root-anchored: **/ matches any depth)
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+
+# Local virtualenv / tooling
+.venv/
+.claude/
+
+# Logs, data and generated files
+**/*.log
+backups/
+media/
+staticfiles/
+node_modules/
