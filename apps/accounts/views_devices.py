@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
+from django_ratelimit.core import get_usage
 
 from apps.accounts.devices import (
     can_approve_more,
@@ -32,6 +33,43 @@ from apps.notifications.email import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Quotas d'émission d'OTP, comptés par UTILISATEUR et non par appareil : vider
+#: ses cookies crée un nouvel appareil, ce qui remettrait un quota par appareil
+#: à zéro. 10 codes/jour × 5 essais/code = 50 essais/jour sur 10^6 combinaisons.
+OTP_SEND_RATES = ("3/h", "10/d")
+#: Vérifications de code (bonnes ou mauvaises), par utilisateur.
+OTP_VERIFY_RATE = "10/h"
+_OTP_SEND_GROUP = "accounts.device_otp_send"
+_OTP_VERIFY_GROUP = "accounts.device_otp_verify"
+_OTP_QUOTA_MESSAGE = (
+    "Trop de codes demandés. Réessayez plus tard ou contactez le secrétariat."
+)
+
+
+def _user_key(group, request):
+    return str(request.user.pk)
+
+
+def _consume_otp_send_quota(request):
+    """
+    True — et consomme une unité de chaque quota — si l'utilisateur est sous
+    TOUTES les limites d'émission ; False (sans rien consommer) sinon.
+    """
+    for rate in OTP_SEND_RATES:
+        usage = get_usage(request, group=_OTP_SEND_GROUP, key=_user_key, rate=rate)
+        if usage is not None and usage["count"] >= usage["limit"]:
+            log_action(
+                request.user,
+                f"Envoi d'OTP appareil refusé (limite {rate} atteinte)",
+                request,
+                niveau="WARNING",
+                objet_type="AUTRE",
+            )
+            return False
+    for rate in OTP_SEND_RATES:
+        get_usage(request, group=_OTP_SEND_GROUP, key=_user_key, rate=rate, increment=True)
+    return True
 
 
 def _send_device_otp(user, code):
@@ -74,9 +112,32 @@ def verify_device(request):
     # --- POST : soit renvoyer un code, soit vérifier le code saisi ---
     if request.method == "POST":
         if request.POST.get("action") == "resend":
+            if not _consume_otp_send_quota(request):
+                messages.error(request, _OTP_QUOTA_MESSAGE)
+                return redirect("accounts:verify_device")
             code = device.set_otp()
             _send_device_otp(request.user, code)
             messages.success(request, "Un nouveau code vous a été envoyé par e-mail.")
+            return redirect("accounts:verify_device")
+
+        usage = get_usage(
+            request, group=_OTP_VERIFY_GROUP, key=_user_key,
+            rate=OTP_VERIFY_RATE, increment=True,
+        )
+        if usage is not None and usage["should_limit"]:
+            log_action(
+                request.user,
+                "Vérification d'OTP appareil refusée (trop de tentatives)",
+                request,
+                niveau="WARNING",
+                objet_type="AUTRE",
+                objet_id=device.pk,
+            )
+            messages.error(
+                request,
+                "Trop de tentatives de vérification. Réessayez dans une heure "
+                "ou contactez le secrétariat.",
+            )
             return redirect("accounts:verify_device")
 
         submitted = request.POST.get("code", "").strip()
@@ -117,7 +178,9 @@ def verify_device(request):
         or device.otp_expires_at is None
         or timezone.now() > device.otp_expires_at
     )
-    if needs_code:
+    if needs_code and not _consume_otp_send_quota(request):
+        messages.warning(request, _OTP_QUOTA_MESSAGE)
+    elif needs_code:
         code = device.set_otp()
         try:
             _send_device_otp(request.user, code)

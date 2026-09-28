@@ -6,8 +6,10 @@ contrôle d'appareil dans qr_scan, limite de 2 appareils approuvés.
 
 import re
 from datetime import date, time, timedelta
+from unittest.mock import patch
 
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -35,6 +37,9 @@ _LOCAL_CACHE = {
 @override_settings(CACHES=_LOCAL_CACHE)
 class BaseDeviceTestCase(TestCase):
     def setUp(self):
+        # The locmem cache outlives each test's DB rollback: drop cached
+        # SystemSettings and OTP rate-limit counters left by a previous test.
+        cache.clear()
         self.faculte = Faculte.objects.create(nom_faculte="Fac Dev")
         self.departement = Departement.objects.create(
             nom_departement="Dept Dev", id_faculte=self.faculte,
@@ -198,6 +203,119 @@ class OTPVerificationTest(BaseDeviceTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(self.student.email, mail.outbox[0].to)
+
+
+class OTPSendQuotaTest(BaseDeviceTestCase):
+    """OTP e-mails are capped per USER (3/h, 10/d), whatever the device."""
+
+    def setUp(self):
+        super().setUp()
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._login()
+        mail.outbox.clear()
+
+    def _resend(self):
+        return self.client.post(
+            reverse("accounts:verify_device"), {"action": "resend"},
+            secure=True, follow=True,
+        )
+
+    def test_fourth_code_within_an_hour_is_refused(self):
+        self._set_device_cookie("dev-P")
+        self.client.get(reverse("accounts:verify_device"), secure=True)  # code #1
+        self._resend()  # code #2
+        self._resend()  # code #3
+        resp = self._resend()  # refused
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertContains(resp, "Trop de codes demand")
+
+    def test_refused_resend_does_not_reset_attempts(self):
+        self._set_device_cookie("dev-P")
+        for _ in range(3):
+            self._resend()
+        dev = StudentDevice.objects.get(device_id_hash=hash_device_id("dev-P"))
+        StudentDevice.objects.filter(pk=dev.pk).update(otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS)
+        self._resend()  # over quota → no new code, counter untouched
+        dev.refresh_from_db()
+        self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
+
+    def test_quota_is_per_user_not_per_device(self):
+        """Clearing cookies (= new device) must not grant a fresh quota."""
+        for name in ("dev-P1", "dev-P2", "dev-P3", "dev-P4"):
+            self._set_device_cookie(name)
+            self.client.get(reverse("accounts:verify_device"), secure=True)
+        self.assertEqual(len(mail.outbox), 3)
+
+    def test_quota_does_not_affect_other_students(self):
+        self._set_device_cookie("dev-P")
+        for _ in range(4):
+            self._resend()
+        other = User.objects.create_user(
+            email="other_otp@example.com", nom="O", prenom="Tp",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self._make_device("other-A", StudentDevice.Status.APPROVED, user=other)
+        self.client.login(email="other_otp@example.com", password="pass1234")
+        self._set_device_cookie("other-P")
+        mail.outbox.clear()
+        self.client.get(reverse("accounts:verify_device"), secure=True)
+        self.assertEqual(len(mail.outbox), 1)
+
+    @patch("apps.accounts.views_devices.OTP_SEND_RATES", ("100/h", "10/d"))
+    def test_daily_cap(self):
+        self._set_device_cookie("dev-P")
+        for _ in range(11):
+            self._resend()
+        self.assertEqual(len(mail.outbox), 10)
+
+
+class OTPVerifyRateLimitTest(BaseDeviceTestCase):
+    def test_eleventh_verification_in_an_hour_is_refused_even_with_right_code(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        self._login()
+        self._set_device_cookie("dev-P")
+        url = reverse("accounts:verify_device")
+        # 10 wrong guesses over two codes (5 per code).
+        for _ in range(2):
+            code = dev.set_otp()
+            wrong = "000000" if code != "000000" else "111111"
+            for _ in range(5):
+                self.client.post(url, {"code": wrong}, secure=True)
+        code = dev.set_otp()
+        resp = self.client.post(url, {"code": code}, secure=True, follow=True)
+        dev.refresh_from_db()
+        self.assertEqual(dev.status, StudentDevice.Status.PENDING)
+        self.assertContains(resp, "Trop de tentatives")
+
+
+class OTPAttemptsAtomicityTest(BaseDeviceTestCase):
+    def test_attempts_capped_even_with_stale_instance(self):
+        """A concurrent request holding a stale counter cannot get an extra guess."""
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        code = dev.set_otp()
+        stale = StudentDevice.objects.get(pk=dev.pk)  # sees otp_attempts == 0
+        StudentDevice.objects.filter(pk=dev.pk).update(otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS)
+        self.assertFalse(stale.verify_otp(code))
+        dev.refresh_from_db()
+        self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
+
+    def test_superseded_code_rejected(self):
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        old_code = dev.set_otp()
+        stale = StudentDevice.objects.get(pk=dev.pk)
+        new_code = dev.set_otp()  # resend from another request
+        if old_code != new_code:
+            self.assertFalse(stale.verify_otp(old_code))
+
+    def test_every_check_consumes_one_attempt(self):
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        code = dev.set_otp()
+        wrong = "000000" if code != "000000" else "111111"
+        for _ in range(StudentDevice.OTP_MAX_ATTEMPTS):
+            self.assertFalse(dev.verify_otp(wrong))
+        self.assertFalse(dev.verify_otp(code))  # budget exhausted
+        self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
 
 
 class RevokedDeviceBlocksTest(BaseDeviceTestCase):

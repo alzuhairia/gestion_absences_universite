@@ -529,23 +529,27 @@ class StudentDevice(models.Model):
 
     def verify_otp(self, raw_code):
         """
-        Return True if ``raw_code`` matches the active OTP. Increments the attempt
-        counter on failure; refuses once expired or past OTP_MAX_ATTEMPTS.
+        Return True if ``raw_code`` matches the active OTP. Every check consumes
+        one attempt; refuses once expired or past OTP_MAX_ATTEMPTS.
+
+        The attempt is reserved atomically in the database BEFORE the code is
+        compared, so concurrent requests cannot exceed OTP_MAX_ATTEMPTS guesses on
+        one code, and the code is compared against the current (reloaded) hash,
+        so a code superseded by a resend is never accepted.
         """
         from django.contrib.auth.hashers import check_password
 
+        reserved = type(self).objects.filter(
+            pk=self.pk, otp_attempts__lt=self.OTP_MAX_ATTEMPTS
+        ).update(otp_attempts=models.F("otp_attempts") + 1)
+        self.refresh_from_db(fields=["otp_hash", "otp_expires_at", "otp_attempts"])
+        if not reserved:
+            return False
         if not self.otp_hash or not self.otp_expires_at:
             return False
         if timezone.now() > self.otp_expires_at:
             return False
-        if self.otp_attempts >= self.OTP_MAX_ATTEMPTS:
-            return False
-        if check_password(str(raw_code).strip(), self.otp_hash):
-            return True
-        self.otp_attempts = models.F("otp_attempts") + 1
-        self.save(update_fields=["otp_attempts"])
-        self.refresh_from_db(fields=["otp_attempts"])
-        return False
+        return check_password(str(raw_code).strip(), self.otp_hash)
 
     def approve(self):
         """Promote to APPROVED and clear any pending OTP. Caller enforces the limit."""
