@@ -3,7 +3,7 @@ FICHIER : apps/accounts/devices.py
 RESPONSABILITE : Liaison d'appareil de confiance (anti-fraude présence par procuration)
 FONCTIONNALITES PRINCIPALES :
   - Cookie signé identifiant le NAVIGATEUR (secret jamais stocké en clair côté serveur)
-  - Enrôlement d'appareil : 1er appareil auto-approuvé, suivants en PENDING (OTP requis)
+  - Enrôlement d'appareil : tout nouvel appareil (y compris le 1er) arrive en PENDING (OTP requis)
   - Résolution serveur du StudentDevice associé au compte connecté
 SECURITE :
   - Le device_id (secret) vit UNIQUEMENT dans un cookie signé (HttpOnly/Secure/SameSite).
@@ -103,9 +103,10 @@ def get_or_enroll_device(request):
       - ``device_id`` : secret courant (à reposer via cookie si is_new_cookie).
       - ``is_new_cookie`` : True si un nouveau secret a été généré (cookie à écrire).
 
-    Politique d'enrôlement :
-      - tout premier appareil de l'étudiant → APPROVED (UX) ;
-      - appareil inconnu suivant → PENDING (vérification OTP requise).
+    Politique d'enrôlement : tout appareil inconnu — y compris le tout premier
+    de l'étudiant — arrive en PENDING et doit être vérifié par OTP e-mail (ou
+    approuvé par le secrétariat). Pas d'auto-approbation : sinon, pour un compte
+    sans appareil, quiconque connaît le mot de passe enrôlerait SON appareil.
     """
     user = request.user
     device_id = read_device_id(request)
@@ -128,18 +129,14 @@ def get_or_enroll_device(request):
         device.save(update_fields=["last_seen_at", "ip_address", "user_agent"])
         return device, device_id, is_new_cookie
 
-    first_ever = not StudentDevice.objects.filter(user=user).exists()
-    status = StudentDevice.Status.APPROVED if first_ever else StudentDevice.Status.PENDING
-
     try:
         device = StudentDevice.objects.create(
             user=user,
             device_id_hash=device_hash,
-            status=status,
+            status=StudentDevice.Status.PENDING,
             user_agent=ua,
             ip_address=ip,
             label=_default_label(ua),
-            approved_at=timezone.now() if status == StudentDevice.Status.APPROVED else None,
         )
     except IntegrityError:
         # Course entre deux requêtes concurrentes : on relit l'enregistrement.

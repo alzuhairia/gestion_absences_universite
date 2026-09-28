@@ -4,6 +4,7 @@ Couvre les étapes 1→3 : modèle StudentDevice, cookie signé, enrôlement, OT
 contrôle d'appareil dans qr_scan, limite de 2 appareils approuvés.
 """
 
+import re
 from datetime import date, time, timedelta
 
 from django.core import mail
@@ -94,16 +95,47 @@ class BaseDeviceTestCase(TestCase):
         return reverse("absences:qr_scan", kwargs={"token": token.token})
 
 
-class FirstDeviceAutoApprovedTest(BaseDeviceTestCase):
-    def test_first_device_auto_approved_and_presence_recorded(self):
+class FirstDeviceRequiresOTPTest(BaseDeviceTestCase):
+    """No auto-approval: even the very first device of an account needs the OTP."""
+
+    def test_first_device_is_pending_and_presence_blocked(self):
         token = self._token(verify_location=False)
         self._login()
-        # No device cookie → first device ever → auto-approved.
+        # No device cookie, no device ever → still PENDING.
+        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        self.assertContains(resp, "Nouvel appareil")
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
+        dev = StudentDevice.objects.get(user=self.student)
+        self.assertEqual(dev.status, StudentDevice.Status.PENDING)
+        self.assertIsNone(dev.approved_at)
+
+    def test_first_device_approved_after_otp_then_presence_recorded(self):
+        token = self._token(verify_location=False)
+        self._login()
+        mail.outbox.clear()
+        self.client.get(reverse("accounts:verify_device"), secure=True)
+        code = re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+        self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
+        dev = StudentDevice.objects.get(user=self.student)
+        self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
         resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
+
+    def test_other_students_browser_on_account_without_device_is_pending(self):
+        """Buddy-punching case: account never enrolled, someone else's browser."""
+        other = User.objects.create_user(
+            email="other_dev@example.com", nom="Other", prenom="Dev",
+            password="pass1234", role=User.Role.ETUDIANT,
+        )
+        self._make_device("friend-phone", StudentDevice.Status.APPROVED, user=other)
+        token = self._token(verify_location=False)
+        self._login()
+        self._set_device_cookie("friend-phone")
+        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         dev = StudentDevice.objects.get(user=self.student)
-        self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
+        self.assertEqual(dev.status, StudentDevice.Status.PENDING)
 
 
 class KnownDeviceAcceptedTest(BaseDeviceTestCase):

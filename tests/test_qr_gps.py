@@ -26,7 +26,8 @@ from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
 from apps.absences.views import _haversine
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
-from apps.accounts.models import User
+from apps.accounts.devices import DEVICE_COOKIE_NAME, hash_device_id, sign_device_id
+from apps.accounts.models import StudentDevice, User
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
 
@@ -71,6 +72,13 @@ class BaseQRTestCase(TestCase):
         settings.gps_radius_meters = 100
         settings.qr_token_duration_seconds = 60
         settings.save()
+        # These tests exercise QR/GPS, not device binding: the student scans from
+        # an already-approved device (no auto-approval since the OTP is mandatory).
+        StudentDevice.objects.create(
+            user=self.student, device_id_hash=hash_device_id("qr-test-device"),
+            status=StudentDevice.Status.APPROVED, approved_at=timezone.now(),
+        )
+        self.client.cookies[DEVICE_COOKIE_NAME] = sign_device_id("qr-test-device")
 
     def _create_token(self, verify_location=False, expired=False, **kwargs):
         expires_at = timezone.now() + (

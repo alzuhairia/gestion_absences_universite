@@ -438,9 +438,9 @@ class StudentDevice(models.Model):
         hash SHA-256 (``device_id_hash``) est persisté. Le secret vit uniquement
         dans un cookie signé côté navigateur.
       - Le backend est la seule autorité sur le statut (PENDING/APPROVED/REVOKED).
-      - Un nouvel appareil arrive en PENDING et doit être vérifié par OTP e-mail
-        (ou approuvé par le secrétariat) avant de pouvoir valider une présence.
-      - Le tout premier appareil d'un étudiant est auto-approuvé (UX).
+      - Tout nouvel appareil (y compris le premier) arrive en PENDING et doit
+        être vérifié par OTP e-mail (ou approuvé par le secrétariat) avant de
+        pouvoir valider une présence.
       - Le nombre d'appareils APPROVED est plafonné (SystemSettings.max_devices_per_student).
     """
 

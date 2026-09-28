@@ -1844,9 +1844,9 @@ def qr_scan(request, token):
 
     # --- Device binding (anti-fraude « présence par procuration ») ---
     # Le backend est la seule autorité : il résout l'appareil du navigateur et
-    # n'accepte le scan que depuis un appareil APPROVED lié à CE compte. Le tout
-    # premier appareil est auto-approuvé ; un appareil inconnu arrive en PENDING
-    # et doit être vérifié par OTP e-mail. GPS et QR restent inchangés en amont.
+    # n'accepte le scan que depuis un appareil APPROVED lié à CE compte. Tout
+    # appareil inconnu (y compris le premier) arrive en PENDING et doit être
+    # vérifié par OTP e-mail. GPS et QR restent inchangés en amont.
     from apps.accounts.devices import get_or_enroll_device
     from apps.accounts.models import StudentDevice
     from apps.dashboard.models import SystemSettings
