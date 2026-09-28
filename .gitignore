@@ -57,3 +57,7 @@ cookies.txt
 *.bak
 *.tmp
 *.temp
+
+# Local course setup scripts: contain real people and default passwords
+scripts/setup/setup_ccna_course.py
+scripts/setup/setup_java_course.py
