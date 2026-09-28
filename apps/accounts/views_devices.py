@@ -14,6 +14,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.core import get_usage
@@ -28,6 +29,7 @@ from apps.audits.utils import log_action
 from apps.dashboard.decorators import roles_required, student_required
 from apps.dashboard.models import SystemSettings
 from apps.notifications.email import (
+    build_device_status_email,
     build_device_verification_email,
     send_notification_email,
 )
@@ -72,15 +74,27 @@ def _consume_otp_send_quota(request):
     return True
 
 
-def _send_device_otp(user, code):
+def _send_device_otp(user, code, device):
     """
     Envoie le code OTP de vérification d'appareil, via le même système de
     notification (template HTML + fallback texte) que les autres e-mails.
     """
     subject, body, html_body = build_device_verification_email(
-        user, code, StudentDevice.OTP_TTL_SECONDS // 60
+        user, code, StudentDevice.OTP_TTL_SECONDS // 60, device=device
     )
     send_notification_email(user, subject, body, html_body)
+
+
+def _notify_device_status(device, event):
+    """
+    Prévient l'étudiant qu'un de ses appareils a été approuvé ou révoqué
+    (voir DEVICE_STATUS_EVENTS). Envoyé après commit : un rollback n'envoie rien.
+    """
+    def _send():
+        subject, body, html_body = build_device_status_email(device.user, device, event)
+        send_notification_email(device.user, subject, body, html_body)
+
+    transaction.on_commit(_send)
 
 
 @login_required
@@ -116,7 +130,7 @@ def verify_device(request):
                 messages.error(request, _OTP_QUOTA_MESSAGE)
                 return redirect("accounts:verify_device")
             code = device.set_otp()
-            _send_device_otp(request.user, code)
+            _send_device_otp(request.user, code, device)
             messages.success(request, "Un nouveau code vous a été envoyé par e-mail.")
             return redirect("accounts:verify_device")
 
@@ -153,6 +167,7 @@ def verify_device(request):
                 )
                 return redirect("accounts:my_devices")
             device.approve()
+            _notify_device_status(device, "approved_otp")
             log_action(
                 request.user,
                 "Appareil approuvé via OTP e-mail",
@@ -183,7 +198,7 @@ def verify_device(request):
     elif needs_code:
         code = device.set_otp()
         try:
-            _send_device_otp(request.user, code)
+            _send_device_otp(request.user, code, device)
         except Exception:  # pragma: no cover - dépend du backend mail
             logger.exception("Envoi OTP appareil échoué pour %s", request.user.pk)
             messages.warning(
@@ -244,6 +259,7 @@ def my_devices(request):
             return redirect("accounts:my_devices")
         target.status = StudentDevice.Status.REVOKED
         target.save(update_fields=["status"])
+        _notify_device_status(target, "revoked_student")
         log_action(
             request.user,
             "Appareil révoqué par l'étudiant",
@@ -284,12 +300,14 @@ def secretariat_device_action(request, device_pk):
             )
             return redirect("accounts:secretariat_devices")
         device.approve()
+        _notify_device_status(device, "approved_secretariat")
         log_action(request.user, f"Appareil approuvé (secrétariat) — {device.user.email}",
                    request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
         messages.success(request, "Appareil approuvé.")
     elif action == "revoke":
         device.status = StudentDevice.Status.REVOKED
         device.save(update_fields=["status"])
+        _notify_device_status(device, "revoked_secretariat")
         log_action(request.user, f"Appareil révoqué (secrétariat) — {device.user.email}",
                    request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
         messages.success(request, "Appareil révoqué.")

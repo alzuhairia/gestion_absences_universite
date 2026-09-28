@@ -379,24 +379,98 @@ def build_absence_recorded_email(student, course_name, absence_date, taux):
     return subject, body, html_body
 
 
-def build_device_verification_email(user, code, ttl_minutes):
+def _device_details(device, when=None):
+    """Human-readable device details shared by the device security e-mails."""
+    when = timezone.localtime(when or timezone.now())
+    return {
+        "device_label": (getattr(device, "label", "") or "Appareil") if device else "Appareil",
+        "ip_address": (getattr(device, "ip_address", None) or "inconnue") if device else "inconnue",
+        "when": when.strftime("%d/%m/%Y à %H:%M"),
+    }
+
+
+#: Anti-sharing warning, identical in the text and HTML versions of the OTP e-mail.
+DEVICE_OTP_SHARING_WARNING = (
+    "Ne communiquez jamais ce code, à personne (ni à un camarade, ni au "
+    "secrétariat). Le transmettre pour faire valider une présence à votre "
+    "place constitue une fraude, et chaque validation reste tracée."
+)
+
+
+def build_device_verification_email(user, code, ttl_minutes, device=None):
     """Email sent to a student when a new device must be verified (OTP)."""
     subject = "[UniAbsences] Vérification d'un nouvel appareil"
     context = {
         "student_name": user.get_full_name(),
         "code": code,
         "ttl_minutes": ttl_minutes,
+        "sharing_warning": DEVICE_OTP_SHARING_WARNING,
+        **_device_details(device),
     }
     body = (
         f"Bonjour {context['student_name']},\n\n"
         f"Un nouvel appareil tente de valider votre présence sur UniAbsences.\n"
         f"Votre code de vérification est : {code}\n\n"
-        f"Ce code expire dans {ttl_minutes} minutes.\n"
+        f"Ce code expire dans {ttl_minutes} minutes.\n\n"
+        f"Appareil : {context['device_label']}\n"
+        f"Adresse IP : {context['ip_address']}\n"
+        f"Demande : le {context['when']}\n\n"
+        f"IMPORTANT : {DEVICE_OTP_SHARING_WARNING}\n\n"
         f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail "
         f"et changez votre mot de passe.\n\n"
         f"— UniAbsences Notification System"
     )
     html_body = _render_html("emails/device_verification.html", context)
+    return subject, body, html_body
+
+
+#: Device status notifications: event -> (subject suffix, sentence).
+DEVICE_STATUS_EVENTS = {
+    "approved_otp": (
+        "Nouvel appareil approuvé",
+        "Un nouvel appareil a été approuvé sur votre compte (vérification par "
+        "code e-mail). Il peut désormais valider votre présence.",
+    ),
+    "approved_secretariat": (
+        "Appareil approuvé par le secrétariat",
+        "Le secrétariat a approuvé un appareil sur votre compte. Il peut "
+        "désormais valider votre présence.",
+    ),
+    "revoked_student": (
+        "Appareil révoqué",
+        "Un appareil a été révoqué depuis votre compte. Il ne peut plus "
+        "valider votre présence.",
+    ),
+    "revoked_secretariat": (
+        "Appareil révoqué par le secrétariat",
+        "Le secrétariat a révoqué un appareil de votre compte. Il ne peut plus "
+        "valider votre présence.",
+    ),
+}
+
+
+def build_device_status_email(user, device, event):
+    """Email sent to a student when one of their devices is approved or revoked."""
+    title, sentence = DEVICE_STATUS_EVENTS[event]
+    subject = f"[UniAbsences] {title}"
+    context = {
+        "student_name": user.get_full_name(),
+        "title": title,
+        "sentence": sentence,
+        "is_approval": event.startswith("approved"),
+        **_device_details(device),
+    }
+    body = (
+        f"Bonjour {context['student_name']},\n\n"
+        f"{sentence}\n\n"
+        f"Appareil : {context['device_label']}\n"
+        f"Adresse IP (dernière connue) : {context['ip_address']}\n"
+        f"Date : le {context['when']}\n\n"
+        f"Si vous n'êtes pas à l'origine de cette action, contactez le "
+        f"secrétariat et changez votre mot de passe sans tarder.\n\n"
+        f"— UniAbsences Notification System"
+    )
+    html_body = _render_html("emails/device_status.html", context)
     return subject, body, html_body
 
 

@@ -1,0 +1,29 @@
+{% extends "emails/base_email.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block subtitle %}Sécurité du compte{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<div class="alert-box {% if is_approval %}alert-info{% else %}alert-success{% endif %}">
+    {{ sentence }}
+</div>
+
+<div class="stat-row">
+    <span class="stat-label">Appareil</span>
+    <span class="stat-value">{{ device_label }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Adresse IP (dernière connue)</span>
+    <span class="stat-value">{{ ip_address }}</span>
+</div>
+<div class="stat-row">
+    <span class="stat-label">Date</span>
+    <span class="stat-value">le {{ when }}</span>
+</div>
+
+<div class="alert-box alert-warning" style="margin-top: 20px;">
+    <strong>&#9888; Vous n'êtes pas à l'origine de cette action&nbsp;?</strong><br>
+    Contactez le secrétariat et changez votre mot de passe sans tarder.
+</div>
+{% endblock %}

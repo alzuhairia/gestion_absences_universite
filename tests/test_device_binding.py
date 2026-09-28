@@ -318,6 +318,90 @@ class OTPAttemptsAtomicityTest(BaseDeviceTestCase):
         self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
 
 
+class DeviceSecurityEmailsTest(BaseDeviceTestCase):
+    """OTP e-mail carries an anti-sharing warning + device details; every
+    approval/revocation notifies the student."""
+
+    def setUp(self):
+        super().setUp()
+        self.secretary = User.objects.create_user(
+            email="sec_mail@example.com", nom="Sec", prenom="Mail",
+            password="pass1234", role=User.Role.SECRETAIRE,
+        )
+        mail.outbox.clear()
+
+    def _status_mails(self):
+        return [m for m in mail.outbox if "Vérification" not in m.subject]
+
+    def test_otp_email_has_sharing_warning_and_device_details(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-P")
+        self.client.get(
+            reverse("accounts:verify_device"), secure=True,
+            HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14)",
+        )
+        msg = mail.outbox[-1]
+        html = msg.alternatives[0][0]
+        for content in (msg.body, html):
+            self.assertIn("Ne communiquez jamais ce code", content)
+            self.assertIn("constitue une fraude", content)
+            self.assertIn("Appareil Android", content)
+            self.assertIn("127.0.0.1", content)
+
+    def test_otp_approval_notifies_student(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        code = dev.set_otp()
+        self._login()
+        self._set_device_cookie("dev-P")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
+        mails = self._status_mails()
+        self.assertEqual(len(mails), 1)
+        self.assertIn("Nouvel appareil approuvé", mails[0].subject)
+        self.assertEqual(mails[0].to, [self.student.email])
+
+    def test_student_revocation_notifies_student(self):
+        self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        other = self._make_device("dev-B", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-A")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                reverse("accounts:my_devices"),
+                {"action": "revoke", "device_pk": other.pk}, secure=True,
+            )
+        mails = self._status_mails()
+        self.assertEqual(len(mails), 1)
+        self.assertIn("Appareil révoqué", mails[0].subject)
+
+    def test_refused_revocation_sends_nothing(self):
+        approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
+        self._login()
+        self._set_device_cookie("dev-NEW")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                reverse("accounts:my_devices"),
+                {"action": "revoke", "device_pk": approved.pk}, secure=True,
+            )
+        self.assertEqual(self._status_mails(), [])
+
+    def test_secretariat_actions_notify_student(self):
+        dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
+        self.client.login(email="sec_mail@example.com", password="pass1234")
+        url = reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk})
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, {"action": "approve"}, secure=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, {"action": "revoke"}, secure=True)
+        subjects = [m.subject for m in self._status_mails()]
+        self.assertEqual(len(subjects), 2)
+        self.assertIn("approuvé par le secrétariat", subjects[0])
+        self.assertIn("révoqué par le secrétariat", subjects[1])
+        self.assertTrue(all(m.to == [self.student.email] for m in self._status_mails()))
+
+
 class RevokedDeviceBlocksTest(BaseDeviceTestCase):
     def test_revoked_device_blocks_presence(self):
         self._make_device("dev-R", StudentDevice.Status.REVOKED)
