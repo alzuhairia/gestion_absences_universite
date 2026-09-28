@@ -19,6 +19,10 @@ SIGNAUX :
   - desktop_scan       : scan depuis un navigateur d'ordinateur (User-Agent). Un QR
     se scanne normalement au téléphone ; un PC facilite la falsification GPS
     (outils de développement). Simple signal, falsifiable, poids faible.
+  - gps_too_perfect    : position « trop parfaite » pour un vrai GPS (précision
+    annoncée < 3 m, coordonnées identiques au point de référence, ou identiques
+    à un autre scan avec une précision annoncée fine). Typique d'une position
+    saisie à la main ou d'une appli de faux GPS. Simple signal.
   - geo_velocity        : déplacement physiquement impossible depuis le dernier scan.
   - new_ip             : adresse IP jamais vue pour ce compte.
   - low_gps_accuracy   : précision GPS annoncée trop faible pour être fiable.
@@ -36,6 +40,7 @@ FLAG_MULTI_ACCOUNT_DEVICE = "multi_account_device"
 FLAG_SAME_DEVICE_SAME_SEANCE = "same_device_same_seance"
 FLAG_DEVICE_CHURN = "device_churn"
 FLAG_DESKTOP_SCAN = "desktop_scan"
+FLAG_GPS_TOO_PERFECT = "gps_too_perfect"
 FLAG_GEO_VELOCITY = "geo_velocity"
 FLAG_NEW_IP = "new_ip"
 FLAG_LOW_GPS_ACCURACY = "low_gps_accuracy"
@@ -48,6 +53,7 @@ FLAG_WEIGHTS = {
     FLAG_SAME_DEVICE_SAME_SEANCE: 60,
     FLAG_DEVICE_CHURN: 20,
     FLAG_DESKTOP_SCAN: 10,
+    FLAG_GPS_TOO_PERFECT: 20,
     FLAG_GEO_VELOCITY: 40,
     FLAG_NEW_IP: 15,
     FLAG_LOW_GPS_ACCURACY: 10,
@@ -60,6 +66,7 @@ FLAG_LABELS = {
     FLAG_SAME_DEVICE_SAME_SEANCE: "Même appareil a validé un autre étudiant dans cette séance",
     FLAG_DEVICE_CHURN: "Nombreux appareils approuvés récemment",
     FLAG_DESKTOP_SCAN: "Scan depuis un ordinateur",
+    FLAG_GPS_TOO_PERFECT: "Position GPS anormalement parfaite",
     FLAG_GEO_VELOCITY: "Déplacement incohérent depuis le dernier scan",
     FLAG_NEW_IP: "Nouvelle adresse IP",
     FLAG_LOW_GPS_ACCURACY: "Précision GPS faible",
@@ -80,6 +87,14 @@ DEVICE_CHURN_MIN_APPROVALS = 3
 DEVICE_CHURN_WINDOW_DAYS = 30
 #: multi_account_device : fenêtre d'utilisation de l'appareil par l'autre compte.
 MULTI_ACCOUNT_WINDOW_DAYS = 30
+#: gps_too_perfect : précision annoncée en dessous de laquelle un fix est suspect.
+GPS_TOO_PERFECT_ACCURACY_M = 3
+#: Deux positions « identiques » à ~10 cm près (1e-6 degré).
+GPS_IDENTICAL_EPSILON_DEG = 1e-6
+#: Coordonnées identiques à un autre scan : suspect seulement si l'appareil
+#: annonce un fix précis. Le positionnement Wi-Fi (souvent 20–100 m) renvoie la
+#: même position à tous les téléphones d'une salle : ce n'est pas une fraude.
+GPS_IDENTICAL_MAX_ACCURACY_M = 10
 
 
 def flag_label(flag):
@@ -112,6 +127,33 @@ def is_desktop_user_agent(user_agent):
     return any(m in ua for m in _DESKTOP_UA_MARKERS)
 
 
+def _gps_too_perfect(latitude, longitude, accuracy, reference_points):
+    """Heuristiques de position fabriquée (voir FLAG_GPS_TOO_PERFECT)."""
+    from apps.absences.models import QRScanLog
+
+    eps = GPS_IDENTICAL_EPSILON_DEG
+    try:
+        acc = float(accuracy) if accuracy is not None else None
+    except (TypeError, ValueError):
+        acc = None
+
+    if acc is not None and acc < GPS_TOO_PERFECT_ACCURACY_M:
+        return True
+    for ref_lat, ref_lng in reference_points:
+        if (
+            ref_lat is not None and ref_lng is not None
+            and abs(latitude - ref_lat) <= eps and abs(longitude - ref_lng) <= eps
+        ):
+            return True
+    if acc is None or acc <= GPS_IDENTICAL_MAX_ACCURACY_M:
+        return QRScanLog.objects.filter(
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+            latitude__range=(latitude - eps, latitude + eps),
+            longitude__range=(longitude - eps, longitude + eps),
+        ).exists()
+    return False
+
+
 def score_flags(flags):
     """Score de risque (0–100, plafonné) d'une liste de drapeaux."""
     return min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
@@ -119,7 +161,8 @@ def score_flags(flags):
 
 def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
                        latitude=None, longitude=None, accuracy=None,
-                       settings_obj=None, seance=None, user_agent=None):
+                       settings_obj=None, seance=None, user_agent=None,
+                       reference_points=()):
     """
     Évalue le risque d'un scan qui va être validé. Retourne ``(risk_score, flags)``.
 
@@ -208,6 +251,12 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
                 flags.append(FLAG_LOW_GPS_ACCURACY)
         except (TypeError, ValueError):
             pass
+
+    # 4b) Position « trop parfaite » (faux GPS / coordonnées saisies à la main).
+    if latitude is not None and longitude is not None and _gps_too_perfect(
+        latitude, longitude, accuracy, reference_points
+    ):
+        flags.append(FLAG_GPS_TOO_PERFECT)
 
     # 5) Appareil approuvé très récemment (date d'APPROBATION, pas de création).
     if device is not None and getattr(device, "approved_at", None) is not None:

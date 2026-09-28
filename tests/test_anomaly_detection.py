@@ -13,6 +13,7 @@ from apps.absences.anomaly import (
     FLAG_DESKTOP_SCAN,
     FLAG_DEVICE_CHURN,
     FLAG_GEO_VELOCITY,
+    FLAG_GPS_TOO_PERFECT,
     FLAG_LOW_GPS_ACCURACY,
     FLAG_MULTI_ACCOUNT_DEVICE,
     FLAG_NEW_DEVICE,
@@ -289,6 +290,68 @@ class DesktopScanTest(BaseAnomalyTestCase):
         self.assertEqual(log.anomaly_flags, [FLAG_DESKTOP_SCAN])
         self.assertLess(log.risk_score, SUSPICIOUS_THRESHOLD)
         self.assertFalse(QRScanRecord.objects.get(seance=self.seance, inscription=self.inscription).is_suspicious)
+
+
+class GPSTooPerfectTest(BaseAnomalyTestCase):
+    REF = (36.75250, 3.04200)
+
+    def setUp(self):
+        super().setUp()
+        self.dev = self._device(self.student, "phone")
+        old = timezone.now() - timedelta(days=5)
+        StudentDevice.objects.filter(pk=self.dev.pk).update(created_at=old, approved_at=old)
+        self.dev.refresh_from_db()
+
+    def _flags(self, lat, lng, accuracy):
+        return evaluate_scan_risk(
+            user=self.student, device=self.dev, device_id_hash=self.dev.device_id_hash,
+            ip_address="1.2.3.4", latitude=lat, longitude=lng, accuracy=accuracy,
+            settings_obj=self.settings, reference_points=[self.REF, (None, None)],
+        )[1]
+
+    def _prior_scan(self, lat, lng, user=None):
+        QRScanLog.objects.create(
+            etudiant=user or self.student2, seance=self.seance,
+            gps_status=QRScanLog.GPSStatus.ACCEPTED,
+            scan_result=QRScanLog.ScanResult.VALIDATED, latitude=lat, longitude=lng,
+        )
+
+    def test_realistic_fix_not_flagged(self):
+        self.assertNotIn(FLAG_GPS_TOO_PERFECT, self._flags(36.752537, 3.042081, 12.5))
+
+    def test_sub_3m_accuracy_flagged(self):
+        self.assertIn(FLAG_GPS_TOO_PERFECT, self._flags(36.752537, 3.042081, 1))
+
+    def test_exact_reference_point_flagged(self):
+        self.assertIn(FLAG_GPS_TOO_PERFECT, self._flags(36.7525, 3.042, 15))
+
+    def test_identical_to_other_scan_with_precise_fix_flagged(self):
+        self._prior_scan(36.752611, 3.042133)
+        self.assertIn(FLAG_GPS_TOO_PERFECT, self._flags(36.752611, 3.042133, 5))
+
+    def test_identical_to_other_scan_without_accuracy_flagged(self):
+        self._prior_scan(36.752611, 3.042133)
+        self.assertIn(FLAG_GPS_TOO_PERFECT, self._flags(36.752611, 3.042133, None))
+
+    def test_identical_wifi_positions_in_a_room_not_flagged(self):
+        """Wi-Fi positioning gives every phone in the room the same point (±40 m)."""
+        self._prior_scan(36.752611, 3.042133)
+        self.assertNotIn(FLAG_GPS_TOO_PERFECT, self._flags(36.752611, 3.042133, 40))
+
+    def test_no_coordinates_no_flag(self):
+        self.assertNotIn(FLAG_GPS_TOO_PERFECT, self._flags(None, None, 1))
+
+    def test_view_passes_reference_point(self):
+        """Integration: posting the establishment's exact coordinates is flagged."""
+        token = self._token(verify_location=True)
+        self.client.login(email="stu_an@example.com", password="pass1234")
+        self._cookie("phone")
+        resp = self.client.post(self._scan_url(token), {
+            "gps_status": "ok", "latitude": "36.7525", "longitude": "3.0420", "accuracy": "20",
+        }, secure=True)
+        self.assertContains(resp, "succ")  # never blocks
+        log = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
+        self.assertIn(FLAG_GPS_TOO_PERFECT, log.anomaly_flags)
 
 
 class DeviceChurnTest(BaseAnomalyTestCase):

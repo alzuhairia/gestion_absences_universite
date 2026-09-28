@@ -2013,6 +2013,10 @@ def qr_scan(request, token):
             latitude=stu_lat_f, longitude=stu_lng_f,
             accuracy=accuracy_val, settings_obj=sys_settings, seance=seance,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            reference_points=[
+                (etab_lat, etab_lng),
+                (qr_token.latitude, qr_token.longitude),
+            ],
         )
 
     # --- Build scan record (inside transaction to prevent double-scan race) ---
