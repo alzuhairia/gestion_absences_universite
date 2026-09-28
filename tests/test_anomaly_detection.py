@@ -213,6 +213,46 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         self.assertNotIn(FLAG_NEW_DEVICE, flags)  # legacy flag is no longer emitted
 
 
+class MultiAccountWindowTest(BaseAnomalyTestCase):
+    def _flags(self, device):
+        return evaluate_scan_risk(
+            user=self.student, device=device, device_id_hash=device.device_id_hash,
+            ip_address="1.2.3.4", settings_obj=self.settings,
+        )[1]
+
+    def _mine(self):
+        d = self._device(self.student, "shared")
+        old = timezone.now() - timedelta(days=5)
+        StudentDevice.objects.filter(pk=d.pk).update(created_at=old, approved_at=old)
+        d.refresh_from_db()
+        return d
+
+    def test_other_account_approved_and_recent_flagged(self):
+        mine = self._mine()
+        self._device(self.student2, "shared")  # approved, seen now
+        self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
+
+    def test_other_account_seen_long_ago_not_flagged(self):
+        """Family PC used once by a sibling 2 months ago: no lifelong flag."""
+        mine = self._mine()
+        other = self._device(self.student2, "shared")
+        StudentDevice.objects.filter(pk=other.pk).update(
+            last_seen_at=timezone.now() - timedelta(days=60))
+        self.assertNotIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
+
+    def test_other_account_never_approved_not_flagged(self):
+        """A blocked login attempt (PENDING) is traced by rejected scans instead."""
+        mine = self._mine()
+        self._device(self.student2, "shared", status=StudentDevice.Status.PENDING)
+        self.assertNotIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
+
+    def test_other_account_approved_then_revoked_still_counts(self):
+        mine = self._mine()
+        other = self._device(self.student2, "shared")
+        StudentDevice.objects.filter(pk=other.pk).update(status=StudentDevice.Status.REVOKED)
+        self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
+
+
 class DeviceChurnTest(BaseAnomalyTestCase):
     def _approved(self, secret, days_ago, status=StudentDevice.Status.APPROVED):
         d = self._device(self.student, secret, status=status)

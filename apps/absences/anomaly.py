@@ -9,7 +9,8 @@ PRINCIPE :
     et on audite, sans créer de faux positifs empêchant un étudiant légitime de pointer.
   - Le blocage strict reste réservé aux appareils inconnus/PENDING/REVOKED (dans qr_scan).
 SIGNAUX :
-  - multi_account_device : un même appareil (hash) rattaché à ≥ 2 comptes distincts.
+  - multi_account_device : un même appareil (hash) APPROUVÉ sur un autre compte et
+    utilisé par lui dans les 30 derniers jours (pas de marquage à vie).
   - same_device_same_seance : même appareil (hash) ayant validé la présence d'un
     AUTRE compte dans la même séance — le signal le plus direct du « buddy
     punching » ; le scan antérieur est aussi marqué a posteriori.
@@ -71,6 +72,8 @@ RECENTLY_APPROVED_MAX_AGE_HOURS = 24
 #: vide ses cookies crée des appareils PENDING sans que ce soit suspect.
 DEVICE_CHURN_MIN_APPROVALS = 3
 DEVICE_CHURN_WINDOW_DAYS = 30
+#: multi_account_device : fenêtre d'utilisation de l'appareil par l'autre compte.
+MULTI_ACCOUNT_WINDOW_DAYS = 30
 
 
 def flag_label(flag):
@@ -111,14 +114,21 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
     max_acc = getattr(settings_obj, "gps_accuracy_max_meters", 1000) or 1000
 
     # 1) Même appareil → plusieurs comptes (signal fort, clé de la soutenance).
+    # Seuls comptent les AUTRES comptes ayant réellement approuvé cet appareil et
+    # l'ayant utilisé récemment : un PC familial d'il y a 3 mois ou une simple
+    # tentative de connexion (PENDING jamais approuvé, déjà tracée par les scans
+    # refusés) ne marquent plus l'appareil à vie.
     if device_id_hash:
-        distinct_users = (
-            StudentDevice.objects.filter(device_id_hash=device_id_hash)
-            .values("user_id")
-            .distinct()
-            .count()
-        )
-        if distinct_users >= 2:
+        since = timezone.now() - timezone.timedelta(days=MULTI_ACCOUNT_WINDOW_DAYS)
+        if (
+            StudentDevice.objects.filter(
+                device_id_hash=device_id_hash,
+                approved_at__isnull=False,
+                last_seen_at__gte=since,
+            )
+            .exclude(user=user)
+            .exists()
+        ):
             flags.append(FLAG_MULTI_ACCOUNT_DEVICE)
 
     # 1b) Même appareil → un AUTRE compte validé dans la MÊME séance.
