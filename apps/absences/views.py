@@ -2012,6 +2012,7 @@ def qr_scan(request, token):
             ip_address=get_client_ip(request),
             latitude=stu_lat_f, longitude=stu_lng_f,
             accuracy=accuracy_val, settings_obj=sys_settings, seance=seance,
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
 
     # --- Build scan record (inside transaction to prevent double-scan race) ---

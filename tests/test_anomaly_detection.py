@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.absences.anomaly import (
+    FLAG_DESKTOP_SCAN,
     FLAG_DEVICE_CHURN,
     FLAG_GEO_VELOCITY,
     FLAG_LOW_GPS_ACCURACY,
@@ -20,6 +21,7 @@ from apps.absences.anomaly import (
     FLAG_SAME_DEVICE_SAME_SEANCE,
     SUSPICIOUS_THRESHOLD,
     evaluate_scan_risk,
+    is_desktop_user_agent,
     score_flags,
 )
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
@@ -251,6 +253,42 @@ class MultiAccountWindowTest(BaseAnomalyTestCase):
         other = self._device(self.student2, "shared")
         StudentDevice.objects.filter(pk=other.pk).update(status=StudentDevice.Status.REVOKED)
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
+
+
+class DesktopScanTest(BaseAnomalyTestCase):
+    UA = {
+        "windows": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0 Safari/537.36",
+        "mac": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 Version/17.4 Safari/605.1.15",
+        "linux": "Mozilla/5.0 (X11; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0",
+        "android": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36",
+        "iphone": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+        "android_tablet": "Mozilla/5.0 (Linux; Android 13; SM-X700) AppleWebKit/537.36 Chrome/125.0 Safari/537.36",
+    }
+
+    def test_user_agent_classification(self):
+        for name in ("windows", "mac", "linux"):
+            self.assertTrue(is_desktop_user_agent(self.UA[name]), name)
+        for name in ("android", "iphone", "android_tablet"):
+            self.assertFalse(is_desktop_user_agent(self.UA[name]), name)
+        self.assertFalse(is_desktop_user_agent(""))
+        self.assertFalse(is_desktop_user_agent(None))
+
+    def test_desktop_scan_flagged_but_not_suspicious_alone(self):
+        dev = self._device(self.student, "pc")
+        old = timezone.now() - timedelta(days=5)
+        StudentDevice.objects.filter(pk=dev.pk).update(created_at=old, approved_at=old)
+        token = self._token(verify_location=False)
+        self.client.login(email="stu_an@example.com", password="pass1234")
+        self._cookie("pc")
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"},
+            secure=True, HTTP_USER_AGENT=self.UA["windows"],
+        )
+        self.assertContains(resp, "succ")  # never blocks
+        log = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
+        self.assertEqual(log.anomaly_flags, [FLAG_DESKTOP_SCAN])
+        self.assertLess(log.risk_score, SUSPICIOUS_THRESHOLD)
+        self.assertFalse(QRScanRecord.objects.get(seance=self.seance, inscription=self.inscription).is_suspicious)
 
 
 class DeviceChurnTest(BaseAnomalyTestCase):

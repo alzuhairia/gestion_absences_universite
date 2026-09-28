@@ -16,6 +16,9 @@ SIGNAUX :
     punching » ; le scan antérieur est aussi marqué a posteriori.
   - device_churn       : ≥ 3 appareils APPROUVÉS en 30 jours sur le compte (cycles
     révocation → nouvel appareil → OTP).
+  - desktop_scan       : scan depuis un navigateur d'ordinateur (User-Agent). Un QR
+    se scanne normalement au téléphone ; un PC facilite la falsification GPS
+    (outils de développement). Simple signal, falsifiable, poids faible.
   - geo_velocity        : déplacement physiquement impossible depuis le dernier scan.
   - new_ip             : adresse IP jamais vue pour ce compte.
   - low_gps_accuracy   : précision GPS annoncée trop faible pour être fiable.
@@ -32,6 +35,7 @@ from django.utils import timezone
 FLAG_MULTI_ACCOUNT_DEVICE = "multi_account_device"
 FLAG_SAME_DEVICE_SAME_SEANCE = "same_device_same_seance"
 FLAG_DEVICE_CHURN = "device_churn"
+FLAG_DESKTOP_SCAN = "desktop_scan"
 FLAG_GEO_VELOCITY = "geo_velocity"
 FLAG_NEW_IP = "new_ip"
 FLAG_LOW_GPS_ACCURACY = "low_gps_accuracy"
@@ -43,6 +47,7 @@ FLAG_WEIGHTS = {
     FLAG_MULTI_ACCOUNT_DEVICE: 50,
     FLAG_SAME_DEVICE_SAME_SEANCE: 60,
     FLAG_DEVICE_CHURN: 20,
+    FLAG_DESKTOP_SCAN: 10,
     FLAG_GEO_VELOCITY: 40,
     FLAG_NEW_IP: 15,
     FLAG_LOW_GPS_ACCURACY: 10,
@@ -54,6 +59,7 @@ FLAG_LABELS = {
     FLAG_MULTI_ACCOUNT_DEVICE: "Même appareil utilisé par plusieurs comptes",
     FLAG_SAME_DEVICE_SAME_SEANCE: "Même appareil a validé un autre étudiant dans cette séance",
     FLAG_DEVICE_CHURN: "Nombreux appareils approuvés récemment",
+    FLAG_DESKTOP_SCAN: "Scan depuis un ordinateur",
     FLAG_GEO_VELOCITY: "Déplacement incohérent depuis le dernier scan",
     FLAG_NEW_IP: "Nouvelle adresse IP",
     FLAG_LOW_GPS_ACCURACY: "Précision GPS faible",
@@ -90,6 +96,22 @@ def _haversine(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+_MOBILE_UA_MARKERS = ("mobi", "android", "iphone", "ipad", "ipod")
+_DESKTOP_UA_MARKERS = ("windows nt", "macintosh", "x11", "cros")
+
+
+def is_desktop_user_agent(user_agent):
+    """
+    True si le User-Agent désigne un ordinateur (marqueur desktop, aucun marqueur
+    mobile). User-Agent absent/inconnu → False (pas de drapeau par défaut).
+    Limite connue : un iPad en « mode bureau » s'annonce comme un Mac.
+    """
+    ua = (user_agent or "").lower()
+    if not ua or any(m in ua for m in _MOBILE_UA_MARKERS):
+        return False
+    return any(m in ua for m in _DESKTOP_UA_MARKERS)
+
+
 def score_flags(flags):
     """Score de risque (0–100, plafonné) d'une liste de drapeaux."""
     return min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
@@ -97,7 +119,7 @@ def score_flags(flags):
 
 def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
                        latitude=None, longitude=None, accuracy=None,
-                       settings_obj=None, seance=None):
+                       settings_obj=None, seance=None, user_agent=None):
     """
     Évalue le risque d'un scan qui va être validé. Retourne ``(risk_score, flags)``.
 
@@ -192,6 +214,10 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
         age_h = (timezone.now() - device.approved_at).total_seconds() / 3600.0
         if age_h < RECENTLY_APPROVED_MAX_AGE_HOURS:
             flags.append(FLAG_RECENTLY_APPROVED)
+
+    # 6) Scan depuis un ordinateur (User-Agent).
+    if is_desktop_user_agent(user_agent):
+        flags.append(FLAG_DESKTOP_SCAN)
 
     return score_flags(flags), flags
 
