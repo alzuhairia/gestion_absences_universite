@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.3] - 2026-10-07
+
+Every notification e-mail now uses the styled HTML template.
+
+### Changed
+- The exemption e-mail was the last notification still sent as plain text: it now uses `build_exemption_granted_email()` and the `emails/exemption_granted.html` template like the others, and tells the student their new effective absence threshold
+
+### Added
+- `send_weekly_summary --to EMAIL` sends a preview of the weekly secretariat summary (same data and template) to one address only; secretaries receive nothing
+
 ## [1.6.2] - 2026-10-07
 
 Security release for the shared reverse proxy.
