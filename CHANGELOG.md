@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0] - 2026-10-06
+
+Faster roll calls and durable logs: e-mails no longer slow down requests,
+logs survive restarts, and the e-mail history has a retention period.
+
+### Added
+- `purge_email_history` management command: deletes `EmailEnvoi` rows older than N days (default 365), meant for a weekly cron
+- `EMAIL_ASYNC` setting (default on) to turn background sending off if needed
+
+### Changed
+- Notification e-mails are sent in the background through a bounded thread pool, once the current transaction commits: closing a roll call with 10 absent students no longer waits ~10 s for SMTP, and a rolled-back operation sends nothing. Logging and the `EmailEnvoi` record happen after the real send, so the history stays exact
+- The weekly secretariat summary stays synchronous so its "sent" count is real
+- `/app/logs` is now the `logs_volume` named volume instead of a tmpfs: `django.log` survives container restarts and deployments (rotation unchanged, 5 MB x 3)
+
+### Fixed
+- `/audits/logs/` always showed an empty list (the template read a variable the view never passed); it now redirects to the secretariat audit log page, keeping the query string
+
 ## [1.5.0] - 2026-10-06
 
 E-mail proof of sending: every notification e-mail is now recorded and can be
@@ -20,7 +37,7 @@ shown on the website, to the secretariat and to the student concerned.
 - Type annotations for Pyright: `User.objects` typed as `UserManager`, FK columns `id_cours_id` / `id_seance_id` declared; no runtime change
 
 ### Notes
-- `/app/logs` is a tmpfs, so `django.log` is lost on every container restart; the `email_envoi` table is the durable record of sends
+- `/app/logs` was a tmpfs at this release, so `django.log` was lost on every container restart (fixed in 1.6.0); the `email_envoi` table is the durable record of sends
 
 ## [1.4.0] - 2026-10-06
 
