@@ -1047,9 +1047,7 @@ def mark_absence(request, course_id):
 
     # Attach absence data to students for template usage
     for ins in students:
-        ins.absence_data = existing_absences.get(
-            ins.id_inscription
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        setattr(ins, "absence_data", existing_absences.get(ins.id_inscription))
 
     # Recap counts for post-submission summary
     recap_absent_count = len(existing_absences)
@@ -1231,7 +1229,7 @@ def mark_absence_htmx(request, course_id):
         .first()
     )
     if absence:
-        inscription.absence_data = {  # pyright: ignore[reportAttributeAccessIssue]
+        absence_data = {
             "type": absence.type_absence,
             "duree": absence.duree_absence,
             "statut": absence.statut,
@@ -1239,7 +1237,9 @@ def mark_absence_htmx(request, course_id):
             "encodee_par": absence.encodee_par,
         }
     else:
-        inscription.absence_data = None  # pyright: ignore[reportAttributeAccessIssue]
+        absence_data = None
+    # Attribut d'affichage lu par le template.
+    setattr(inscription, "absence_data", absence_data)
 
     return render(
         request,
@@ -1333,9 +1333,8 @@ def _generate_qr_data_uri(url):
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(
-        buf, format="PNG"
-    )  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
+    # PIL image: the qrcode stub types save() too narrowly.
+    img.save(buf, format="PNG")  # pyright: ignore[reportCallIssue]
     buf.seek(0)
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
@@ -1531,14 +1530,11 @@ def qr_dashboard(request, token):
             review_status = (
                 log.review_status if log else QRScanLog.ReviewStatus.TO_REVIEW
             )
+            labels = [flag_label(f) for f in (log.anomaly_flags or [])] if log else []
             # Attributs d'affichage lus par le template.
-            ins.scan_record = sr  # pyright: ignore[reportAttributeAccessIssue]
-            ins.anomaly_labels = (
-                [flag_label(f) for f in (log.anomaly_flags or [])] if log else []
-            )  # pyright: ignore[reportAttributeAccessIssue]
-            ins.review_status = (
-                review_status  # pyright: ignore[reportAttributeAccessIssue]
-            )
+            setattr(ins, "scan_record", sr)
+            setattr(ins, "anomaly_labels", labels)
+            setattr(ins, "review_status", review_status)
             if sr.invalidated:
                 invalidated.append(ins)
                 continue
@@ -2606,12 +2602,9 @@ def qr_anomaly_review(request):
 
     # Attache les libellés humains des drapeaux pour l'affichage.
     for log in logs:
-        log.flag_labels = [
-            flag_label(f) for f in (log.anomaly_flags or [])
-        ]  # pyright: ignore[reportAttributeAccessIssue]
-        log.is_multi_account = FLAG_MULTI_ACCOUNT_DEVICE in (
-            log.anomaly_flags or []
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        flags = log.anomaly_flags or []
+        setattr(log, "flag_labels", [flag_label(f) for f in flags])
+        setattr(log, "is_multi_account", FLAG_MULTI_ACCOUNT_DEVICE in flags)
 
     return render(
         request,

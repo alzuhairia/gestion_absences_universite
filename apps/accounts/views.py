@@ -23,7 +23,7 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET
 from django_ratelimit.decorators import ratelimit
 
 from apps.absences.models import Absence

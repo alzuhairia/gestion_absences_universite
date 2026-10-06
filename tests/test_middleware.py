@@ -40,9 +40,7 @@ class SessionMiddlewareRedisDownTest(TestCase):
         """Normal authenticated request still updates _last_activity."""
         request = self.factory.get("/")
         request.user = self.user
-        request.session = (
-            {}
-        )  # pyright: ignore[reportAttributeAccessIssue]  (fake session)
+        setattr(request, "session", {})  # fake session
 
         response = self.middleware(request)
 

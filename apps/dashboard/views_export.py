@@ -8,7 +8,7 @@ DEPENDANCES CLES : absences.utils, absences.services, openpyxl
 """
 
 import datetime
-from typing import cast
+from typing import IO, cast
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -72,9 +72,8 @@ def export_student_pdf(request, student_id=None):
         f'attachment; filename="rapport_absences_{safe_email}.pdf"'
     )
 
-    p = canvas.Canvas(
-        response, pagesize=A4
-    )  # pyright: ignore[reportArgumentType]  (HttpResponse is file-like)
+    # HttpResponse is file-like: ReportLab writes the PDF straight into it.
+    p = canvas.Canvas(cast(IO[bytes], response), pagesize=A4)
     width, height = A4
 
     def check_page_break(y, margin=80):

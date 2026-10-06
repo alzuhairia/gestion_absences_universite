@@ -11,4 +11,4 @@ class AbsencesConfig(AppConfig):
     name = "apps.absences"
 
     def ready(self):
-        import apps.absences.signals
+        import apps.absences.signals  # noqa: F401  (registers the signal handlers)

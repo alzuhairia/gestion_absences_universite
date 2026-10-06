@@ -33,6 +33,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history: changed-files must diff multi-commit pushes too,
+          # otherwise the quality gate silently checks nothing.
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -44,7 +48,8 @@ jobs:
       - name: Install quality tools
         run: |
           python -m pip install --upgrade pip
-          pip install black isort ruff
+          # Same versions as .pre-commit-config.yaml so local and CI agree.
+          pip install black==26.10.0 isort==9.0.2 ruff==0.16.10
 
       - name: Detect changed Python files
         if: github.event_name != 'workflow_dispatch'

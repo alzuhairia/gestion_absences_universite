@@ -22,7 +22,6 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.absences.models import QRScanLog
-from apps.accounts.models import User
 from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import admin_required

@@ -12,7 +12,7 @@ Schedule with cron (e.g. every Monday at 08:00):
 import datetime
 
 from django.core.management.base import BaseCommand
-from django.db.models import Count, Q, Sum
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.absences.models import Absence

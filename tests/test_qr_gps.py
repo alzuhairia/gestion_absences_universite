@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 from django.db import IntegrityError
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -30,6 +30,7 @@ from apps.accounts.devices import DEVICE_COOKIE_NAME, hash_device_id, sign_devic
 from apps.accounts.models import StudentDevice, User
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
+from tests.helpers import capture_on_commit_callbacks
 
 
 @override_settings(CACHES=_LOCAL_CACHE)
@@ -816,9 +817,7 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
         # on_commit callbacks only fire when the surrounding transaction commits.
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             resp = self.client.post(url, secure=True)
         self.assertEqual(resp.status_code, 302)
 
@@ -847,9 +846,7 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
         mail.outbox.clear()
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(url, secure=True)
 
         recipients = [addr for m in mail.outbox for addr in m.to]
@@ -889,9 +886,7 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
         return self.client.post(self.url, {"action": action, **extra}, secure=True)
 
     def _finalize(self):
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(
                 reverse("absences:qr_finalize", kwargs={"token": self.token.token}),
                 secure=True,

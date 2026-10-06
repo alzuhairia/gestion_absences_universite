@@ -10,6 +10,7 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
+from tests.helpers import capture_on_commit_callbacks
 
 
 class ExemptionBaseTestCase(TestCase):
@@ -157,9 +158,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
 
         with patch("apps.enrollments.views_rules.send_with_dedup") as mock_send:
             # captureOnCommitCallbacks forces on_commit callbacks to execute
-            with self.captureOnCommitCallbacks(
-                execute=True
-            ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+            with capture_on_commit_callbacks(execute=True):
                 self.client.post(
                     url,
                     {

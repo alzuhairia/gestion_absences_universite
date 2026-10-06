@@ -27,6 +27,7 @@ from apps.accounts.devices import (
 from apps.accounts.models import StudentDevice, User
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
+from tests.helpers import capture_on_commit_callbacks
 
 _LOCAL_CACHE = {
     "default": {
@@ -495,9 +496,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         code = dev.set_otp()
         self._login()
         self._set_device_cookie("dev-P")
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(
                 reverse("accounts:verify_device"), {"code": code}, secure=True
             )
@@ -511,9 +510,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         other = self._make_device("dev-B", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-A")
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(
                 reverse("accounts:my_devices"),
                 {"action": "revoke", "device_pk": other.pk},
@@ -527,9 +524,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-NEW")
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(
                 reverse("accounts:my_devices"),
                 {"action": "revoke", "device_pk": approved.pk},
@@ -543,13 +538,9 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         url = reverse(
             "accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}
         )
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(url, {"action": "approve"}, secure=True)
-        with self.captureOnCommitCallbacks(
-            execute=True
-        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with capture_on_commit_callbacks(execute=True):
             self.client.post(url, {"action": "revoke"}, secure=True)
         subjects = [m.subject for m in self._status_mails()]
         self.assertEqual(len(subjects), 2)

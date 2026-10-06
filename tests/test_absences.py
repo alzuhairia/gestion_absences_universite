@@ -1,12 +1,15 @@
 import shutil
 import tempfile
+from collections.abc import Iterable
 from datetime import date, time, timedelta
 from decimal import Decimal
+from typing import cast
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models.deletion import ProtectedError
+from django.http import FileResponse
 from django.test import SimpleTestCase, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
@@ -383,9 +386,8 @@ class JustificationDownloadTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(
-            b"%PDF-1.4", b"".join(response.streaming_content)
-        )  # pyright: ignore[reportAttributeAccessIssue]  (FileResponse)
+        streaming = cast(FileResponse, response).streaming_content
+        self.assertIn(b"%PDF-1.4", b"".join(cast(Iterable[bytes], streaming)))
 
     def test_download_returns_404_when_file_is_missing(self):
         absence = self._create_absence()

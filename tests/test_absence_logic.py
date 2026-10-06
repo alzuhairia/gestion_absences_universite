@@ -708,7 +708,6 @@ class SignalLoopProtectionTest(TestCase):
     """
 
     def setUp(self):
-        from apps.absences.services import recalculer_eligibilite
 
         self.faculte = Faculte.objects.create(nom_faculte="Fac Signal")
         self.departement = Departement.objects.create(

@@ -179,8 +179,7 @@ def get_courses(request):
                     "id": c.id_cours,
                     "name": f"[{c.code_cours}] {c.nom_cours}",
                     "code": c.code_cours,
-                    "has_prereq": c.prereq_count
-                    > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
+                    "has_prereq": getattr(c, "prereq_count") > 0,  # .annotate()
                     "year": c.id_annee.libelle if c.id_annee else None,
                 }
             )
@@ -283,8 +282,7 @@ def get_courses_by_year(request):
                     "name": c.nom_cours,
                     "hours": c.nombre_total_periodes,
                     "department": c.id_departement.nom_departement,
-                    "has_prereq": c.prereq_count
-                    > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
+                    "has_prereq": getattr(c, "prereq_count") > 0,  # .annotate()
                     "already_enrolled": c.id_cours in enrolled_course_ids,
                 }
             )

@@ -308,7 +308,7 @@ def instructor_course_detail(request, course_id):
     today_local = timezone.localdate()
     for s in sessions:
         active_qr_token = active_tokens_by_seance.get(s.id_seance)
-        s.active_qr_token = active_qr_token  # pyright: ignore[reportAttributeAccessIssue]  (lu par le template)
+        setattr(s, "active_qr_token", active_qr_token)  # lu par le template
         if active_qr_token and not course_active_qr:
             course_active_qr = active_qr_token
         if (

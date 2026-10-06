@@ -22,9 +22,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods
 
 from apps.audits.utils import log_action
 
@@ -90,9 +89,8 @@ def _generate_qr_data_uri(uri: str) -> str:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(
-        buf, format="PNG"
-    )  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
+    # PIL image: the qrcode stub types save() too narrowly.
+    img.save(buf, format="PNG")  # pyright: ignore[reportCallIssue]
     buf.seek(0)
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 

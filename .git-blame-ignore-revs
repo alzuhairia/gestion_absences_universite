@@ -1,0 +1,5 @@
+# Pure formatting commits, skipped by GitHub blame view.
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: Black 26.10 + isort 9.0 on the whole codebase
+c20a326ceb23605e38102d00815b397d0d6ace59

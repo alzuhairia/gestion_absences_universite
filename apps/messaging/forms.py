@@ -62,8 +62,11 @@ class MessageForm(forms.ModelForm):
             # ADMIN, SECRETAIRE, PROFESSEUR can message anyone active
             model_choice_field(self, "destinataire").queryset = qs
             # Label improvement
-            model_choice_field(self, "destinataire").label_from_instance = (
-                _recipient_label  # pyright: ignore[reportAttributeAccessIssue]  (surcharge par instance, prévue par Django)
+            # Surcharge par instance, prévue par Django.
+            setattr(
+                model_choice_field(self, "destinataire"),
+                "label_from_instance",
+                _recipient_label,
             )
 
     def clean_destinataire(self):
