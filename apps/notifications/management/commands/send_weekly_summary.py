@@ -4,12 +4,14 @@ Management command: send weekly absence summary to all active secretaries.
 Usage:
     python manage.py send_weekly_summary          # current week
     python manage.py send_weekly_summary --dry-run # preview without sending
+    python manage.py send_weekly_summary --to me@example.com  # e-mail preview to one address only
 
 Schedule with cron (e.g. every Monday at 08:00):
     0 8 * * 1 cd /app && python manage.py send_weekly_summary
 """
 
 import datetime
+from types import SimpleNamespace
 
 from django.core.management.base import BaseCommand
 from django.db.models import Sum
@@ -34,6 +36,11 @@ class Command(BaseCommand):
             "--dry-run",
             action="store_true",
             help="Print summary data without sending emails.",
+        )
+        parser.add_argument(
+            "--to",
+            metavar="EMAIL",
+            help="Send a preview to this address only; secretaries receive nothing.",
         )
 
     def handle(self, *args, **options):
@@ -134,6 +141,25 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("=== DRY RUN — Weekly Summary ==="))
             for key, val in summary_data.items():
                 self.stdout.write(f"  {key}: {val}")
+            return
+
+        if options["to"]:
+            # Preview: same e-mail, one recipient outside the secretaries.
+            recipient = SimpleNamespace(
+                email=options["to"],
+                actif=True,
+                pk=None,
+                get_full_name=lambda: "Secrétariat (aperçu)",
+            )
+            subj, body, html_body = build_weekly_summary_email(recipient, summary_data)
+            if send_notification_email(
+                recipient, subj, body, html_body, background=False
+            ):
+                self.stdout.write(
+                    self.style.SUCCESS(f"Preview sent to {options['to']}.")
+                )
+            else:
+                self.stderr.write(f"Preview to {options['to']} failed (see logs).")
             return
 
         # Send to all active secretaries

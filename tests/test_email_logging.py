@@ -1,7 +1,9 @@
 from io import StringIO
+from typing import cast
 from unittest.mock import patch
 
 from django.core import mail
+from django.core.mail import EmailMultiAlternatives
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 
@@ -236,4 +238,24 @@ class OldAuditUrlTests(TestCase):
             response,
             reverse("dashboard:secretary_audit_logs") + "?q=VERIF",
             fetch_redirect_response=False,
+        )
+
+
+class WeeklySummaryPreviewTests(TestCase):
+    def test_preview_goes_to_one_address_only(self):
+        from django.core.management import call_command
+
+        from apps.academic_sessions.models import AnneeAcademique
+
+        AnneeAcademique.objects.create(libelle="2026-2027", active=True)
+        _make_user("sec@example.com", role=User.Role.SECRETAIRE)
+
+        call_command("send_weekly_summary", to="preview@example.com", stdout=StringIO())
+
+        self.assertEqual([m.to for m in mail.outbox], [["preview@example.com"]])
+        msg = cast(EmailMultiAlternatives, mail.outbox[0])
+        html = msg.alternatives[0][0]
+        self.assertIn("Résumé hebdomadaire", str(html))
+        self.assertEqual(
+            EmailEnvoi.objects.get().destinataire_email, "preview@example.com"
         )
