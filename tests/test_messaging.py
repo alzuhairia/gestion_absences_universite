@@ -159,3 +159,10 @@ class MessageFormTests(TestCase):
         # Should redirect, not send
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Message.objects.count(), 0)
+
+
+class TestCacheIsolationTest(TestCase):
+    def test_tests_never_use_the_production_redis(self):
+        from django.core.cache import caches
+
+        self.assertEqual(type(caches["default"]).__name__, "LocMemCache")

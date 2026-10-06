@@ -7,6 +7,14 @@ def pytest_configure(config):
     settings.LOGGING["handlers"]["file"]["class"] = "logging.NullHandler"
     # Send e-mails inline so tests can assert on mail.outbox right away.
     settings.EMAIL_ASYNC = False
+    # Never touch the shared production Redis from tests (cache.clear() would
+    # FLUSHDB it): every test gets a per-process in-memory cache instead.
+    settings.CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unabsences-tests",
+        }
+    }
 
     # Kill stale connections to the test database before pytest-django tries to create/drop it.
     import psycopg2
