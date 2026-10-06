@@ -5,6 +5,7 @@ FROM nginx:alpine
 RUN apk add --no-cache openssl
 
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY snippets/ /etc/nginx/snippets/
 COPY docker-entrypoint.d/05-link-letsencrypt-certs.sh /docker-entrypoint.d/05-link-letsencrypt-certs.sh
 COPY docker-entrypoint.d/10-generate-self-signed-cert.sh /docker-entrypoint.d/10-generate-self-signed-cert.sh
 COPY docker-entrypoint.d/15-generate-htpasswd.sh /docker-entrypoint.d/15-generate-htpasswd.sh
