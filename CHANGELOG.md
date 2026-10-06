@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.2] - 2026-10-07
+
+Security release for the shared reverse proxy.
+
+### Security
+- Dockhand (Docker management UI, no login of its own, holds the Docker socket) was reachable from the Internet without authentication since nginx started serving the co-hosted sites on 443. It is back behind tinyauth: every request goes through `auth_request` to tinyauth, and the browser is sent to the login page without a valid session
+- HTTPS requests for unknown host names (bare IP, stray DNS records, scanners) are refused at the TLS handshake by a catch-all `default_server` (`ssl_reject_handshake`) instead of reaching Django, which logged a DisallowedHost error for each
+
+### Added
+- `tinyauth.infotechno.eu` (login portal) and `it-tools.infotechno.eu` (behind tinyauth) served by nginx on 443 with their own Let's Encrypt certificates, renewed by `scripts/renew-ssl.sh` like the others
+- `nginx/snippets/tinyauth-auth.conf`: shared tinyauth forward-auth locations, included by every protected server block
+
+### Fixed
+- CI quality gate checked no file on multi-file pushes: the changed-files list was escaped into a single bogus path; it is now read raw through an environment variable
+
 ## [1.6.1] - 2026-10-06
 
 Bug fixes and code health: absence durations no longer crash a roll call,
