@@ -138,7 +138,8 @@ class Command(BaseCommand):
         sent = 0
         for secretary in secretaries:
             subj, body, html_body = build_weekly_summary_email(secretary, summary_data)
-            if send_notification_email(secretary, subj, body, html_body):
+            # Synchronous: the count below must reflect real sends, not queued ones.
+            if send_notification_email(secretary, subj, body, html_body, background=False):
                 sent += 1
 
         self.stdout.write(

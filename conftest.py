@@ -5,6 +5,8 @@ from django.conf import settings
 def pytest_configure(config):
     """Ensure Django is set up before test collection."""
     settings.LOGGING["handlers"]["file"]["class"] = "logging.NullHandler"
+    # Send e-mails inline so tests can assert on mail.outbox right away.
+    settings.EMAIL_ASYNC = False
 
     # Kill stale connections to the test database before pytest-django tries to create/drop it.
     import psycopg2

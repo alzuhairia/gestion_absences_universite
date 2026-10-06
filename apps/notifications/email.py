@@ -5,7 +5,7 @@ Features:
     - HTML email templates rendered via Django template engine
     - Plain-text fallback for all emails
     - Duplicate prevention via EmailLog model (configurable cooldown)
-    - Thread-based async sending (non-blocking)
+    - Background sending through a bounded thread pool (non-blocking)
 
 Usage:
     from apps.notifications.email import send_notification_email
@@ -15,6 +15,8 @@ Configuration:
     Dev:  EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend (default)
     Prod: Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
           plus EMAIL_HOST_USER / EMAIL_HOST_PASSWORD in .env
+    EMAIL_ASYNC (default True): send in the background, after the current
+          transaction commits, so a request never waits for SMTP.
 
 Emails never raise. Every send attempt is logged (logger "apps.notifications.email"):
 INFO for sent / skipped, ERROR with traceback for failures. Sent and failed
@@ -22,7 +24,6 @@ attempts are also stored in EmailEnvoi (proof of sending, shown in the UI).
 """
 
 import logging
-import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from django.conf import settings
@@ -34,9 +35,10 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-# Bounded thread pool for fire-and-forget async email sending.
-# Prevents thread explosion when bulk operations (e.g. mark_absence on 200 students)
-# trigger many emails at once. Daemon=True so workers don't block process shutdown.
+# Bounded thread pool for background email sending. Prevents thread explosion
+# when bulk operations (e.g. mark_absence on 200 students) trigger many emails
+# at once: extra jobs wait in the executor queue. Its worker threads are joined
+# at interpreter exit, so queued emails are still sent on a graceful shutdown.
 _EMAIL_EXECUTOR = ThreadPoolExecutor(
     max_workers=getattr(settings, "EMAIL_ASYNC_MAX_WORKERS", 5),
     thread_name_prefix="email-async",
@@ -46,7 +48,7 @@ _EMAIL_EXECUTOR = ThreadPoolExecutor(
 # ─── Core send functions ────────────────────────────────────────────────────
 
 
-def _record_envoi(recipient_user, recipient_email, subject, sent):
+def _record_envoi(recipient_pk, recipient_email, subject, sent):
     """Store the send attempt in EmailEnvoi. Never raises."""
     from apps.notifications.models import EmailEnvoi
 
@@ -55,7 +57,7 @@ def _record_envoi(recipient_user, recipient_email, subject, sent):
         # Savepoint: a failed insert must not break the caller's transaction.
         with transaction.atomic():
             EmailEnvoi.objects.create(
-                destinataire_id=getattr(recipient_user, "pk", None),
+                destinataire_id=recipient_pk,
                 destinataire_email=recipient_email,
                 sujet=subject[:255],
                 statut=statut,
@@ -64,7 +66,46 @@ def _record_envoi(recipient_user, recipient_email, subject, sent):
         logger.exception("Failed to record email send to %s", recipient_email)
 
 
-def send_notification_email(recipient_user, subject, body, html_body=None):
+def _deliver(recipient_pk, recipient_email, subject, body, html_body):
+    """Hand one email to the mail backend, then log and record it. Never raises."""
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_body,
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send email to %s (user_id=%s)", recipient_email, recipient_pk
+        )
+        _record_envoi(recipient_pk, recipient_email, subject, sent=False)
+        return False
+    logger.info("Email sent to %s (user_id=%s): %s", recipient_email, recipient_pk, subject)
+    _record_envoi(recipient_pk, recipient_email, subject, sent=True)
+    return True
+
+
+def _deliver_in_worker(*args):
+    """Executor job: deliver, then release the thread's own DB connection."""
+    try:
+        _deliver(*args)
+    finally:
+        connection.close()
+
+
+def _queue(args):
+    """Submit a delivery to the pool; deliver inline if the pool is shut down."""
+    try:
+        _EMAIL_EXECUTOR.submit(_deliver_in_worker, *args)
+    except RuntimeError:
+        # Executor already shut down (process teardown): don't drop the email.
+        _deliver(*args)
+
+
+def send_notification_email(recipient_user, subject, body, html_body=None, *, background=None):
     """
     Send a single notification email. Never raises.
 
@@ -73,47 +114,33 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
         subject: Email subject line
         body: Plain-text email body
         html_body: Optional HTML body (if None, plain text only)
+        background: send from the thread pool once the current transaction
+            commits (nothing is sent on rollback). Defaults to settings.EMAIL_ASYNC.
 
     Returns:
-        True if email was sent, False otherwise.
+        True if the email was sent (or queued in background mode), False otherwise.
     """
+    recipient_pk = getattr(recipient_user, "pk", None)
     if not recipient_user or not getattr(recipient_user, "email", None):
-        logger.info(
-            "Email skipped (no address) for user_id=%s: %s",
-            getattr(recipient_user, "pk", "?"), subject,
-        )
+        logger.info("Email skipped (no address) for user_id=%s: %s", recipient_pk, subject)
         return False
 
     if not getattr(recipient_user, "actif", True):
         logger.info(
             "Email skipped (inactive user) for %s (user_id=%s): %s",
-            recipient_user.email, recipient_user.pk, subject,
+            recipient_user.email, recipient_pk, subject,
         )
         return False
 
-    try:
-        send_mail(
-            subject=subject,
-            message=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[recipient_user.email],
-            html_message=html_body,
-            fail_silently=False,
-        )
-        logger.info(
-            "Email sent to %s (user_id=%s): %s",
-            recipient_user.email, getattr(recipient_user, "pk", "?"), subject,
-        )
-        _record_envoi(recipient_user, recipient_user.email, subject, sent=True)
-        return True
-    except Exception:
-        logger.exception(
-            "Failed to send email to %s (user_id=%s)",
-            recipient_user.email,
-            getattr(recipient_user, "pk", "?"),
-        )
-        _record_envoi(recipient_user, recipient_user.email, subject, sent=False)
-        return False
+    # Plain values only: the worker thread must not touch the caller's ORM objects.
+    args = (recipient_pk, recipient_user.email, subject, body, html_body)
+    if background is None:
+        background = getattr(settings, "EMAIL_ASYNC", True)
+    if not background:
+        return _deliver(*args)
+
+    transaction.on_commit(lambda: _queue(args))
+    return True
 
 
 def send_notification_email_bulk(recipient_users, subject, body, html_body=None):
@@ -121,72 +148,13 @@ def send_notification_email_bulk(recipient_users, subject, body, html_body=None)
     Send the same email to multiple users. Never raises.
 
     Returns:
-        Number of emails successfully sent.
+        Number of emails sent (or queued in background mode).
     """
     sent = 0
     for user in recipient_users:
         if send_notification_email(user, subject, body, html_body):
             sent += 1
     return sent
-
-
-def send_email_async(recipient_user, subject, body, html_body=None):
-    """
-    Send an email via a bounded background thread pool. Fire-and-forget.
-    Useful for non-critical notifications where blocking the request is undesirable.
-
-    Uses a shared ThreadPoolExecutor (see ``_EMAIL_EXECUTOR``) so that bulk
-    operations cannot exhaust process resources. Submissions beyond the pool's
-    capacity queue inside the executor instead of spawning unbounded threads.
-    """
-    if not recipient_user or not getattr(recipient_user, "email", None):
-        logger.info(
-            "Async email skipped (no address) for user_id=%s: %s",
-            getattr(recipient_user, "pk", "?"), subject,
-        )
-        return
-    if not getattr(recipient_user, "actif", True):
-        logger.info(
-            "Async email skipped (inactive user) for %s (user_id=%s): %s",
-            recipient_user.email, recipient_user.pk, subject,
-        )
-        return
-
-    recipient_email = recipient_user.email
-    recipient_pk = getattr(recipient_user, "pk", "?")
-
-    def _send():
-        try:
-            send_mail(
-                subject=subject,
-                message=body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_email],
-                html_message=html_body,
-                fail_silently=False,
-            )
-            logger.info(
-                "Async email sent to %s (user_id=%s): %s",
-                recipient_email, recipient_pk, subject,
-            )
-            _record_envoi(recipient_user, recipient_email, subject, sent=True)
-        except Exception:
-            logger.exception(
-                "Async email failed for %s (user_id=%s)",
-                recipient_email,
-                recipient_pk,
-            )
-            _record_envoi(recipient_user, recipient_email, subject, sent=False)
-        finally:
-            # Worker threads open their own DB connection; release it.
-            connection.close()
-
-    try:
-        _EMAIL_EXECUTOR.submit(_send)
-    except RuntimeError:
-        # Executor was shut down (e.g. during process teardown). Fall back to
-        # a one-shot daemon thread so we don't drop the email entirely.
-        threading.Thread(target=_send, daemon=True).start()
 
 
 def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_key,
@@ -199,7 +167,7 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
     block, so two concurrent callers cannot both pass the check and both send.
     Only the caller that successfully claims the row reaches send_mail.
 
-    Returns True if sent, False if skipped or failed.
+    Returns True if sent (or queued in background mode), False if skipped or failed.
     """
     from apps.notifications.models import EmailLog
 

@@ -1,10 +1,11 @@
 from unittest.mock import patch
 
 from django.core import mail
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.notifications import email as email_module
 from apps.notifications.email import send_notification_email, send_with_dedup
 from apps.notifications.models import EmailEnvoi
 
@@ -74,6 +75,59 @@ class SendNotificationEmailLoggingTests(TestCase):
         self.assertIn("Dedup: skipping threshold email to etu@example.com", logs.output[0])
         self.assertEqual(EmailEnvoi.objects.count(), 1)
 
+
+class BackgroundSendingTests(TestCase):
+    def setUp(self):
+        self.student = _make_user("etu@example.com")
+
+    def test_background_send_is_deferred_until_commit(self):
+        with patch.object(email_module.transaction, "on_commit") as on_commit:
+            self.assertTrue(
+                send_notification_email(self.student, "Sujet", "Corps", background=True)
+            )
+        # Nothing leaves before the transaction commits.
+        self.assertEqual(len(mail.outbox), 0)
+        on_commit.assert_called_once()
+
+        # Commit: the callback queues the delivery (run inline here).
+        on_commit_callback = on_commit.call_args.args[0]
+        with patch.object(email_module, "_queue", side_effect=lambda args: email_module._deliver(*args)):
+            on_commit_callback()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(EmailEnvoi.objects.get().statut, EmailEnvoi.Statut.ENVOYE)
+
+    def test_skips_are_still_immediate_in_background_mode(self):
+        self.student.actif = False
+        with patch.object(email_module.transaction, "on_commit") as on_commit:
+            self.assertFalse(
+                send_notification_email(self.student, "Sujet", "Corps", background=True)
+            )
+        on_commit.assert_not_called()
+
+
+class ThreadPoolDeliveryTests(TransactionTestCase):
+    """Real worker thread: the email is sent and recorded off the request thread."""
+
+    def test_worker_thread_sends_and_records(self):
+        student = _make_user("etu@example.com")
+        executor = email_module._EMAIL_EXECUTOR
+        futures = []
+
+        def spy_submit(*args, **kwargs):
+            future = type(executor).submit(executor, *args, **kwargs)
+            futures.append(future)
+            return future
+
+        with self.settings(EMAIL_ASYNC=True), patch.object(executor, "submit", spy_submit):
+            # Autocommit: on_commit runs immediately and queues the job.
+            self.assertTrue(send_notification_email(student, "Sujet thread", "Corps"))
+        self.assertEqual(len(futures), 1)
+        futures[0].result(timeout=10)
+
+        self.assertEqual(len(mail.outbox), 1)
+        envoi = EmailEnvoi.objects.get()
+        self.assertEqual(envoi.sujet, "Sujet thread")
+        self.assertEqual(envoi.destinataire, student)
 
 class EmailHistoryViewsTests(TestCase):
     def setUp(self):
