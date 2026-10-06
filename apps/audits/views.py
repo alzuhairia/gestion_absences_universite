@@ -1,63 +1,22 @@
 """
 FICHIER : apps/audits/views.py
-RESPONSABILITE : Vue de consultation des logs d'audit
+RESPONSABILITE : Ancienne URL de consultation des logs d'audit
 FONCTIONNALITES PRINCIPALES :
-  - Liste filtree des logs audit avec pagination
-DEPENDANCES CLES : audits.models.LogAudit
+  - Redirige /audits/logs/ vers la page secretariat (dashboard:secretary_audit_logs)
+DEPENDANCES CLES : dashboard.views_secretary.secretary_audit_logs
 """
 
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-
-from apps.utils import safe_get_page
-from django.db.models import Q
-from django.shortcuts import render
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
-from apps.accounts.models import User
-from apps.dashboard.decorators import secretary_required
 
-from .models import LogAudit
-
-
-@login_required
-@secretary_required
 @require_GET
 def audit_list(request):
     """
-    Vue pour lister et rechercher les journaux d'audit.
+    Ancienne page des journaux d'audit, remplacée par la page du secrétariat
+    (filtres, pagination). On garde l'URL pour les favoris existants.
     """
-    query = request.GET.get("q", "")
-    role_filter = request.GET.get("role", "")
-    niveau_filter = request.GET.get("niveau", "")
-
-    logs = LogAudit.objects.select_related("id_utilisateur").order_by("-date_action")
-
-    if query:
-        logs = logs.filter(
-            Q(action__icontains=query)
-            | Q(id_utilisateur__email__icontains=query)
-            | Q(id_utilisateur__nom__icontains=query)
-            | Q(id_utilisateur__prenom__icontains=query)
-        )
-
-    if role_filter:
-        logs = logs.filter(id_utilisateur__role=role_filter)
-
-    if niveau_filter:
-        logs = logs.filter(niveau=niveau_filter)
-
-    # Pagination
-    paginator = Paginator(logs, 50)
-    page_obj = safe_get_page(paginator, request.GET.get("page"))
-
-    return render(
-        request,
-        "audits/log_list.html",
-        {
-            "page_obj": page_obj,
-            "query": query,
-            "role_filter": role_filter,
-            "niveau_filter": niveau_filter,
-        },
-    )
+    url = reverse("dashboard:secretary_audit_logs")
+    query = request.GET.urlencode()
+    return redirect(f"{url}?{query}" if query else url)

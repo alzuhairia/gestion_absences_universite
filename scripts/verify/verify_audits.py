@@ -12,7 +12,7 @@ from django.test import RequestFactory
 from django.contrib.messages.storage.fallback import FallbackStorage
 
 from apps.accounts.models import User
-from apps.audits.views import audit_list
+from apps.dashboard.views_secretary import secretary_audit_logs as audit_list
 from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
 
@@ -28,7 +28,7 @@ def verify():
     
     # 2. Test Audit List View
     factory = RequestFactory()
-    request = factory.get('/audits/logs/')
+    request = factory.get('/dashboard/secretary/audit-logs/')
     request.user = secretary
     
     print("Accessing Audit List View...")
@@ -47,7 +47,7 @@ def verify():
         print(f"FAIL: Audit View failed. Status: {response.status_code}")
 
     # 3. Test Search
-    request_search = factory.get('/audits/logs/?q=VERIFICATION')
+    request_search = factory.get('/dashboard/secretary/audit-logs/?q=VERIFICATION')
     request_search.user = secretary
     
     print("Testing Search...")

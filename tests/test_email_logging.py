@@ -1,3 +1,4 @@
+from io import StringIO
 from unittest.mock import patch
 
 from django.core import mail
@@ -170,3 +171,34 @@ class EmailHistoryViewsTests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("dashboard:secretary_email_logs"), secure=True)
         self.assertEqual(response.status_code, 302)
+
+
+class PurgeEmailHistoryTests(TestCase):
+    def test_purge_keeps_last_year_only(self):
+        from datetime import timedelta
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        old = EmailEnvoi.objects.create(
+            destinataire_email="a@example.com", sujet="Ancien", statut=EmailEnvoi.Statut.ENVOYE
+        )
+        EmailEnvoi.objects.filter(pk=old.pk).update(date_envoi=timezone.now() - timedelta(days=366))
+        recent = EmailEnvoi.objects.create(
+            destinataire_email="b@example.com", sujet="Récent", statut=EmailEnvoi.Statut.ENVOYE
+        )
+        EmailEnvoi.objects.filter(pk=recent.pk).update(date_envoi=timezone.now() - timedelta(days=300))
+
+        call_command("purge_email_history", stdout=StringIO())
+
+        self.assertEqual(list(EmailEnvoi.objects.values_list("sujet", flat=True)), ["Récent"])
+
+
+class OldAuditUrlTests(TestCase):
+    def test_old_audit_url_redirects_to_secretariat_page(self):
+        response = self.client.get("/audits/logs/?q=VERIF", secure=True)
+        self.assertRedirects(
+            response,
+            reverse("dashboard:secretary_audit_logs") + "?q=VERIF",
+            fetch_redirect_response=False,
+        )

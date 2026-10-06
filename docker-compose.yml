@@ -69,10 +69,10 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - logs_volume:/app/logs
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m,mode=1777,uid=1000,gid=1000
-      - /app/logs:rw,noexec,nosuid,size=64m,mode=0775,uid=1000,gid=1000
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -175,6 +175,8 @@ volumes:
   static_volume:
     driver: local
   media_volume:
+    driver: local
+  logs_volume:
     driver: local
   certbot_conf:
     driver: local
