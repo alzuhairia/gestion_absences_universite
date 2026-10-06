@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0] - 2026-10-06
+
+E-mail proof of sending: every notification e-mail is now recorded and can be
+shown on the website, to the secretariat and to the student concerned.
+
+### Added
+- `EmailEnvoi` history: every e-mail handed to the mail server (or failing) is stored with recipient, subject, status and date; the body is never stored (no OTP codes in the database)
+- Secretariat page "Historique des e-mails" (Audit section): all sends, with search by name / e-mail / subject, status filter and date range
+- Student page "Mes E-mails": each student sees only the e-mails sent to them, with a reminder to check the spam folder
+- Read-only `EmailEnvoi` view in the Django admin (no add, change or delete)
+- `requirements-dev.txt` with `django-types`, so Pylance/Pyright understand Django models (not installed in the Docker image)
+
+### Changed
+- Type annotations for Pyright: `User.objects` typed as `UserManager`, FK columns `id_cours_id` / `id_seance_id` declared; no runtime change
+
+### Notes
+- `/app/logs` is a tmpfs, so `django.log` is lost on every container restart; the `email_envoi` table is the durable record of sends
+
 ## [1.4.0] - 2026-10-06
 
 Observability and infrastructure release: e-mail sends are now visible in the
