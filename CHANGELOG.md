@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.1] - 2026-10-06
+
+Bug fixes and code health: absence durations no longer crash a roll call,
+the codebase is type-clean and uniformly formatted, and CI checks are
+reliable again.
+
+### Fixed
+- Roll call (manual and HTMX): a partial absence with an empty, zero, too long or session-length duration fell back to the full session but kept type PARTIEL, which the model rejects, so the whole roll call failed with a 500. The fallback now records a full ABSENT
+- Absence durations typed as `nan` or `inf` crashed the roll call and the secretariat edit page with a 500; they are now rejected like any invalid value
+- Test suite no longer uses the production Redis (`cache.clear()` issued a FLUSHDB against it); every test gets an in-memory cache
+- CI quality gate silently checked nothing on multi-commit pushes (shallow checkout); it now fetches the full history
+
+### Changed
+- Durations accept a comma as decimal separator (`1,5` as well as `1.5`)
+- Weekly secretariat summary scheduled on the server (Mondays 07:00)
+- Codebase formatted with Black 26.10 and isort 9.0 (one pure-formatting commit, listed in `.git-blame-ignore-revs`); CI and pre-commit pin the same black/isort/ruff versions
+- Pyright/Pylance report 0 errors: `pyrightconfig.json`, `djangorestframework-types` in `requirements-dev.txt`, model type declarations (TYPE_CHECKING only), typed helpers for request users and form querysets
+- 22 unused imports removed
+
 ## [1.6.0] - 2026-10-06
 
 Faster roll calls and durable logs: e-mails no longer slow down requests,
