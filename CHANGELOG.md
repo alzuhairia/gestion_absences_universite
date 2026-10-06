@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0] - 2026-10-06
+
+Observability and infrastructure release: e-mail sends are now visible in the
+logs, and the shared nginx serves the other sites co-hosted on the server.
+
+### Added
+- Every e-mail send attempt is logged at INFO: sent (sync and async), skipped (no address / inactive user) and dedup skips; previously only failures were logged, so a successful send left no trace. Only the recipient and subject are logged, never the body (no OTP codes in logs)
+
+### Changed
+- nginx terminates TLS for the other sites co-hosted on the server (absences stays the default server) and joins the external `frontend` network
+- Dedup skip and dedup race messages raised from DEBUG to INFO so they show up in production
+
+### Fixed
+- `DB_NAME` fallback aligned to `unabsences_db` in `settings.py`, `entrypoint.sh` and `.env.example` (the entrypoint was waiting for a database that does not exist)
+- SSL renewal renews all co-hosted certificates and reloads nginx, which reads them straight from `/etc/letsencrypt/live`
+
 ## [1.3.0] - 2026-09-28
 
 Attendance anti-fraud release: trusted devices, anomaly detection, and a human
