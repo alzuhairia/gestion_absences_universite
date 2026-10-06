@@ -16,7 +16,8 @@ Configuration:
     Prod: Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
           plus EMAIL_HOST_USER / EMAIL_HOST_PASSWORD in .env
 
-Emails never raise — failures are logged silently.
+Emails never raise. Every send attempt is logged (logger "apps.notifications.email"):
+INFO for sent / skipped, ERROR with traceback for failures.
 """
 
 import logging
@@ -58,9 +59,17 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
         True if email was sent, False otherwise.
     """
     if not recipient_user or not getattr(recipient_user, "email", None):
+        logger.info(
+            "Email skipped (no address) for user_id=%s: %s",
+            getattr(recipient_user, "pk", "?"), subject,
+        )
         return False
 
     if not getattr(recipient_user, "actif", True):
+        logger.info(
+            "Email skipped (inactive user) for %s (user_id=%s): %s",
+            recipient_user.email, recipient_user.pk, subject,
+        )
         return False
 
     try:
@@ -71,6 +80,10 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
             recipient_list=[recipient_user.email],
             html_message=html_body,
             fail_silently=False,
+        )
+        logger.info(
+            "Email sent to %s (user_id=%s): %s",
+            recipient_user.email, getattr(recipient_user, "pk", "?"), subject,
         )
         return True
     except Exception:
@@ -106,8 +119,16 @@ def send_email_async(recipient_user, subject, body, html_body=None):
     capacity queue inside the executor instead of spawning unbounded threads.
     """
     if not recipient_user or not getattr(recipient_user, "email", None):
+        logger.info(
+            "Async email skipped (no address) for user_id=%s: %s",
+            getattr(recipient_user, "pk", "?"), subject,
+        )
         return
     if not getattr(recipient_user, "actif", True):
+        logger.info(
+            "Async email skipped (inactive user) for %s (user_id=%s): %s",
+            recipient_user.email, recipient_user.pk, subject,
+        )
         return
 
     recipient_email = recipient_user.email
@@ -122,6 +143,10 @@ def send_email_async(recipient_user, subject, body, html_body=None):
                 recipient_list=[recipient_email],
                 html_message=html_body,
                 fail_silently=False,
+            )
+            logger.info(
+                "Async email sent to %s (user_id=%s): %s",
+                recipient_email, recipient_pk, subject,
             )
         except Exception:
             logger.exception(
@@ -154,6 +179,10 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
 
     email = getattr(recipient_user, "email", None)
     if not email:
+        logger.info(
+            "Email skipped (no address) for user_id=%s: %s event (key=%s)",
+            getattr(recipient_user, "pk", "?"), event_type, event_key,
+        )
         return False
 
     digest = EmailLog.make_digest(email, event_type, event_key)
@@ -178,13 +207,13 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
                     )
                 except IntegrityError:
                     # Lost the race to another worker — they will send.
-                    logger.debug(
+                    logger.info(
                         "Dedup race: another worker claimed %s email to %s (key=%s)",
                         event_type, email, event_key,
                     )
                     return False
             elif existing.created_at >= cutoff:
-                logger.debug(
+                logger.info(
                     "Dedup: skipping %s email to %s (key=%s)",
                     event_type, email, event_key,
                 )
@@ -197,7 +226,7 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
                     digest=digest, created_at=existing.created_at
                 ).update(created_at=timezone.now())
                 if not claimed:
-                    logger.debug(
+                    logger.info(
                         "Dedup race: another worker refreshed %s email to %s (key=%s)",
                         event_type, email, event_key,
                     )
