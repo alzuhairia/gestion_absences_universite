@@ -1,0 +1,82 @@
+{% extends 'base_student.html' %}
+
+{% block title %}Mes e-mails{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard:student_dashboard' %}">Tableau de Bord</a></li>
+<li class="breadcrumb-item active">Mes e-mails</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-envelope me-2"></i>Mes e-mails
+        </h1>
+        <a href="{% url 'dashboard:student_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        Voici les e-mails qu'UniAbsences vous a envoyés, à l'adresse <strong>{{ request.user.email }}</strong>.
+        Si vous ne les trouvez pas dans votre boîte de réception, pensez à vérifier le dossier
+        <strong>courrier indésirable (spam)</strong>.
+    </div>
+
+    <div class="card shadow student-card">
+        <div class="card-header py-3 bg-white student-card-header">
+            <h6 class="m-0 font-weight-bold text-primary">E-mails envoyés</h6>
+        </div>
+        <div class="card-body">
+            {% if envois %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date/Heure</th>
+                            <th>Sujet</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for envoi in envois %}
+                        <tr>
+                            <td class="text-nowrap">{{ envoi.date_envoi|date:"d/m/Y H:i" }}</td>
+                            <td>{{ envoi.sujet }}</td>
+                            <td>
+                                {% if envoi.statut == 'ENVOYE' %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>{{ envoi.get_statut_display }}</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-xmark me-1"></i>{{ envoi.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if envois.has_other_pages %}
+            <nav aria-label="Navigation des pages" class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if envois.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ envois.previous_page_number }}">Précédent</a></li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">Page {{ envois.number }} sur {{ envois.paginator.num_pages }}</span>
+                    </li>
+                    {% if envois.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ envois.next_page_number }}">Suivant</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <p class="text-muted text-center py-4">Aucun e-mail ne vous a encore été envoyé.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

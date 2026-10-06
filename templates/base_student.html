@@ -203,6 +203,10 @@
                        class="nav-link {% if 'student_absences' in request.resolver_match.view_name %}active{% endif %}">
                         <i class="fas fa-user-times"></i> Mes Absences
                     </a>
+                    <a href="{% url 'dashboard:student_emails' %}"
+                       class="nav-link {% if 'student_emails' in request.resolver_match.view_name %}active{% endif %}">
+                        <i class="fas fa-envelope"></i> Mes E-mails
+                    </a>
                 </li>
                 
                 <li>

@@ -4,6 +4,7 @@ RESPONSABILITE : Notifications in-app et deduplication des emails
 FONCTIONNALITES PRINCIPALES :
   - Notification : notification in-app (INTERNE, ALERTE, INFO) avec statut lu/non-lu
   - EmailLog : anti-doublon email via digest SHA-256 + fenetre de cooldown
+  - EmailEnvoi : historique des e-mails envoyes (preuve d'envoi)
 DEPENDANCES CLES : accounts.User
 """
 
@@ -147,3 +148,53 @@ class EmailLog(models.Model):
                 "event_type": event_type,
             },
         )
+
+
+# ========================================================================== #
+#                  HISTORIQUE DES ENVOIS (EmailEnvoi)                         #
+# ========================================================================== #
+
+
+class EmailEnvoi(models.Model):
+    """
+    Trace de chaque e-mail transmis au serveur SMTP (ou en échec).
+
+    Sert de preuve d'envoi : consultable par le secrétariat (tous les envois)
+    et par l'étudiant (ses propres e-mails). Seuls le destinataire et le sujet
+    sont conservés, jamais le corps (pas de code OTP en base).
+    """
+
+    class Statut(models.TextChoices):
+        ENVOYE = "ENVOYE", "Envoyé"
+        ECHEC = "ECHEC", "Échec"
+
+    destinataire = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        models.SET_NULL,  # La preuve survit à la suppression du compte
+        null=True,
+        blank=True,
+        verbose_name="Destinataire",
+        related_name="emails_envoyes",
+    )
+    destinataire_email = models.EmailField(verbose_name="Adresse e-mail")
+    sujet = models.CharField(max_length=255, verbose_name="Sujet")
+    statut = models.CharField(
+        max_length=10, choices=Statut.choices, verbose_name="Statut", db_index=True
+    )
+    date_envoi = models.DateTimeField(
+        auto_now_add=True, verbose_name="Date d'envoi", db_index=True
+    )
+
+    class Meta:
+        managed = True
+        db_table = "email_envoi"
+        app_label = "notifications"
+        verbose_name = "E-mail envoyé"
+        verbose_name_plural = "E-mails envoyés"
+        ordering = ["-date_envoi", "-id"]
+        indexes = [
+            models.Index(fields=["destinataire", "date_envoi"]),
+        ]
+
+    def __str__(self):
+        return f"{self.sujet} → {self.destinataire_email} ({self.get_statut_display()})"

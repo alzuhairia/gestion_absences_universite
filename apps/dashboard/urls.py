@@ -27,9 +27,15 @@ urlpatterns = [
         views_secretary.secretary_audit_logs,
         name="secretary_audit_logs",
     ),
+    path(
+        "secretary/email-logs/",
+        views_secretary.secretary_email_logs,
+        name="secretary_email_logs",
+    ),
     path("student/stats/", views.student_statistics, name="student_statistics"),
     path("student/courses/", views.student_courses, name="student_courses"),
     path("student/absences/", views.student_absences, name="student_absences"),
+    path("student/emails/", views.student_emails, name="student_emails"),
     path("student/reports/", views.student_reports, name="student_reports"),
     # Active Courses Management (read-only view - moved to avoid conflict with secretary_courses)
     path("secretary/active-courses/", views.active_courses, name="active_courses"),

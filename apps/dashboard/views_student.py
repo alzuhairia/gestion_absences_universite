@@ -8,6 +8,7 @@ FONCTIONNALITES PRINCIPALES :
   - Liste cours inscrits avec taux absence
   - Historique complet absences + justifications
   - Page rapports PDF
+  - Historique des e-mails recus (preuve d'envoi)
 DEPENDANCES CLES : absences.services, enrollments.models
 """
 
@@ -26,7 +27,7 @@ from apps.absences.services import get_system_threshold, is_justification_expire
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.dashboard.decorators import student_required
 from apps.enrollments.models import Inscription
-from apps.notifications.models import Notification
+from apps.notifications.models import EmailEnvoi, Notification
 
 
 # ---------------------------------------------------------------------------
@@ -753,3 +754,19 @@ def student_reports(request):
             "overall_rate": round(overall_rate, 1),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Historique des e-mails recus
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@student_required
+@require_GET
+def student_emails(request):
+    """E-mails envoyés à l'étudiant connecté (preuve d'envoi)."""
+    envois = EmailEnvoi.objects.filter(destinataire=request.user).order_by("-date_envoi", "-id")
+    paginator = Paginator(envois, 25)
+    envois_page = safe_get_page(paginator, request.GET.get("page"))
+    return render(request, "dashboard/student_emails.html", {"envois": envois_page})

@@ -608,6 +608,7 @@ student_statistics = views_student.student_statistics
 student_course_detail = views_student.student_course_detail
 student_courses = views_student.student_courses
 student_absences = views_student.student_absences
+student_emails = views_student.student_emails
 student_reports = views_student.student_reports
 
 instructor_dashboard = views_professor.instructor_dashboard

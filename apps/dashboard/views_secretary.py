@@ -5,6 +5,7 @@ FONCTIONNALITES PRINCIPALES :
   - CRUD Facultes, Departements, Cours (acces secretaire)
   - Gestion annees academiques
   - Consultation logs audit
+  - Historique des e-mails envoyes (preuve d'envoi)
 DEPENDANCES CLES : academics.models, academic_sessions.models, dashboard.forms_admin
 """
 
@@ -26,6 +27,7 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
+from apps.notifications.models import EmailEnvoi
 from apps.dashboard.decorators import secretary_required
 from apps.dashboard.forms_admin import (
     AnneeAcademiqueForm,
@@ -976,5 +978,56 @@ def secretary_audit_logs(request):
             "date_to": date_to,
             "user_filter": user_filter,
             "search_query": search_query,
+        },
+    )
+
+
+@login_required
+@secretary_required
+@require_http_methods(["GET"])
+def secretary_email_logs(request):
+    """Historique de tous les e-mails envoyés, avec filtres (preuve d'envoi)."""
+    from datetime import date as date_type
+
+    search_query = request.GET.get("q", "").strip()
+    statut_filter = request.GET.get("statut", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+
+    envois = EmailEnvoi.objects.select_related("destinataire")
+
+    if search_query:
+        envois = envois.filter(
+            Q(destinataire_email__icontains=search_query)
+            | Q(destinataire__nom__icontains=search_query)
+            | Q(destinataire__prenom__icontains=search_query)
+            | Q(sujet__icontains=search_query)
+        )
+    if statut_filter in EmailEnvoi.Statut.values:
+        envois = envois.filter(statut=statut_filter)
+    if date_from:
+        try:
+            envois = envois.filter(date_envoi__date__gte=date_type.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            envois = envois.filter(date_envoi__date__lte=date_type.fromisoformat(date_to))
+        except ValueError:
+            pass
+
+    paginator = Paginator(envois.order_by("-date_envoi", "-id"), 50)
+    envois_page = safe_get_page(paginator, request.GET.get("page"))
+
+    return render(
+        request,
+        "dashboard/secretary_email_logs.html",
+        {
+            "envois": envois_page,
+            "search_query": search_query,
+            "statut_filter": statut_filter,
+            "statut_choices": EmailEnvoi.Statut.choices,
+            "date_from": date_from,
+            "date_to": date_to,
         },
     )

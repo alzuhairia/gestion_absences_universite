@@ -17,7 +17,8 @@ Configuration:
           plus EMAIL_HOST_USER / EMAIL_HOST_PASSWORD in .env
 
 Emails never raise. Every send attempt is logged (logger "apps.notifications.email"):
-INFO for sent / skipped, ERROR with traceback for failures.
+INFO for sent / skipped, ERROR with traceback for failures. Sent and failed
+attempts are also stored in EmailEnvoi (proof of sending, shown in the UI).
 """
 
 import logging
@@ -26,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -43,6 +44,24 @@ _EMAIL_EXECUTOR = ThreadPoolExecutor(
 
 
 # ─── Core send functions ────────────────────────────────────────────────────
+
+
+def _record_envoi(recipient_user, recipient_email, subject, sent):
+    """Store the send attempt in EmailEnvoi. Never raises."""
+    from apps.notifications.models import EmailEnvoi
+
+    statut = EmailEnvoi.Statut.ENVOYE if sent else EmailEnvoi.Statut.ECHEC
+    try:
+        # Savepoint: a failed insert must not break the caller's transaction.
+        with transaction.atomic():
+            EmailEnvoi.objects.create(
+                destinataire_id=getattr(recipient_user, "pk", None),
+                destinataire_email=recipient_email,
+                sujet=subject[:255],
+                statut=statut,
+            )
+    except Exception:
+        logger.exception("Failed to record email send to %s", recipient_email)
 
 
 def send_notification_email(recipient_user, subject, body, html_body=None):
@@ -85,6 +104,7 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
             "Email sent to %s (user_id=%s): %s",
             recipient_user.email, getattr(recipient_user, "pk", "?"), subject,
         )
+        _record_envoi(recipient_user, recipient_user.email, subject, sent=True)
         return True
     except Exception:
         logger.exception(
@@ -92,6 +112,7 @@ def send_notification_email(recipient_user, subject, body, html_body=None):
             recipient_user.email,
             getattr(recipient_user, "pk", "?"),
         )
+        _record_envoi(recipient_user, recipient_user.email, subject, sent=False)
         return False
 
 
@@ -148,12 +169,17 @@ def send_email_async(recipient_user, subject, body, html_body=None):
                 "Async email sent to %s (user_id=%s): %s",
                 recipient_email, recipient_pk, subject,
             )
+            _record_envoi(recipient_user, recipient_email, subject, sent=True)
         except Exception:
             logger.exception(
                 "Async email failed for %s (user_id=%s)",
                 recipient_email,
                 recipient_pk,
             )
+            _record_envoi(recipient_user, recipient_email, subject, sent=False)
+        finally:
+            # Worker threads open their own DB connection; release it.
+            connection.close()
 
     try:
         _EMAIL_EXECUTOR.submit(_send)
