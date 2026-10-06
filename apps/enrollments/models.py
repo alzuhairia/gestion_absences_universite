@@ -43,6 +43,7 @@ class Inscription(models.Model):
         related_name="inscriptions",
         limit_choices_to={"role": "ETUDIANT"},
     )
+    id_cours_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_cours = models.ForeignKey(
         "academics.Cours",
         models.PROTECT,  # Empêche la suppression d'un cours avec des inscriptions

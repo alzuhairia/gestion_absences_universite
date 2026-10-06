@@ -197,4 +197,4 @@ class EmailEnvoi(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.sujet} → {self.destinataire_email} ({self.get_statut_display()})"
+        return f"{self.sujet} → {self.destinataire_email} ({self.Statut(self.statut).label})"

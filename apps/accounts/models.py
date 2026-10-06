@@ -10,6 +10,8 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : Django AbstractBaseUser, PermissionsMixin
 """
 
+from typing import ClassVar
+
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -240,7 +242,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.actif
 
     @is_active.setter
-    def is_active(self, value):
+    def is_active(self, value):  # pyright: ignore[reportIncompatibleVariableOverride]
         """Setter pour is_active"""
         self.actif = value
 
@@ -271,7 +273,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["nom", "prenom"]
 
-    objects = UserManager()
+    objects: ClassVar[UserManager] = UserManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     # Champ last_login géré par Django (peut être null)
     last_login = models.DateTimeField(

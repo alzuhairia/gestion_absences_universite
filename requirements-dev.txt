@@ -1,0 +1,3 @@
+# Outils de developpement uniquement (non installes dans l'image Docker).
+# Stubs de types Django pour Pylance/Pyright (evite les faux "objects" en rouge).
+django-types==0.24.0

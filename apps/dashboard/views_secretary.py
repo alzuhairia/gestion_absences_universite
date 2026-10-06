@@ -10,7 +10,9 @@ DEPENDANCES CLES : academics.models, academic_sessions.models, dashboard.forms_a
 """
 
 import logging
+from typing import cast
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -518,7 +520,8 @@ def secretary_course_edit(request, course_id):
     else:
         form = CoursForm(instance=cours)
 
-    has_prerequisites_options = form.fields["prerequisites"].queryset.exists()
+    prerequisites_field = cast(forms.ModelMultipleChoiceField, form.fields["prerequisites"])
+    has_prerequisites_options = prerequisites_field.queryset.exists()
 
     return render(
         request,

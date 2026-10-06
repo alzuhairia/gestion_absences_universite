@@ -58,6 +58,7 @@ class Absence(models.Model):
         verbose_name="Inscription liée",
         related_name="absences",
     )
+    id_seance_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_seance = models.ForeignKey(
         "academic_sessions.Seance",
         models.PROTECT,  # Empêche la suppression d'une séance avec des absences
