@@ -175,6 +175,13 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
             self.assertEqual(call_kwargs[0][0], self.student)
             # Verify event_type
             self.assertEqual(call_kwargs[1]["event_type"], "exemption_granted")
+            # Styled HTML version, with the new effective threshold
+            html_body = call_kwargs[0][3]
+            self.assertIsNotNone(html_body)
+            self.assertIn("Exemption accordée", html_body)
+            expected = min(self.course.get_seuil_absence() + 15, 100)
+            self.assertIn(f"{expected}&nbsp;%", html_body)
+            self.assertIn(f"{expected}%", call_kwargs[0][2])
 
     def test_grant_requires_motif(self):
         """Granting without motif is rejected."""

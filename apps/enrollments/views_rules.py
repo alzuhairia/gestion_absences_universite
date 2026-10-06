@@ -21,7 +21,7 @@ from apps.absences.services import get_system_threshold, recalculer_eligibilite
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
-from apps.notifications.email import send_with_dedup
+from apps.notifications.email import build_exemption_granted_email, send_with_dedup
 from apps.utils import safe_get_page
 
 
@@ -170,23 +170,17 @@ def toggle_exemption(request, pk):
 
             # Email notification to student (deferred until transaction commits)
             student = inscription.id_etudiant
-            course_name = inscription.id_cours.nom_cours
             insc_pk = inscription.id_inscription
-            subject = f"[UniAbsences] Exemption accordée — {course_name}"
-            body = (
-                f"Bonjour {student.get_full_name()},\n\n"
-                f"Une exemption au seuil d'absence a été accordée pour le cours "
-                f"« {course_name} ».\n\n"
-                f"Vous êtes désormais autorisé(e) à passer l'examen malgré le "
-                f"dépassement du seuil d'absence.\n\n"
-                f"— UniAbsences Notification System"
+            seuil_effectif = min(inscription.id_cours.get_seuil_absence() + margin, 100)
+            subject, body, html_body = build_exemption_granted_email(
+                student, inscription.id_cours.nom_cours, seuil_effectif
             )
             transaction.on_commit(
                 lambda: send_with_dedup(
                     student,
                     subject,
                     body,
-                    None,
+                    html_body,
                     event_type="exemption_granted",
                     event_key=str(insc_pk),
                 )

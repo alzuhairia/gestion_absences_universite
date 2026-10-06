@@ -1,0 +1,20 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Exemption accordée{% endblock %}
+{% block subtitle %}Décision du secrétariat{% endblock %}
+
+{% block content %}
+<p>Bonjour <strong>{{ student_name }}</strong>,</p>
+
+<div class="alert-box alert-success">
+    <strong>&#10004; Exemption accordée</strong><br>
+    Une exemption au seuil d'absence a été accordée pour le cours
+    &laquo;&nbsp;{{ course_name }}&nbsp;&raquo;.
+</div>
+
+<p>Vous êtes désormais autorisé(e) à passer l'examen malgré le dépassement du seuil d'absence.</p>
+
+<div class="stat-row">
+    <span class="stat-label">Nouveau seuil d'absence</span>
+    <span class="stat-value">{{ seuil_effectif }}&nbsp;%</span>
+</div>
+{% endblock %}

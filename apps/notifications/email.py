@@ -332,6 +332,27 @@ def build_eligibility_restored_email(student, course_name):
     return subject, body, html_body
 
 
+def build_exemption_granted_email(student, course_name, seuil_effectif):
+    """Email sent to student when the secretariat grants a threshold exemption."""
+    subject = f"[UniAbsences] Exemption accordée \u2014 {course_name}"
+    context = {
+        "student_name": student.get_full_name(),
+        "course_name": course_name,
+        "seuil_effectif": seuil_effectif,
+    }
+    body = (
+        f"Bonjour {context['student_name']},\n\n"
+        f"Une exemption au seuil d'absence a été accordée pour le cours "
+        f"\u00ab {course_name} \u00bb.\n\n"
+        f"Vous êtes désormais autorisé(e) à passer l'examen malgré le "
+        f"dépassement du seuil d'absence.\n"
+        f"Votre seuil d'absence pour ce cours est désormais de {seuil_effectif}%.\n\n"
+        f"\u2014 UniAbsences Notification System"
+    )
+    html_body = _render_html("emails/exemption_granted.html", context)
+    return subject, body, html_body
+
+
 def build_justification_submitted_professor_email(
     professor, student, course_code, absence_date
 ):
