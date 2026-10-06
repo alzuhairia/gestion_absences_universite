@@ -13,8 +13,9 @@ export MSYS_NO_PATHCONV=1
 PRIMARY_DOMAIN="absences.infotechno.eu"
 PORTABASE_DOMAIN="portabase.infotechno.eu"
 FIT_DOCKHAND_CERT="fit.infotechno.eu"
+TINYAUTH_DOMAIN="tinyauth.infotechno.eu"
 
-echo "[renew] Checking certificates for ${PRIMARY_DOMAIN}, ${PORTABASE_DOMAIN}, fit.infotechno.eu and dockhand.infotechno.eu..."
+echo "[renew] Checking certificates for ${PRIMARY_DOMAIN}, ${PORTABASE_DOMAIN}, ${TINYAUTH_DOMAIN}, fit.infotechno.eu and dockhand.infotechno.eu..."
 
 # Attempt renewal (certbot skips if not near expiry)
 docker compose --profile certbot run --rm certbot renew
