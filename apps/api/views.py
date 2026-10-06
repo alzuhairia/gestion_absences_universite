@@ -12,6 +12,7 @@ DEPENDANCES CLES : api.serializers, api.filters, api.permissions, absences.servi
 
 import datetime
 import io
+from typing import cast
 
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
@@ -22,6 +23,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from rest_framework import mixins, status, viewsets
@@ -107,7 +109,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     ordering_fields = ["nom", "prenom", "email", "niveau", "date_creation"]
     ordering = ["nom", "prenom"]
 
-    def get_permissions(self):
+    def get_permissions(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAdminOrSecretary()]
         return [IsAuthenticated()]
@@ -121,7 +123,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return User.objects.none()
         qs = User.objects.filter(role=User.Role.ETUDIANT)
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role in (User.Role.ADMIN, User.Role.SECRETAIRE):
             return qs
@@ -173,7 +175,7 @@ class CoursViewSet(viewsets.ModelViewSet):
     ordering_fields = ["code_cours", "nom_cours", "niveau"]
     ordering = ["code_cours"]
 
-    def get_permissions(self):
+    def get_permissions(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAdminOrSecretary()]
         return [IsAuthenticated()]
@@ -193,7 +195,7 @@ class CoursViewSet(viewsets.ModelViewSet):
         )
         if self.action == "retrieve":
             qs = qs.prefetch_related("seances", "prerequisites")
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
@@ -240,7 +242,7 @@ class InscriptionViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id_inscription", "status", "type_inscription"]
     ordering = ["-id_inscription"]
 
-    def get_permissions(self):
+    def get_permissions(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAdminOrSecretary()]
         return [IsAuthenticated()]
@@ -256,17 +258,17 @@ class InscriptionViewSet(viewsets.ModelViewSet):
         qs = Inscription.objects.select_related(
             "id_etudiant", "id_cours", "id_annee"
         )
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {"id_etudiant": user, "status": Inscription.Status.EN_COURS}
+            flt: dict[str, object] = {"id_etudiant": user, "status": Inscription.Status.EN_COURS}
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {"id_cours__professeur": user, "status": Inscription.Status.EN_COURS}
+            flt: dict[str, object] = {"id_cours__professeur": user, "status": Inscription.Status.EN_COURS}
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
@@ -295,7 +297,7 @@ class AbsenceViewSet(viewsets.ModelViewSet):
 
     pagination_class = StandardPagination
 
-    def get_throttles(self):
+    def get_throttles(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action in ("create", "update", "partial_update"):
             from apps.api.throttles import AbsenceWriteThrottle
 
@@ -310,7 +312,7 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id_absence", "duree_absence", "statut"]
     ordering = ["-id_absence"]
 
-    def get_permissions(self):
+    def get_permissions(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action in ("create", "update", "partial_update"):
             return [IsAdminOrSecretaryOrProfessor()]
         if self.action == "destroy":
@@ -330,17 +332,17 @@ class AbsenceViewSet(viewsets.ModelViewSet):
             "id_inscription__id_cours",
             "id_seance",
         )
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {"id_inscription__id_etudiant": user}
+            flt: dict[str, object] = {"id_inscription__id_etudiant": user}
             if active_year:
                 flt["id_inscription__id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt = {
+            flt: dict[str, object] = {
                 "id_inscription__id_cours__professeur": user,
                 "id_inscription__status": Inscription.Status.EN_COURS,
             }
@@ -387,14 +389,14 @@ class JustificationViewSet(
     ordering_fields = ["date_soumission", "state"]
     ordering = ["-date_soumission"]
 
-    def get_throttles(self):
+    def get_throttles(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action == "create":
             from apps.api.throttles import JustificationUploadThrottle
 
             return [JustificationUploadThrottle()]
         return super().get_throttles()
 
-    def get_permissions(self):
+    def get_permissions(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.action == "create":
             return [IsStudent()]
         if self.action == "process":
@@ -416,7 +418,7 @@ class JustificationViewSet(
             "id_absence__id_inscription__id_cours",
             "validee_par",
         )
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             return qs.filter(
@@ -962,7 +964,7 @@ def export_at_risk_excel_api(request):
     )
 
     wb = Workbook()
-    ws = wb.active
+    ws = cast(Worksheet, wb.active)  # never None on a new Workbook
     ws.title = "Etudiants a Risque"
     ws.append([
         "Nom",

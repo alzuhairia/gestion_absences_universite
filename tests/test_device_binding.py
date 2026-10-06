@@ -6,9 +6,11 @@ contrôle d'appareil dans qr_scan, limite de 2 appareils approuvés.
 
 import re
 from datetime import date, time, timedelta
+from typing import cast
 from unittest.mock import patch
 
 from django.core import mail
+from django.core.mail import EmailMultiAlternatives
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -119,7 +121,9 @@ class FirstDeviceRequiresOTPTest(BaseDeviceTestCase):
         self._login()
         mail.outbox.clear()
         self.client.get(reverse("accounts:verify_device"), secure=True)
-        code = re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+        match = re.search(r"\b(\d{6})\b", mail.outbox[-1].body)
+        assert match is not None
+        code = match.group(1)
         self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
         dev = StudentDevice.objects.get(user=self.student)
         self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
@@ -403,8 +407,8 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
             reverse("accounts:verify_device"), secure=True,
             HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14)",
         )
-        msg = mail.outbox[-1]
-        html = msg.alternatives[0][0]
+        msg = cast(EmailMultiAlternatives, mail.outbox[-1])
+        html = str(msg.alternatives[0][0])
         for content in (msg.body, html):
             self.assertIn("Ne communiquez jamais ce code", content)
             self.assertIn("constitue une fraude", content)
@@ -417,7 +421,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         code = dev.set_otp()
         self._login()
         self._set_device_cookie("dev-P")
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
         mails = self._status_mails()
         self.assertEqual(len(mails), 1)
@@ -429,7 +433,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         other = self._make_device("dev-B", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-A")
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
                 reverse("accounts:my_devices"),
                 {"action": "revoke", "device_pk": other.pk}, secure=True,
@@ -442,7 +446,7 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-NEW")
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
                 reverse("accounts:my_devices"),
                 {"action": "revoke", "device_pk": approved.pk}, secure=True,
@@ -453,9 +457,9 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
         self.client.login(email="sec_mail@example.com", password="pass1234")
         url = reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk})
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, {"action": "approve"}, secure=True)
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, {"action": "revoke"}, secure=True)
         subjects = [m.subject for m in self._status_mails()]
         self.assertEqual(len(subjects), 2)

@@ -11,6 +11,8 @@ DEPENDANCES CLES : enrollments.Inscription, academic_sessions.Seance, accounts.U
 """
 
 import uuid
+from typing import TYPE_CHECKING
+
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -51,6 +53,7 @@ class Absence(models.Model):
 
     # --- CHAMPS ---
     id_absence = models.AutoField(primary_key=True)
+    id_inscription_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_inscription = models.ForeignKey(
         "enrollments.Inscription",
         models.PROTECT,  # Empêche la suppression d'une inscription avec des absences
@@ -101,6 +104,13 @@ class Absence(models.Model):
         verbose_name="Agent ayant encodé",
         related_name="absences_encodees",
     )
+
+    if TYPE_CHECKING:
+        # Générés par Django à l'exécution ; déclarés pour les vérificateurs de types.
+        justification: "Justification"
+
+        def get_statut_display(self) -> str: ...
+        def get_type_absence_display(self) -> str: ...
 
     class Meta:
         managed = True
@@ -196,6 +206,7 @@ class Justification(models.Model):
     STATE_CHOICES = State.choices
 
     id_justification = models.AutoField(primary_key=True)
+    id_absence_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_absence = models.OneToOneField(
         Absence,
         models.PROTECT,  # Empêche la suppression d'une absence avec une justification
@@ -293,6 +304,7 @@ class QRAttendanceToken(models.Model):
     DISTANCE_THRESHOLD_METERS = 100
 
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    seance_id: int  # colonne FK, déclarée pour les vérificateurs de types
     seance = models.ForeignKey(
         "academic_sessions.Seance",
         on_delete=models.CASCADE,
@@ -343,6 +355,7 @@ class QRScanRecord(models.Model):
         on_delete=models.CASCADE,
         related_name="qr_scans",
     )
+    student_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -350,6 +363,7 @@ class QRScanRecord(models.Model):
         null=True,
         blank=True,
     )
+    inscription_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     inscription = models.ForeignKey(
         "enrollments.Inscription",
         on_delete=models.SET_NULL,
@@ -411,6 +425,7 @@ class QRScanLog(models.Model):
         REJECTED_INACTIVE = "rejected_inactive", "Refusé — QR inactif"
         REJECTED_DEVICE = "rejected_device", "Refusé — appareil non approuvé"
 
+    etudiant_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     etudiant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -418,6 +433,7 @@ class QRScanLog(models.Model):
         null=True,
         blank=True,
     )
+    seance_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     seance = models.ForeignKey(
         "academic_sessions.Seance",
         on_delete=models.SET_NULL,

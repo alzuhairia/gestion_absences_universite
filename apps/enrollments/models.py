@@ -35,6 +35,7 @@ class Inscription(models.Model):
 
     # --- CHAMPS ---
     id_inscription = models.AutoField(primary_key=True)
+    id_etudiant_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_etudiant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         models.PROTECT,  # Empêche la suppression d'un étudiant avec des inscriptions

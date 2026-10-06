@@ -10,6 +10,7 @@ DEPENDANCES CLES : accounts.models, accounts.forms, absences.utils
 """
 
 import logging
+from typing import cast
 
 from django.conf import settings
 from django.contrib import messages
@@ -33,7 +34,7 @@ from apps.accounts.forms import (
     CustomPasswordResetForm,
     CustomSetPasswordForm,
 )
-from apps.accounts.models import UserSession
+from apps.accounts.models import User, UserSession
 from apps.audits.ip_utils import (
     extract_client_ip,
     ratelimit_client_ip,
@@ -322,10 +323,8 @@ class CustomPasswordChangeView(auth_views.PasswordChangeView):
         """Désactiver le flag must_change_password après un changement réussi et rediriger vers le dashboard"""
         from django.db import transaction
 
-        user = self.request.user
-        must_change = (
-            hasattr(user, "must_change_password") and user.must_change_password
-        )
+        user = cast(User, self.request.user)
+        must_change = user.must_change_password
 
         with transaction.atomic():
             # Changer le mot de passe
@@ -345,8 +344,6 @@ class CustomPasswordChangeView(auth_views.PasswordChangeView):
         )
 
         # Rediriger vers le dashboard approprié selon le rôle
-        from apps.accounts.models import User
-
         if user.role == User.Role.ETUDIANT:
             return redirect("dashboard:student_dashboard")
         elif user.role == User.Role.PROFESSEUR:

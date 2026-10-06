@@ -72,7 +72,9 @@ class Command(BaseCommand):
         if not table:
             table = model._meta.db_table
         if not pk_col:
-            pk_col = model._meta.pk.column
+            pk_field = model._meta.pk
+            assert pk_field is not None  # every concrete model has a primary key
+            pk_col = pk_field.column
 
         source_col = self._resolve_column(model, source_col, "source column/field")
         target_col = self._resolve_column(model, target_col, "target column/field")

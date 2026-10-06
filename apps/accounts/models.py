@@ -10,7 +10,7 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : Django AbstractBaseUser, PermissionsMixin
 """
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -242,7 +242,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.actif
 
     @is_active.setter
-    def is_active(self, value):  # pyright: ignore[reportIncompatibleVariableOverride]
+    def is_active(self, value):
         """Setter pour is_active"""
         self.actif = value
 
@@ -273,7 +273,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["nom", "prenom"]
 
-    objects: ClassVar[UserManager] = UserManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: ClassVar[UserManager] = UserManager()
 
     # Champ last_login géré par Django (peut être null)
     last_login = models.DateTimeField(
@@ -282,6 +282,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name=_("Dernière connexion"),
         help_text=_("Date et heure de la dernière connexion"),
     )
+
+    if TYPE_CHECKING:
+        # Généré par Django à l'exécution ; déclaré pour les vérificateurs de types.
+        def get_role_display(self) -> str: ...
 
     class Meta:
         db_table = "utilisateur"

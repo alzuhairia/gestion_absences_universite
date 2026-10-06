@@ -377,7 +377,7 @@ class JustificationDownloadTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(b"%PDF-1.4", b"".join(response.streaming_content))
+        self.assertIn(b"%PDF-1.4", b"".join(response.streaming_content))  # pyright: ignore[reportAttributeAccessIssue]  (FileResponse)
 
     def test_download_returns_404_when_file_is_missing(self):
         absence = self._create_absence()

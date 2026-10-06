@@ -115,7 +115,7 @@ class GPSRefusedVerificationEnabledTest(BaseQRTestCase):
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         # But a log was created
         log = QRScanLog.objects.filter(seance=self.seance).first()
-        self.assertIsNotNone(log)
+        assert log is not None
         self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_GPS)
         self.assertEqual(log.gps_status, QRScanLog.GPSStatus.REFUSED)
 
@@ -139,7 +139,7 @@ class GPSAcceptedWithinRadiusTest(BaseQRTestCase):
         log = QRScanLog.objects.filter(
             seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED,
         ).first()
-        self.assertIsNotNone(log)
+        assert log is not None
 
 
 class GPSAcceptedOutsideRadiusTest(BaseQRTestCase):
@@ -161,7 +161,7 @@ class GPSAcceptedOutsideRadiusTest(BaseQRTestCase):
         log = QRScanLog.objects.filter(
             seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DISTANCE,
         ).first()
-        self.assertIsNotNone(log)
+        assert log is not None
 
 
 class QRExpiredTest(BaseQRTestCase):
@@ -178,7 +178,7 @@ class QRExpiredTest(BaseQRTestCase):
         log = QRScanLog.objects.filter(
             seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_EXPIRED,
         ).first()
-        self.assertIsNotNone(log)
+        assert log is not None
 
 
 class QRValidNoGPSRequiredTest(BaseQRTestCase):
@@ -267,7 +267,7 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         log = QRScanLog.objects.filter(
             seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_GPS,
         ).first()
-        self.assertIsNotNone(log)
+        assert log is not None
 
     def test_near_zero_coordinates_rejected(self):
         """Coordinates very close to (0,0) — e.g. (0.001, 0.005) — are also rejected."""
@@ -404,16 +404,17 @@ class QRGenerationGPSGuardTest(BaseQRTestCase):
         # Establishment GPS is configured in BaseQRTestCase.setUp
         self._post(verify_location="on")
         token = QRAttendanceToken.objects.filter(seance=self.seance).first()
-        self.assertIsNotNone(token)
+        assert token is not None
         self.assertTrue(token.verify_location)
 
     def test_verify_location_with_professor_gps_creates_token(self):
         self._clear_establishment_gps()
         self._post(verify_location="on", latitude="36.75250", longitude="3.04200")
         token = QRAttendanceToken.objects.filter(seance=self.seance).first()
-        self.assertIsNotNone(token)
+        assert token is not None
         self.assertTrue(token.verify_location)
-        self.assertAlmostEqual(token.latitude, 36.75250, places=4)
+        assert token.latitude is not None
+        self.assertAlmostEqual(float(token.latitude), 36.75250, places=4)
 
     def test_no_verify_location_creates_token_without_gps(self):
         """Policy off + GPS unchecked → no GPS, even with no coords anywhere."""
@@ -423,7 +424,7 @@ class QRGenerationGPSGuardTest(BaseQRTestCase):
         self._clear_establishment_gps()
         self._post()  # verify_location omitted
         token = QRAttendanceToken.objects.filter(seance=self.seance).first()
-        self.assertIsNotNone(token)
+        assert token is not None
         self.assertFalse(token.verify_location)
 
 
@@ -676,7 +677,7 @@ class DuplicateQRScanTest(BaseQRTestCase):
         log = QRScanLog.objects.filter(
             seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DUPLICATE,
         ).first()
-        self.assertIsNotNone(log)
+        assert log is not None
 
     def test_concurrent_duplicate_scan_handled_by_integrity_error(self):
         """
@@ -734,7 +735,7 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
         # on_commit callbacks only fire when the surrounding transaction commits.
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             resp = self.client.post(url, secure=True)
         self.assertEqual(resp.status_code, 302)
 
@@ -759,7 +760,7 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
         mail.outbox.clear()
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, secure=True)
 
         recipients = [addr for m in mail.outbox for addr in m.to]
@@ -793,7 +794,7 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
         return self.client.post(self.url, {"action": action, **extra}, secure=True)
 
     def _finalize(self):
-        with self.captureOnCommitCallbacks(execute=True):
+        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
                 reverse("absences:qr_finalize", kwargs={"token": self.token.token}), secure=True,
             )

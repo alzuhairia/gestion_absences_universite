@@ -137,7 +137,9 @@ def admin_user_edit(request, user_id):
 
             # Journaliser les changements de rôle
             if old_role != user.role:
-                old_role_display = dict(User.Role.choices).get(old_role, old_role)
+                old_role_display = (
+                    User.Role(old_role).label if old_role in User.Role.values else old_role
+                )
                 log_action(
                     request.user,
                     f"CRITIQUE: Modification du rôle de '{user.email}' de {old_role_display} à {user.get_role_display()} - Gestion des utilisateurs",

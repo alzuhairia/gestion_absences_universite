@@ -151,6 +151,7 @@ class Cours(models.Model):
     # PROTECT : empêche la suppression d'un département qui a des cours
     # Cela garantit l'intégrité référentielle
 
+    professeur_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     professeur = models.ForeignKey(
         "accounts.User",
         models.SET_NULL,  # Si le professeur est supprimé, le champ devient NULL

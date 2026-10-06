@@ -119,7 +119,7 @@ def admin_required(view_func):
 
     # Utilisation de user_passes_test de Django pour une sécurité renforcée
     decorated_view = user_passes_test(
-        check_admin, login_url="accounts:login", redirect_field_name=None
+        check_admin, login_url="accounts:login", redirect_field_name=""
     )(view_func)
 
     @wraps(view_func)
@@ -174,7 +174,7 @@ def secretary_required(view_func):
         return user.is_authenticated and user.role == User.Role.SECRETAIRE
 
     decorated_view = user_passes_test(
-        check_secretary, login_url="accounts:login", redirect_field_name=None
+        check_secretary, login_url="accounts:login", redirect_field_name=""
     )(view_func)
 
     @wraps(view_func)
@@ -234,7 +234,7 @@ def professor_required(view_func):
         return user.is_authenticated and user.role == User.Role.PROFESSEUR
 
     decorated_view = user_passes_test(
-        check_professor, login_url="accounts:login", redirect_field_name=None
+        check_professor, login_url="accounts:login", redirect_field_name=""
     )(view_func)
 
     @wraps(view_func)
@@ -316,7 +316,7 @@ def student_required(view_func):
         return user.is_authenticated and user.role == User.Role.ETUDIANT
 
     decorated_view = user_passes_test(
-        check_student, login_url="accounts:login", redirect_field_name=None
+        check_student, login_url="accounts:login", redirect_field_name=""
     )(view_func)
 
     @wraps(view_func)

@@ -10,8 +10,14 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from apps.accounts.models import User
+from apps.utils import model_choice_field
 
 from .models import Message
+
+
+def _recipient_label(user):
+    """Libellé d'un destinataire dans la liste : « Prénom Nom (ROLE) »."""
+    return f"{user.prenom} {user.nom} ({user.role})"
 
 
 class MessageForm(forms.ModelForm):
@@ -54,11 +60,9 @@ class MessageForm(forms.ModelForm):
                 # Students can only message professors and secretaries
                 qs = qs.filter(role__in=[User.Role.PROFESSEUR, User.Role.SECRETAIRE])
             # ADMIN, SECRETAIRE, PROFESSEUR can message anyone active
-            self.fields["destinataire"].queryset = qs
+            model_choice_field(self, "destinataire").queryset = qs
             # Label improvement
-            self.fields["destinataire"].label_from_instance = (
-                lambda obj: f"{obj.prenom} {obj.nom} ({obj.role})"
-            )
+            model_choice_field(self, "destinataire").label_from_instance = _recipient_label  # pyright: ignore[reportAttributeAccessIssue]  (surcharge par instance, prévue par Django)
 
     def clean_destinataire(self):
         dest = self.cleaned_data.get("destinataire")

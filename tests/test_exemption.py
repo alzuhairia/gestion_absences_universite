@@ -155,7 +155,7 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
             "apps.enrollments.views_rules.send_with_dedup"
         ) as mock_send:
             # captureOnCommitCallbacks forces on_commit callbacks to execute
-            with self.captureOnCommitCallbacks(execute=True):
+            with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
                 self.client.post(url, {
                     "action": "grant",
                     "motif": "Raison médicale documentée",

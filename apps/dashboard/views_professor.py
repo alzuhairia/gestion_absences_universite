@@ -303,12 +303,13 @@ def instructor_course_detail(request, course_id):
     course_active_manual = None
     today_local = timezone.localdate()
     for s in sessions:
-        s.active_qr_token = active_tokens_by_seance.get(s.id_seance)
-        if s.active_qr_token and not course_active_qr:
-            course_active_qr = s.active_qr_token
+        active_qr_token = active_tokens_by_seance.get(s.id_seance)
+        s.active_qr_token = active_qr_token  # pyright: ignore[reportAttributeAccessIssue]  (lu par le template)
+        if active_qr_token and not course_active_qr:
+            course_active_qr = active_qr_token
         if (
             course_active_manual is None
-            and s.active_qr_token is None
+            and active_qr_token is None
             and not s.validated
             and s.date_seance == today_local
         ):

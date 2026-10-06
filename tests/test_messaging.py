@@ -5,6 +5,7 @@ from django.urls import reverse
 from apps.accounts.models import User
 from apps.messaging.forms import MessageForm
 from apps.messaging.models import Message
+from apps.utils import model_choice_field
 
 
 class MessageCacheInvalidationTest(TestCase):
@@ -113,7 +114,7 @@ class MessageFormTests(TestCase):
             user=self.sender,
         )
         # Widen queryset to include inactive users (as if loaded before deactivation)
-        form.fields["destinataire"].queryset = User.objects.exclude(pk=self.sender.pk)
+        model_choice_field(form, "destinataire").queryset = User.objects.exclude(pk=self.sender.pk)
 
         self.assertFalse(form.is_valid())
         self.assertIn("destinataire", form.errors)
@@ -134,14 +135,14 @@ class MessageFormTests(TestCase):
     def test_message_form_excludes_inactive_from_queryset(self):
         """Inactive users should not appear in the recipient queryset."""
         form = MessageForm(user=self.sender)
-        qs = form.fields["destinataire"].queryset
+        qs = model_choice_field(form, "destinataire").queryset
         self.assertIn(self.active_recipient, qs)
         self.assertNotIn(self.inactive_recipient, qs)
 
     def test_message_form_excludes_self(self):
         """The sender should not appear in their own recipient list."""
         form = MessageForm(user=self.sender)
-        qs = form.fields["destinataire"].queryset
+        qs = model_choice_field(form, "destinataire").queryset
         self.assertNotIn(self.sender, qs)
 
     def test_inactive_user_cannot_send_message(self):

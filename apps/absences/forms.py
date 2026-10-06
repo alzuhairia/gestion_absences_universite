@@ -12,6 +12,7 @@ from apps.absences.models import Absence
 from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Cours
 from apps.accounts.models import User
+from apps.utils import model_choice_field
 
 
 class SecretaryJustifiedAbsenceForm(forms.Form):
@@ -99,13 +100,13 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         # Filtrer les cours par année académique active
         annee_active = AnneeAcademique.objects.filter(active=True).first()
         if annee_active:
-            self.fields["cours"].queryset = (
+            model_choice_field(self, "cours").queryset = (
                 Cours.objects.filter(id_annee=annee_active)
                 .select_related("id_departement", "id_departement__id_faculte")
                 .order_by("code_cours")
             )
         else:
-            self.fields["cours"].queryset = Cours.objects.none()
+            model_choice_field(self, "cours").queryset = Cours.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()

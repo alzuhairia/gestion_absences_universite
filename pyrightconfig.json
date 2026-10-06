@@ -1,0 +1,8 @@
+{
+  "include": ["apps", "config", "tests", "conftest.py", "manage.py"],
+  "exclude": ["**/__pycache__", "**/migrations", ".venv", "staticfiles", "media"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "standard",
+  "reportIncompatibleVariableOverride": "none"
+}

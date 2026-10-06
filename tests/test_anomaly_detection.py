@@ -88,7 +88,7 @@ class BaseAnomalyTestCase(TestCase):
         s.geo_velocity_max_kmh = 900
         s.gps_accuracy_max_meters = 1000
         s.save()
-        self.settings = s
+        self.sys_settings = s
 
     def _token(self, verify_location=False):
         return QRAttendanceToken.objects.create(
@@ -122,7 +122,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
             ip_address="1.2.3.4", latitude=None, longitude=None,
-            accuracy=None, settings_obj=self.settings,
+            accuracy=None, settings_obj=self.sys_settings,
         )
         self.assertEqual(flags, [])
         self.assertEqual(score, 0)
@@ -134,7 +134,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         d1.refresh_from_db()
         score, flags = evaluate_scan_risk(
             user=self.student, device=d1, device_id_hash=d1.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, flags)
         self.assertGreaterEqual(score, 50)
@@ -150,7 +150,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_NEW_IP, flags)
 
@@ -170,7 +170,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
             ip_address="1.2.3.4", latitude=36.7525, longitude=3.0420,
-            settings_obj=self.settings,
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_GEO_VELOCITY, flags)
 
@@ -181,7 +181,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
             ip_address="1.2.3.4", latitude=36.7525, longitude=3.0420,
-            accuracy=5000, settings_obj=self.settings,
+            accuracy=5000, settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_LOW_GPS_ACCURACY, flags)
 
@@ -189,7 +189,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         dev = self._device(self.student, "phone-A")  # approved just now
         score, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_RECENTLY_APPROVED, flags)
         self.assertGreaterEqual(score, SUSPICIOUS_THRESHOLD)  # suspicious on its own
@@ -201,7 +201,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         dev.refresh_from_db()
         _, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_RECENTLY_APPROVED, flags)
 
@@ -211,7 +211,7 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
         dev.refresh_from_db()
         _, flags = evaluate_scan_risk(
             user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )
         self.assertNotIn(FLAG_RECENTLY_APPROVED, flags)
         self.assertNotIn(FLAG_NEW_DEVICE, flags)  # legacy flag is no longer emitted
@@ -221,7 +221,7 @@ class MultiAccountWindowTest(BaseAnomalyTestCase):
     def _flags(self, device):
         return evaluate_scan_risk(
             user=self.student, device=device, device_id_hash=device.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )[1]
 
     def _mine(self):
@@ -307,7 +307,7 @@ class GPSTooPerfectTest(BaseAnomalyTestCase):
         return evaluate_scan_risk(
             user=self.student, device=self.dev, device_id_hash=self.dev.device_id_hash,
             ip_address="1.2.3.4", latitude=lat, longitude=lng, accuracy=accuracy,
-            settings_obj=self.settings, reference_points=[self.REF, (None, None)],
+            settings_obj=self.sys_settings, reference_points=[self.REF, (None, None)],
         )[1]
 
     def _prior_scan(self, lat, lng, user=None):
@@ -366,7 +366,7 @@ class DeviceChurnTest(BaseAnomalyTestCase):
     def _flags(self, device):
         return evaluate_scan_risk(
             user=self.student, device=device, device_id_hash=device.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.settings,
+            ip_address="1.2.3.4", settings_obj=self.sys_settings,
         )[1]
 
     def test_three_approvals_in_30_days_flagged(self):

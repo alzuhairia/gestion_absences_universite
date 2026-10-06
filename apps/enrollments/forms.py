@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Cours, Departement
 from apps.accounts.models import User
+from apps.utils import model_choice_field
 
 from .models import Inscription
 
@@ -72,7 +73,7 @@ class StudentCreationForm(forms.Form):
             try:
                 validate_password(password, user=tentative_user)
             except ValidationError as exc:
-                raise ValidationError({"password": exc.messages})
+                raise ValidationError({"password": exc})
 
         return cleaned_data
 
@@ -163,7 +164,7 @@ class EnrollmentForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["courses"].queryset = (
+        model_choice_field(self, "courses").queryset = (
             Cours.objects.filter(actif=True)
             .select_related("id_annee", "id_departement")
             .order_by("id_departement__nom_departement", "code_cours")

@@ -19,6 +19,7 @@ from apps.academic_sessions.models import AnneeAcademique
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.dashboard.models import SystemSettings
+from apps.utils import model_choice_field
 
 
 class FaculteForm(forms.ModelForm):
@@ -93,16 +94,16 @@ class CoursForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._resolved_year = None
         # Filtrer les départements actifs
-        self.fields["id_departement"].queryset = Departement.objects.filter(actif=True)
+        model_choice_field(self, "id_departement").queryset = Departement.objects.filter(actif=True)
         # Filtrer les professeurs actifs
-        self.fields["professeur"].queryset = User.objects.filter(
+        model_choice_field(self, "professeur").queryset = User.objects.filter(
             role=User.Role.PROFESSEUR, actif=True
         )
 
         # Le champ id_annee n'est plus dans le formulaire (assigné automatiquement)
         # Mais on le garde pour l'édition si nécessaire
         if "id_annee" in self.fields:
-            self.fields["id_annee"].queryset = AnneeAcademique.objects.all().order_by(
+            model_choice_field(self, "id_annee").queryset = AnneeAcademique.objects.all().order_by(
                 "-libelle"
             )
             self.fields["id_annee"].widget = forms.HiddenInput()  # Masquer le champ
@@ -144,7 +145,7 @@ class CoursForm(forms.ModelForm):
                     .order_by("code_cours")
                 )
 
-            self.fields["prerequisites"].queryset = prerequisite_queryset
+            model_choice_field(self, "prerequisites").queryset = prerequisite_queryset
             # Définir les prérequis initiaux uniquement lors de l'édition
             self.fields["prerequisites"].initial = self.instance.prerequisites.all()
         else:
@@ -158,11 +159,11 @@ class CoursForm(forms.ModelForm):
                     submitted_niveau = None
 
             if submitted_niveau and submitted_niveau >= 2:
-                self.fields["prerequisites"].queryset = Cours.objects.filter(
+                model_choice_field(self, "prerequisites").queryset = Cours.objects.filter(
                     actif=True, niveau__lt=submitted_niveau
                 ).order_by("niveau", "code_cours")
             else:
-                self.fields["prerequisites"].queryset = Cours.objects.none()
+                model_choice_field(self, "prerequisites").queryset = Cours.objects.none()
 
         # Labels en français
         self.fields["code_cours"].label = "Code du Cours"
@@ -326,7 +327,7 @@ class UserForm(forms.ModelForm):
             try:
                 validate_password(password, user=validation_user)
             except DjangoValidationError as exc:
-                raise forms.ValidationError({"password": exc.messages})
+                raise forms.ValidationError({"password": exc})
 
         return cleaned_data
 

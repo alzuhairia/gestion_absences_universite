@@ -20,6 +20,7 @@ class Message(models.Model):
     """
 
     id_message = models.AutoField(primary_key=True)
+    expediteur_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     expediteur = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         models.SET_NULL,  # Si l'expéditeur est supprimé, le champ devient NULL
@@ -29,6 +30,7 @@ class Message(models.Model):
         null=True,
         blank=True,
     )
+    destinataire_id: int | None  # colonne FK, déclarée pour les vérificateurs de types
     destinataire = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         models.SET_NULL,  # Si le destinataire est supprimé, le champ devient NULL

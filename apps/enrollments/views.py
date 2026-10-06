@@ -32,6 +32,7 @@ from apps.dashboard.decorators import (
     new_request_id,
     secretary_required,
 )
+from apps.utils import model_choice_field
 
 from .forms import EnrollmentForm, StudentCreationForm
 from .models import Inscription
@@ -178,7 +179,7 @@ def get_courses(request):
                     "id": c.id_cours,
                     "name": f"[{c.code_cours}] {c.nom_cours}",
                     "code": c.code_cours,
-                    "has_prereq": c.prereq_count > 0,
+                    "has_prereq": c.prereq_count > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
                     "year": c.id_annee.libelle if c.id_annee else None,
                 }
             )
@@ -275,7 +276,7 @@ def get_courses_by_year(request):
                     "name": c.nom_cours,
                     "hours": c.nombre_total_periodes,
                     "department": c.id_departement.nom_departement,
-                    "has_prereq": c.prereq_count > 0,
+                    "has_prereq": c.prereq_count > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
                     "already_enrolled": c.id_cours in enrolled_course_ids,
                 }
             )
@@ -837,7 +838,7 @@ def enroll_student(request):
     default_year = academic_years.filter(active=True).first() or academic_years.first()
 
     if default_year:
-        enrollment_form.fields["courses"].queryset = (
+        model_choice_field(enrollment_form, "courses").queryset = (
             Cours.objects.filter(actif=True, id_annee=default_year)
             .select_related("id_annee", "id_departement")
             .order_by("id_departement__nom_departement", "code_cours")

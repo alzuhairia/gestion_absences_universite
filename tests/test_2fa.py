@@ -84,7 +84,7 @@ class TwoFactorSetupTests(TestCase):
 
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("accounts:profile"))
+        self.assertEqual(response["Location"], reverse("accounts:profile"))
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -110,7 +110,7 @@ class TwoFactorVerifyTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("dashboard:index"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("verify", response.url)
+        self.assertIn("verify", response["Location"])
 
     def test_post_valid_token_marks_session_verified(self):
         """POST avec un code TOTP valide doit marquer la session 2fa_verified."""
@@ -140,11 +140,11 @@ class TwoFactorVerifyTests(TestCase):
 
         response = self.client.post(self.url, {"token": "000000"})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("accounts:login"))
+        self.assertEqual(response["Location"], reverse("accounts:login"))
         # User deconnecte
         response2 = self.client.get(reverse("dashboard:index"))
         self.assertEqual(response2.status_code, 302)
-        self.assertIn("login", response2.url)
+        self.assertIn("login", response2["Location"])
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -216,6 +216,6 @@ class TwoFactorLoginFlowTests(TestCase):
             secure=True,
         )
         self.assertEqual(response.status_code, 302)
-        self.assertIn("verify", response.url)
+        self.assertIn("verify", response["Location"])
         # La session ne doit PAS etre marquee verifiee tant que le code n'a pas ete saisi
         self.assertFalse(self.client.session.get(VERIFIED_SESSION_KEY))

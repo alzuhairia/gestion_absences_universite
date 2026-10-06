@@ -10,11 +10,15 @@ DEPENDANCES CLES : academics.Cours, accounts.User (validated_by)
 """
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+
+if TYPE_CHECKING:
+    from django.db.models.manager import RelatedManager
 
 
 # ========================================================================== #
@@ -42,6 +46,10 @@ class AnneeAcademique(models.Model):
         db_index=True,
         help_text="Une seule année peut être active à la fois",
     )
+
+    if TYPE_CHECKING:
+        # Relation inverse générée par Django ; déclarée pour les vérificateurs de types.
+        seances: "RelatedManager[Seance]"
 
     class Meta:
         managed = True
@@ -129,6 +137,7 @@ class Seance(models.Model):
     date_seance = models.DateField(verbose_name="Date de la séance", db_index=True)
     heure_debut = models.TimeField(verbose_name="Heure début")
     heure_fin = models.TimeField(verbose_name="Heure fin")
+    id_cours_id: int  # colonne FK, déclarée pour les vérificateurs de types
     id_cours = models.ForeignKey(
         "academics.Cours",
         models.PROTECT,  # Empêche la suppression d'un cours avec des séances

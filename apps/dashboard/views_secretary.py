@@ -10,15 +10,13 @@ DEPENDANCES CLES : academics.models, academic_sessions.models, dashboard.forms_a
 """
 
 import logging
-from typing import cast
 
-from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 
-from apps.utils import safe_get_page
+from apps.utils import model_choice_field, safe_get_page
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -520,8 +518,7 @@ def secretary_course_edit(request, course_id):
     else:
         form = CoursForm(instance=cours)
 
-    prerequisites_field = cast(forms.ModelMultipleChoiceField, form.fields["prerequisites"])
-    has_prerequisites_options = prerequisites_field.queryset.exists()
+    has_prerequisites_options = model_choice_field(form, "prerequisites").queryset.exists()
 
     return render(
         request,
