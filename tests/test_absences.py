@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models.deletion import ProtectedError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 
@@ -19,6 +19,7 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
+from apps.utils import parse_hours
 
 
 class BaseAbsenceTestCase(TestCase):
@@ -1000,3 +1001,96 @@ class UserDeletionTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+
+class ParseHoursTests(SimpleTestCase):
+    def test_valid_values(self):
+        self.assertEqual(parse_hours("1.5"), Decimal("1.50"))
+        self.assertEqual(parse_hours("1,5"), Decimal("1.50"))
+        self.assertEqual(parse_hours(" 2 "), Decimal("2.00"))
+        self.assertEqual(parse_hours("0.125"), Decimal("0.13"))
+        self.assertEqual(parse_hours(0), Decimal("0.00"))
+
+    def test_rejects_non_finite_and_garbage(self):
+        for raw in ("nan", "NaN", "inf", "-Infinity", "abc", "", None, "1e999999"):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                parse_hours(raw)
+
+
+class InvalidDurationTests(BaseAbsenceTestCase):
+    """'nan'/'inf' durations used to raise a 500 instead of a clean fallback/error."""
+
+    def _mark_partial(self, duree, url_name="absences:mark_absence", extra=None):
+        self.client.force_login(self.prof)
+        ins = self.inscription1.id_inscription
+        data = {
+            "date_seance": "2026-04-12",
+            "heure_debut": "08:00",
+            "heure_fin": "10:00",
+            f"status_{ins}": "ABSENT",
+            f"type_{ins}": "PARTIEL",
+            f"duree_{ins}": duree,
+            **(extra or {}),
+        }
+        url = reverse(url_name, args=[self.course1.id_cours])
+        return self.client.post(url, data, secure=True)
+
+    def test_mark_absence_nan_falls_back_to_full_session(self):
+        response = self._mark_partial("nan")
+        self.assertEqual(response.status_code, 302)
+        absence = Absence.objects.get()
+        self.assertEqual(absence.type_absence, Absence.TypeAbsence.ABSENT)
+        self.assertEqual(absence.duree_absence, Decimal("2.00"))
+
+    def test_mark_absence_empty_or_full_partial_becomes_full_absence(self):
+        for duree in ("", "2", "5"):
+            with self.subTest(duree=duree):
+                Absence.objects.all().delete()
+                response = self._mark_partial(duree)
+                self.assertEqual(response.status_code, 302)
+                absence = Absence.objects.get()
+                self.assertEqual(absence.type_absence, Absence.TypeAbsence.ABSENT)
+                self.assertEqual(absence.duree_absence, Decimal("2.00"))
+
+    def test_mark_absence_accepts_comma(self):
+        self._mark_partial("1,5")
+        self.assertEqual(Absence.objects.get().duree_absence, Decimal("1.50"))
+
+    def test_mark_absence_htmx_nan_falls_back_to_full_session(self):
+        response = self._mark_partial(
+            "inf",
+            url_name="absences:mark_absence_htmx",
+            extra={"inscription_id": self.inscription1.id_inscription, "status": "ABSENT"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Absence.objects.get().duree_absence, Decimal("2.00"))
+
+    def test_edit_absence_nan_shows_error(self):
+        seance = Seance.objects.create(
+            date_seance=date(2026, 2, 2),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.course1,
+            id_annee=self.annee,
+        )
+        absence = Absence.objects.create(
+            id_inscription=self.inscription1,
+            id_seance=seance,
+            type_absence="ABSENT",
+            duree_absence=2.0,
+            statut="NON_JUSTIFIEE",
+            encodee_par=self.secretary,
+        )
+        self.client.force_login(self.secretary)
+        url = reverse("absences:edit_absence", args=[absence.pk])
+        response = self.client.post(url, {
+            "type_absence": "PARTIEL",
+            "statut": "NON_JUSTIFIEE",
+            "duree_absence": "nan",
+            "reason": "correction",
+        }, secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Durée invalide")
+        absence.refresh_from_db()
+        self.assertEqual(absence.duree_absence, Decimal("2.00"))

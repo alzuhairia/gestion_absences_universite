@@ -57,6 +57,7 @@ from apps.notifications.email import (
     send_notification_email,
     send_with_dedup,
 )
+from apps.utils import parse_hours
 
 logger = logging.getLogger(__name__)
 
@@ -815,16 +816,17 @@ def mark_absence(request, course_id):
                     duree = duree_seance  # Default for ABSENT (= full session)
                     if type_absence == Absence.TypeAbsence.PARTIEL:
                         try:
-                            duree = Decimal(
-                                str(float(request.POST.get(f"duree_{inscription_id}", 0)))
-                            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                            if duree <= 0 or duree > duree_seance:
+                            duree = parse_hours(request.POST.get(f"duree_{inscription_id}", 0))
+                            # A partial absence must be strictly shorter than the session.
+                            if duree <= 0 or duree >= duree_seance:
                                 raise ValueError("invalid duration range")
                         except (TypeError, ValueError):
                             logger.warning(
                                 "Duree d'absence invalide pour inscription %s. Utilisation de la duree de seance.",
                                 inscription_id,
                             )
+                            # Full session: the type must follow, or the model rejects it.
+                            type_absence = Absence.TypeAbsence.ABSENT
                             duree = duree_seance
                             student_name = inscription.id_etudiant.get_full_name()
                             messages.warning(
@@ -1132,16 +1134,17 @@ def mark_absence_htmx(request, course_id):
                 duree = duree_seance
                 if type_absence == Absence.TypeAbsence.PARTIEL:
                     try:
-                        duree = Decimal(
-                            str(float(request.POST.get(f"duree_{inscription_id}", 0)))
-                        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                        if duree <= 0 or duree > duree_seance:
+                        duree = parse_hours(request.POST.get(f"duree_{inscription_id}", 0))
+                        # A partial absence must be strictly shorter than the session.
+                        if duree <= 0 or duree >= duree_seance:
                             raise ValueError
                     except (TypeError, ValueError):
                         logger.warning(
                             "HTMX: Duree d'absence invalide pour inscription %s. Fallback duree_seance.",
                             inscription_id,
                         )
+                        # Full session: the type must follow, or the model rejects it.
+                        type_absence = Absence.TypeAbsence.ABSENT
                         duree = duree_seance
 
                 note = request.POST.get(

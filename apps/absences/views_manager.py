@@ -7,6 +7,8 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : absences.models, audits.utils
 """
 
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -17,6 +19,7 @@ from django.views.decorators.http import require_http_methods
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
+from apps.utils import parse_hours
 
 from .models import Absence, Justification
 
@@ -89,7 +92,7 @@ def edit_absence(request, pk):
             return render(request, "absences/edit_absence.html", ctx)
 
         try:
-            new_duree = float(request.POST.get("duree_absence") or 0)
+            new_duree = parse_hours(request.POST.get("duree_absence") or 0)
         except (ValueError, TypeError):
             messages.error(
                 request, "Durée invalide. Veuillez entrer un nombre décimal (ex : 1.5)."
@@ -134,7 +137,7 @@ def edit_absence(request, pk):
 
             # Capture old state for audit comparison inside the lock
             old_statut = absence.statut
-            old_duree = float(absence.duree_absence or 0)
+            old_duree = absence.duree_absence or Decimal("0.00")
             old_type = absence.type_absence
 
             # --- Detect changes ---

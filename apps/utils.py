@@ -2,6 +2,7 @@
 Shared utilities used across multiple apps.
 """
 
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import cast
 
 from django import forms
@@ -23,3 +24,18 @@ def model_choice_field(form, name) -> forms.ModelChoiceField:
     ModelMultipleChoiceField is a subclass, so this covers both.
     """
     return cast(forms.ModelChoiceField, form.fields[name])
+
+
+def parse_hours(raw) -> Decimal:
+    """
+    Parse a duration in hours typed by a user ("1.5" or "1,5") into a finite
+    Decimal rounded to 0.01. Raises ValueError for anything else, including
+    "nan" and "inf" (which float() would accept).
+    """
+    try:
+        value = Decimal(str(raw).strip().replace(",", "."))
+        if not value.is_finite():
+            raise ValueError(f"invalid duration: {raw!r}")
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError) as exc:
+        raise ValueError(f"invalid duration: {raw!r}") from exc
