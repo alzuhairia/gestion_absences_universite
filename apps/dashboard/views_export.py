@@ -14,20 +14,18 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.decorators.http import require_GET
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-from django.utils import timezone
-
 from apps.absences.models import Absence
 from apps.accounts.models import User
 from apps.audits.utils import log_action
 from apps.dashboard.decorators import roles_required, secretary_required
 from apps.enrollments.models import Inscription
-
 
 # ---------------------------------------------------------------------------
 # Export PDF - rapport assiduite par etudiant
@@ -56,7 +54,9 @@ def export_student_pdf(request, student_id=None):
         effective_student_id = student_id or request.GET.get("student_id")
         if not effective_student_id:
             return HttpResponseBadRequest("student_id requis")
-        student = get_object_or_404(User, pk=effective_student_id, role=User.Role.ETUDIANT)
+        student = get_object_or_404(
+            User, pk=effective_student_id, role=User.Role.ETUDIANT
+        )
 
     # Filtrer par année académique active
     academic_year = AnneeAcademique.objects.filter(active=True).first()
@@ -65,12 +65,16 @@ def export_student_pdf(request, student_id=None):
 
     response = HttpResponse(content_type="application/pdf")
     # Sanitize email for filename (remove special chars that could break header)
-    safe_email = "".join(c if c.isalnum() or c in "._-@" else "_" for c in student.email)
+    safe_email = "".join(
+        c if c.isalnum() or c in "._-@" else "_" for c in student.email
+    )
     response["Content-Disposition"] = (
         f'attachment; filename="rapport_absences_{safe_email}.pdf"'
     )
 
-    p = canvas.Canvas(response, pagesize=A4)  # pyright: ignore[reportArgumentType]  (HttpResponse is file-like)
+    p = canvas.Canvas(
+        response, pagesize=A4
+    )  # pyright: ignore[reportArgumentType]  (HttpResponse is file-like)
     width, height = A4
 
     def check_page_break(y, margin=80):
@@ -225,9 +229,9 @@ def export_at_risk_excel(request):
     from apps.academic_sessions.models import AnneeAcademique
 
     active_year = AnneeAcademique.objects.filter(active=True).first()
-    all_inscriptions = Inscription.objects.filter(status=Inscription.Status.EN_COURS).select_related(
-        "id_cours", "id_etudiant"
-    )
+    all_inscriptions = Inscription.objects.filter(
+        status=Inscription.Status.EN_COURS
+    ).select_related("id_cours", "id_etudiant")
     if active_year:
         all_inscriptions = all_inscriptions.filter(id_annee=active_year)
     inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
@@ -256,7 +260,9 @@ def export_at_risk_excel(request):
                 else system_threshold
             )
 
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil:
                 if ins.exemption_40 and rate < seuil_effectif:
                     statut = "EXEMPTÉ"

@@ -2,6 +2,7 @@
 FICHIER : apps/dashboard/urls.py
 RESPONSABILITE : Routes URL centrales pour tous les dashboards par role
 """
+
 from django.urls import path
 
 from . import views, views_admin, views_export, views_secretary
@@ -20,7 +21,11 @@ urlpatterns = [
         views.secretary_enrollments,
         name="secretary_enrollments",
     ),
-    path("secretary/seuils-absence/", views.secretary_seuils_absence, name="secretary_seuils_absence"),
+    path(
+        "secretary/seuils-absence/",
+        views.secretary_seuils_absence,
+        name="secretary_seuils_absence",
+    ),
     path("secretary/exports/", views.secretary_exports, name="secretary_exports"),
     path(
         "secretary/audit-logs/",
@@ -172,7 +177,9 @@ urlpatterns = [
         name="admin_export_audit_csv",
     ),
     # QR Scan Logs
-    path("admin/qr-scan-logs/", views_admin.admin_qr_scan_logs, name="admin_qr_scan_logs"),
+    path(
+        "admin/qr-scan-logs/", views_admin.admin_qr_scan_logs, name="admin_qr_scan_logs"
+    ),
     # API pour les prérequis selon le niveau
     path(
         "api/prerequisites-by-level/",

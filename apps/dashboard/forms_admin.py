@@ -94,7 +94,9 @@ class CoursForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._resolved_year = None
         # Filtrer les départements actifs
-        model_choice_field(self, "id_departement").queryset = Departement.objects.filter(actif=True)
+        model_choice_field(self, "id_departement").queryset = (
+            Departement.objects.filter(actif=True)
+        )
         # Filtrer les professeurs actifs
         model_choice_field(self, "professeur").queryset = User.objects.filter(
             role=User.Role.PROFESSEUR, actif=True
@@ -103,8 +105,8 @@ class CoursForm(forms.ModelForm):
         # Le champ id_annee n'est plus dans le formulaire (assigné automatiquement)
         # Mais on le garde pour l'édition si nécessaire
         if "id_annee" in self.fields:
-            model_choice_field(self, "id_annee").queryset = AnneeAcademique.objects.all().order_by(
-                "-libelle"
+            model_choice_field(self, "id_annee").queryset = (
+                AnneeAcademique.objects.all().order_by("-libelle")
             )
             self.fields["id_annee"].widget = forms.HiddenInput()  # Masquer le champ
 
@@ -159,11 +161,15 @@ class CoursForm(forms.ModelForm):
                     submitted_niveau = None
 
             if submitted_niveau and submitted_niveau >= 2:
-                model_choice_field(self, "prerequisites").queryset = Cours.objects.filter(
-                    actif=True, niveau__lt=submitted_niveau
-                ).order_by("niveau", "code_cours")
+                model_choice_field(self, "prerequisites").queryset = (
+                    Cours.objects.filter(
+                        actif=True, niveau__lt=submitted_niveau
+                    ).order_by("niveau", "code_cours")
+                )
             else:
-                model_choice_field(self, "prerequisites").queryset = Cours.objects.none()
+                model_choice_field(self, "prerequisites").queryset = (
+                    Cours.objects.none()
+                )
 
         # Labels en français
         self.fields["code_cours"].label = "Code du Cours"
@@ -389,10 +395,18 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             "data_retention_days": forms.NumberInput(attrs={"class": "form-control"}),
             "gps_latitude": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.00001", "placeholder": "ex: 36.75250"}
+                attrs={
+                    "class": "form-control",
+                    "step": "0.00001",
+                    "placeholder": "ex: 36.75250",
+                }
             ),
             "gps_longitude": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.00001", "placeholder": "ex: 3.04200"}
+                attrs={
+                    "class": "form-control",
+                    "step": "0.00001",
+                    "placeholder": "ex: 3.04200",
+                }
             ),
             "gps_radius_meters": forms.NumberInput(
                 attrs={"class": "form-control", "min": "10", "max": "5000"}
@@ -400,9 +414,7 @@ class SystemSettingsForm(forms.ModelForm):
             "qr_token_duration_seconds": forms.NumberInput(
                 attrs={"class": "form-control", "min": "15", "max": "600"}
             ),
-            "qr_gps_required": forms.CheckboxInput(
-                attrs={"class": "form-check-input"}
-            ),
+            "qr_gps_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "default_absence_threshold": "Seuil d'Absence par Défaut (%)",

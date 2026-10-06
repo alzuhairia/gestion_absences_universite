@@ -107,7 +107,10 @@ def _haversine(lat1, lon1, lat2, lon2):
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlam = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -141,8 +144,10 @@ def _gps_too_perfect(latitude, longitude, accuracy, reference_points):
         return True
     for ref_lat, ref_lng in reference_points:
         if (
-            ref_lat is not None and ref_lng is not None
-            and abs(latitude - ref_lat) <= eps and abs(longitude - ref_lng) <= eps
+            ref_lat is not None
+            and ref_lng is not None
+            and abs(latitude - ref_lat) <= eps
+            and abs(longitude - ref_lng) <= eps
         ):
             return True
     if acc is None or acc <= GPS_IDENTICAL_MAX_ACCURACY_M:
@@ -159,10 +164,20 @@ def score_flags(flags):
     return min(100, sum(FLAG_WEIGHTS.get(f, 0) for f in flags))
 
 
-def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
-                       latitude=None, longitude=None, accuracy=None,
-                       settings_obj=None, seance=None, user_agent=None,
-                       reference_points=()):
+def evaluate_scan_risk(
+    *,
+    user,
+    device,
+    device_id_hash,
+    ip_address,
+    latitude=None,
+    longitude=None,
+    accuracy=None,
+    settings_obj=None,
+    seance=None,
+    user_agent=None,
+    reference_points=(),
+):
     """
     Évalue le risque d'un scan qui va être validé. Retourne ``(risk_score, flags)``.
 
@@ -240,7 +255,10 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
         if last is not None:
             dt_hours = (timezone.now() - last.timestamp).total_seconds() / 3600.0
             if dt_hours > 0:
-                dist_km = _haversine(last.latitude, last.longitude, latitude, longitude) / 1000.0
+                dist_km = (
+                    _haversine(last.latitude, last.longitude, latitude, longitude)
+                    / 1000.0
+                )
                 if dist_km / dt_hours > max_kmh:
                     flags.append(FLAG_GEO_VELOCITY)
 
@@ -253,8 +271,10 @@ def evaluate_scan_risk(*, user, device, device_id_hash, ip_address,
             pass
 
     # 4b) Position « trop parfaite » (faux GPS / coordonnées saisies à la main).
-    if latitude is not None and longitude is not None and _gps_too_perfect(
-        latitude, longitude, accuracy, reference_points
+    if (
+        latitude is not None
+        and longitude is not None
+        and _gps_too_perfect(latitude, longitude, accuracy, reference_points)
     ):
         flags.append(FLAG_GPS_TOO_PERFECT)
 
@@ -296,6 +316,6 @@ def flag_earlier_same_device_scans(*, seance, device_id_hash, user):
         log.risk_score = score_flags(flags)
         log.save(update_fields=["anomaly_flags", "risk_score"])
         if log.risk_score >= SUSPICIOUS_THRESHOLD:
-            QRScanRecord.objects.filter(seance=seance, student_id=log.etudiant_id).update(
-                is_suspicious=True
-            )
+            QRScanRecord.objects.filter(
+                seance=seance, student_id=log.etudiant_id
+            ).update(is_suspicious=True)

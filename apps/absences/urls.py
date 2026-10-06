@@ -2,6 +2,7 @@
 FICHIER : apps/absences/urls.py
 RESPONSABILITE : Routes URL pour la gestion des absences et QR code
 """
+
 from django.urls import path
 
 from . import views, views_manager, views_validation
@@ -44,9 +45,13 @@ urlpatterns = [
         name="download_justification",
     ),
     # --- Actions Professeur ---
-    path("session/create/<int:course_id>/", views.session_create, name="session_create"),
+    path(
+        "session/create/<int:course_id>/", views.session_create, name="session_create"
+    ),
     path("mark/<int:course_id>/", views.mark_absence, name="mark_absence"),
-    path("mark/<int:course_id>/htmx/", views.mark_absence_htmx, name="mark_absence_htmx"),
+    path(
+        "mark/<int:course_id>/htmx/", views.mark_absence_htmx, name="mark_absence_htmx"
+    ),
     path(
         "review/<int:absence_id>/",
         views.review_justification,
@@ -63,8 +68,16 @@ urlpatterns = [
     path("qr/refresh/<uuid:token>/", views.qr_refresh_token, name="qr_refresh_token"),
     path("qr/finalize/<uuid:token>/", views.qr_finalize, name="qr_finalize"),
     path("qr/scan/<uuid:token>/", views.qr_scan, name="qr_scan"),
-    path("qr/record/<int:record_id>/verify/", views.qr_record_verify, name="qr_record_verify"),
+    path(
+        "qr/record/<int:record_id>/verify/",
+        views.qr_record_verify,
+        name="qr_record_verify",
+    ),
     # --- Revue des anomalies de présence (Secrétariat / Admin) ---
     path("qr/anomalies/", views.qr_anomaly_review, name="qr_anomaly_review"),
-    path("qr/anomalies/<int:log_id>/decide/", views.qr_anomaly_decide, name="qr_anomaly_decide"),
+    path(
+        "qr/anomalies/<int:log_id>/decide/",
+        views.qr_anomaly_decide,
+        name="qr_anomaly_decide",
+    ),
 ]

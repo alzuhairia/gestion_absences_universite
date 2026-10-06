@@ -10,21 +10,21 @@ from typing import cast
 from unittest.mock import patch
 
 from django.core import mail
-from django.core.mail import EmailMultiAlternatives
 from django.core.cache import cache
+from django.core.mail import EmailMultiAlternatives
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
+from apps.academic_sessions.models import AnneeAcademique, Seance
+from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.devices import (
     DEVICE_COOKIE_NAME,
     hash_device_id,
     sign_device_id,
 )
 from apps.accounts.models import StudentDevice, User
-from apps.academic_sessions.models import AnneeAcademique, Seance
-from apps.academics.models import Cours, Departement, Faculte
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
 
@@ -44,29 +44,45 @@ class BaseDeviceTestCase(TestCase):
         cache.clear()
         self.faculte = Faculte.objects.create(nom_faculte="Fac Dev")
         self.departement = Departement.objects.create(
-            nom_departement="Dept Dev", id_faculte=self.faculte,
+            nom_departement="Dept Dev",
+            id_faculte=self.faculte,
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof_dev@example.com", nom="Prof", prenom="Dev",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof_dev@example.com",
+            nom="Prof",
+            prenom="Dev",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu_dev@example.com", nom="Stud", prenom="Dev",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu_dev@example.com",
+            nom="Stud",
+            prenom="Dev",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.course = Cours.objects.create(
-            code_cours="DEV101", nom_cours="Device Course",
-            id_departement=self.departement, professeur=self.prof,
-            nombre_total_periodes=100, niveau=1, id_annee=self.annee,
+            code_cours="DEV101",
+            nom_cours="Device Course",
+            id_departement=self.departement,
+            professeur=self.prof,
+            nombre_total_periodes=100,
+            niveau=1,
+            id_annee=self.annee,
         )
         self.seance = Seance.objects.create(
-            id_cours=self.course, date_seance=date.today(),
-            heure_debut=time(8, 0), heure_fin=time(10, 0), id_annee=self.annee,
+            id_cours=self.course,
+            date_seance=date.today(),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_annee=self.annee,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course,
-            id_annee=self.annee, status=Inscription.Status.EN_COURS,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.annee,
+            status=Inscription.Status.EN_COURS,
         )
         s = SystemSettings.get_settings()
         s.gps_latitude = 36.75250
@@ -79,10 +95,15 @@ class BaseDeviceTestCase(TestCase):
 
     # --- helpers ---
     def _token(self, verify_location=False, expired=False, **kw):
-        expires_at = timezone.now() + (timedelta(seconds=-10) if expired else timedelta(seconds=60))
+        expires_at = timezone.now() + (
+            timedelta(seconds=-10) if expired else timedelta(seconds=60)
+        )
         return QRAttendanceToken.objects.create(
-            seance=self.seance, created_by=self.prof,
-            expires_at=expires_at, verify_location=verify_location, **kw,
+            seance=self.seance,
+            created_by=self.prof,
+            expires_at=expires_at,
+            verify_location=verify_location,
+            **kw,
         )
 
     def _login(self):
@@ -94,8 +115,12 @@ class BaseDeviceTestCase(TestCase):
     def _make_device(self, device_id, status, user=None):
         u = user or self.student
         return StudentDevice.objects.create(
-            user=u, device_id_hash=hash_device_id(device_id), status=status,
-            approved_at=timezone.now() if status == StudentDevice.Status.APPROVED else None,
+            user=u,
+            device_id_hash=hash_device_id(device_id),
+            status=status,
+            approved_at=(
+                timezone.now() if status == StudentDevice.Status.APPROVED else None
+            ),
         )
 
     def _scan_url(self, token):
@@ -109,7 +134,9 @@ class FirstDeviceRequiresOTPTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         # No device cookie, no device ever → still PENDING.
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(resp, "Nouvel appareil")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         dev = StudentDevice.objects.get(user=self.student)
@@ -127,21 +154,28 @@ class FirstDeviceRequiresOTPTest(BaseDeviceTestCase):
         self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
         dev = StudentDevice.objects.get(user=self.student)
         self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
     def test_other_students_browser_on_account_without_device_is_pending(self):
         """Buddy-punching case: account never enrolled, someone else's browser."""
         other = User.objects.create_user(
-            email="other_dev@example.com", nom="Other", prenom="Dev",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="other_dev@example.com",
+            nom="Other",
+            prenom="Dev",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self._make_device("friend-phone", StudentDevice.Status.APPROVED, user=other)
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("friend-phone")
-        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         dev = StudentDevice.objects.get(user=self.student)
         self.assertEqual(dev.status, StudentDevice.Status.PENDING)
@@ -153,7 +187,9 @@ class KnownDeviceAcceptedTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("dev-A")
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -166,13 +202,16 @@ class NewDevicePendingBlocksTest(BaseDeviceTestCase):
         self._login()
         # Present an unknown device → must become PENDING and block presence.
         self._set_device_cookie("dev-NEW")
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         self.assertContains(resp, "Nouvel appareil")
         new_dev = StudentDevice.objects.get(device_id_hash=hash_device_id("dev-NEW"))
         self.assertEqual(new_dev.status, StudentDevice.Status.PENDING)
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DEVICE,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.REJECTED_DEVICE,
         ).first()
         self.assertIsNotNone(log)
 
@@ -183,7 +222,9 @@ class OTPVerificationTest(BaseDeviceTestCase):
         code = dev.set_otp()
         self._login()
         self._set_device_cookie("dev-P")
-        resp = self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True)
+        resp = self.client.post(
+            reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True
+        )
         dev.refresh_from_db()
         self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
 
@@ -193,7 +234,9 @@ class OTPVerificationTest(BaseDeviceTestCase):
         wrong = "654321" if code != "654321" else "123456"
         self._login()
         self._set_device_cookie("dev-P")
-        self.client.post(reverse("accounts:verify_device"), {"code": wrong}, secure=True, follow=True)
+        self.client.post(
+            reverse("accounts:verify_device"), {"code": wrong}, secure=True, follow=True
+        )
         dev.refresh_from_db()
         self.assertEqual(dev.status, StudentDevice.Status.PENDING)
         self.assertGreaterEqual(dev.otp_attempts, 1)
@@ -220,8 +263,10 @@ class OTPSendQuotaTest(BaseDeviceTestCase):
 
     def _resend(self):
         return self.client.post(
-            reverse("accounts:verify_device"), {"action": "resend"},
-            secure=True, follow=True,
+            reverse("accounts:verify_device"),
+            {"action": "resend"},
+            secure=True,
+            follow=True,
         )
 
     def test_fourth_code_within_an_hour_is_refused(self):
@@ -238,7 +283,9 @@ class OTPSendQuotaTest(BaseDeviceTestCase):
         for _ in range(3):
             self._resend()
         dev = StudentDevice.objects.get(device_id_hash=hash_device_id("dev-P"))
-        StudentDevice.objects.filter(pk=dev.pk).update(otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS)
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS
+        )
         self._resend()  # over quota → no new code, counter untouched
         dev.refresh_from_db()
         self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
@@ -255,8 +302,11 @@ class OTPSendQuotaTest(BaseDeviceTestCase):
         for _ in range(4):
             self._resend()
         other = User.objects.create_user(
-            email="other_otp@example.com", nom="O", prenom="Tp",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="other_otp@example.com",
+            nom="O",
+            prenom="Tp",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self._make_device("other-A", StudentDevice.Status.APPROVED, user=other)
         self.client.login(email="other_otp@example.com", password="pass1234")
@@ -299,7 +349,9 @@ class OTPAttemptsAtomicityTest(BaseDeviceTestCase):
         dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
         code = dev.set_otp()
         stale = StudentDevice.objects.get(pk=dev.pk)  # sees otp_attempts == 0
-        StudentDevice.objects.filter(pk=dev.pk).update(otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS)
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            otp_attempts=StudentDevice.OTP_MAX_ATTEMPTS
+        )
         self.assertFalse(stale.verify_otp(code))
         dev.refresh_from_db()
         self.assertEqual(dev.otp_attempts, StudentDevice.OTP_MAX_ATTEMPTS)
@@ -333,7 +385,9 @@ class RejectedScanDeviceLoggingTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("dev-NEW")
-        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         log = self._latest_log()
         self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_DEVICE)
         self.assertEqual(log.device_id_hash, hash_device_id("dev-NEW"))
@@ -345,9 +399,15 @@ class RejectedScanDeviceLoggingTest(BaseDeviceTestCase):
         token = self._token(verify_location=True)
         self._login()
         self._set_device_cookie("dev-A")
-        self.client.post(self._scan_url(token), {
-            "gps_status": "ok", "latitude": "48.8566", "longitude": "2.3522",
-        }, secure=True)
+        self.client.post(
+            self._scan_url(token),
+            {
+                "gps_status": "ok",
+                "latitude": "48.8566",
+                "longitude": "2.3522",
+            },
+            secure=True,
+        )
         log = self._latest_log()
         self.assertEqual(log.scan_result, QRScanLog.ScanResult.REJECTED_DISTANCE)
         self.assertEqual(log.device_id_hash, hash_device_id("dev-A"))
@@ -369,19 +429,29 @@ class RejectedScanDeviceLoggingTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("dev-NEW")
-        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         dev = StudentDevice.objects.get(device_id_hash=hash_device_id("dev-NEW"))
         code = dev.set_otp()
         self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
-        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
-        results = list(
-            QRScanLog.objects.filter(seance=self.seance, device_id_hash=dev.device_id_hash)
-            .order_by("timestamp").values_list("scan_result", "device_recognized")
+        self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
         )
-        self.assertEqual(results, [
-            (QRScanLog.ScanResult.REJECTED_DEVICE, False),
-            (QRScanLog.ScanResult.VALIDATED, True),
-        ])
+        results = list(
+            QRScanLog.objects.filter(
+                seance=self.seance, device_id_hash=dev.device_id_hash
+            )
+            .order_by("timestamp")
+            .values_list("scan_result", "device_recognized")
+        )
+        self.assertEqual(
+            results,
+            [
+                (QRScanLog.ScanResult.REJECTED_DEVICE, False),
+                (QRScanLog.ScanResult.VALIDATED, True),
+            ],
+        )
 
 
 class DeviceSecurityEmailsTest(BaseDeviceTestCase):
@@ -391,8 +461,11 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
     def setUp(self):
         super().setUp()
         self.secretary = User.objects.create_user(
-            email="sec_mail@example.com", nom="Sec", prenom="Mail",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec_mail@example.com",
+            nom="Sec",
+            prenom="Mail",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
         mail.outbox.clear()
 
@@ -404,7 +477,8 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         self._login()
         self._set_device_cookie("dev-P")
         self.client.get(
-            reverse("accounts:verify_device"), secure=True,
+            reverse("accounts:verify_device"),
+            secure=True,
             HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14)",
         )
         msg = cast(EmailMultiAlternatives, mail.outbox[-1])
@@ -421,8 +495,12 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         code = dev.set_otp()
         self._login()
         self._set_device_cookie("dev-P")
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
-            self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+            self.client.post(
+                reverse("accounts:verify_device"), {"code": code}, secure=True
+            )
         mails = self._status_mails()
         self.assertEqual(len(mails), 1)
         self.assertIn("Nouvel appareil approuvé", mails[0].subject)
@@ -433,10 +511,13 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         other = self._make_device("dev-B", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-A")
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
                 reverse("accounts:my_devices"),
-                {"action": "revoke", "device_pk": other.pk}, secure=True,
+                {"action": "revoke", "device_pk": other.pk},
+                secure=True,
             )
         mails = self._status_mails()
         self.assertEqual(len(mails), 1)
@@ -446,20 +527,29 @@ class DeviceSecurityEmailsTest(BaseDeviceTestCase):
         approved = self._make_device("dev-A", StudentDevice.Status.APPROVED)
         self._login()
         self._set_device_cookie("dev-NEW")
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
                 reverse("accounts:my_devices"),
-                {"action": "revoke", "device_pk": approved.pk}, secure=True,
+                {"action": "revoke", "device_pk": approved.pk},
+                secure=True,
             )
         self.assertEqual(self._status_mails(), [])
 
     def test_secretariat_actions_notify_student(self):
         dev = self._make_device("dev-P", StudentDevice.Status.PENDING)
         self.client.login(email="sec_mail@example.com", password="pass1234")
-        url = reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk})
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        url = reverse(
+            "accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}
+        )
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, {"action": "approve"}, secure=True)
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, {"action": "revoke"}, secure=True)
         subjects = [m.subject for m in self._status_mails()]
         self.assertEqual(len(subjects), 2)
@@ -474,7 +564,9 @@ class RevokedDeviceBlocksTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("dev-R")
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         self.assertContains(resp, "révoqu")
 
@@ -487,7 +579,9 @@ class MaxTwoApprovedTest(BaseDeviceTestCase):
         code = dev_c.set_otp()
         self._login()
         self._set_device_cookie("dev-C")
-        self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True)
+        self.client.post(
+            reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True
+        )
         dev_c.refresh_from_db()
         # OTP was correct, but the limit (2) blocks approval → stays PENDING.
         self.assertEqual(dev_c.status, StudentDevice.Status.PENDING)
@@ -507,7 +601,9 @@ class MaxTwoApprovedTest(BaseDeviceTestCase):
         code = dev_b.set_otp()
         self._login()
         self._set_device_cookie("dev-B")
-        self.client.post(reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True)
+        self.client.post(
+            reverse("accounts:verify_device"), {"code": code}, secure=True, follow=True
+        )
         dev_b.refresh_from_db()
         self.assertEqual(dev_b.status, StudentDevice.Status.APPROVED)
 
@@ -519,7 +615,9 @@ class TamperedAndMissingCookieTest(BaseDeviceTestCase):
         self._login()
         # Forged/garbage cookie → invalid signature → treated as a NEW device.
         self.client.cookies[DEVICE_COOKIE_NAME] = "not-a-valid-signed-value"
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         self.assertContains(resp, "Nouvel appareil")
 
@@ -528,7 +626,9 @@ class TamperedAndMissingCookieTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         # No cookie at all, but student already has an approved device → new = PENDING.
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         self.assertContains(resp, "Nouvel appareil")
 
@@ -539,9 +639,15 @@ class DeviceWithGPSInteractionTest(BaseDeviceTestCase):
         token = self._token(verify_location=True)
         self._login()
         self._set_device_cookie("dev-A")
-        resp = self.client.post(self._scan_url(token), {
-            "latitude": "36.75250", "longitude": "3.04200", "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            self._scan_url(token),
+            {
+                "latitude": "36.75250",
+                "longitude": "3.04200",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -550,9 +656,15 @@ class DeviceWithGPSInteractionTest(BaseDeviceTestCase):
         token = self._token(verify_location=True)
         self._login()
         self._set_device_cookie("dev-A")
-        resp = self.client.post(self._scan_url(token), {
-            "latitude": "48.8566", "longitude": "2.3522", "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            self._scan_url(token),
+            {
+                "latitude": "48.8566",
+                "longitude": "2.3522",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertContains(resp, "zone autoris")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -576,7 +688,9 @@ class RequireRegisteredDeviceToggleTest(BaseDeviceTestCase):
         token = self._token(verify_location=False)
         self._login()
         self._set_device_cookie("dev-NEW")
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -587,7 +701,9 @@ class StudentRevocationRulesTest(BaseDeviceTestCase):
     def _revoke(self, target):
         return self.client.post(
             reverse("accounts:my_devices"),
-            {"action": "revoke", "device_pk": target.pk}, secure=True, follow=True,
+            {"action": "revoke", "device_pk": target.pk},
+            secure=True,
+            follow=True,
         )
 
     def test_pending_device_cannot_revoke_approved_device(self):
@@ -654,8 +770,11 @@ class SecretariatRevokedDeviceRecoveryTest(BaseDeviceTestCase):
     def setUp(self):
         super().setUp()
         self.secretary = User.objects.create_user(
-            email="sec_dev@example.com", nom="Sec", prenom="Dev",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec_dev@example.com",
+            nom="Sec",
+            prenom="Dev",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
 
     def test_revoked_device_listed_and_reactivatable(self):
@@ -671,7 +790,9 @@ class SecretariatRevokedDeviceRecoveryTest(BaseDeviceTestCase):
         # Reactivation (action=approve) restores it to APPROVED.
         resp = self.client.post(
             reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}),
-            {"action": "approve"}, secure=True, follow=True,
+            {"action": "approve"},
+            secure=True,
+            follow=True,
         )
         dev.refresh_from_db()
         self.assertEqual(dev.status, StudentDevice.Status.APPROVED)
@@ -683,8 +804,11 @@ class SecretariatStudentDevicesTest(BaseDeviceTestCase):
     def setUp(self):
         super().setUp()
         self.secretary = User.objects.create_user(
-            email="sec_view@example.com", nom="Sec", prenom="View",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec_view@example.com",
+            nom="Sec",
+            prenom="View",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
         self.client.login(email="sec_view@example.com", password="pass1234")
         self.url = reverse("accounts:secretariat_devices")
@@ -709,7 +833,8 @@ class SecretariatStudentDevicesTest(BaseDeviceTestCase):
         dev = self._make_device("dev-A", StudentDevice.Status.APPROVED)
         resp = self.client.post(
             reverse("accounts:secretariat_device_action", kwargs={"device_pk": dev.pk}),
-            {"action": "revoke", "student": str(self.student.pk)}, secure=True,
+            {"action": "revoke", "student": str(self.student.pk)},
+            secure=True,
         )
         dev.refresh_from_db()
         self.assertEqual(dev.status, StudentDevice.Status.REVOKED)

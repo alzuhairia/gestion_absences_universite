@@ -114,7 +114,9 @@ class MessageFormTests(TestCase):
             user=self.sender,
         )
         # Widen queryset to include inactive users (as if loaded before deactivation)
-        model_choice_field(form, "destinataire").queryset = User.objects.exclude(pk=self.sender.pk)
+        model_choice_field(form, "destinataire").queryset = User.objects.exclude(
+            pk=self.sender.pk
+        )
 
         self.assertFalse(form.is_valid())
         self.assertIn("destinataire", form.errors)
@@ -154,7 +156,11 @@ class MessageFormTests(TestCase):
         url = reverse("messaging:compose")
         response = self.client.post(
             url,
-            {"destinataire": self.active_recipient.pk, "objet": "Hi", "contenu": "Test"},
+            {
+                "destinataire": self.active_recipient.pk,
+                "objet": "Hi",
+                "contenu": "Test",
+            },
             secure=True,
         )
         # Should redirect, not send

@@ -112,9 +112,9 @@ class AnneeAcademique(models.Model):
             if deactivating:
                 # Close all EN_COURS inscriptions for this year
                 Inscription = apps.get_model("enrollments", "Inscription")
-                Inscription.objects.filter(
-                    id_annee=self, status="EN_COURS"
-                ).update(status="NON_VALIDE")
+                Inscription.objects.filter(id_annee=self, status="EN_COURS").update(
+                    status="NON_VALIDE"
+                )
 
             self.full_clean()
             super().save(*args, **kwargs)

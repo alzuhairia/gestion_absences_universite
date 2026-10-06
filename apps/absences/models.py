@@ -13,12 +13,10 @@ DEPENDANCES CLES : enrollments.Inscription, academic_sessions.Seance, accounts.U
 import uuid
 from typing import TYPE_CHECKING
 
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db import models
-
 
 # ========================================================================== #
 #                              ABSENCE                                       #
@@ -137,7 +135,9 @@ class Absence(models.Model):
         # Durée strictement positive
         if self.duree_absence is not None and self.duree_absence <= 0:
             raise ValidationError(
-                {"duree_absence": "La durée de l'absence doit être strictement positive."}
+                {
+                    "duree_absence": "La durée de l'absence doit être strictement positive."
+                }
             )
 
         # Validation par rapport à la durée de la séance
@@ -150,12 +150,19 @@ class Absence(models.Model):
                     # ABSENT : durée ne peut pas dépasser la séance
                     if duree_f > duree_seance:
                         raise ValidationError(
-                            {"duree_absence": f"La durée d'absence ({self.duree_absence}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
+                            {
+                                "duree_absence": f"La durée d'absence ({self.duree_absence}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."
+                            }
                         )
                     # PARTIEL : durée doit être strictement inférieure à la séance
-                    if self.type_absence == self.TypeAbsence.PARTIEL and duree_f >= duree_seance:
+                    if (
+                        self.type_absence == self.TypeAbsence.PARTIEL
+                        and duree_f >= duree_seance
+                    ):
                         raise ValidationError(
-                            {"duree_absence": f"Une absence partielle ({self.duree_absence}h) doit être strictement inférieure à la durée de la séance ({duree_seance}h). Utilisez le type ABSENT pour une absence complète."}
+                            {
+                                "duree_absence": f"Une absence partielle ({self.duree_absence}h) doit être strictement inférieure à la durée de la séance ({duree_seance}h). Utilisez le type ABSENT pour une absence complète."
+                            }
                         )
             except (AttributeError, TypeError):
                 pass  # seance not loaded yet — skip validation
@@ -164,7 +171,9 @@ class Absence(models.Model):
         if self.type_absence == self.TypeAbsence.PARTIEL:
             if self.duree_absence is None or self.duree_absence <= 0:
                 raise ValidationError(
-                    {"duree_absence": "La durée est obligatoire pour une absence partielle."}
+                    {
+                        "duree_absence": "La durée est obligatoire pour une absence partielle."
+                    }
                 )
 
     def save(self, *args, **kwargs):
@@ -303,7 +312,9 @@ class QRAttendanceToken(models.Model):
 
     DISTANCE_THRESHOLD_METERS = 100
 
-    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    token = models.UUIDField(
+        default=uuid.uuid4, unique=True, editable=False, db_index=True
+    )
     seance_id: int  # colonne FK, déclarée pour les vérificateurs de types
     seance = models.ForeignKey(
         "academic_sessions.Seance",
@@ -337,6 +348,7 @@ class QRAttendanceToken(models.Model):
     @property
     def is_expired(self):
         from django.utils import timezone
+
         return timezone.now() > self.expires_at
 
     @property
@@ -452,7 +464,9 @@ class QRScanLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     # --- Anti-fraude : appareil + détection d'anomalies (non bloquant) ---
     device_id_hash = models.CharField(
-        max_length=64, blank=True, default="",
+        max_length=64,
+        blank=True,
+        default="",
         help_text="Hash de l'appareil utilisé pour ce scan (jamais le secret).",
     )
     device_recognized = models.BooleanField(
@@ -464,7 +478,8 @@ class QRScanLog(models.Model):
         help_text="Score d'anomalie 0–100 (informatif, ne bloque pas la présence).",
     )
     anomaly_flags = models.JSONField(
-        default=list, blank=True,
+        default=list,
+        blank=True,
         help_text="Liste des drapeaux d'anomalie déclenchés (ex. multi_account_device).",
     )
 
@@ -475,8 +490,10 @@ class QRScanLog(models.Model):
         FALSE_POSITIVE = "false_positive", "Faux positif"
 
     review_status = models.CharField(
-        max_length=20, choices=ReviewStatus.choices,
-        default=ReviewStatus.TO_REVIEW, db_index=True,
+        max_length=20,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.TO_REVIEW,
+        db_index=True,
     )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

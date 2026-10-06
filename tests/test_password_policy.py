@@ -92,27 +92,24 @@ class InitialSetupTests(TestCase):
             prenom="Admin",
             password="StrongPass123!",
         )
-        self.assertEqual(
-            User.objects.filter(role=User.Role.ADMIN).count(), 1
-        )
+        self.assertEqual(User.objects.filter(role=User.Role.ADMIN).count(), 1)
 
         # POST arrives — must be rejected (404) since an admin now exists
-        response = self.client.post(url, {
-            "prenom": "Second",
-            "nom": "Admin",
-            "email": "second-admin@example.com",
-            "password": "StrongPass456!",
-            "password_confirm": "StrongPass456!",
-        })
+        response = self.client.post(
+            url,
+            {
+                "prenom": "Second",
+                "nom": "Admin",
+                "email": "second-admin@example.com",
+                "password": "StrongPass456!",
+                "password_confirm": "StrongPass456!",
+            },
+        )
         self.assertEqual(response.status_code, 404)
 
         # Only the first admin should exist
-        self.assertEqual(
-            User.objects.filter(role=User.Role.ADMIN).count(), 1
-        )
-        self.assertFalse(
-            User.objects.filter(email="second-admin@example.com").exists()
-        )
+        self.assertEqual(User.objects.filter(role=User.Role.ADMIN).count(), 1)
+        self.assertFalse(User.objects.filter(email="second-admin@example.com").exists())
 
     def test_initial_setup_returns_404_when_admin_exists(self):
         """Both GET and POST return 404 if an admin already exists."""

@@ -8,29 +8,44 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0022_qrscanlog_anomaly_flags_qrscanlog_device_id_hash_and_more'),
+        ("absences", "0022_qrscanlog_anomaly_flags_qrscanlog_device_id_hash_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='qrscanlog',
-            name='review_note',
-            field=models.TextField(blank=True, default=''),
+            model_name="qrscanlog",
+            name="review_note",
+            field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='review_status',
-            field=models.CharField(choices=[('to_review', 'À revoir'), ('confirmed', 'Anomalie confirmée'), ('false_positive', 'Faux positif')], db_index=True, default='to_review', max_length=20),
+            model_name="qrscanlog",
+            name="review_status",
+            field=models.CharField(
+                choices=[
+                    ("to_review", "À revoir"),
+                    ("confirmed", "Anomalie confirmée"),
+                    ("false_positive", "Faux positif"),
+                ],
+                db_index=True,
+                default="to_review",
+                max_length=20,
+            ),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='reviewed_at',
+            model_name="qrscanlog",
+            name="reviewed_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='reviewed_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='qr_scan_logs_reviewed', to=settings.AUTH_USER_MODEL),
+            model_name="qrscanlog",
+            name="reviewed_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="qr_scan_logs_reviewed",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

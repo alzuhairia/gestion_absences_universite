@@ -104,11 +104,15 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         # Grant exemption via the view
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
-        response = self.client.post(url, {
-            "action": "grant",
-            "motif": "Raison médicale documentée",
-            "exemption_margin": "15",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "action": "grant",
+                "motif": "Raison médicale documentée",
+                "exemption_margin": "15",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 302)
         self.inscription.refresh_from_db()
@@ -151,16 +155,20 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
 
-        with patch(
-            "apps.enrollments.views_rules.send_with_dedup"
-        ) as mock_send:
+        with patch("apps.enrollments.views_rules.send_with_dedup") as mock_send:
             # captureOnCommitCallbacks forces on_commit callbacks to execute
-            with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
-                self.client.post(url, {
-                    "action": "grant",
-                    "motif": "Raison médicale documentée",
-                    "exemption_margin": "15",
-                }, secure=True)
+            with self.captureOnCommitCallbacks(
+                execute=True
+            ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+                self.client.post(
+                    url,
+                    {
+                        "action": "grant",
+                        "motif": "Raison médicale documentée",
+                        "exemption_margin": "15",
+                    },
+                    secure=True,
+                )
 
             mock_send.assert_called_once()
             call_kwargs = mock_send.call_args
@@ -173,10 +181,14 @@ class ExemptionEligibilityTests(ExemptionBaseTestCase):
         """Granting without motif is rejected."""
         self.client.force_login(self.secretary)
         url = reverse("enrollments:toggle_exemption", args=[self.inscription.pk])
-        response = self.client.post(url, {
-            "action": "grant",
-            "motif": "",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "action": "grant",
+                "motif": "",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 302)
         self.inscription.refresh_from_db()

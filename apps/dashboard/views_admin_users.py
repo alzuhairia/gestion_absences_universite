@@ -18,8 +18,6 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-
-from apps.utils import safe_get_page
 from django.db.models import Count, Q
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -33,6 +31,7 @@ from apps.audits.utils import log_action
 from apps.dashboard.decorators import admin_required
 from apps.dashboard.forms_admin import UserForm
 from apps.enrollments.models import Inscription
+from apps.utils import safe_get_page
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +137,9 @@ def admin_user_edit(request, user_id):
             # Journaliser les changements de rôle
             if old_role != user.role:
                 old_role_display = (
-                    User.Role(old_role).label if old_role in User.Role.values else old_role
+                    User.Role(old_role).label
+                    if old_role in User.Role.values
+                    else old_role
                 )
                 log_action(
                     request.user,
@@ -242,9 +243,10 @@ def admin_user_reset_2fa(request, user_id):
     """
     user = get_object_or_404(User, id_utilisateur=user_id)
 
-    if not user.two_factor_enabled and not TwoFactorBackupCode.objects.filter(
-        user=user
-    ).exists():
+    if (
+        not user.two_factor_enabled
+        and not TwoFactorBackupCode.objects.filter(user=user).exists()
+    ):
         messages.info(
             request,
             f"L'utilisateur '{user.email}' n'a pas la 2FA activée.",
@@ -398,7 +400,8 @@ def admin_users_delete_multiple(request):
 
         if deleted_count > 0:
             messages.success(
-                request, f"{deleted_count} utilisateur(s) supprimé(s) définitivement avec succès."
+                request,
+                f"{deleted_count} utilisateur(s) supprimé(s) définitivement avec succès.",
             )
         if failed_count > 0:
             error_msg = f"{failed_count} utilisateur(s) n'ont pas pu être supprimé(s)."
@@ -472,9 +475,7 @@ def admin_user_delete(request, user_id):
         cours_count = Cours.objects.filter(professeur=user).count()
 
         has_dependencies = (
-            inscriptions_count > 0
-            or absences_encoded_count > 0
-            or audit_logs_count > 0
+            inscriptions_count > 0 or absences_encoded_count > 0 or audit_logs_count > 0
         )
 
         # --- GET : page de confirmation ---
@@ -485,7 +486,10 @@ def admin_user_delete(request, user_id):
                     {"count": inscriptions_count, "label": "inscription(s)"},
                     {"count": absences_encoded_count, "label": "absence(s) encodée(s)"},
                     {"count": audit_logs_count, "label": "entrée(s) d'audit"},
-                    {"count": cours_count, "label": "cours (sera détaché du professeur)"},
+                    {
+                        "count": cours_count,
+                        "label": "cours (sera détaché du professeur)",
+                    },
                 ]
                 if item["count"] > 0
             ]
@@ -548,7 +552,10 @@ def admin_user_delete(request, user_id):
                     objet_id=user_id_for_log,
                 )
 
-            messages.success(request, f"Utilisateur '{user_email}' supprimé définitivement avec succès.")
+            messages.success(
+                request,
+                f"Utilisateur '{user_email}' supprimé définitivement avec succès.",
+            )
 
         except ProtectedError:
             user.actif = False

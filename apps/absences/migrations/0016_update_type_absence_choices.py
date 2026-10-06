@@ -29,7 +29,9 @@ def convert_legacy_types(apps, schema_editor):
     Absence.objects.filter(type_absence="SEANCE").update(type_absence="ABSENT")
 
     # JOURNEE → ABSENT (set duree_absence = seance duration if it was 8h placeholder)
-    for absence in Absence.objects.filter(type_absence="JOURNEE").select_related("id_seance"):
+    for absence in Absence.objects.filter(type_absence="JOURNEE").select_related(
+        "id_seance"
+    ):
         seance = absence.id_seance
         if seance and seance.heure_debut and seance.heure_fin:
             date_ref = datetime(2000, 1, 1)

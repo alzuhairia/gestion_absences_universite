@@ -26,4 +26,8 @@ class Command(BaseCommand):
         days = options["days"]
         cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = QRScanLog.objects.filter(timestamp__lt=cutoff).delete()
-        self.stdout.write(self.style.SUCCESS(f"Deleted {deleted} QRScanLog entries older than {days} days."))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Deleted {deleted} QRScanLog entries older than {days} days."
+            )
+        )

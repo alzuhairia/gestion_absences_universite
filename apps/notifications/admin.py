@@ -2,6 +2,7 @@
 FICHIER : apps/notifications/admin.py
 RESPONSABILITE : Configuration admin Django pour les notifications
 """
+
 from django.contrib import admin
 
 from .models import EmailEnvoi, Notification
@@ -21,7 +22,13 @@ class EmailEnvoiAdmin(admin.ModelAdmin):
     list_display = ("date_envoi", "destinataire_email", "sujet", "statut")
     list_filter = ("statut", "date_envoi")
     search_fields = ("destinataire_email", "sujet")
-    readonly_fields = ("destinataire", "destinataire_email", "sujet", "statut", "date_envoi")
+    readonly_fields = (
+        "destinataire",
+        "destinataire_email",
+        "sujet",
+        "statut",
+        "date_envoi",
+    )
 
     def has_add_permission(self, request):
         return False

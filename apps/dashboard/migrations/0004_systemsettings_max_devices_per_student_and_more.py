@@ -6,18 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dashboard', '0003_qr_gps_enforcement'),
+        ("dashboard", "0003_qr_gps_enforcement"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='systemsettings',
-            name='max_devices_per_student',
-            field=models.PositiveSmallIntegerField(default=2, help_text='Ex. : 2 = téléphone + tablette. Les appareils PENDING/REVOKED ne comptent pas.', verbose_name="Nombre maximum d'appareils approuvés par étudiant"),
+            model_name="systemsettings",
+            name="max_devices_per_student",
+            field=models.PositiveSmallIntegerField(
+                default=2,
+                help_text="Ex. : 2 = téléphone + tablette. Les appareils PENDING/REVOKED ne comptent pas.",
+                verbose_name="Nombre maximum d'appareils approuvés par étudiant",
+            ),
         ),
         migrations.AddField(
-            model_name='systemsettings',
-            name='require_registered_device',
-            field=models.BooleanField(default=True, help_text="Si activé, un scan QR n'est accepté que depuis un appareil approuvé lié au compte étudiant.", verbose_name='Exiger un appareil enregistré pour valider une présence'),
+            model_name="systemsettings",
+            name="require_registered_device",
+            field=models.BooleanField(
+                default=True,
+                help_text="Si activé, un scan QR n'est accepté que depuis un appareil approuvé lié au compte étudiant.",
+                verbose_name="Exiger un appareil enregistré pour valider une présence",
+            ),
         ),
     ]

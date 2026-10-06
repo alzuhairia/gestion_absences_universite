@@ -34,9 +34,7 @@ class InitialAdminForm(forms.Form):
     nom = forms.CharField(
         max_length=100,
         label="Nom",
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "Nom"}
-        ),
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom"}),
     )
     email = forms.EmailField(
         max_length=255,
@@ -92,7 +90,11 @@ def initial_setup(request):
         if form.is_valid():
             with transaction.atomic():
                 # Re-check under transaction to prevent race condition
-                if User.objects.select_for_update().filter(role=User.Role.ADMIN).exists():
+                if (
+                    User.objects.select_for_update()
+                    .filter(role=User.Role.ADMIN)
+                    .exists()
+                ):
                     raise Http404
 
                 admin = User.objects.create_superuser(

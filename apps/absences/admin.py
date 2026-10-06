@@ -2,6 +2,7 @@
 FICHIER : apps/absences/admin.py
 RESPONSABILITE : Configuration admin Django pour les modeles d'absences
 """
+
 from django.contrib import admin
 
 from .models import Absence, Justification, QRAttendanceToken, QRScanLog, QRScanRecord
@@ -22,34 +23,83 @@ class JustificationAdmin(admin.ModelAdmin):
 
 @admin.register(QRAttendanceToken)
 class QRAttendanceTokenAdmin(admin.ModelAdmin):
-    list_display = ("token", "seance", "created_by", "expires_at", "is_active", "verify_location")
+    list_display = (
+        "token",
+        "seance",
+        "created_by",
+        "expires_at",
+        "is_active",
+        "verify_location",
+    )
     list_filter = ("is_active", "verify_location")
     search_fields = ("token", "created_by__nom", "created_by__prenom")
     list_select_related = ("seance", "created_by")
-    readonly_fields = ("token", "seance", "created_by", "expires_at", "is_active",
-                       "verify_location", "latitude", "longitude", "created_at")
+    readonly_fields = (
+        "token",
+        "seance",
+        "created_by",
+        "expires_at",
+        "is_active",
+        "verify_location",
+        "latitude",
+        "longitude",
+        "created_at",
+    )
     ordering = ("-created_at",)
 
 
 @admin.register(QRScanRecord)
 class QRScanRecordAdmin(admin.ModelAdmin):
     list_display = ("inscription", "seance", "scanned_at", "ip_address")
-    search_fields = ("inscription__id_etudiant__nom", "inscription__id_etudiant__prenom")
+    search_fields = (
+        "inscription__id_etudiant__nom",
+        "inscription__id_etudiant__prenom",
+    )
     list_select_related = ("inscription", "seance")
-    readonly_fields = ("inscription", "seance", "scanned_at", "ip_address",
-                       "latitude", "longitude", "distance_meters", "is_suspicious")
+    readonly_fields = (
+        "inscription",
+        "seance",
+        "scanned_at",
+        "ip_address",
+        "latitude",
+        "longitude",
+        "distance_meters",
+        "is_suspicious",
+    )
     ordering = ("-scanned_at",)
 
 
 @admin.register(QRScanLog)
 class QRScanLogAdmin(admin.ModelAdmin):
-    list_display = ("etudiant", "seance", "ip_address", "gps_status", "scan_result", "timestamp")
+    list_display = (
+        "etudiant",
+        "seance",
+        "ip_address",
+        "gps_status",
+        "scan_result",
+        "timestamp",
+    )
     list_filter = ("gps_status", "scan_result", "timestamp")
-    search_fields = ("etudiant__nom", "etudiant__prenom", "etudiant__email", "ip_address")
+    search_fields = (
+        "etudiant__nom",
+        "etudiant__prenom",
+        "etudiant__email",
+        "ip_address",
+    )
     list_select_related = ("etudiant", "seance")
-    readonly_fields = ("etudiant", "seance", "ip_address", "latitude", "longitude",
-                       "distance_meters", "gps_status", "scan_result", "qr_token_used",
-                       "user_agent", "timestamp")
+    readonly_fields = (
+        "etudiant",
+        "seance",
+        "ip_address",
+        "latitude",
+        "longitude",
+        "distance_meters",
+        "gps_status",
+        "scan_result",
+        "qr_token_used",
+        "user_agent",
+        "timestamp",
+    )
     ordering = ("-timestamp",)
     date_hierarchy = "timestamp"
 

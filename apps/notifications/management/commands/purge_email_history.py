@@ -28,5 +28,7 @@ class Command(BaseCommand):
         cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = EmailEnvoi.objects.filter(date_envoi__lt=cutoff).delete()
         self.stdout.write(
-            self.style.SUCCESS(f"Deleted {deleted} EmailEnvoi entries older than {days} days.")
+            self.style.SUCCESS(
+                f"Deleted {deleted} EmailEnvoi entries older than {days} days."
+            )
         )

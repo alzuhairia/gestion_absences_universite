@@ -9,14 +9,13 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : python-magic (optionnel, pour detection MIME avancee)
 """
 
+import logging
 import os
 import re
 import uuid
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,7 @@ except Exception:  # ImportError, MagicException, OSError, etc.
     )
     # In production, MIME validation should be active for defense-in-depth
     from django.conf import settings
+
     if not settings.DEBUG:
         _logger.error(
             "PRODUCTION WARNING: python-magic is not installed. "

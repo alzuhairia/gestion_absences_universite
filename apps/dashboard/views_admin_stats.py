@@ -7,9 +7,8 @@ FONCTIONNALITES PRINCIPALES :
 DEPENDANCES CLES : absences.services, enrollments.models
 """
 
-from datetime import timedelta
-
 import logging
+from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
@@ -29,7 +28,6 @@ from apps.audits.models import LogAudit
 from apps.dashboard.decorators import admin_required
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -261,9 +259,7 @@ def admin_statistics(request):
     # 4. Répartition par département
     dept_absences = list(
         Absence.objects.filter(year_filter)
-        .values(
-            dept_nom=F("id_inscription__id_cours__id_departement__nom_departement")
-        )
+        .values(dept_nom=F("id_inscription__id_cours__id_departement__nom_departement"))
         .annotate(total=Count("id_absence"))
         .order_by("-total")
     )
@@ -282,9 +278,7 @@ def admin_statistics(request):
         Absence.Statut.EN_ATTENTE: "En attente",
         Absence.Statut.JUSTIFIEE: "Justifiée",
     }
-    status_labels = [
-        status_map.get(s["statut"], s["statut"]) for s in status_absences
-    ]
+    status_labels = [status_map.get(s["statut"], s["statut"]) for s in status_absences]
     status_data = [s["total"] for s in status_absences]
 
     # 6. Répartition par niveau
@@ -294,9 +288,7 @@ def admin_statistics(request):
         .annotate(total=Count("id_absence"))
         .order_by("niveau")
     )
-    level_labels = [
-        f"Année {l['niveau']}" for l in level_absences if l["niveau"]
-    ]
+    level_labels = [f"Année {l['niveau']}" for l in level_absences if l["niveau"]]
     level_data = [l["total"] for l in level_absences if l["niveau"]]
 
     # 7. KPI summary stats
@@ -305,7 +297,9 @@ def admin_statistics(request):
     kpi_justified = status_dict.get(Absence.Statut.JUSTIFIEE, 0)
     kpi_pending = status_dict.get(Absence.Statut.EN_ATTENTE, 0)
     kpi_unjustified = status_dict.get(Absence.Statut.NON_JUSTIFIEE, 0)
-    kpi_justified_pct = round((kpi_justified / total_absences) * 100, 1) if total_absences else 0
+    kpi_justified_pct = (
+        round((kpi_justified / total_absences) * 100, 1) if total_absences else 0
+    )
 
     # Combine chart data into a single dict for safe JSON serialization via |json_script
     chart_data = {

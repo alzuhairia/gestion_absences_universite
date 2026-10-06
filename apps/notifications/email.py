@@ -83,7 +83,9 @@ def _deliver(recipient_pk, recipient_email, subject, body, html_body):
         )
         _record_envoi(recipient_pk, recipient_email, subject, sent=False)
         return False
-    logger.info("Email sent to %s (user_id=%s): %s", recipient_email, recipient_pk, subject)
+    logger.info(
+        "Email sent to %s (user_id=%s): %s", recipient_email, recipient_pk, subject
+    )
     _record_envoi(recipient_pk, recipient_email, subject, sent=True)
     return True
 
@@ -105,7 +107,9 @@ def _queue(args):
         _deliver(*args)
 
 
-def send_notification_email(recipient_user, subject, body, html_body=None, *, background=None):
+def send_notification_email(
+    recipient_user, subject, body, html_body=None, *, background=None
+):
     """
     Send a single notification email. Never raises.
 
@@ -122,13 +126,17 @@ def send_notification_email(recipient_user, subject, body, html_body=None, *, ba
     """
     recipient_pk = getattr(recipient_user, "pk", None)
     if not recipient_user or not getattr(recipient_user, "email", None):
-        logger.info("Email skipped (no address) for user_id=%s: %s", recipient_pk, subject)
+        logger.info(
+            "Email skipped (no address) for user_id=%s: %s", recipient_pk, subject
+        )
         return False
 
     if not getattr(recipient_user, "actif", True):
         logger.info(
             "Email skipped (inactive user) for %s (user_id=%s): %s",
-            recipient_user.email, recipient_pk, subject,
+            recipient_user.email,
+            recipient_pk,
+            subject,
         )
         return False
 
@@ -157,8 +165,9 @@ def send_notification_email_bulk(recipient_users, subject, body, html_body=None)
     return sent
 
 
-def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_key,
-                    cooldown_hours=24):
+def send_with_dedup(
+    recipient_user, subject, body, html_body, event_type, event_key, cooldown_hours=24
+):
     """
     Send an email only if the same (recipient, event_type, event_key) was NOT
     already sent within the cooldown window.  Records the send in EmailLog.
@@ -175,7 +184,9 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
     if not email:
         logger.info(
             "Email skipped (no address) for user_id=%s: %s event (key=%s)",
-            getattr(recipient_user, "pk", "?"), event_type, event_key,
+            getattr(recipient_user, "pk", "?"),
+            event_type,
+            event_key,
         )
         return False
 
@@ -203,13 +214,17 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
                     # Lost the race to another worker — they will send.
                     logger.info(
                         "Dedup race: another worker claimed %s email to %s (key=%s)",
-                        event_type, email, event_key,
+                        event_type,
+                        email,
+                        event_key,
                     )
                     return False
             elif existing.created_at >= cutoff:
                 logger.info(
                     "Dedup: skipping %s email to %s (key=%s)",
-                    event_type, email, event_key,
+                    event_type,
+                    email,
+                    event_key,
                 )
                 return False
             else:
@@ -222,7 +237,9 @@ def send_with_dedup(recipient_user, subject, body, html_body, event_type, event_
                 if not claimed:
                     logger.info(
                         "Dedup race: another worker refreshed %s email to %s (key=%s)",
-                        event_type, email, event_key,
+                        event_type,
+                        email,
+                        event_key,
                     )
                     return False
     except Exception:
@@ -274,7 +291,9 @@ def build_threshold_exceeded_email(student, course_name, taux, seuil):
     return subject, body, html_body
 
 
-def build_threshold_exceeded_professor_email(professor, student, course_name, taux, seuil):
+def build_threshold_exceeded_professor_email(
+    professor, student, course_name, taux, seuil
+):
     """Email sent to professor when a student in their course exceeds the threshold."""
     subject = f"[UniAbsences] \u00c9tudiant bloqu\u00e9 \u2014 {student.get_full_name()} ({course_name})"
     context = {
@@ -313,7 +332,9 @@ def build_eligibility_restored_email(student, course_name):
     return subject, body, html_body
 
 
-def build_justification_submitted_professor_email(professor, student, course_code, absence_date):
+def build_justification_submitted_professor_email(
+    professor, student, course_code, absence_date
+):
     """Email sent to professor when a student submits a justification."""
     subject = f"[UniAbsences] Justificatif soumis \u2014 {student.get_full_name()} ({course_code})"
     context = {
@@ -334,10 +355,14 @@ def build_justification_submitted_professor_email(professor, student, course_cod
     return subject, body, html_body
 
 
-def build_justification_decision_email(student, course_code, absence_date, approved, motif=""):
+def build_justification_decision_email(
+    student, course_code, absence_date, approved, motif=""
+):
     """Email sent to student when justification is approved or rejected."""
     decision = "ACCEPT\u00c9E" if approved else "REFUS\u00c9E"
-    subject = f"[UniAbsences] Justification {decision} \u2014 {course_code} ({absence_date})"
+    subject = (
+        f"[UniAbsences] Justification {decision} \u2014 {course_code} ({absence_date})"
+    )
     context = {
         "student_name": student.get_full_name(),
         "course_code": course_code,
@@ -358,7 +383,9 @@ def build_justification_decision_email(student, course_code, absence_date, appro
     return subject, body, html_body
 
 
-def build_justification_decision_professor_email(professor, student, course_code, absence_date, approved):
+def build_justification_decision_professor_email(
+    professor, student, course_code, absence_date, approved
+):
     """Email sent to professor when a justification in their course is decided."""
     decision = "accept\u00e9e" if approved else "refus\u00e9e"
     subject = f"[UniAbsences] Justification {decision} \u2014 {student.get_full_name()} ({course_code})"
@@ -382,7 +409,9 @@ def build_justification_decision_professor_email(professor, student, course_code
 
 def build_absence_recorded_email(student, course_name, absence_date, taux):
     """Email sent to student when a professor records an absence."""
-    subject = f"[UniAbsences] Absence enregistr\u00e9e \u2014 {course_name} ({absence_date})"
+    subject = (
+        f"[UniAbsences] Absence enregistr\u00e9e \u2014 {course_name} ({absence_date})"
+    )
     context = {
         "student_name": student.get_full_name(),
         "course_name": course_name,
@@ -406,8 +435,14 @@ def _device_details(device, when=None):
     """Human-readable device details shared by the device security e-mails."""
     when = timezone.localtime(when or timezone.now())
     return {
-        "device_label": (getattr(device, "label", "") or "Appareil") if device else "Appareil",
-        "ip_address": (getattr(device, "ip_address", None) or "inconnue") if device else "inconnue",
+        "device_label": (
+            (getattr(device, "label", "") or "Appareil") if device else "Appareil"
+        ),
+        "ip_address": (
+            (getattr(device, "ip_address", None) or "inconnue")
+            if device
+            else "inconnue"
+        ),
         "when": when.strftime("%d/%m/%Y à %H:%M"),
     }
 
@@ -529,7 +564,9 @@ def build_weekly_summary_email(secretary, summary_data):
     if summary_data.get("courses_at_risk"):
         body += "Cours avec \u00e9tudiants \u00e0 risque :\n"
         for c in summary_data["courses_at_risk"]:
-            body += f"  \u2022 {c['course_name']} : {c['at_risk_count']} \u00e9tudiant(s)\n"
+            body += (
+                f"  \u2022 {c['course_name']} : {c['at_risk_count']} \u00e9tudiant(s)\n"
+            )
     body += f"\n\u2014 UniAbsences Notification System"
     html_body = _render_html("emails/weekly_summary.html", context)
     return subject, body, html_body

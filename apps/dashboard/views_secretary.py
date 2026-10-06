@@ -15,8 +15,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-
-from apps.utils import model_choice_field, safe_get_page
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -27,7 +25,6 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours, Departement, Faculte
 from apps.audits.models import LogAudit
 from apps.audits.utils import log_action
-from apps.notifications.models import EmailEnvoi
 from apps.dashboard.decorators import secretary_required
 from apps.dashboard.forms_admin import (
     AnneeAcademiqueForm,
@@ -36,6 +33,8 @@ from apps.dashboard.forms_admin import (
     FaculteForm,
 )
 from apps.enrollments.models import Inscription
+from apps.notifications.models import EmailEnvoi
+from apps.utils import model_choice_field, safe_get_page
 
 logger = logging.getLogger(__name__)
 
@@ -518,7 +517,9 @@ def secretary_course_edit(request, course_id):
     else:
         form = CoursForm(instance=cours)
 
-    has_prerequisites_options = model_choice_field(form, "prerequisites").queryset.exists()
+    has_prerequisites_options = model_choice_field(
+        form, "prerequisites"
+    ).queryset.exists()
 
     return render(
         request,
@@ -617,9 +618,7 @@ def secretary_course_delete(request, course_id):
             f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception:
-        logger.exception(
-            "Erreur lors de la suppression du cours %s", cours_code
-        )
+        logger.exception("Erreur lors de la suppression du cours %s", cours_code)
         messages.error(
             request,
             f"Erreur lors de la suppression du cours '{cours_code}'. "
@@ -711,9 +710,7 @@ def secretary_courses_delete_multiple(request):
                     deleted_count += 1
 
                 except Exception:
-                    logger.exception(
-                        "Erreur suppression cours %s", cours.code_cours
-                    )
+                    logger.exception("Erreur suppression cours %s", cours.code_cours)
                     failed_names.append(cours.code_cours)
 
     except Exception:
@@ -724,9 +721,7 @@ def secretary_courses_delete_multiple(request):
         return redirect("dashboard:secretary_courses")
 
     if deleted_count:
-        messages.success(
-            request, f"{deleted_count} cours supprimé(s) avec succès."
-        )
+        messages.success(request, f"{deleted_count} cours supprimé(s) avec succès.")
     if failed_names:
         messages.error(
             request,
@@ -940,6 +935,7 @@ def secretary_audit_logs(request):
     if action_filter:
         logs = logs.filter(action__icontains=action_filter)
     from datetime import date as date_type
+
     if date_from:
         try:
             date_type.fromisoformat(date_from)
@@ -1007,12 +1003,16 @@ def secretary_email_logs(request):
         envois = envois.filter(statut=statut_filter)
     if date_from:
         try:
-            envois = envois.filter(date_envoi__date__gte=date_type.fromisoformat(date_from))
+            envois = envois.filter(
+                date_envoi__date__gte=date_type.fromisoformat(date_from)
+            )
         except ValueError:
             pass
     if date_to:
         try:
-            envois = envois.filter(date_envoi__date__lte=date_type.fromisoformat(date_to))
+            envois = envois.filter(
+                date_envoi__date__lte=date_type.fromisoformat(date_to)
+            )
         except ValueError:
             pass
 

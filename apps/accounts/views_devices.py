@@ -71,7 +71,9 @@ def _consume_otp_send_quota(request):
             )
             return False
     for rate in OTP_SEND_RATES:
-        get_usage(request, group=_OTP_SEND_GROUP, key=_user_key, rate=rate, increment=True)
+        get_usage(
+            request, group=_OTP_SEND_GROUP, key=_user_key, rate=rate, increment=True
+        )
     return True
 
 
@@ -91,6 +93,7 @@ def _notify_device_status(device, event):
     Prévient l'étudiant qu'un de ses appareils a été approuvé ou révoqué
     (voir DEVICE_STATUS_EVENTS). Envoyé après commit : un rollback n'envoie rien.
     """
+
     def _send():
         subject, body, html_body = build_device_status_email(device.user, device, event)
         send_notification_email(device.user, subject, body, html_body)
@@ -136,8 +139,11 @@ def verify_device(request):
             return redirect("accounts:verify_device")
 
         usage = get_usage(
-            request, group=_OTP_VERIFY_GROUP, key=_user_key,
-            rate=OTP_VERIFY_RATE, increment=True,
+            request,
+            group=_OTP_VERIFY_GROUP,
+            key=_user_key,
+            rate=OTP_VERIFY_RATE,
+            increment=True,
         )
         if usage is not None and usage["should_limit"]:
             log_action(
@@ -208,10 +214,14 @@ def verify_device(request):
             )
 
     masked = _mask_email(request.user.email)
-    return render(request, "accounts/verify_device.html", {
-        "device": device,
-        "masked_email": masked,
-    })
+    return render(
+        request,
+        "accounts/verify_device.html",
+        {
+            "device": device,
+            "masked_email": masked,
+        },
+    )
 
 
 def _mask_email(email):
@@ -274,13 +284,17 @@ def my_devices(request):
 
     sys_settings = SystemSettings.get_settings()
     devices = list(StudentDevice.objects.filter(user=request.user))
-    return render(request, "accounts/my_devices.html", {
-        "devices": devices,
-        "current_device_pk": device.pk,
-        "current_device_approved": device.is_approved,
-        "max_devices": sys_settings.max_devices_per_student,
-        "Status": StudentDevice.Status,
-    })
+    return render(
+        request,
+        "accounts/my_devices.html",
+        {
+            "devices": devices,
+            "current_device_pk": device.pk,
+            "current_device_approved": device.is_approved,
+            "max_devices": sys_settings.max_devices_per_student,
+            "Status": StudentDevice.Status,
+        },
+    )
 
 
 @login_required
@@ -302,15 +316,27 @@ def secretariat_device_action(request, device_pk):
             return _back_to_secretariat_devices(request)
         device.approve()
         _notify_device_status(device, "approved_secretariat")
-        log_action(request.user, f"Appareil approuvé (secrétariat) — {device.user.email}",
-                   request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
+        log_action(
+            request.user,
+            f"Appareil approuvé (secrétariat) — {device.user.email}",
+            request,
+            niveau="INFO",
+            objet_type="AUTRE",
+            objet_id=device.pk,
+        )
         messages.success(request, "Appareil approuvé.")
     elif action == "revoke":
         device.status = StudentDevice.Status.REVOKED
         device.save(update_fields=["status"])
         _notify_device_status(device, "revoked_secretariat")
-        log_action(request.user, f"Appareil révoqué (secrétariat) — {device.user.email}",
-                   request, niveau="INFO", objet_type="AUTRE", objet_id=device.pk)
+        log_action(
+            request.user,
+            f"Appareil révoqué (secrétariat) — {device.user.email}",
+            request,
+            niveau="INFO",
+            objet_type="AUTRE",
+            objet_id=device.pk,
+        )
         messages.success(request, "Appareil révoqué.")
     return _back_to_secretariat_devices(request)
 
@@ -353,17 +379,25 @@ def secretariat_devices(request):
         qs = qs.filter(user_id=int(student_pk))
     elif q:
         qs = qs.filter(
-            Q(user__email__icontains=q) | Q(user__nom__icontains=q) | Q(user__prenom__icontains=q)
+            Q(user__email__icontains=q)
+            | Q(user__nom__icontains=q)
+            | Q(user__prenom__icontains=q)
         )
     else:
         qs = qs.filter(
             status__in=[StudentDevice.Status.PENDING, StudentDevice.Status.REVOKED]
         )
     filtered = bool(student_pk.isdigit() or q)
-    return render(request, "accounts/secretariat_devices.html", {
-        "devices": list(qs.order_by("user__nom", "user__prenom", "-last_seen_at")[:200]),
-        "Status": StudentDevice.Status,
-        "filtered": filtered,
-        "q": q,
-        "student_pk": student_pk if student_pk.isdigit() else "",
-    })
+    return render(
+        request,
+        "accounts/secretariat_devices.html",
+        {
+            "devices": list(
+                qs.order_by("user__nom", "user__prenom", "-last_seen_at")[:200]
+            ),
+            "Status": StudentDevice.Status,
+            "filtered": filtered,
+            "q": q,
+            "student_pk": student_pk if student_pk.isdigit() else "",
+        },
+    )

@@ -2,6 +2,7 @@
 FICHIER : apps/accounts/apps.py
 RESPONSABILITE : Configuration de l'app accounts
 """
+
 from django.apps import AppConfig
 
 

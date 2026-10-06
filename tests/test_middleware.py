@@ -17,7 +17,9 @@ class SessionMiddlewareRedisDownTest(TestCase):
             role=User.Role.ETUDIANT,
         )
         self.response_sentinel = object()
-        self.middleware = SessionInactivityMiddleware(lambda req: self.response_sentinel)
+        self.middleware = SessionInactivityMiddleware(
+            lambda req: self.response_sentinel
+        )
 
     def test_session_middleware_redis_down_does_not_crash(self):
         """If the session backend raises, the middleware must not crash or log out the user."""
@@ -38,7 +40,9 @@ class SessionMiddlewareRedisDownTest(TestCase):
         """Normal authenticated request still updates _last_activity."""
         request = self.factory.get("/")
         request.user = self.user
-        request.session = {}  # pyright: ignore[reportAttributeAccessIssue]  (fake session)
+        request.session = (
+            {}
+        )  # pyright: ignore[reportAttributeAccessIssue]  (fake session)
 
         response = self.middleware(request)
 

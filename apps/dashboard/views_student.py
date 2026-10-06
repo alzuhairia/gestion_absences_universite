@@ -15,8 +15,6 @@ DEPENDANCES CLES : absences.services, enrollments.models
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum
-
-from apps.utils import safe_get_page
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -28,7 +26,7 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.dashboard.decorators import student_required
 from apps.enrollments.models import Inscription
 from apps.notifications.models import EmailEnvoi, Notification
-
+from apps.utils import safe_get_page
 
 # ---------------------------------------------------------------------------
 # Dashboard etudiant - KPIs et alertes
@@ -51,13 +49,23 @@ def student_dashboard(request):
 
     # Get student's inscriptions for current academic year
     if academic_year:
-        inscriptions = list(Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
+        inscriptions = list(
+            Inscription.objects.filter(
+                id_etudiant=request.user,
+                id_annee=academic_year,
+                status=Inscription.Status.EN_COURS,
+            ).select_related(
+                "id_cours", "id_cours__professeur", "id_cours__id_departement"
+            )
+        )
     else:
-        inscriptions = list(Inscription.objects.filter(
-            id_etudiant=request.user, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours", "id_cours__professeur", "id_cours__id_departement"))
+        inscriptions = list(
+            Inscription.objects.filter(
+                id_etudiant=request.user, status=Inscription.Status.EN_COURS
+            ).select_related(
+                "id_cours", "id_cours__professeur", "id_cours__id_departement"
+            )
+        )
 
     # --- KPI 1: Total Courses Enrolled (current academic year)
     total_courses = len(inscriptions)
@@ -115,7 +123,9 @@ def student_dashboard(request):
 
             # Seuil effectif (avec marge d'exemption si applicable)
             seuil = cours.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
 
             if rate >= seuil_effectif:
                 is_blocked = True
@@ -220,7 +230,9 @@ def student_statistics(request):
 
         # Seuil effectif (avec marge d'exemption si applicable)
         seuil = cours.get_seuil_absence()
-        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        seuil_effectif = (
+            min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        )
 
         course_labels.append(cours.code_cours)
         absence_percentages.append(round(rate, 1))
@@ -399,12 +411,17 @@ def student_course_detail(request, inscription_id):
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
         # + vérification du délai de 3 jours
-        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
+        is_refused = (
+            justification is not None
+            and justification.state == Justification.State.REFUSEE
+        )
         is_not_yet_submitted = justification is None and absence.statut not in (
             Absence.Statut.JUSTIFIEE,
             Absence.Statut.EN_ATTENTE,
         )
-        can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
+        can_submit = (
+            is_not_yet_submitted or is_refused
+        ) and not is_justification_expired(absence)
 
         absences_data.append(
             {
@@ -433,9 +450,15 @@ def student_course_detail(request, inscription_id):
         else 0
     )
     seuil = course.get_seuil_absence()
-    seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
+    seuil_effectif = (
+        min(seuil + inscription.exemption_margin, 100)
+        if inscription.exemption_40
+        else seuil
+    )
     is_blocked = absence_rate >= seuil_effectif
-    is_under_exemption = inscription.exemption_40 and absence_rate >= seuil and not is_blocked
+    is_under_exemption = (
+        inscription.exemption_40 and absence_rate >= seuil and not is_blocked
+    )
 
     return render(
         request,
@@ -476,7 +499,9 @@ def student_courses(request):
     # Get student's inscriptions
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
+            id_etudiant=request.user,
+            id_annee=academic_year,
+            status=Inscription.Status.EN_COURS,
         ).select_related(
             "id_cours",
             "id_cours__professeur",
@@ -553,7 +578,11 @@ def student_courses(request):
         seuil_cours = (
             cours.seuil_absence if cours.seuil_absence is not None else system_threshold
         )
-        seuil_effectif = min(seuil_cours + ins.exemption_margin, 100) if ins.exemption_40 else seuil_cours
+        seuil_effectif = (
+            min(seuil_cours + ins.exemption_margin, 100)
+            if ins.exemption_40
+            else seuil_cours
+        )
 
         if absence_rate >= seuil_effectif:
             course_status = "BLOQUÉ"
@@ -618,10 +647,14 @@ def student_absences(request):
     # Get all inscriptions
     if academic_year:
         inscriptions = Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
+            id_etudiant=request.user,
+            id_annee=academic_year,
+            status=Inscription.Status.EN_COURS,
         )
     else:
-        inscriptions = Inscription.objects.filter(id_etudiant=request.user, status=Inscription.Status.EN_COURS)
+        inscriptions = Inscription.objects.filter(
+            id_etudiant=request.user, status=Inscription.Status.EN_COURS
+        )
 
     # Get all absences
     absences = (
@@ -659,12 +692,17 @@ def student_absences(request):
         # AVANT : "and not justification" masquait le bouton pour justificatifs refusés
         # APRÈS : resoumission autorisée si justificatif refusé, sinon non soumis
         # + vérification du délai de 3 jours
-        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
+        is_refused = (
+            justification is not None
+            and justification.state == Justification.State.REFUSEE
+        )
         is_not_yet_submitted = justification is None and absence.statut not in (
             Absence.Statut.JUSTIFIEE,
             Absence.Statut.EN_ATTENTE,
         )
-        can_submit = (is_not_yet_submitted or is_refused) and not is_justification_expired(absence)
+        can_submit = (
+            is_not_yet_submitted or is_refused
+        ) and not is_justification_expired(absence)
 
         absences_data.append(
             {
@@ -710,13 +748,19 @@ def student_reports(request):
 
     # Get student's inscriptions for statistics
     if academic_year:
-        inscriptions = list(Inscription.objects.filter(
-            id_etudiant=request.user, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours"))
+        inscriptions = list(
+            Inscription.objects.filter(
+                id_etudiant=request.user,
+                id_annee=academic_year,
+                status=Inscription.Status.EN_COURS,
+            ).select_related("id_cours")
+        )
     else:
-        inscriptions = list(Inscription.objects.filter(
-            id_etudiant=request.user
-        ).select_related("id_cours"))
+        inscriptions = list(
+            Inscription.objects.filter(id_etudiant=request.user).select_related(
+                "id_cours"
+            )
+        )
 
     # Calculate overall statistics
     inscription_ids = [ins.id_inscription for ins in inscriptions]
@@ -766,7 +810,9 @@ def student_reports(request):
 @require_GET
 def student_emails(request):
     """E-mails envoyés à l'étudiant connecté (preuve d'envoi)."""
-    envois = EmailEnvoi.objects.filter(destinataire=request.user).order_by("-date_envoi", "-id")
+    envois = EmailEnvoi.objects.filter(destinataire=request.user).order_by(
+        "-date_envoi", "-id"
+    )
     paginator = Paginator(envois, 25)
     envois_page = safe_get_page(paginator, request.GET.get("page"))
     return render(request, "dashboard/student_emails.html", {"envois": envois_page})

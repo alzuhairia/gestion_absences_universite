@@ -6,13 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0020_audit_pre_production_fixes'),
+        ("absences", "0020_audit_pre_production_fixes"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='qrscanlog',
-            name='scan_result',
-            field=models.CharField(choices=[('validated', 'Présence validée'), ('rejected_gps', 'Refusé — pas de GPS'), ('rejected_distance', 'Refusé — hors zone'), ('rejected_expired', 'Refusé — QR expiré'), ('rejected_not_enrolled', 'Refusé — non inscrit'), ('rejected_duplicate', 'Refusé — déjà scanné'), ('rejected_locked', 'Refusé — séance verrouillée'), ('rejected_inactive', 'Refusé — QR inactif'), ('rejected_device', 'Refusé — appareil non approuvé')], max_length=25),
+            model_name="qrscanlog",
+            name="scan_result",
+            field=models.CharField(
+                choices=[
+                    ("validated", "Présence validée"),
+                    ("rejected_gps", "Refusé — pas de GPS"),
+                    ("rejected_distance", "Refusé — hors zone"),
+                    ("rejected_expired", "Refusé — QR expiré"),
+                    ("rejected_not_enrolled", "Refusé — non inscrit"),
+                    ("rejected_duplicate", "Refusé — déjà scanné"),
+                    ("rejected_locked", "Refusé — séance verrouillée"),
+                    ("rejected_inactive", "Refusé — QR inactif"),
+                    ("rejected_device", "Refusé — appareil non approuvé"),
+                ],
+                max_length=25,
+            ),
         ),
     ]

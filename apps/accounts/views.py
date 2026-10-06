@@ -102,7 +102,7 @@ class RateLimitedLoginView(auth_views.LoginView):
                     .order_by("-created_at")
                     .values_list("pk", "session_key", flat=False)
                 )
-                to_evict = list(active_sessions[UserSession.MAX_SESSIONS_PER_USER:])
+                to_evict = list(active_sessions[UserSession.MAX_SESSIONS_PER_USER :])
                 if to_evict:
                     evict_pks = [pk for pk, _ in to_evict]
                     evict_keys = [key for _, key in to_evict if key]
@@ -218,8 +218,7 @@ def download_report_pdf(request):
 
     response = HttpResponse(content_type="application/pdf")
     filename_safe = "".join(
-        c if c.isalnum() or c in "._-" else "_"
-        for c in f"{user.prenom}_{user.nom}"
+        c if c.isalnum() or c in "._-" else "_" for c in f"{user.prenom}_{user.nom}"
     )
     response["Content-Disposition"] = (
         f'attachment; filename="releve_absences_{filename_safe}.pdf"'

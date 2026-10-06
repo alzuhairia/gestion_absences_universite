@@ -25,7 +25,9 @@ class SendNotificationEmailLoggingTests(TestCase):
 
     def test_successful_send_is_logged_and_recorded(self):
         with self.assertLogs(LOGGER, level="INFO") as logs:
-            self.assertTrue(send_notification_email(self.student, "Sujet test", "Corps"))
+            self.assertTrue(
+                send_notification_email(self.student, "Sujet test", "Corps")
+            )
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(
             f"Email sent to etu@example.com (user_id={self.student.pk}): Sujet test",
@@ -53,9 +55,13 @@ class SendNotificationEmailLoggingTests(TestCase):
         self.assertFalse(EmailEnvoi.objects.exists())
 
     def test_failure_is_logged_as_error_and_recorded(self):
-        with patch("apps.notifications.email.send_mail", side_effect=OSError("smtp down")):
+        with patch(
+            "apps.notifications.email.send_mail", side_effect=OSError("smtp down")
+        ):
             with self.assertLogs(LOGGER, level="ERROR") as logs:
-                self.assertFalse(send_notification_email(self.student, "Sujet", "Corps"))
+                self.assertFalse(
+                    send_notification_email(self.student, "Sujet", "Corps")
+                )
         self.assertIn("Failed to send email to etu@example.com", logs.output[0])
         self.assertEqual(EmailEnvoi.objects.get().statut, EmailEnvoi.Statut.ECHEC)
 
@@ -69,11 +75,17 @@ class SendNotificationEmailLoggingTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
     def test_dedup_skip_is_logged_at_info(self):
-        self.assertTrue(send_with_dedup(self.student, "Sujet", "Corps", None, "threshold", "k1"))
+        self.assertTrue(
+            send_with_dedup(self.student, "Sujet", "Corps", None, "threshold", "k1")
+        )
         with self.assertLogs(LOGGER, level="INFO") as logs:
-            self.assertFalse(send_with_dedup(self.student, "Sujet", "Corps", None, "threshold", "k1"))
+            self.assertFalse(
+                send_with_dedup(self.student, "Sujet", "Corps", None, "threshold", "k1")
+            )
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("Dedup: skipping threshold email to etu@example.com", logs.output[0])
+        self.assertIn(
+            "Dedup: skipping threshold email to etu@example.com", logs.output[0]
+        )
         self.assertEqual(EmailEnvoi.objects.count(), 1)
 
 
@@ -92,7 +104,11 @@ class BackgroundSendingTests(TestCase):
 
         # Commit: the callback queues the delivery (run inline here).
         on_commit_callback = on_commit.call_args.args[0]
-        with patch.object(email_module, "_queue", side_effect=lambda args: email_module._deliver(*args)):
+        with patch.object(
+            email_module,
+            "_queue",
+            side_effect=lambda args: email_module._deliver(*args),
+        ):
             on_commit_callback()
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(EmailEnvoi.objects.get().statut, EmailEnvoi.Statut.ENVOYE)
@@ -119,7 +135,9 @@ class ThreadPoolDeliveryTests(TransactionTestCase):
             futures.append(future)
             return future
 
-        with self.settings(EMAIL_ASYNC=True), patch.object(executor, "submit", spy_submit):
+        with self.settings(EMAIL_ASYNC=True), patch.object(
+            executor, "submit", spy_submit
+        ):
             # Autocommit: on_commit runs immediately and queues the job.
             self.assertTrue(send_notification_email(student, "Sujet thread", "Corps"))
         self.assertEqual(len(futures), 1)
@@ -130,18 +148,23 @@ class ThreadPoolDeliveryTests(TransactionTestCase):
         self.assertEqual(envoi.sujet, "Sujet thread")
         self.assertEqual(envoi.destinataire, student)
 
+
 class EmailHistoryViewsTests(TestCase):
     def setUp(self):
         self.student = _make_user("etu@example.com")
         self.other = _make_user("autre@example.com")
         self.secretary = _make_user("sec@example.com", role=User.Role.SECRETAIRE)
         EmailEnvoi.objects.create(
-            destinataire=self.student, destinataire_email=self.student.email,
-            sujet="Absence enregistrée — JAVA", statut=EmailEnvoi.Statut.ENVOYE,
+            destinataire=self.student,
+            destinataire_email=self.student.email,
+            sujet="Absence enregistrée — JAVA",
+            statut=EmailEnvoi.Statut.ENVOYE,
         )
         EmailEnvoi.objects.create(
-            destinataire=self.other, destinataire_email=self.other.email,
-            sujet="Absence enregistrée — CCNA", statut=EmailEnvoi.Statut.ECHEC,
+            destinataire=self.other,
+            destinataire_email=self.other.email,
+            sujet="Absence enregistrée — CCNA",
+            statut=EmailEnvoi.Statut.ECHEC,
         )
 
     def test_student_sees_only_own_emails(self):
@@ -169,7 +192,9 @@ class EmailHistoryViewsTests(TestCase):
 
     def test_student_cannot_access_secretary_history(self):
         self.client.force_login(self.student)
-        response = self.client.get(reverse("dashboard:secretary_email_logs"), secure=True)
+        response = self.client.get(
+            reverse("dashboard:secretary_email_logs"), secure=True
+        )
         self.assertEqual(response.status_code, 302)
 
 
@@ -181,17 +206,27 @@ class PurgeEmailHistoryTests(TestCase):
         from django.utils import timezone
 
         old = EmailEnvoi.objects.create(
-            destinataire_email="a@example.com", sujet="Ancien", statut=EmailEnvoi.Statut.ENVOYE
+            destinataire_email="a@example.com",
+            sujet="Ancien",
+            statut=EmailEnvoi.Statut.ENVOYE,
         )
-        EmailEnvoi.objects.filter(pk=old.pk).update(date_envoi=timezone.now() - timedelta(days=366))
+        EmailEnvoi.objects.filter(pk=old.pk).update(
+            date_envoi=timezone.now() - timedelta(days=366)
+        )
         recent = EmailEnvoi.objects.create(
-            destinataire_email="b@example.com", sujet="Récent", statut=EmailEnvoi.Statut.ENVOYE
+            destinataire_email="b@example.com",
+            sujet="Récent",
+            statut=EmailEnvoi.Statut.ENVOYE,
         )
-        EmailEnvoi.objects.filter(pk=recent.pk).update(date_envoi=timezone.now() - timedelta(days=300))
+        EmailEnvoi.objects.filter(pk=recent.pk).update(
+            date_envoi=timezone.now() - timedelta(days=300)
+        )
 
         call_command("purge_email_history", stdout=StringIO())
 
-        self.assertEqual(list(EmailEnvoi.objects.values_list("sujet", flat=True)), ["Récent"])
+        self.assertEqual(
+            list(EmailEnvoi.objects.values_list("sujet", flat=True)), ["Récent"]
+        )
 
 
 class OldAuditUrlTests(TestCase):

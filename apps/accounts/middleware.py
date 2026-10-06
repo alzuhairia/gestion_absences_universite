@@ -68,7 +68,9 @@ class SessionInactivityMiddleware:
 
                 request.session["_last_activity"] = now
         except Exception:
-            logger.exception("SessionInactivityMiddleware error (session backend may be down)")
+            logger.exception(
+                "SessionInactivityMiddleware error (session backend may be down)"
+            )
 
         return self.get_response(request)
 

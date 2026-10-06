@@ -17,8 +17,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-
-from apps.utils import safe_get_page
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -30,6 +28,7 @@ from apps.audits.utils import log_action
 from apps.dashboard.decorators import admin_required
 from apps.dashboard.forms_admin import SystemSettingsForm
 from apps.dashboard.models import SystemSettings
+from apps.utils import safe_get_page
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +114,7 @@ def admin_audit_logs(request):
     if action_filter:
         logs = logs.filter(action__icontains=action_filter)
     from datetime import date as date_type
+
     if date_from:
         try:
             date_type.fromisoformat(date_from)
@@ -187,6 +187,7 @@ def admin_export_audit_csv(request):
     date_to = request.GET.get("date_to", "")
 
     from datetime import date as date_type
+
     if role_filter:
         logs = logs.filter(id_utilisateur__role=role_filter)
     if action_filter:
@@ -262,13 +263,16 @@ def admin_qr_scan_logs(request):
     date_to = request.GET.get("date_to", "")
     student_filter = request.GET.get("student", "")
 
-    logs = QRScanLog.objects.select_related("etudiant", "seance", "seance__id_cours").all()
+    logs = QRScanLog.objects.select_related(
+        "etudiant", "seance", "seance__id_cours"
+    ).all()
 
     if result_filter:
         logs = logs.filter(scan_result=result_filter)
     if gps_filter:
         logs = logs.filter(gps_status=gps_filter)
     from datetime import date as date_type
+
     if date_from:
         try:
             date_type.fromisoformat(date_from)

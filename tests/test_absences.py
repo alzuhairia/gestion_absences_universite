@@ -4,14 +4,13 @@ from datetime import date, time, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.utils import timezone
-
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models.deletion import ProtectedError
 from django.test import SimpleTestCase, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.absences.models import Absence, Justification
 from apps.absences.services import get_absences_queryset
@@ -142,9 +141,7 @@ class LockedSeanceTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 302)
         # No absence should have been created
-        self.assertEqual(
-            Absence.objects.filter(id_seance=seance).count(), 0
-        )
+        self.assertEqual(Absence.objects.filter(id_seance=seance).count(), 0)
 
     def test_absence_creation_allowed_for_unlocked_seance(self):
         """Normal case: unlocked seance allows absence creation."""
@@ -243,10 +240,14 @@ class JustificationStateTests(BaseAbsenceTestCase):
 
         self.client.force_login(self.secretary)
         url = reverse("absences:process_justification", args=[justification.pk])
-        response = self.client.post(url, {
-            "action": "reject",
-            "comment": "Document illisible",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "action": "reject",
+                "comment": "Document illisible",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
@@ -305,7 +306,9 @@ class JustificationStateTests(BaseAbsenceTestCase):
         # First secretary approves
         self.client.force_login(self.secretary)
         url = reverse("absences:process_justification", args=[justification.pk])
-        resp1 = self.client.post(url, {"action": "approve", "comment": "OK"}, secure=True)
+        resp1 = self.client.post(
+            url, {"action": "approve", "comment": "OK"}, secure=True
+        )
         self.assertEqual(resp1.status_code, 302)
 
         justification.refresh_from_db()
@@ -316,7 +319,9 @@ class JustificationStateTests(BaseAbsenceTestCase):
 
         # Second secretary tries to approve the same justification
         self.client.force_login(secretary2)
-        resp2 = self.client.post(url, {"action": "approve", "comment": "Moi aussi"}, secure=True)
+        resp2 = self.client.post(
+            url, {"action": "approve", "comment": "Moi aussi"}, secure=True
+        )
         self.assertEqual(resp2.status_code, 302)
 
         # State and metadata must remain from the first processing
@@ -378,7 +383,9 @@ class JustificationDownloadTests(BaseAbsenceTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(b"%PDF-1.4", b"".join(response.streaming_content))  # pyright: ignore[reportAttributeAccessIssue]  (FileResponse)
+        self.assertIn(
+            b"%PDF-1.4", b"".join(response.streaming_content)
+        )  # pyright: ignore[reportAttributeAccessIssue]  (FileResponse)
 
     def test_download_returns_404_when_file_is_missing(self):
         absence = self._create_absence()
@@ -538,7 +545,10 @@ class UploadSizeGuardTests(TestCase):
         Size check must happen BEFORE read(). A file-like whose read()
         would raise proves the size guard fires first.
         """
-        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+        from apps.absences.utils_upload import (
+            UploadValidationError,
+            validate_uploaded_file,
+        )
 
         class OversizedFile:
             name = "big.pdf"
@@ -557,7 +567,10 @@ class UploadSizeGuardTests(TestCase):
 
     def test_read_io_error_handled_gracefully(self):
         """IOError during read() raises UploadValidationError, not 500."""
-        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+        from apps.absences.utils_upload import (
+            UploadValidationError,
+            validate_uploaded_file,
+        )
 
         class BadReadFile:
             name = "doc.pdf"
@@ -576,7 +589,10 @@ class UploadSizeGuardTests(TestCase):
 
     def test_missing_size_attribute_handled(self):
         """File object without .size attribute raises UploadValidationError."""
-        from apps.absences.utils_upload import UploadValidationError, validate_uploaded_file
+        from apps.absences.utils_upload import (
+            UploadValidationError,
+            validate_uploaded_file,
+        )
 
         class FakeFile:
             name = "doc.pdf"
@@ -681,12 +697,16 @@ class EditAbsenceTests(BaseAbsenceTestCase):
         self.client.force_login(self.secretary)
 
         url = reverse("absences:edit_absence", args=[absence.pk])
-        response = self.client.post(url, {
-            "type_absence": "PARTIEL",
-            "statut": "NON_JUSTIFIEE",
-            "duree_absence": "1.0",
-            "reason": "correction",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "type_absence": "PARTIEL",
+                "statut": "NON_JUSTIFIEE",
+                "duree_absence": "1.0",
+                "reason": "correction",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
@@ -715,12 +735,16 @@ class EditAbsenceTests(BaseAbsenceTestCase):
         absence.save(update_fields=["statut"])
 
         # Secretary submits the form (POST must be rejected)
-        response = self.client.post(url, {
-            "type_absence": "PARTIEL",
-            "statut": "NON_JUSTIFIEE",
-            "duree_absence": "1.0",
-            "reason": "correction tardive",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "type_absence": "PARTIEL",
+                "statut": "NON_JUSTIFIEE",
+                "duree_absence": "1.0",
+                "reason": "correction tardive",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 302)
         absence.refresh_from_db()
@@ -765,9 +789,7 @@ class ConcurrentAbsenceCreationTests(BaseAbsenceTestCase):
         def raise_on_create(self_qs, **kwargs):
             raise IntegrityError("duplicate key violates unique constraint")
 
-        with patch.object(
-            type(Absence.objects), "update_or_create", raise_on_create
-        ):
+        with patch.object(type(Absence.objects), "update_or_create", raise_on_create):
             response2 = self.client.post(url, data, secure=True)
 
         # Should redirect (not crash), and still only one absence in DB
@@ -892,8 +914,9 @@ class CourseDeletionTests(BaseAbsenceTestCase):
             "Cannot delete some instances of model 'Cours'.",
             {self.inscription1},
         )
-        with patch.object(Cours, "delete", side_effect=protected_err), \
-             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+        with patch.object(Cours, "delete", side_effect=protected_err), patch(
+            "apps.dashboard.views_secretary.messages"
+        ) as mock_messages:
             response = self.client.post(url, secure=True)
 
         # View returns a redirect, not a 500
@@ -920,8 +943,9 @@ class CourseDeletionTests(BaseAbsenceTestCase):
         self.client.force_login(self.secretary)
         url = reverse("dashboard:secretary_course_delete", args=[course_pk])
 
-        with patch.object(Cours, "delete", side_effect=RuntimeError("DB connection lost")), \
-             patch("apps.dashboard.views_secretary.messages") as mock_messages:
+        with patch.object(
+            Cours, "delete", side_effect=RuntimeError("DB connection lost")
+        ), patch("apps.dashboard.views_secretary.messages") as mock_messages:
             response = self.client.post(url, secure=True)
 
         # View returns a redirect, not a 500
@@ -947,9 +971,7 @@ class PaginationFallbackTests(BaseAbsenceTestCase):
         """page=999, page=abc, page=-1 all return page 1 content (200)."""
         for bad_page in ("999", "abc", "-1", "0", ""):
             with self.subTest(page=bad_page):
-                response = self.client.get(
-                    self.url, {"page": bad_page}, secure=True
-                )
+                response = self.client.get(self.url, {"page": bad_page}, secure=True)
                 self.assertEqual(response.status_code, 200)
                 page_obj = response.context["courses"]
                 self.assertEqual(page_obj.number, 1)
@@ -1060,7 +1082,10 @@ class InvalidDurationTests(BaseAbsenceTestCase):
         response = self._mark_partial(
             "inf",
             url_name="absences:mark_absence_htmx",
-            extra={"inscription_id": self.inscription1.id_inscription, "status": "ABSENT"},
+            extra={
+                "inscription_id": self.inscription1.id_inscription,
+                "status": "ABSENT",
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Absence.objects.get().duree_absence, Decimal("2.00"))
@@ -1083,12 +1108,16 @@ class InvalidDurationTests(BaseAbsenceTestCase):
         )
         self.client.force_login(self.secretary)
         url = reverse("absences:edit_absence", args=[absence.pk])
-        response = self.client.post(url, {
-            "type_absence": "PARTIEL",
-            "statut": "NON_JUSTIFIEE",
-            "duree_absence": "nan",
-            "reason": "correction",
-        }, secure=True)
+        response = self.client.post(
+            url,
+            {
+                "type_absence": "PARTIEL",
+                "statut": "NON_JUSTIFIEE",
+                "duree_absence": "nan",
+                "reason": "correction",
+            },
+            secure=True,
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Durée invalide")

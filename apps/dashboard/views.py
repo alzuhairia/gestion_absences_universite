@@ -16,10 +16,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Q, Sum
-from django.utils import timezone
-
-from apps.utils import safe_get_page
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence, Justification
@@ -30,7 +28,7 @@ from apps.accounts.models import User
 from apps.dashboard import views_professor, views_student
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
-
+from apps.utils import safe_get_page
 
 # ---------------------------------------------------------------------------
 # Redirection par role
@@ -104,8 +102,12 @@ def secretary_dashboard(request):
     absence_base_qs = Absence.objects.all()
     if academic_year:
         absence_base_qs = absence_base_qs.filter(id_inscription__id_annee=academic_year)
-    global_unjustified_count = absence_base_qs.filter(statut=Absence.Statut.NON_JUSTIFIEE).count()
-    global_pending_count = absence_base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count()
+    global_unjustified_count = absence_base_qs.filter(
+        statut=Absence.Statut.NON_JUSTIFIEE
+    ).count()
+    global_pending_count = absence_base_qs.filter(
+        statut=Absence.Statut.EN_ATTENTE
+    ).count()
 
     # 2. Global "At Risk" Calculation — filtré par année active
     all_inscriptions_qs = Inscription.objects.filter(
@@ -138,7 +140,9 @@ def secretary_dashboard(request):
 
             # CORRECTION BUG CRITIQUE #4d — seuil configuré par cours
             seuil = cours.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil_effectif:
                 at_risk_list.append(
                     {
@@ -214,7 +218,9 @@ def secretary_enrollments(request):
             "id_cours__id_departement__id_faculte",
         )
     else:
-        inscriptions = Inscription.objects.filter(status=Inscription.Status.EN_COURS).select_related(
+        inscriptions = Inscription.objects.filter(
+            status=Inscription.Status.EN_COURS
+        ).select_related(
             "id_etudiant",
             "id_cours",
             "id_cours__id_departement",
@@ -329,7 +335,9 @@ def secretary_seuils_absence(request):
                 if cours.seuil_absence is not None
                 else system_threshold
             )
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil:
                 is_blocked = rate >= seuil_effectif
                 is_under_exemption = ins.exemption_40 and not is_blocked
@@ -413,7 +421,9 @@ def secretary_exports(request):
             rate = (total_abs / cours.nombre_total_periodes) * 100
             # CORRECTION BUG CRITIQUE #4f — seuil configuré par cours
             seuil = ins.id_cours.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil_effectif:
                 at_risk_count += 1
 

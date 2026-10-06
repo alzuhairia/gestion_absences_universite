@@ -26,11 +26,11 @@ from apps.absences.anomaly import (
     score_flags,
 )
 from apps.absences.models import QRAttendanceToken, QRScanLog, QRScanRecord
+from apps.academic_sessions.models import AnneeAcademique, Seance
+from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.devices import DEVICE_COOKIE_NAME, hash_device_id, sign_device_id
 from apps.accounts.models import StudentDevice, User
 from apps.audits.models import LogAudit
-from apps.academic_sessions.models import AnneeAcademique, Seance
-from apps.academics.models import Cours, Departement, Faculte
 from apps.dashboard.models import SystemSettings
 from apps.enrollments.models import Inscription
 
@@ -46,36 +46,58 @@ _LOCAL_CACHE = {
 class BaseAnomalyTestCase(TestCase):
     def setUp(self):
         self.faculte = Faculte.objects.create(nom_faculte="Fac An")
-        self.departement = Departement.objects.create(nom_departement="Dept An", id_faculte=self.faculte)
+        self.departement = Departement.objects.create(
+            nom_departement="Dept An", id_faculte=self.faculte
+        )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof_an@example.com", nom="Prof", prenom="An",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof_an@example.com",
+            nom="Prof",
+            prenom="An",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu_an@example.com", nom="Stud", prenom="An",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu_an@example.com",
+            nom="Stud",
+            prenom="An",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.student2 = User.objects.create_user(
-            email="stu2_an@example.com", nom="Stud2", prenom="An",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu2_an@example.com",
+            nom="Stud2",
+            prenom="An",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.course = Cours.objects.create(
-            code_cours="AN101", nom_cours="Anomaly Course",
-            id_departement=self.departement, professeur=self.prof,
-            nombre_total_periodes=100, niveau=1, id_annee=self.annee,
+            code_cours="AN101",
+            nom_cours="Anomaly Course",
+            id_departement=self.departement,
+            professeur=self.prof,
+            nombre_total_periodes=100,
+            niveau=1,
+            id_annee=self.annee,
         )
         self.seance = Seance.objects.create(
-            id_cours=self.course, date_seance=date.today(),
-            heure_debut=time(8, 0), heure_fin=time(10, 0), id_annee=self.annee,
+            id_cours=self.course,
+            date_seance=date.today(),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_annee=self.annee,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course,
-            id_annee=self.annee, status=Inscription.Status.EN_COURS,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.annee,
+            status=Inscription.Status.EN_COURS,
         )
         self.inscription2 = Inscription.objects.create(
-            id_etudiant=self.student2, id_cours=self.course,
-            id_annee=self.annee, status=Inscription.Status.EN_COURS,
+            id_etudiant=self.student2,
+            id_cours=self.course,
+            id_annee=self.annee,
+            status=Inscription.Status.EN_COURS,
         )
         s = SystemSettings.get_settings()
         s.gps_latitude = 36.75250
@@ -92,15 +114,20 @@ class BaseAnomalyTestCase(TestCase):
 
     def _token(self, verify_location=False):
         return QRAttendanceToken.objects.create(
-            seance=self.seance, created_by=self.prof,
+            seance=self.seance,
+            created_by=self.prof,
             expires_at=timezone.now() + timedelta(seconds=60),
             verify_location=verify_location,
         )
 
     def _device(self, user, secret, status=StudentDevice.Status.APPROVED):
         return StudentDevice.objects.create(
-            user=user, device_id_hash=hash_device_id(secret), status=status,
-            approved_at=timezone.now() if status == StudentDevice.Status.APPROVED else None,
+            user=user,
+            device_id_hash=hash_device_id(secret),
+            status=status,
+            approved_at=(
+                timezone.now() if status == StudentDevice.Status.APPROVED else None
+            ),
         )
 
     def _cookie(self, secret):
@@ -117,12 +144,20 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
     def test_clean_scan_no_flags(self):
         dev = self._device(self.student, "phone-A")
         # Make device "old" so recently_approved does not fire.
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", latitude=None, longitude=None,
-            accuracy=None, settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            latitude=None,
+            longitude=None,
+            accuracy=None,
+            settings_obj=self.sys_settings,
         )
         self.assertEqual(flags, [])
         self.assertEqual(score, 0)
@@ -130,66 +165,103 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
     def test_multi_account_device_flag(self):
         d1 = self._device(self.student, "shared")
         d2 = self._device(self.student2, "shared")
-        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         d1.refresh_from_db()
         score, flags = evaluate_scan_risk(
-            user=self.student, device=d1, device_id_hash=d1.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=d1,
+            device_id_hash=d1.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, flags)
         self.assertGreaterEqual(score, 50)
 
     def test_new_ip_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
-            scan_result=QRScanLog.ScanResult.VALIDATED, ip_address="9.9.9.9",
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+            ip_address="9.9.9.9",
         )
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_NEW_IP, flags)
 
     def test_geo_velocity_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         # Prior scan in Paris, 1 minute ago.
         log = QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.ACCEPTED,
             scan_result=QRScanLog.ScanResult.VALIDATED,
-            ip_address="1.2.3.4", latitude=48.8566, longitude=2.3522,
+            ip_address="1.2.3.4",
+            latitude=48.8566,
+            longitude=2.3522,
         )
-        QRScanLog.objects.filter(pk=log.pk).update(timestamp=timezone.now() - timedelta(minutes=1))
+        QRScanLog.objects.filter(pk=log.pk).update(
+            timestamp=timezone.now() - timedelta(minutes=1)
+        )
         dev.refresh_from_db()
         # New scan in Algiers → ~1500 km in 1 min → impossible.
         score, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", latitude=36.7525, longitude=3.0420,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            latitude=36.7525,
+            longitude=3.0420,
             settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_GEO_VELOCITY, flags)
 
     def test_low_gps_accuracy_flag(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         dev.refresh_from_db()
         score, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", latitude=36.7525, longitude=3.0420,
-            accuracy=5000, settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            latitude=36.7525,
+            longitude=3.0420,
+            accuracy=5000,
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_LOW_GPS_ACCURACY, flags)
 
     def test_recently_approved_flag(self):
         dev = self._device(self.student, "phone-A")  # approved just now
         score, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_RECENTLY_APPROVED, flags)
         self.assertGreaterEqual(score, SUSPICIOUS_THRESHOLD)  # suspicious on its own
@@ -197,21 +269,31 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
     def test_pre_enrolled_device_approved_today_is_flagged(self):
         """Enrolled days ago (PENDING), approved just now → still flagged."""
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(created_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            created_at=timezone.now() - timedelta(days=5)
+        )
         dev.refresh_from_db()
         _, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )
         self.assertIn(FLAG_RECENTLY_APPROVED, flags)
 
     def test_device_approved_long_ago_not_flagged(self):
         dev = self._device(self.student, "phone-A")
-        StudentDevice.objects.filter(pk=dev.pk).update(approved_at=timezone.now() - timedelta(hours=25))
+        StudentDevice.objects.filter(pk=dev.pk).update(
+            approved_at=timezone.now() - timedelta(hours=25)
+        )
         dev.refresh_from_db()
         _, flags = evaluate_scan_risk(
-            user=self.student, device=dev, device_id_hash=dev.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=dev,
+            device_id_hash=dev.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )
         self.assertNotIn(FLAG_RECENTLY_APPROVED, flags)
         self.assertNotIn(FLAG_NEW_DEVICE, flags)  # legacy flag is no longer emitted
@@ -220,8 +302,11 @@ class EvaluateScanRiskUnitTest(BaseAnomalyTestCase):
 class MultiAccountWindowTest(BaseAnomalyTestCase):
     def _flags(self, device):
         return evaluate_scan_risk(
-            user=self.student, device=device, device_id_hash=device.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=device,
+            device_id_hash=device.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )[1]
 
     def _mine(self):
@@ -241,7 +326,8 @@ class MultiAccountWindowTest(BaseAnomalyTestCase):
         mine = self._mine()
         other = self._device(self.student2, "shared")
         StudentDevice.objects.filter(pk=other.pk).update(
-            last_seen_at=timezone.now() - timedelta(days=60))
+            last_seen_at=timezone.now() - timedelta(days=60)
+        )
         self.assertNotIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
 
     def test_other_account_never_approved_not_flagged(self):
@@ -253,7 +339,9 @@ class MultiAccountWindowTest(BaseAnomalyTestCase):
     def test_other_account_approved_then_revoked_still_counts(self):
         mine = self._mine()
         other = self._device(self.student2, "shared")
-        StudentDevice.objects.filter(pk=other.pk).update(status=StudentDevice.Status.REVOKED)
+        StudentDevice.objects.filter(pk=other.pk).update(
+            status=StudentDevice.Status.REVOKED
+        )
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, self._flags(mine))
 
 
@@ -283,14 +371,22 @@ class DesktopScanTest(BaseAnomalyTestCase):
         self.client.login(email="stu_an@example.com", password="pass1234")
         self._cookie("pc")
         resp = self.client.post(
-            self._scan_url(token), {"gps_status": "not_required"},
-            secure=True, HTTP_USER_AGENT=self.UA["windows"],
+            self._scan_url(token),
+            {"gps_status": "not_required"},
+            secure=True,
+            HTTP_USER_AGENT=self.UA["windows"],
         )
         self.assertContains(resp, "succ")  # never blocks
-        log = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
+        log = QRScanLog.objects.get(
+            etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
         self.assertEqual(log.anomaly_flags, [FLAG_DESKTOP_SCAN])
         self.assertLess(log.risk_score, SUSPICIOUS_THRESHOLD)
-        self.assertFalse(QRScanRecord.objects.get(seance=self.seance, inscription=self.inscription).is_suspicious)
+        self.assertFalse(
+            QRScanRecord.objects.get(
+                seance=self.seance, inscription=self.inscription
+            ).is_suspicious
+        )
 
 
 class GPSTooPerfectTest(BaseAnomalyTestCase):
@@ -300,21 +396,32 @@ class GPSTooPerfectTest(BaseAnomalyTestCase):
         super().setUp()
         self.dev = self._device(self.student, "phone")
         old = timezone.now() - timedelta(days=5)
-        StudentDevice.objects.filter(pk=self.dev.pk).update(created_at=old, approved_at=old)
+        StudentDevice.objects.filter(pk=self.dev.pk).update(
+            created_at=old, approved_at=old
+        )
         self.dev.refresh_from_db()
 
     def _flags(self, lat, lng, accuracy):
         return evaluate_scan_risk(
-            user=self.student, device=self.dev, device_id_hash=self.dev.device_id_hash,
-            ip_address="1.2.3.4", latitude=lat, longitude=lng, accuracy=accuracy,
-            settings_obj=self.sys_settings, reference_points=[self.REF, (None, None)],
+            user=self.student,
+            device=self.dev,
+            device_id_hash=self.dev.device_id_hash,
+            ip_address="1.2.3.4",
+            latitude=lat,
+            longitude=lng,
+            accuracy=accuracy,
+            settings_obj=self.sys_settings,
+            reference_points=[self.REF, (None, None)],
         )[1]
 
     def _prior_scan(self, lat, lng, user=None):
         QRScanLog.objects.create(
-            etudiant=user or self.student2, seance=self.seance,
+            etudiant=user or self.student2,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.ACCEPTED,
-            scan_result=QRScanLog.ScanResult.VALIDATED, latitude=lat, longitude=lng,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
+            latitude=lat,
+            longitude=lng,
         )
 
     def test_realistic_fix_not_flagged(self):
@@ -347,11 +454,20 @@ class GPSTooPerfectTest(BaseAnomalyTestCase):
         token = self._token(verify_location=True)
         self.client.login(email="stu_an@example.com", password="pass1234")
         self._cookie("phone")
-        resp = self.client.post(self._scan_url(token), {
-            "gps_status": "ok", "latitude": "36.7525", "longitude": "3.0420", "accuracy": "20",
-        }, secure=True)
+        resp = self.client.post(
+            self._scan_url(token),
+            {
+                "gps_status": "ok",
+                "latitude": "36.7525",
+                "longitude": "3.0420",
+                "accuracy": "20",
+            },
+            secure=True,
+        )
         self.assertContains(resp, "succ")  # never blocks
-        log = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
+        log = QRScanLog.objects.get(
+            etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
         self.assertIn(FLAG_GPS_TOO_PERFECT, log.anomaly_flags)
 
 
@@ -365,14 +481,19 @@ class DeviceChurnTest(BaseAnomalyTestCase):
 
     def _flags(self, device):
         return evaluate_scan_risk(
-            user=self.student, device=device, device_id_hash=device.device_id_hash,
-            ip_address="1.2.3.4", settings_obj=self.sys_settings,
+            user=self.student,
+            device=device,
+            device_id_hash=device.device_id_hash,
+            ip_address="1.2.3.4",
+            settings_obj=self.sys_settings,
         )[1]
 
     def test_three_approvals_in_30_days_flagged(self):
         # Revoked devices keep their approved_at: they count.
         revoked = self._approved("old-1", 20)
-        StudentDevice.objects.filter(pk=revoked.pk).update(status=StudentDevice.Status.REVOKED)
+        StudentDevice.objects.filter(pk=revoked.pk).update(
+            status=StudentDevice.Status.REVOKED
+        )
         self._approved("old-2", 10)
         current = self._approved("cur", 2)
         self.assertIn(FLAG_DEVICE_CHURN, self._flags(current))
@@ -390,7 +511,9 @@ class DeviceChurnTest(BaseAnomalyTestCase):
 
     def test_pending_devices_from_cleared_cookies_ignored(self):
         for i in range(5):
-            self._device(self.student, f"pending-{i}", status=StudentDevice.Status.PENDING)
+            self._device(
+                self.student, f"pending-{i}", status=StudentDevice.Status.PENDING
+            )
         current = self._approved("cur", 2)
         self.assertNotIn(FLAG_DEVICE_CHURN, self._flags(current))
 
@@ -404,9 +527,13 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         token = self._token(verify_location=False)
         self.client.login(email="stu_an@example.com", password="pass1234")
         self._cookie("phone-A")
-        resp = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        resp = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(resp, "succ")
-        log = QRScanLog.objects.get(seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED)
+        log = QRScanLog.objects.get(
+            seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
         self.assertEqual(log.device_id_hash, hash_device_id("phone-A"))
         self.assertTrue(log.device_recognized)
 
@@ -414,26 +541,42 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         # Same physical device (same secret) approved for two students.
         d1 = self._device(self.student, "shared-phone")
         d2 = self._device(self.student2, "shared-phone")
-        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=timezone.now() - timedelta(days=5), approved_at=timezone.now() - timedelta(days=5))
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(
+            created_at=timezone.now() - timedelta(days=5),
+            approved_at=timezone.now() - timedelta(days=5),
+        )
         token = self._token(verify_location=False)
 
         # Student A scans → present.
         self.client.login(email="stu_an@example.com", password="pass1234")
         self._cookie("shared-phone")
-        r1 = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        r1 = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(r1, "succ")
-        self.assertTrue(QRScanRecord.objects.filter(seance=self.seance, inscription=self.inscription).exists())
+        self.assertTrue(
+            QRScanRecord.objects.filter(
+                seance=self.seance, inscription=self.inscription
+            ).exists()
+        )
 
         # Student B scans on the SAME device → present (NOT blocked) + flagged.
         self.client.logout()
         self.client.login(email="stu2_an@example.com", password="pass1234")
         self._cookie("shared-phone")
-        r2 = self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        r2 = self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
         self.assertContains(r2, "succ")  # présence acceptée malgré l'anomalie
-        self.assertTrue(QRScanRecord.objects.filter(seance=self.seance, inscription=self.inscription2).exists())
+        self.assertTrue(
+            QRScanRecord.objects.filter(
+                seance=self.seance, inscription=self.inscription2
+            ).exists()
+        )
 
         log_b = QRScanLog.objects.get(
-            etudiant=self.student2, seance=self.seance,
+            etudiant=self.student2,
+            seance=self.seance,
             scan_result=QRScanLog.ScanResult.VALIDATED,
         )
         self.assertIn(FLAG_MULTI_ACCOUNT_DEVICE, log_b.anomaly_flags)
@@ -442,24 +585,34 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
     def _scan_as(self, email, secret, token):
         self.client.login(email=email, password="pass1234")
         self._cookie(secret)
-        return self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
+        return self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
 
     def _aged_shared_device(self):
         d1 = self._device(self.student, "shared-phone")
         d2 = self._device(self.student2, "shared-phone")
         old = timezone.now() - timedelta(days=5)
-        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(created_at=old, approved_at=old)
+        StudentDevice.objects.filter(pk__in=[d1.pk, d2.pk]).update(
+            created_at=old, approved_at=old
+        )
 
     def test_same_device_same_seance_flags_both_scans(self):
         self._aged_shared_device()
         token = self._token(verify_location=False)
         self._scan_as("stu_an@example.com", "shared-phone", token)
-        log_a = QRScanLog.objects.get(etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED)
-        self.assertNotIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_a.anomaly_flags)  # nothing known yet
+        log_a = QRScanLog.objects.get(
+            etudiant=self.student, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
+        self.assertNotIn(
+            FLAG_SAME_DEVICE_SAME_SEANCE, log_a.anomaly_flags
+        )  # nothing known yet
 
         r2 = self._scan_as("stu2_an@example.com", "shared-phone", token)
         self.assertContains(r2, "succ")  # never blocks
-        log_b = QRScanLog.objects.get(etudiant=self.student2, scan_result=QRScanLog.ScanResult.VALIDATED)
+        log_b = QRScanLog.objects.get(
+            etudiant=self.student2, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
         self.assertIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_b.anomaly_flags)
 
         # The FIRST scan is flagged retroactively, score and record included.
@@ -467,17 +620,27 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         self.assertIn(FLAG_SAME_DEVICE_SAME_SEANCE, log_a.anomaly_flags)
         self.assertEqual(log_a.risk_score, score_flags(log_a.anomaly_flags))
         for ins in (self.inscription, self.inscription2):
-            self.assertTrue(QRScanRecord.objects.get(seance=self.seance, inscription=ins).is_suspicious)
+            self.assertTrue(
+                QRScanRecord.objects.get(
+                    seance=self.seance, inscription=ins
+                ).is_suspicious
+            )
 
     def test_same_device_other_seance_not_flagged(self):
         self._aged_shared_device()
         other_seance = Seance.objects.create(
-            id_cours=self.course, date_seance=date.today() - timedelta(days=7),
-            heure_debut=time(8, 0), heure_fin=time(10, 0), id_annee=self.annee,
+            id_cours=self.course,
+            date_seance=date.today() - timedelta(days=7),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_annee=self.annee,
         )
         QRScanLog.objects.create(
-            etudiant=self.student, seance=other_seance, device_id_hash=hash_device_id("shared-phone"),
-            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED, scan_result=QRScanLog.ScanResult.VALIDATED,
+            etudiant=self.student,
+            seance=other_seance,
+            device_id_hash=hash_device_id("shared-phone"),
+            gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
         )
         token = self._token(verify_location=False)
         self._scan_as("stu2_an@example.com", "shared-phone", token)
@@ -489,7 +652,9 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         for user, secret in ((self.student, "chrome"), (self.student2, "firefox")):
             d = self._device(user, secret)
             old = timezone.now() - timedelta(days=5)
-            StudentDevice.objects.filter(pk=d.pk).update(created_at=old, approved_at=old)
+            StudentDevice.objects.filter(pk=d.pk).update(
+                created_at=old, approved_at=old
+            )
         token = self._token(verify_location=False)
         self._scan_as("stu_an@example.com", "chrome", token)
         self._scan_as("stu2_an@example.com", "firefox", token)
@@ -505,8 +670,12 @@ class AnomalyIntegrationTest(BaseAnomalyTestCase):
         token = self._token(verify_location=False)
         self.client.login(email="stu_an@example.com", password="pass1234")
         self._cookie("shared-phone")
-        self.client.post(self._scan_url(token), {"gps_status": "not_required"}, secure=True)
-        log = QRScanLog.objects.get(seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED)
+        self.client.post(
+            self._scan_url(token), {"gps_status": "not_required"}, secure=True
+        )
+        log = QRScanLog.objects.get(
+            seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED
+        )
         self.assertEqual(log.anomaly_flags, [])
         self.assertEqual(log.risk_score, 0)
 
@@ -518,17 +687,23 @@ class SecretariatReviewTest(BaseAnomalyTestCase):
     def setUp(self):
         super().setUp()
         self.secretary = User.objects.create_user(
-            email="sec_an@example.com", nom="Sec", prenom="An",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec_an@example.com",
+            nom="Sec",
+            prenom="An",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
 
     def _make_flagged_log(self):
         return QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
             scan_result=QRScanLog.ScanResult.VALIDATED,
-            ip_address="1.2.3.4", device_id_hash="abc123",
-            risk_score=50, anomaly_flags=[FLAG_MULTI_ACCOUNT_DEVICE],
+            ip_address="1.2.3.4",
+            device_id_hash="abc123",
+            risk_score=50,
+            anomaly_flags=[FLAG_MULTI_ACCOUNT_DEVICE],
         )
 
     def test_review_requires_staff(self):
@@ -547,13 +722,18 @@ class SecretariatReviewTest(BaseAnomalyTestCase):
         self._make_flagged_log()
         # A non-multi flagged log
         QRScanLog.objects.create(
-            etudiant=self.student2, seance=self.seance,
+            etudiant=self.student2,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
             scan_result=QRScanLog.ScanResult.VALIDATED,
-            ip_address="5.5.5.5", risk_score=15, anomaly_flags=[FLAG_NEW_IP],
+            ip_address="5.5.5.5",
+            risk_score=15,
+            anomaly_flags=[FLAG_NEW_IP],
         )
         self.client.login(email="sec_an@example.com", password="pass1234")
-        resp = self.client.get(reverse("absences:qr_anomaly_review") + "?multi=1", secure=True)
+        resp = self.client.get(
+            reverse("absences:qr_anomaly_review") + "?multi=1", secure=True
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Même appareil")
         self.assertNotContains(resp, "Nouvelle adresse IP")
@@ -565,28 +745,38 @@ class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
     def setUp(self):
         super().setUp()
         self.secretary = User.objects.create_user(
-            email="sec_wf@example.com", nom="Sec", prenom="Wf",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec_wf@example.com",
+            nom="Sec",
+            prenom="Wf",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
         self.record = QRScanRecord.objects.create(
-            seance=self.seance, student=self.student, inscription=self.inscription,
+            seance=self.seance,
+            student=self.student,
+            inscription=self.inscription,
             is_suspicious=True,
         )
         self.log = QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
             scan_result=QRScanLog.ScanResult.VALIDATED,
-            risk_score=30, anomaly_flags=[FLAG_RECENTLY_APPROVED],
+            risk_score=30,
+            anomaly_flags=[FLAG_RECENTLY_APPROVED],
         )
 
     def _decide(self, decision, note="", **extra):
         return self.client.post(
             reverse("absences:qr_anomaly_decide", kwargs={"log_id": self.log.pk}),
-            {"decision": decision, "note": note, **extra}, secure=True,
+            {"decision": decision, "note": note, **extra},
+            secure=True,
         )
 
     def _review_page(self, query=""):
-        return self.client.get(reverse("absences:qr_anomaly_review") + query, secure=True)
+        return self.client.get(
+            reverse("absences:qr_anomaly_review") + query, secure=True
+        )
 
     def test_new_flagged_scan_is_to_review_and_listed_by_default(self):
         self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
@@ -601,7 +791,9 @@ class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
         self.assertEqual(self.log.reviewed_by, self.secretary)
         self.assertIsNotNone(self.log.reviewed_at)
         self.assertEqual(self.log.review_note, "Absent au contrôle visuel")
-        audit = LogAudit.objects.filter(action__contains=f"Revue anomalie QR #{self.log.pk}").get()
+        audit = LogAudit.objects.filter(
+            action__contains=f"Revue anomalie QR #{self.log.pk}"
+        ).get()
         self.assertEqual(audit.niveau, "WARNING")
         self.assertIn("Absent au contrôle visuel", audit.action)
 
@@ -614,8 +806,13 @@ class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
         self.client.login(email="sec_wf@example.com", password="pass1234")
         self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE)
         self.assertNotContains(self._review_page(), "Appareil approuvé très récemment")
-        self.assertContains(self._review_page("?status=false_positive"), "Appareil approuvé très récemment")
-        self.assertContains(self._review_page("?status=all"), "Appareil approuvé très récemment")
+        self.assertContains(
+            self._review_page("?status=false_positive"),
+            "Appareil approuvé très récemment",
+        )
+        self.assertContains(
+            self._review_page("?status=all"), "Appareil approuvé très récemment"
+        )
 
     def test_reopen_clears_reviewer(self):
         self.client.login(email="sec_wf@example.com", password="pass1234")
@@ -634,7 +831,9 @@ class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
 
     def test_redirect_keeps_filters(self):
         self.client.login(email="sec_wf@example.com", password="pass1234")
-        resp = self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE, status="all", multi="1")
+        resp = self._decide(
+            QRScanLog.ReviewStatus.FALSE_POSITIVE, status="all", multi="1"
+        )
         self.assertEqual(resp.status_code, 302)
         self.assertIn("status=all", resp["Location"])
         self.assertIn("multi=1", resp["Location"])
@@ -650,17 +849,21 @@ class AnomalyReviewWorkflowTest(BaseAnomalyTestCase):
             self.client.login(email=email, password="pass1234")
             self._decide(QRScanLog.ReviewStatus.FALSE_POSITIVE)
             self.log.refresh_from_db()
-            self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW, email)
+            self.assertEqual(
+                self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW, email
+            )
 
     def test_rejected_scans_cannot_be_decided(self):
         rejected = QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
             scan_result=QRScanLog.ScanResult.REJECTED_DEVICE,
         )
         self.client.login(email="sec_wf@example.com", password="pass1234")
         resp = self.client.post(
             reverse("absences:qr_anomaly_decide", kwargs={"log_id": rejected.pk}),
-            {"decision": QRScanLog.ReviewStatus.CONFIRMED}, secure=True,
+            {"decision": QRScanLog.ReviewStatus.CONFIRMED},
+            secure=True,
         )
         self.assertEqual(resp.status_code, 404)

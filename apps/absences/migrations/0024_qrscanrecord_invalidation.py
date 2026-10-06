@@ -8,29 +8,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0023_qrscanlog_review'),
+        ("absences", "0023_qrscanlog_review"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='qrscanrecord',
-            name='invalidated',
+            model_name="qrscanrecord",
+            name="invalidated",
             field=models.BooleanField(db_index=True, default=False),
         ),
         migrations.AddField(
-            model_name='qrscanrecord',
-            name='invalidated_at',
+            model_name="qrscanrecord",
+            name="invalidated_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='qrscanrecord',
-            name='invalidated_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='qr_scans_invalidated', to=settings.AUTH_USER_MODEL),
+            model_name="qrscanrecord",
+            name="invalidated_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="qr_scans_invalidated",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='qrscanrecord',
-            name='invalidation_reason',
-            field=models.TextField(blank=True, default=''),
+            model_name="qrscanrecord",
+            name="invalidation_reason",
+            field=models.TextField(blank=True, default=""),
         ),
     ]

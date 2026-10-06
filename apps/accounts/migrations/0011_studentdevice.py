@@ -9,34 +9,112 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0010_twofactorbackupcode'),
+        ("accounts", "0010_twofactorbackupcode"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='StudentDevice',
+            name="StudentDevice",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('device_id_hash', models.CharField(db_index=True, max_length=64, verbose_name="Empreinte de l'appareil (hash)")),
-                ('label', models.CharField(blank=True, default='', max_length=100, verbose_name="Nom de l'appareil")),
-                ('status', models.CharField(choices=[('PENDING', 'En attente de vérification'), ('APPROVED', 'Approuvé'), ('REVOKED', 'Révoqué')], db_index=True, default='PENDING', max_length=10, verbose_name='Statut')),
-                ('user_agent', models.TextField(blank=True, default='', verbose_name='User-Agent')),
-                ('ip_address', models.GenericIPAddressField(blank=True, null=True, verbose_name='Adresse IP')),
-                ('otp_hash', models.CharField(blank=True, default='', max_length=255)),
-                ('otp_expires_at', models.DateTimeField(blank=True, null=True)),
-                ('otp_attempts', models.PositiveSmallIntegerField(default=0)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now, verbose_name='Créé le')),
-                ('last_seen_at', models.DateTimeField(default=django.utils.timezone.now, verbose_name='Vu le')),
-                ('approved_at', models.DateTimeField(blank=True, null=True, verbose_name='Approuvé le')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='devices', to=settings.AUTH_USER_MODEL, verbose_name='Utilisateur')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "device_id_hash",
+                    models.CharField(
+                        db_index=True,
+                        max_length=64,
+                        verbose_name="Empreinte de l'appareil (hash)",
+                    ),
+                ),
+                (
+                    "label",
+                    models.CharField(
+                        blank=True,
+                        default="",
+                        max_length=100,
+                        verbose_name="Nom de l'appareil",
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("PENDING", "En attente de vérification"),
+                            ("APPROVED", "Approuvé"),
+                            ("REVOKED", "Révoqué"),
+                        ],
+                        db_index=True,
+                        default="PENDING",
+                        max_length=10,
+                        verbose_name="Statut",
+                    ),
+                ),
+                (
+                    "user_agent",
+                    models.TextField(blank=True, default="", verbose_name="User-Agent"),
+                ),
+                (
+                    "ip_address",
+                    models.GenericIPAddressField(
+                        blank=True, null=True, verbose_name="Adresse IP"
+                    ),
+                ),
+                ("otp_hash", models.CharField(blank=True, default="", max_length=255)),
+                ("otp_expires_at", models.DateTimeField(blank=True, null=True)),
+                ("otp_attempts", models.PositiveSmallIntegerField(default=0)),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, verbose_name="Créé le"
+                    ),
+                ),
+                (
+                    "last_seen_at",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, verbose_name="Vu le"
+                    ),
+                ),
+                (
+                    "approved_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Approuvé le"
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="devices",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Utilisateur",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Appareil étudiant',
-                'verbose_name_plural': 'Appareils étudiants',
-                'db_table': 'student_device',
-                'ordering': ['-last_seen_at'],
-                'indexes': [models.Index(fields=['user', 'status'], name='studentdevice_user_status_idx'), models.Index(fields=['device_id_hash'], name='studentdevice_hash_idx')],
-                'constraints': [models.UniqueConstraint(fields=('user', 'device_id_hash'), name='uniq_user_device_hash')],
+                "verbose_name": "Appareil étudiant",
+                "verbose_name_plural": "Appareils étudiants",
+                "db_table": "student_device",
+                "ordering": ["-last_seen_at"],
+                "indexes": [
+                    models.Index(
+                        fields=["user", "status"], name="studentdevice_user_status_idx"
+                    ),
+                    models.Index(
+                        fields=["device_id_hash"], name="studentdevice_hash_idx"
+                    ),
+                ],
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("user", "device_id_hash"), name="uniq_user_device_hash"
+                    )
+                ],
             },
         ),
     ]

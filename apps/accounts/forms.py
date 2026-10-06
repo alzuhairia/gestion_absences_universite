@@ -65,11 +65,7 @@ class CustomPasswordResetForm(PasswordResetForm):
             email__iexact=email,
             actif=True,
         )
-        return (
-            u
-            for u in active_users
-            if u.has_usable_password()
-        )
+        return (u for u in active_users if u.has_usable_password())
 
 
 class CustomSetPasswordForm(SetPasswordForm):

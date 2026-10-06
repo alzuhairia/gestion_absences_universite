@@ -146,9 +146,7 @@ def calculer_pourcentage_absence(etudiant, cours):
 
     # Total des heures de cours = somme des durées des séances PASSÉES (une seule requête SQL)
     # DurationField car PostgreSQL renvoie un interval (timedelta) pour TimeField - TimeField.
-    raw = Seance.objects.filter(
-        id_cours=cours, date_seance__lte=today
-    ).aggregate(
+    raw = Seance.objects.filter(id_cours=cours, date_seance__lte=today).aggregate(
         total=Sum(
             ExpressionWrapper(
                 F("heure_fin") - F("heure_debut"),
@@ -196,7 +194,9 @@ def calculer_pourcentage_absence(etudiant, cours):
         or 0
     )
 
-    pourcentage_absence = min(round((total_heures_absence / total_heures_cours) * 100, 2), 100)
+    pourcentage_absence = min(
+        round((total_heures_absence / total_heures_cours) * 100, 2), 100
+    )
     pourcentage_presence = round(100 - pourcentage_absence, 2)
 
     return {
@@ -235,14 +235,12 @@ def etudiants_en_alerte(cours, seuil=None):
     from apps.enrollments.models import Inscription
 
     if seuil is None:
-        seuil = cours.get_seuil_absence() if hasattr(cours, 'get_seuil_absence') else 20
+        seuil = cours.get_seuil_absence() if hasattr(cours, "get_seuil_absence") else 20
 
     today = timezone.localdate()
 
     # Total des heures de cours (somme des séances PASSÉES — une seule requête SQL)
-    raw = Seance.objects.filter(
-        id_cours=cours, date_seance__lte=today
-    ).aggregate(
+    raw = Seance.objects.filter(id_cours=cours, date_seance__lte=today).aggregate(
         total=Sum(
             ExpressionWrapper(
                 F("heure_fin") - F("heure_debut"),
@@ -283,14 +281,16 @@ def etudiants_en_alerte(cours, seuil=None):
         pourcentage = min(round((total_abs / total_heures_cours) * 100, 2), 100)
 
         if pourcentage >= seuil:
-            alertes.append({
-                "etudiant": ins.id_etudiant,
-                "inscription": ins,
-                "pourcentage_absence": pourcentage,
-                "total_heures_absence": round(total_abs, 2),
-                "total_heures_cours": round(total_heures_cours, 2),
-                "depasse_seuil": True,
-            })
+            alertes.append(
+                {
+                    "etudiant": ins.id_etudiant,
+                    "inscription": ins,
+                    "pourcentage_absence": pourcentage,
+                    "total_heures_absence": round(total_abs, 2),
+                    "total_heures_cours": round(total_heures_cours, 2),
+                    "depasse_seuil": True,
+                }
+            )
 
     # Trier par pourcentage décroissant
     alertes.sort(key=lambda x: x["pourcentage_absence"], reverse=True)
@@ -387,15 +387,19 @@ def recalculer_eligibilite(inscription):
                         type="ALERTE",
                     )
                 except Exception:
-                    logger.exception("Failed to create blocking notification for %s", cours.nom_cours)
+                    logger.exception(
+                        "Failed to create blocking notification for %s", cours.nom_cours
+                    )
 
                 # Email to student + professor (deferred after commit)
                 student = inscription.id_etudiant
                 professor = cours.professeur
                 course_name = cours.nom_cours
-                transaction.on_commit(lambda: _send_threshold_emails(
-                    student, professor, course_name, taux, seuil_effectif
-                ))
+                transaction.on_commit(
+                    lambda: _send_threshold_emails(
+                        student, professor, course_name, taux, seuil_effectif
+                    )
+                )
 
                 try:
                     LogAudit.objects.create(
@@ -411,7 +415,9 @@ def recalculer_eligibilite(inscription):
                         objet_id=inscription.id_inscription,
                     )
                 except Exception:
-                    logger.exception("Failed to create audit log for blocking %s", cours.nom_cours)
+                    logger.exception(
+                        "Failed to create audit log for blocking %s", cours.nom_cours
+                    )
     else:
         # Étudiant est sous le seuil effectif → éligible
         if not inscription.eligible_examen:
@@ -426,13 +432,18 @@ def recalculer_eligibilite(inscription):
                         type="INFO",
                     )
                 except Exception:
-                    logger.exception("Failed to create unblocking notification for %s", cours.nom_cours)
+                    logger.exception(
+                        "Failed to create unblocking notification for %s",
+                        cours.nom_cours,
+                    )
 
                 student = inscription.id_etudiant
                 course_name = cours.nom_cours
 
                 def _send_restored():
-                    subj, body, html_body = build_eligibility_restored_email(student, course_name)
+                    subj, body, html_body = build_eligibility_restored_email(
+                        student, course_name
+                    )
                     send_notification_email(student, subj, body, html_body)
 
                 transaction.on_commit(_send_restored)
@@ -441,7 +452,9 @@ def recalculer_eligibilite(inscription):
 def _send_threshold_emails(student, professor, course_name, taux, seuil):
     """Send threshold-exceeded emails to student and professor. Never raises."""
     try:
-        subj, body, html_body = build_threshold_exceeded_email(student, course_name, taux, seuil)
+        subj, body, html_body = build_threshold_exceeded_email(
+            student, course_name, taux, seuil
+        )
         send_notification_email(student, subj, body, html_body)
         if professor:
             subj, body, html_body = build_threshold_exceeded_professor_email(
@@ -573,7 +586,9 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
         )
         total_abs = absence_sums.get(ins.id_inscription, 0) or 0
         taux = min((total_abs / cours.nombre_total_periodes) * 100, 100)
-        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        seuil_effectif = (
+            min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        )
         if taux >= seuil_effectif:
             at_risk_count += 1
 
@@ -681,6 +696,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
     # 3. Compute course-level averages (group inscriptions by course)
     from collections import defaultdict
+
     course_inscriptions = defaultdict(list)
     for ins in inscriptions:
         course_inscriptions[ins.id_cours_id].append(ins)
@@ -699,6 +715,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
 
     # 4. Estimate days remaining in the academic year
     from apps.academic_sessions.models import Seance
+
     if academic_year:
         # Use the latest session date as a proxy for term end
         last_session = (
@@ -718,7 +735,11 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         else:
             # If all sessions are in the past, no projection needed
             days_remaining = 0
-        term_days = (last_session - first_session).days if (last_session and first_session) else 1
+        term_days = (
+            (last_session - first_session).days
+            if (last_session and first_session)
+            else 1
+        )
     else:
         days_remaining = 0
         term_days = 1
@@ -730,18 +751,20 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         cours = ins.id_cours
         total_periodes = cours.nombre_total_periodes or 0
         if total_periodes == 0:
-            results.append({
-                "inscription": ins,
-                "risk_level": RISK_NONE,
-                "current_rate": 0.0,
-                "recent_rate": 0.0,
-                "projected_rate": 0.0,
-                "course_avg_rate": 0.0,
-                "seuil": system_threshold,
-                "total_abs": 0.0,
-                "recent_abs": 0.0,
-                "days_remaining": days_remaining,
-            })
+            results.append(
+                {
+                    "inscription": ins,
+                    "risk_level": RISK_NONE,
+                    "current_rate": 0.0,
+                    "recent_rate": 0.0,
+                    "projected_rate": 0.0,
+                    "course_avg_rate": 0.0,
+                    "seuil": system_threshold,
+                    "total_abs": 0.0,
+                    "recent_abs": 0.0,
+                    "days_remaining": days_remaining,
+                }
+            )
             continue
 
         seuil = (
@@ -756,12 +779,18 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         current_rate = min((total_abs / total_periodes) * 100, 100)
 
         # Recent rate: hours per day over last 30 days
-        window_days = min(30, max((today - first_session).days, 1)) if first_session else 30
+        window_days = (
+            min(30, max((today - first_session).days, 1)) if first_session else 30
+        )
         recent_daily_rate = recent_abs / window_days if window_days > 0 else 0
 
         # Project: current hours + (daily rate * remaining days)
         projected_hours = total_abs + (recent_daily_rate * days_remaining)
-        projected_rate = (projected_hours / total_periodes) * 100 if days_remaining > 0 else current_rate
+        projected_rate = (
+            (projected_hours / total_periodes) * 100
+            if days_remaining > 0
+            else current_rate
+        )
 
         # Recent 30-day rate as percentage (for comparison with course average)
         # Normalize to: what % of total_periodes did they miss in 30 days, annualized
@@ -783,7 +812,9 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
             trend = "stable"
 
         # Already blocked — skip prediction
-        seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        seuil_effectif = (
+            min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+        )
         if current_rate >= seuil_effectif:
             risk_level = RISK_HIGH
         # Classification
@@ -800,18 +831,20 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
         else:
             risk_level = RISK_NONE
 
-        results.append({
-            "inscription": ins,
-            "risk_level": risk_level,
-            "current_rate": round(current_rate, 1),
-            "recent_rate": round(recent_rate, 1),
-            "projected_rate": round(min(projected_rate, 100.0), 1),
-            "course_avg_rate": round(course_avg, 1),
-            "seuil": seuil,
-            "total_abs": total_abs,
-            "recent_abs": recent_abs,
-            "days_remaining": days_remaining,
-            "trend": trend,
-        })
+        results.append(
+            {
+                "inscription": ins,
+                "risk_level": risk_level,
+                "current_rate": round(current_rate, 1),
+                "recent_rate": round(recent_rate, 1),
+                "projected_rate": round(min(projected_rate, 100.0), 1),
+                "course_avg_rate": round(course_avg, 1),
+                "seuil": seuil,
+                "total_abs": total_abs,
+                "recent_abs": recent_abs,
+                "days_remaining": days_remaining,
+                "trend": trend,
+            }
+        )
 
     return results

@@ -16,10 +16,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum
-from django.utils import timezone
-
-from apps.utils import safe_get_page
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from apps.absences.models import Absence
@@ -28,7 +26,7 @@ from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.academics.models import Cours
 from apps.dashboard.decorators import professor_required
 from apps.enrollments.models import Inscription
-
+from apps.utils import safe_get_page
 
 # ---------------------------------------------------------------------------
 # Dashboard professeur - KPIs et etudiants a risque
@@ -118,7 +116,9 @@ def instructor_dashboard(request):
             rate = (total_abs / cours.nombre_total_periodes) * 100
 
             seuil = cours.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
 
             if rate >= seuil_effectif:
                 # Bloqué (même si exempté, le seuil effectif est dépassé)
@@ -230,7 +230,11 @@ def instructor_course_detail(request, course_id):
             if course.nombre_total_periodes > 0
             else 0.0
         )
-        seuil_effectif = min(course_threshold + ins.exemption_margin, 100) if ins.exemption_40 else course_threshold
+        seuil_effectif = (
+            min(course_threshold + ins.exemption_margin, 100)
+            if ins.exemption_40
+            else course_threshold
+        )
         is_at_risk = rate >= course_threshold
         is_blocked = rate >= seuil_effectif
         is_under_exemption = ins.exemption_40 and is_at_risk and not is_blocked
@@ -383,7 +387,9 @@ def instructor_courses(request):
     if academic_year:
         enrolled_counts = dict(
             Inscription.objects.filter(
-                id_cours__in=course_ids, id_annee=academic_year, status=Inscription.Status.EN_COURS
+                id_cours__in=course_ids,
+                id_annee=academic_year,
+                status=Inscription.Status.EN_COURS,
             )
             .values("id_cours")
             .annotate(total=Count("id_inscription"))
@@ -415,9 +421,7 @@ def instructor_courses(request):
         id_cours__in=course_ids, status=Inscription.Status.EN_COURS
     )
     if academic_year:
-        all_course_inscriptions = all_course_inscriptions.filter(
-            id_annee=academic_year
-        )
+        all_course_inscriptions = all_course_inscriptions.filter(id_annee=academic_year)
     today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
@@ -450,7 +454,9 @@ def instructor_courses(request):
                 else 0.0
             )
             seuil = course.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil_effectif:
                 at_risk += 1
 
@@ -550,13 +556,19 @@ def instructor_statistics(request):
 
     course_ids = list(courses.values_list("id_cours", flat=True))
     if academic_year:
-        all_inscriptions = list(Inscription.objects.filter(
-            id_cours__in=course_ids, id_annee=academic_year, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours"))
+        all_inscriptions = list(
+            Inscription.objects.filter(
+                id_cours__in=course_ids,
+                id_annee=academic_year,
+                status=Inscription.Status.EN_COURS,
+            ).select_related("id_cours")
+        )
     else:
-        all_inscriptions = list(Inscription.objects.filter(
-            id_cours__in=course_ids, status=Inscription.Status.EN_COURS
-        ).select_related("id_cours"))
+        all_inscriptions = list(
+            Inscription.objects.filter(
+                id_cours__in=course_ids, status=Inscription.Status.EN_COURS
+            ).select_related("id_cours")
+        )
 
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
     today = timezone.localdate()
@@ -597,7 +609,9 @@ def instructor_statistics(request):
             rates.append(rate)
             course_absences += absence_counts.get(ins.id_inscription, 0) or 0
             seuil = course.get_seuil_absence()
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil_effectif:
                 course_at_risk += 1
 

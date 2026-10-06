@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 from django.db import IntegrityError
-from django.test import TestCase, RequestFactory, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -40,30 +40,45 @@ class BaseQRTestCase(TestCase):
         cache.clear()
         self.faculte = Faculte.objects.create(nom_faculte="Faculte QR")
         self.departement = Departement.objects.create(
-            nom_departement="Dept QR", id_faculte=self.faculte,
+            nom_departement="Dept QR",
+            id_faculte=self.faculte,
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof_qr@example.com", nom="Prof", prenom="QR",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof_qr@example.com",
+            nom="Prof",
+            prenom="QR",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu_qr@example.com", nom="Student", prenom="QR",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu_qr@example.com",
+            nom="Student",
+            prenom="QR",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.course = Cours.objects.create(
-            code_cours="QR101", nom_cours="QR Test Course",
-            id_departement=self.departement, professeur=self.prof,
-            nombre_total_periodes=100, niveau=1, id_annee=self.annee,
+            code_cours="QR101",
+            nom_cours="QR Test Course",
+            id_departement=self.departement,
+            professeur=self.prof,
+            nombre_total_periodes=100,
+            niveau=1,
+            id_annee=self.annee,
         )
         self.seance = Seance.objects.create(
-            id_cours=self.course, date_seance=date.today(),
-            heure_debut=time(8, 0), heure_fin=time(10, 0),
+            id_cours=self.course,
+            date_seance=date.today(),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
             id_annee=self.annee,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.course,
-            id_annee=self.annee, status=Inscription.Status.EN_COURS,
+            id_etudiant=self.student,
+            id_cours=self.course,
+            id_annee=self.annee,
+            status=Inscription.Status.EN_COURS,
         )
         # Set up GPS coords for the establishment
         settings = SystemSettings.get_settings()
@@ -75,8 +90,10 @@ class BaseQRTestCase(TestCase):
         # These tests exercise QR/GPS, not device binding: the student scans from
         # an already-approved device (no auto-approval since the OTP is mandatory).
         StudentDevice.objects.create(
-            user=self.student, device_id_hash=hash_device_id("qr-test-device"),
-            status=StudentDevice.Status.APPROVED, approved_at=timezone.now(),
+            user=self.student,
+            device_id_hash=hash_device_id("qr-test-device"),
+            status=StudentDevice.Status.APPROVED,
+            approved_at=timezone.now(),
         )
         self.client.cookies[DEVICE_COOKIE_NAME] = sign_device_id("qr-test-device")
 
@@ -85,8 +102,10 @@ class BaseQRTestCase(TestCase):
             timedelta(seconds=-10) if expired else timedelta(seconds=60)
         )
         return QRAttendanceToken.objects.create(
-            seance=self.seance, created_by=self.prof,
-            expires_at=expires_at, verify_location=verify_location,
+            seance=self.seance,
+            created_by=self.prof,
+            expires_at=expires_at,
+            verify_location=verify_location,
             **kwargs,
         )
 
@@ -128,16 +147,21 @@ class GPSAcceptedWithinRadiusTest(BaseQRTestCase):
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
         # Position very close to establishment
-        resp = self.client.post(url, {
-            "latitude": "36.75250",
-            "longitude": "3.04200",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "36.75250",
+                "longitude": "3.04200",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "avec succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.VALIDATED,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.VALIDATED,
         ).first()
         assert log is not None
 
@@ -150,16 +174,21 @@ class GPSAcceptedOutsideRadiusTest(BaseQRTestCase):
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
         # Position far away (Paris ~1500km)
-        resp = self.client.post(url, {
-            "latitude": "48.8566",
-            "longitude": "2.3522",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "48.8566",
+                "longitude": "2.3522",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "zone autoris")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DISTANCE,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.REJECTED_DISTANCE,
         ).first()
         assert log is not None
 
@@ -176,7 +205,8 @@ class QRExpiredTest(BaseQRTestCase):
         self.assertContains(resp, "expir")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_EXPIRED,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.REJECTED_EXPIRED,
         ).first()
         assert log is not None
 
@@ -256,16 +286,21 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         token = self._create_token(verify_location=True)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {
-            "latitude": "0.0",
-            "longitude": "0.0",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "0.0",
+                "longitude": "0.0",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Impossible")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_GPS,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.REJECTED_GPS,
         ).first()
         assert log is not None
 
@@ -274,11 +309,15 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         token = self._create_token(verify_location=True)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {
-            "latitude": "0.005",
-            "longitude": "0.001",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "0.005",
+                "longitude": "0.001",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -293,11 +332,15 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         token = self._create_token(verify_location=True)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {
-            "latitude": "-33.8688",
-            "longitude": "151.2093",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "-33.8688",
+                "longitude": "151.2093",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -314,11 +357,15 @@ class NullIslandGPSSpoofingTest(BaseQRTestCase):
         token = self._create_token(verify_location=True, latitude=None, longitude=None)
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {
-            "latitude": "36.75250",
-            "longitude": "3.04200",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "36.75250",
+                "longitude": "3.04200",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "configuration")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
@@ -343,10 +390,15 @@ class ProfessorGPSReferenceTest(BaseQRTestCase):
         )
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
-        resp = self.client.post(url, {
-            "latitude": "36.75250", "longitude": "3.04200",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "36.75250",
+                "longitude": "3.04200",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertContains(resp, "succ")
         self.assertTrue(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -358,10 +410,15 @@ class ProfessorGPSReferenceTest(BaseQRTestCase):
         self.client.login(email="stu_qr@example.com", password="pass1234")
         url = reverse("absences:qr_scan", kwargs={"token": token.token})
         # Paris — ~1500 km from the professor position
-        resp = self.client.post(url, {
-            "latitude": "48.8566", "longitude": "2.3522",
-            "gps_status": "accepted",
-        }, secure=True)
+        resp = self.client.post(
+            url,
+            {
+                "latitude": "48.8566",
+                "longitude": "2.3522",
+                "gps_status": "accepted",
+            },
+            secure=True,
+        )
         self.assertContains(resp, "zone autoris")
         self.assertFalse(QRScanRecord.objects.filter(seance=self.seance).exists())
 
@@ -454,15 +511,21 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
     def test_qr_generate_forces_gps_without_checkbox(self):
         self.client.post(
             reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
-            self.form_data, secure=True, follow=True,
+            self.form_data,
+            secure=True,
+            follow=True,
         )
         token = QRAttendanceToken.objects.get(seance=self.seance)
         self.assertTrue(token.verify_location)
 
     def test_session_create_qr_mode_forces_gps_without_checkbox(self):
         self.client.post(
-            reverse("absences:session_create", kwargs={"course_id": self.course.id_cours}),
-            {**self.form_data, "mode": "qr"}, secure=True, follow=True,
+            reverse(
+                "absences:session_create", kwargs={"course_id": self.course.id_cours}
+            ),
+            {**self.form_data, "mode": "qr"},
+            secure=True,
+            follow=True,
         )
         token = QRAttendanceToken.objects.get(seance=self.seance)
         self.assertTrue(token.verify_location)
@@ -474,7 +537,9 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
         s.save()
         resp = self.client.post(
             reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
-            self.form_data, secure=True, follow=True,
+            self.form_data,
+            secure=True,
+            follow=True,
         )
         self.assertFalse(QRAttendanceToken.objects.filter(seance=self.seance).exists())
         self.assertContains(resp, "aucune position de r")
@@ -483,7 +548,9 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
         self._set_policy(False)
         self.client.post(
             reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
-            {**self.form_data, "verify_location": "on"}, secure=True, follow=True,
+            {**self.form_data, "verify_location": "on"},
+            secure=True,
+            follow=True,
         )
         token = QRAttendanceToken.objects.get(seance=self.seance)
         self.assertTrue(token.verify_location)
@@ -492,7 +559,8 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
         old = self._create_token(verify_location=False)
         self.client.post(
             reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
-            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
         self.assertTrue(new.verify_location)
@@ -505,7 +573,8 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
         old = self._create_token(verify_location=False)
         self.client.post(
             reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
-            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
         self.assertFalse(new.verify_location)
@@ -515,7 +584,8 @@ class QRGPSRequiredPolicyTest(BaseQRTestCase):
         old = self._create_token(verify_location=False)
         self.client.post(
             reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
-            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         new = QRAttendanceToken.objects.get(seance=self.seance, is_active=True)
         self.assertFalse(new.verify_location)
@@ -539,11 +609,17 @@ class QRTokenExpirationDurationTest(BaseQRTestCase):
         self.client.login(email="prof_qr@example.com", password="pass1234")
         self.client.post(
             reverse("absences:qr_generate", kwargs={"course_id": self.course.id_cours}),
-            {"date_seance": date.today().isoformat(),
-             "heure_debut": "08:00", "heure_fin": "10:00"},
-            secure=True, follow=True,
+            {
+                "date_seance": date.today().isoformat(),
+                "heure_debut": "08:00",
+                "heure_fin": "10:00",
+            },
+            secure=True,
+            follow=True,
         )
-        token = QRAttendanceToken.objects.filter(seance=self.seance).latest("created_at")
+        token = QRAttendanceToken.objects.filter(seance=self.seance).latest(
+            "created_at"
+        )
         delta = (token.expires_at - token.created_at).total_seconds()
         self.assertAlmostEqual(delta, 30, delta=2)
 
@@ -596,7 +672,8 @@ class QRRefreshTokenTest(BaseQRTestCase):
         self.client.login(email="prof_qr@example.com", password="pass1234")
         resp = self.client.post(
             reverse("absences:qr_refresh_token", kwargs={"token": old.token}),
-            secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         data = resp.json()
         self.assertEqual(data["duration_seconds"], 30)
@@ -615,7 +692,8 @@ class QRDashboardFrontendValuesTest(BaseQRTestCase):
         s.qr_token_duration_seconds = duration_seconds
         s.save()
         token = QRAttendanceToken.objects.create(
-            seance=self.seance, created_by=self.prof,
+            seance=self.seance,
+            created_by=self.prof,
             expires_at=timezone.now() + timedelta(seconds=duration_seconds),
         )
         self.client.login(email="prof_qr@example.com", password="pass1234")
@@ -675,7 +753,8 @@ class DuplicateQRScanTest(BaseQRTestCase):
         self.assertEqual(QRScanRecord.objects.filter(seance=self.seance).count(), 1)
         # Audit log records the duplicate attempt
         log = QRScanLog.objects.filter(
-            seance=self.seance, scan_result=QRScanLog.ScanResult.REJECTED_DUPLICATE,
+            seance=self.seance,
+            scan_result=QRScanLog.ScanResult.REJECTED_DUPLICATE,
         ).first()
         assert log is not None
 
@@ -694,7 +773,8 @@ class DuplicateQRScanTest(BaseQRTestCase):
         # Patch ONLY the QRScanRecord manager instance (not the shared Manager
         # class) so unrelated ORM creates — e.g. device enrolment — are untouched.
         with patch.object(
-            QRScanRecord.objects, "create",
+            QRScanRecord.objects,
+            "create",
             side_effect=IntegrityError("UNIQUE constraint failed"),
         ):
             resp = self.client.post(url, {"gps_status": "not_required"}, secure=True)
@@ -727,6 +807,7 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
 
     def test_finalize_sends_absence_email_to_non_scanner(self):
         from django.core import mail
+
         from apps.absences.models import Absence
 
         token = self._create_token(verify_location=False)
@@ -735,13 +816,17 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
         # on_commit callbacks only fire when the surrounding transaction commits.
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             resp = self.client.post(url, secure=True)
         self.assertEqual(resp.status_code, 302)
 
         # The student who did not scan is marked absent...
         self.assertTrue(
-            Absence.objects.filter(id_inscription=self.inscription, id_seance=self.seance).exists()
+            Absence.objects.filter(
+                id_inscription=self.inscription, id_seance=self.seance
+            ).exists()
         )
         # ...and receives the absence-recorded email.
         recipients = [addr for m in mail.outbox for addr in m.to]
@@ -754,13 +839,17 @@ class QRFinalizeNotifiesAbsentStudentsTest(BaseQRTestCase):
         token = self._create_token(verify_location=False)
         # Student scanned → present, must NOT be marked absent nor emailed.
         QRScanRecord.objects.create(
-            seance=self.seance, student=self.student, inscription=self.inscription,
+            seance=self.seance,
+            student=self.student,
+            inscription=self.inscription,
         )
         self.client.login(email="prof_qr@example.com", password="pass1234")
         mail.outbox.clear()
 
         url = reverse("absences:qr_finalize", kwargs={"token": token.token})
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(url, secure=True)
 
         recipients = [addr for m in mail.outbox for addr in m.to]
@@ -778,31 +867,41 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
         super().setUp()
         self.token = self._create_token(verify_location=False)
         self.record = QRScanRecord.objects.create(
-            seance=self.seance, student=self.student, inscription=self.inscription,
+            seance=self.seance,
+            student=self.student,
+            inscription=self.inscription,
             is_suspicious=True,
         )
         self.log = QRScanLog.objects.create(
-            etudiant=self.student, seance=self.seance,
+            etudiant=self.student,
+            seance=self.seance,
             gps_status=QRScanLog.GPSStatus.NOT_REQUIRED,
             scan_result=QRScanLog.ScanResult.VALIDATED,
-            risk_score=30, anomaly_flags=["recently_approved"],
+            risk_score=30,
+            anomaly_flags=["recently_approved"],
         )
-        self.url = reverse("absences:qr_record_verify", kwargs={"record_id": self.record.pk})
+        self.url = reverse(
+            "absences:qr_record_verify", kwargs={"record_id": self.record.pk}
+        )
         self.client.login(email="prof_qr@example.com", password="pass1234")
 
     def _post(self, action, **extra):
         return self.client.post(self.url, {"action": action, **extra}, secure=True)
 
     def _finalize(self):
-        with self.captureOnCommitCallbacks(execute=True):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):  # pyright: ignore[reportAttributeAccessIssue]  (absent des stubs)
             self.client.post(
-                reverse("absences:qr_finalize", kwargs={"token": self.token.token}), secure=True,
+                reverse("absences:qr_finalize", kwargs={"token": self.token.token}),
+                secure=True,
             )
 
     def _dashboard_partial(self):
         return self.client.get(
             reverse("absences:qr_dashboard", kwargs={"token": self.token.token}),
-            secure=True, HTTP_HX_REQUEST="true",
+            secure=True,
+            HTTP_HX_REQUEST="true",
         )
 
     def test_dashboard_lists_suspicious_scan_to_verify(self):
@@ -834,7 +933,9 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
         self._post("invalidate", reason="Place vide à l'appel")
         self.record.refresh_from_db()
         self.log.refresh_from_db()
-        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk).exists())  # never deleted
+        self.assertTrue(
+            QRScanRecord.objects.filter(pk=self.record.pk).exists()
+        )  # never deleted
         self.assertTrue(self.record.invalidated)
         self.assertEqual(self.record.invalidated_by, self.prof)
         self.assertIsNotNone(self.record.invalidated_at)
@@ -852,12 +953,15 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
 
     def test_finalize_counts_invalidated_as_absent_and_emails(self):
         from django.core import mail
+
         from apps.absences.models import Absence
 
         self._post("invalidate", reason="Place vide")
         mail.outbox.clear()
         self._finalize()
-        absence = Absence.objects.get(id_inscription=self.inscription, id_seance=self.seance)
+        absence = Absence.objects.get(
+            id_inscription=self.inscription, id_seance=self.seance
+        )
         self.assertIn("invalidée par le professeur", absence.note_professeur)
         self.assertIn("Place vide", absence.note_professeur)
         self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk).exists())
@@ -875,7 +979,9 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
         self.assertEqual(self.log.review_status, QRScanLog.ReviewStatus.TO_REVIEW)
         self._finalize()
         self.assertFalse(
-            Absence.objects.filter(id_inscription=self.inscription, id_seance=self.seance).exists()
+            Absence.objects.filter(
+                id_inscription=self.inscription, id_seance=self.seance
+            ).exists()
         )
 
     def test_seen_refused_on_invalidated_record(self):
@@ -892,8 +998,11 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
 
     def test_other_professor_and_student_cannot_act(self):
         User.objects.create_user(
-            email="other_prof@example.com", nom="Other", prenom="Prof",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="other_prof@example.com",
+            nom="Other",
+            prenom="Prof",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         for email in ("other_prof@example.com", "stu_qr@example.com"):
             self.client.login(email=email, password="pass1234")
@@ -903,4 +1012,6 @@ class ProfessorVisualCheckTest(BaseQRTestCase):
 
     def test_invalid_action_rejected(self):
         self._post("delete")
-        self.assertTrue(QRScanRecord.objects.filter(pk=self.record.pk, invalidated=False).exists())
+        self.assertTrue(
+            QRScanRecord.objects.filter(pk=self.record.pk, invalidated=False).exists()
+        )

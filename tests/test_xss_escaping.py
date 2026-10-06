@@ -26,39 +26,61 @@ class CommentEscapingTest(TestCase):
         )
         cls.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         cls.prof = User.objects.create_user(
-            email="prof@xss.com", nom="Prof", prenom="X",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof@xss.com",
+            nom="Prof",
+            prenom="X",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         cls.secretary = User.objects.create_user(
-            email="sec@xss.com", nom="Sec", prenom="X",
-            password="pass1234", role=User.Role.SECRETAIRE,
+            email="sec@xss.com",
+            nom="Sec",
+            prenom="X",
+            password="pass1234",
+            role=User.Role.SECRETAIRE,
         )
         cls.student = User.objects.create_user(
-            email="stu@xss.com", nom="Stu", prenom="X",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu@xss.com",
+            nom="Stu",
+            prenom="X",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         cls.xss_payload = '<script>alert("xss")</script>'
 
         cls.cours = Cours.objects.create(
-            code_cours="XSS1", nom_cours="Course XSS",
-            nombre_total_periodes=30, id_departement=cls.dept,
-            professeur=cls.prof, id_annee=cls.annee, niveau=1,
+            code_cours="XSS1",
+            nom_cours="Course XSS",
+            nombre_total_periodes=30,
+            id_departement=cls.dept,
+            professeur=cls.prof,
+            id_annee=cls.annee,
+            niveau=1,
         )
         cls.inscription = Inscription.objects.create(
-            id_etudiant=cls.student, id_cours=cls.cours, id_annee=cls.annee,
+            id_etudiant=cls.student,
+            id_cours=cls.cours,
+            id_annee=cls.annee,
         )
         cls.seance = Seance.objects.create(
-            date_seance=date(2026, 1, 5), heure_debut=time(8, 0),
-            heure_fin=time(10, 0), id_cours=cls.cours, id_annee=cls.annee,
+            date_seance=date(2026, 1, 5),
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=cls.cours,
+            id_annee=cls.annee,
         )
         cls.absence = Absence.objects.create(
-            id_inscription=cls.inscription, id_seance=cls.seance,
-            type_absence="ABSENT", duree_absence=Decimal("2.0"),
-            statut="EN_ATTENTE", encodee_par=cls.secretary,
+            id_inscription=cls.inscription,
+            id_seance=cls.seance,
+            type_absence="ABSENT",
+            duree_absence=Decimal("2.0"),
+            statut="EN_ATTENTE",
+            encodee_par=cls.secretary,
             note_professeur=cls.xss_payload,
         )
         cls.justification = Justification.objects.create(
-            id_absence=cls.absence, state="EN_ATTENTE",
+            id_absence=cls.absence,
+            state="EN_ATTENTE",
             commentaire=cls.xss_payload,
             commentaire_gestion=cls.xss_payload,
         )
@@ -88,6 +110,7 @@ class CommentEscapingTest(TestCase):
             if "|safe" in text:
                 safe_violations.append(str(html_file))
         self.assertEqual(
-            safe_violations, [],
+            safe_violations,
+            [],
             f"|safe found in templates: {safe_violations}",
         )

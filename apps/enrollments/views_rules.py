@@ -11,8 +11,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-
-from apps.utils import safe_get_page
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -25,6 +23,7 @@ from apps.audits.utils import log_action
 from apps.dashboard.decorators import secretary_required
 from apps.enrollments.models import Inscription
 from apps.notifications.email import send_with_dedup
+from apps.utils import safe_get_page
 
 
 @login_required
@@ -78,7 +77,9 @@ def rules_management(request):
                 else system_threshold
             )
 
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
 
             if rate >= seuil:
                 is_blocked = rate >= seuil_effectif
@@ -150,8 +151,7 @@ def toggle_exemption(request, pk):
         with transaction.atomic():
             # select_related prefetches FK chains used in log_action/messages below
             inscription = (
-                Inscription.objects
-                .select_related("id_etudiant", "id_cours")
+                Inscription.objects.select_related("id_etudiant", "id_cours")
                 .select_for_update()
                 .get(pk=pk)
             )
@@ -182,11 +182,16 @@ def toggle_exemption(request, pk):
                 f"dépassement du seuil d'absence.\n\n"
                 f"— UniAbsences Notification System"
             )
-            transaction.on_commit(lambda: send_with_dedup(
-                student, subject, body, None,
-                event_type="exemption_granted",
-                event_key=str(insc_pk),
-            ))
+            transaction.on_commit(
+                lambda: send_with_dedup(
+                    student,
+                    subject,
+                    body,
+                    None,
+                    event_type="exemption_granted",
+                    event_key=str(insc_pk),
+                )
+            )
 
         messages.success(
             request,
@@ -201,8 +206,7 @@ def toggle_exemption(request, pk):
     if action == "revoke":
         with transaction.atomic():
             inscription = (
-                Inscription.objects
-                .select_related("id_etudiant", "id_cours")
+                Inscription.objects.select_related("id_etudiant", "id_cours")
                 .select_for_update()
                 .get(pk=pk)
             )

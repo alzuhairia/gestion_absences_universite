@@ -12,12 +12,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-
-from apps.utils import safe_get_page
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.accounts.models import User
+from apps.utils import safe_get_page
 
 from .forms import MessageForm
 from .models import Message
@@ -43,9 +42,11 @@ def inbox(request):
     """
     Boîte de réception - Affiche les messages reçus par l'utilisateur.
     """
-    messages_list = Message.objects.filter(
-        destinataire=request.user
-    ).select_related("expediteur").order_by("-date_envoi")
+    messages_list = (
+        Message.objects.filter(destinataire=request.user)
+        .select_related("expediteur")
+        .order_by("-date_envoi")
+    )
     paginator = Paginator(messages_list, 20)
     page_obj = safe_get_page(paginator, request.GET.get("page"))
     template = get_messaging_template(request.user, "inbox")
@@ -66,9 +67,11 @@ def sent_box(request):
     """
     Messages envoyés - Affiche les messages envoyés par l'utilisateur.
     """
-    messages_list = Message.objects.filter(
-        expediteur=request.user
-    ).select_related("destinataire").order_by("-date_envoi")
+    messages_list = (
+        Message.objects.filter(expediteur=request.user)
+        .select_related("destinataire")
+        .order_by("-date_envoi")
+    )
     paginator = Paginator(messages_list, 20)
     page_obj = safe_get_page(paginator, request.GET.get("page"))
     template = get_messaging_template(request.user, "sent_box")
@@ -90,7 +93,10 @@ def compose(request):
     Rédiger un nouveau message.
     """
     if not request.user.actif:
-        messages.error(request, "Votre compte est désactivé. Vous ne pouvez pas envoyer de messages.")
+        messages.error(
+            request,
+            "Votre compte est désactivé. Vous ne pouvez pas envoyer de messages.",
+        )
         return redirect("messaging:inbox")
 
     if request.method == "POST":

@@ -6,23 +6,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dashboard', '0004_systemsettings_max_devices_per_student_and_more'),
+        ("dashboard", "0004_systemsettings_max_devices_per_student_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='systemsettings',
-            name='anomaly_detection_enabled',
-            field=models.BooleanField(default=True, help_text='Signale et audite les scans suspects (même appareil multi-comptes, IP/vélocité...) sans bloquer.', verbose_name="Activer la détection d'anomalies de présence"),
+            model_name="systemsettings",
+            name="anomaly_detection_enabled",
+            field=models.BooleanField(
+                default=True,
+                help_text="Signale et audite les scans suspects (même appareil multi-comptes, IP/vélocité...) sans bloquer.",
+                verbose_name="Activer la détection d'anomalies de présence",
+            ),
         ),
         migrations.AddField(
-            model_name='systemsettings',
-            name='geo_velocity_max_kmh',
-            field=models.PositiveIntegerField(default=900, help_text='Au-delà, le déplacement est jugé physiquement impossible (anomalie).', verbose_name='Vitesse maximale plausible entre deux scans (km/h)'),
+            model_name="systemsettings",
+            name="geo_velocity_max_kmh",
+            field=models.PositiveIntegerField(
+                default=900,
+                help_text="Au-delà, le déplacement est jugé physiquement impossible (anomalie).",
+                verbose_name="Vitesse maximale plausible entre deux scans (km/h)",
+            ),
         ),
         migrations.AddField(
-            model_name='systemsettings',
-            name='gps_accuracy_max_meters',
-            field=models.PositiveIntegerField(default=1000, help_text='Une précision annoncée pire que ce seuil déclenche une anomalie (informatif).', verbose_name='Précision GPS maximale acceptée (mètres)'),
+            model_name="systemsettings",
+            name="gps_accuracy_max_meters",
+            field=models.PositiveIntegerField(
+                default=1000,
+                help_text="Une précision annoncée pire que ce seuil déclenche une anomalie (informatif).",
+                verbose_name="Précision GPS maximale acceptée (mètres)",
+            ),
         ),
     ]

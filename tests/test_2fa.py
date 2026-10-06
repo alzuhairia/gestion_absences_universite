@@ -41,7 +41,9 @@ class TwoFactorSetupTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("qr_data_uri", response.context)
-        self.assertTrue(response.context["qr_data_uri"].startswith("data:image/png;base64,"))
+        self.assertTrue(
+            response.context["qr_data_uri"].startswith("data:image/png;base64,")
+        )
         self.assertIn(SETUP_SECRET_SESSION_KEY, self.client.session)
         # Le secret n'est PAS encore persiste en DB
         self.user.refresh_from_db()
@@ -70,7 +72,9 @@ class TwoFactorSetupTests(TestCase):
         self.client.get(self.url)
 
         response = self.client.post(self.url, {"token": "000000"})
-        self.assertEqual(response.status_code, 302)  # redirige vers setup_2fa avec error
+        self.assertEqual(
+            response.status_code, 302
+        )  # redirige vers setup_2fa avec error
 
         self.user.refresh_from_db()
         self.assertFalse(self.user.two_factor_enabled)

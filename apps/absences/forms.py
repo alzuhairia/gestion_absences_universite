@@ -81,7 +81,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         label="Commentaire",
         required=False,
         max_length=2000,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3, "maxlength": "2000"}),
+        widget=forms.Textarea(
+            attrs={"class": "form-control", "rows": 3, "maxlength": "2000"}
+        ),
         help_text="Commentaire interne (optionnel, max 2000 caractères)",
     )
 
@@ -116,7 +118,9 @@ class SecretaryJustifiedAbsenceForm(forms.Form):
         heure_fin = cleaned_data.get("heure_fin")
 
         # Si type = PARTIEL, la durée est requise
-        if type_absence == Absence.TypeAbsence.PARTIEL and (not duree_absence or duree_absence <= 0):
+        if type_absence == Absence.TypeAbsence.PARTIEL and (
+            not duree_absence or duree_absence <= 0
+        ):
             raise forms.ValidationError(
                 {"duree_absence": "La durée est requise pour une absence partielle."}
             )

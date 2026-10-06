@@ -2,6 +2,7 @@
 FICHIER : apps/api/urls.py
 RESPONSABILITE : Routes URL de l'API REST (router DRF + endpoints custom)
 """
+
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -19,9 +20,7 @@ router.register(r"students", views.StudentViewSet, basename="student")
 router.register(r"courses", views.CoursViewSet, basename="course")
 router.register(r"enrollments", views.InscriptionViewSet, basename="enrollment")
 router.register(r"absences", views.AbsenceViewSet, basename="absence")
-router.register(
-    r"justifications", views.JustificationViewSet, basename="justification"
-)
+router.register(r"justifications", views.JustificationViewSet, basename="justification")
 
 urlpatterns = [
     # OpenAPI schema + interactive docs

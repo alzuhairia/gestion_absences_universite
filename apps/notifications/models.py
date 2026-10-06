@@ -15,7 +15,6 @@ from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 
-
 # ========================================================================== #
 #                        NOTIFICATION IN-APP                                 #
 # ========================================================================== #

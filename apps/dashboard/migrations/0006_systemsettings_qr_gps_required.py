@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dashboard', '0005_systemsettings_anomaly_detection_enabled_and_more'),
+        ("dashboard", "0005_systemsettings_anomaly_detection_enabled_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='systemsettings',
-            name='qr_gps_required',
-            field=models.BooleanField(default=True, help_text='Si activé, le serveur force la vérification de position sur chaque QR généré : le professeur ne peut pas la désactiver.', verbose_name='Imposer la vérification GPS pour toute séance QR'),
+            model_name="systemsettings",
+            name="qr_gps_required",
+            field=models.BooleanField(
+                default=True,
+                help_text="Si activé, le serveur force la vérification de position sur chaque QR généré : le professeur ne peut pas la désactiver.",
+                verbose_name="Imposer la vérification GPS pour toute séance QR",
+            ),
         ),
     ]

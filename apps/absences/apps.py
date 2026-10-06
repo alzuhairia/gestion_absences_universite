@@ -2,6 +2,7 @@
 FICHIER : apps/absences/apps.py
 RESPONSABILITE : Configuration de l'app absences avec import des signaux
 """
+
 from django.apps import AppConfig
 
 

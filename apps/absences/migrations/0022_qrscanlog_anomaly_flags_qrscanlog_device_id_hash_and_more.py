@@ -7,38 +7,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('absences', '0021_alter_qrscanlog_scan_result'),
-        ('academic_sessions', '0008_unique_seance_par_cours_date'),
+        ("absences", "0021_alter_qrscanlog_scan_result"),
+        ("academic_sessions", "0008_unique_seance_par_cours_date"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='qrscanlog',
-            name='anomaly_flags',
-            field=models.JSONField(blank=True, default=list, help_text="Liste des drapeaux d'anomalie déclenchés (ex. multi_account_device)."),
+            model_name="qrscanlog",
+            name="anomaly_flags",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="Liste des drapeaux d'anomalie déclenchés (ex. multi_account_device).",
+            ),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='device_id_hash',
-            field=models.CharField(blank=True, default='', help_text="Hash de l'appareil utilisé pour ce scan (jamais le secret).", max_length=64),
+            model_name="qrscanlog",
+            name="device_id_hash",
+            field=models.CharField(
+                blank=True,
+                default="",
+                help_text="Hash de l'appareil utilisé pour ce scan (jamais le secret).",
+                max_length=64,
+            ),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='device_recognized',
-            field=models.BooleanField(default=False, help_text="True si le scan provient d'un appareil APPROVED lié au compte."),
+            model_name="qrscanlog",
+            name="device_recognized",
+            field=models.BooleanField(
+                default=False,
+                help_text="True si le scan provient d'un appareil APPROVED lié au compte.",
+            ),
         ),
         migrations.AddField(
-            model_name='qrscanlog',
-            name='risk_score',
-            field=models.PositiveSmallIntegerField(default=0, help_text="Score d'anomalie 0–100 (informatif, ne bloque pas la présence)."),
+            model_name="qrscanlog",
+            name="risk_score",
+            field=models.PositiveSmallIntegerField(
+                default=0,
+                help_text="Score d'anomalie 0–100 (informatif, ne bloque pas la présence).",
+            ),
         ),
         migrations.AddIndex(
-            model_name='qrscanlog',
-            index=models.Index(fields=['device_id_hash'], name='qr_scan_log_device__a41524_idx'),
+            model_name="qrscanlog",
+            index=models.Index(
+                fields=["device_id_hash"], name="qr_scan_log_device__a41524_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='qrscanlog',
-            index=models.Index(fields=['-risk_score', '-timestamp'], name='qr_scan_log_risk_sc_e06d18_idx'),
+            model_name="qrscanlog",
+            index=models.Index(
+                fields=["-risk_score", "-timestamp"],
+                name="qr_scan_log_risk_sc_e06d18_idx",
+            ),
         ),
     ]

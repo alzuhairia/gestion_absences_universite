@@ -206,7 +206,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_column="two_factor_enabled",
         verbose_name=_("2FA activée"),
         db_index=True,
-        help_text=_("Indique si l'utilisateur a activé l'authentification à deux facteurs."),
+        help_text=_(
+            "Indique si l'utilisateur a activé l'authentification à deux facteurs."
+        ),
     )
     # Chaque user décide individuellement d'activer/désactiver la 2FA depuis ses
     # paramètres. Le middleware TwoFactorMiddleware redirige vers verify_2fa
@@ -494,7 +496,9 @@ class StudentDevice(models.Model):
     otp_attempts = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now, verbose_name=_("Créé le"))
     last_seen_at = models.DateTimeField(default=timezone.now, verbose_name=_("Vu le"))
-    approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Approuvé le"))
+    approved_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Approuvé le")
+    )
 
     class Meta:
         db_table = "student_device"
@@ -509,7 +513,9 @@ class StudentDevice(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["user", "status"], name="studentdevice_user_status_idx"),
+            models.Index(
+                fields=["user", "status"], name="studentdevice_user_status_idx"
+            ),
             models.Index(fields=["device_id_hash"], name="studentdevice_hash_idx"),
         ]
 
@@ -528,7 +534,9 @@ class StudentDevice(models.Model):
 
         code = f"{secrets.randbelow(10 ** self.OTP_LENGTH):0{self.OTP_LENGTH}d}"
         self.otp_hash = make_password(code)
-        self.otp_expires_at = timezone.now() + timezone.timedelta(seconds=self.OTP_TTL_SECONDS)
+        self.otp_expires_at = timezone.now() + timezone.timedelta(
+            seconds=self.OTP_TTL_SECONDS
+        )
         self.otp_attempts = 0
         self.save(update_fields=["otp_hash", "otp_expires_at", "otp_attempts"])
         return code
@@ -545,9 +553,11 @@ class StudentDevice(models.Model):
         """
         from django.contrib.auth.hashers import check_password
 
-        reserved = type(self).objects.filter(
-            pk=self.pk, otp_attempts__lt=self.OTP_MAX_ATTEMPTS
-        ).update(otp_attempts=models.F("otp_attempts") + 1)
+        reserved = (
+            type(self)
+            .objects.filter(pk=self.pk, otp_attempts__lt=self.OTP_MAX_ATTEMPTS)
+            .update(otp_attempts=models.F("otp_attempts") + 1)
+        )
         self.refresh_from_db(fields=["otp_hash", "otp_expires_at", "otp_attempts"])
         if not reserved:
             return False
@@ -564,6 +574,12 @@ class StudentDevice(models.Model):
         self.otp_hash = ""
         self.otp_expires_at = None
         self.otp_attempts = 0
-        self.save(update_fields=[
-            "status", "approved_at", "otp_hash", "otp_expires_at", "otp_attempts",
-        ])
+        self.save(
+            update_fields=[
+                "status",
+                "approved_at",
+                "otp_hash",
+                "otp_expires_at",
+                "otp_attempts",
+            ]
+        )

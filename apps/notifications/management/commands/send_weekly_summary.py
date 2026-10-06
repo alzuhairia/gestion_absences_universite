@@ -63,10 +63,14 @@ class Command(BaseCommand):
             status=Inscription.Status.EN_COURS,
             eligible_examen=False,
         )
-        new_blocked = blocked_inscriptions.filter(
-            absences__id_seance__date_seance__gte=week_start,
-            absences__id_seance__date_seance__lte=week_end,
-        ).distinct().count()
+        new_blocked = (
+            blocked_inscriptions.filter(
+                absences__id_seance__date_seance__gte=week_start,
+                absences__id_seance__date_seance__lte=week_end,
+            )
+            .distinct()
+            .count()
+        )
 
         # 3. Pending justifications
         pending_justifications = Absence.objects.filter(
@@ -76,13 +80,10 @@ class Command(BaseCommand):
 
         # 4. Courses with at-risk students
         system_threshold = get_system_threshold()
-        active_inscriptions = (
-            Inscription.objects.filter(
-                id_annee=active_year,
-                status=Inscription.Status.EN_COURS,
-            )
-            .select_related("id_cours")
-        )
+        active_inscriptions = Inscription.objects.filter(
+            id_annee=active_year,
+            status=Inscription.Status.EN_COURS,
+        ).select_related("id_cours")
 
         # Aggregate non-justified absences per inscription
         abs_sums = dict(
@@ -102,10 +103,16 @@ class Command(BaseCommand):
             cours = ins.id_cours
             if not cours.nombre_total_periodes:
                 continue
-            seuil = cours.seuil_absence if cours.seuil_absence is not None else system_threshold
+            seuil = (
+                cours.seuil_absence
+                if cours.seuil_absence is not None
+                else system_threshold
+            )
             total_abs = float(abs_sums.get(ins.id_inscription, 0) or 0)
             taux = (total_abs / cours.nombre_total_periodes) * 100
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if taux >= seuil_effectif:
                 course_risk[cours.nom_cours] = course_risk.get(cours.nom_cours, 0) + 1
 
@@ -139,9 +146,13 @@ class Command(BaseCommand):
         for secretary in secretaries:
             subj, body, html_body = build_weekly_summary_email(secretary, summary_data)
             # Synchronous: the count below must reflect real sends, not queued ones.
-            if send_notification_email(secretary, subj, body, html_body, background=False):
+            if send_notification_email(
+                secretary, subj, body, html_body, background=False
+            ):
                 sent += 1
 
         self.stdout.write(
-            self.style.SUCCESS(f"Weekly summary sent to {sent}/{secretaries.count()} secretaries.")
+            self.style.SUCCESS(
+                f"Weekly summary sent to {sent}/{secretaries.count()} secretaries."
+            )
         )

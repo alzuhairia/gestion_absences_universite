@@ -32,7 +32,7 @@ def _get_seance_duration(seance):
     """Calculate session duration in hours from heure_debut/heure_fin.
     Returns (hours_float, 'HH:MM' string) or (None, None)."""
     if seance.heure_debut and seance.heure_fin:
-        from datetime import datetime, date
+        from datetime import date, datetime
 
         dt_debut = datetime.combine(date.today(), seance.heure_debut)
         dt_fin = datetime.combine(date.today(), seance.heure_fin)
@@ -49,9 +49,7 @@ def _get_seance_duration(seance):
 @secretary_required
 @require_http_methods(["GET", "POST"])
 def edit_absence(request, pk):
-    absence = get_object_or_404(
-        Absence.objects.select_related("id_seance"), pk=pk
-    )
+    absence = get_object_or_404(Absence.objects.select_related("id_seance"), pk=pk)
 
     if absence.statut == Absence.Statut.JUSTIFIEE:
         messages.error(
@@ -116,8 +114,7 @@ def edit_absence(request, pk):
             # Re-fetch with row lock to prevent concurrent modification (TOCTOU)
             # select_related prefetches FK chains used in log_action message below
             absence = (
-                Absence.objects
-                .select_related(
+                Absence.objects.select_related(
                     "id_seance__id_cours",
                     "id_inscription__id_etudiant",
                 )

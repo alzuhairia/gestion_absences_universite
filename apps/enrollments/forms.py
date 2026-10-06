@@ -195,9 +195,7 @@ class EnrollmentForm(forms.Form):
             courses = cleaned_data.get("courses")
             if not courses:
                 raise ValidationError(
-                    {
-                        "courses": "Vous devez sélectionner au moins un cours."
-                    }
+                    {"courses": "Vous devez sélectionner au moins un cours."}
                 )
 
         # Validation de l'étudiant

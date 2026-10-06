@@ -16,8 +16,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-
-from apps.utils import safe_get_page
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -43,6 +41,7 @@ from apps.dashboard.forms_admin import (
     FaculteForm,
 )
 from apps.enrollments.models import Inscription
+from apps.utils import safe_get_page
 
 logger = logging.getLogger(__name__)
 
@@ -664,9 +663,7 @@ def admin_course_delete(request, course_id):
             f"Veuillez d'abord supprimer ou modifier ces éléments.",
         )
     except Exception:
-        logger.exception(
-            "Erreur lors de la suppression du cours %s", cours_code
-        )
+        logger.exception("Erreur lors de la suppression du cours %s", cours_code)
         messages.error(
             request,
             f"Erreur lors de la suppression du cours '{cours_code}'. "
@@ -758,9 +755,7 @@ def admin_courses_delete_multiple(request):
                     deleted_count += 1
 
                 except Exception:
-                    logger.exception(
-                        "Erreur suppression cours %s", cours.code_cours
-                    )
+                    logger.exception("Erreur suppression cours %s", cours.code_cours)
                     failed_names.append(cours.code_cours)
 
     except Exception:
@@ -771,9 +766,7 @@ def admin_courses_delete_multiple(request):
         return redirect("dashboard:admin_courses")
 
     if deleted_count:
-        messages.success(
-            request, f"{deleted_count} cours supprimé(s) avec succès."
-        )
+        messages.success(request, f"{deleted_count} cours supprimé(s) avec succès.")
     if failed_names:
         messages.error(
             request,

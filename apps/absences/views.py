@@ -12,7 +12,7 @@ DEPENDANCES CLES : absences.models, absences.services, academic_sessions.models
 import datetime
 import logging
 from datetime import timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from django.contrib import messages
@@ -24,9 +24,15 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from apps.absences.models import Absence, Justification, QRAttendanceToken, QRScanLog, QRScanRecord
+from apps.absences.models import (
+    Absence,
+    Justification,
+    QRAttendanceToken,
+    QRScanLog,
+    QRScanRecord,
+)
 from apps.absences.services import (
     calculer_absence_stats,
     calculer_pourcentage_absence,
@@ -107,7 +113,10 @@ def absence_details(request, id_inscription):
                 status_color = "danger"
 
         # Determine if the student can submit a justification
-        is_refused = justification is not None and justification.state == Justification.State.REFUSEE
+        is_refused = (
+            justification is not None
+            and justification.state == Justification.State.REFUSEE
+        )
         is_not_yet_submitted = justification is None and absence.statut not in (
             Absence.Statut.JUSTIFIEE,
             Absence.Statut.EN_ATTENTE,
@@ -142,7 +151,11 @@ def absence_details(request, id_inscription):
     absence_rate = stats["taux"]
     # CORRECTION BUG CRITIQUE #4a — Utiliser le seuil configuré du cours
     seuil = inscription.id_cours.get_seuil_absence()
-    seuil_effectif = min(seuil + inscription.exemption_margin, 100) if inscription.exemption_40 else seuil
+    seuil_effectif = (
+        min(seuil + inscription.exemption_margin, 100)
+        if inscription.exemption_40
+        else seuil
+    )
     is_blocked = absence_rate >= seuil_effectif
 
     # New hours-based percentage calculation
@@ -464,7 +477,9 @@ def session_create(request, course_id):
             return redirect("absences:session_create", course_id=course_id)
 
         if t_fin <= t_debut:
-            messages.error(request, "L'heure de fin doit être postérieure à l'heure de début.")
+            messages.error(
+                request, "L'heure de fin doit être postérieure à l'heure de début."
+            )
             return redirect("absences:session_create", course_id=course_id)
 
         # --- Create or retrieve seance (unique par cours + date) ---
@@ -516,6 +531,7 @@ def session_create(request, course_id):
 
             # Create QR token and redirect to dashboard
             from apps.dashboard.models import SystemSettings
+
             sys_settings = SystemSettings.get_settings()
             qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
@@ -536,7 +552,9 @@ def session_create(request, course_id):
                 )
                 return redirect("absences:session_create", course_id=course_id)
 
-            QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+            QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(
+                is_active=False
+            )
 
             token_kwargs = {
                 "seance": seance,
@@ -577,13 +595,17 @@ def session_create(request, course_id):
     from apps.dashboard.models import SystemSettings
 
     today = timezone.localdate().isoformat()
-    return render(request, "absences/session_create.html", {
-        "course": course,
-        "today": today,
-        "default_start": "08:30",
-        "default_end": "10:30",
-        "gps_forced": SystemSettings.get_settings().qr_gps_required,
-    })
+    return render(
+        request,
+        "absences/session_create.html",
+        {
+            "course": course,
+            "today": today,
+            "default_start": "08:30",
+            "default_end": "10:30",
+            "gps_forced": SystemSettings.get_settings().qr_gps_required,
+        },
+    )
 
 
 @login_required
@@ -730,7 +752,9 @@ def mark_absence(request, course_id):
             # Unique par cours + date — .get() crashe si doublon (fail fast)
             seance_created = False
             try:
-                seance = Seance.objects.select_for_update().get(date_seance=date_seance, id_cours=course)
+                seance = Seance.objects.select_for_update().get(
+                    date_seance=date_seance, id_cours=course
+                )
 
                 # Re-check under lock: reject if validated between
                 # the initial filter (no lock) and this point (TOCTOU).
@@ -802,8 +826,13 @@ def mark_absence(request, course_id):
                     # APRÈS : la protection JUSTIFIEE est gérée ligne ~584 pour TOUS les rôles.
                     #         Un professeur peut corriger ses propres absences NON_JUSTIFIEE.
 
-                    _ALLOWED_TYPES = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
-                    type_absence = request.POST.get(f"type_{inscription_id}", Absence.TypeAbsence.ABSENT)
+                    _ALLOWED_TYPES = {
+                        Absence.TypeAbsence.ABSENT,
+                        Absence.TypeAbsence.PARTIEL,
+                    }
+                    type_absence = request.POST.get(
+                        f"type_{inscription_id}", Absence.TypeAbsence.ABSENT
+                    )
                     if type_absence not in _ALLOWED_TYPES:
                         logger.warning(
                             "Type d'absence invalide recu (%s) pour inscription %s. Fallback ABSENT.",
@@ -816,7 +845,9 @@ def mark_absence(request, course_id):
                     duree = duree_seance  # Default for ABSENT (= full session)
                     if type_absence == Absence.TypeAbsence.PARTIEL:
                         try:
-                            duree = parse_hours(request.POST.get(f"duree_{inscription_id}", 0))
+                            duree = parse_hours(
+                                request.POST.get(f"duree_{inscription_id}", 0)
+                            )
                             # A partial absence must be strictly shorter than the session.
                             if duree <= 0 or duree >= duree_seance:
                                 raise ValueError("invalid duration range")
@@ -836,13 +867,14 @@ def mark_absence(request, course_id):
                             )
 
                     # Creation ou Mise a jour Absence (only if not validated/pending)
-                    if existing_absence and existing_absence.statut in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
+                    if existing_absence and existing_absence.statut in (
+                        Absence.Statut.JUSTIFIEE,
+                        Absence.Statut.EN_ATTENTE,
+                    ):
                         # Skip validated or pending absences - professors cannot modify them
                         continue
 
-                    note = request.POST.get(
-                        f"note_{inscription_id}", ""
-                    ).strip()[:500]
+                    note = request.POST.get(f"note_{inscription_id}", "").strip()[:500]
 
                     try:
                         absence, created = Absence.objects.update_or_create(
@@ -890,7 +922,10 @@ def mark_absence(request, course_id):
                         )
                         event_key = f"{inscription.id_inscription}-{seance.id_seance}"
                         send_with_dedup(
-                            student, subj, body, html_body,
+                            student,
+                            subj,
+                            body,
+                            html_body,
                             event_type="absence_recorded",
                             event_key=event_key,
                         )
@@ -898,7 +933,10 @@ def mark_absence(request, course_id):
                     # Si marque PRESENT, on supprime une eventuelle absence existante pour cette seance
                     if existing_absence:
                         # PROTECTION: JUSTIFIEE and EN_ATTENTE absences cannot be deleted
-                        if existing_absence.statut in (Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE):
+                        if existing_absence.statut in (
+                            Absence.Statut.JUSTIFIEE,
+                            Absence.Statut.EN_ATTENTE,
+                        ):
                             continue
                         # Professors can correct their own NON_JUSTIFIEE absences
                         # (e.g., marked absent by mistake, now correcting to present)
@@ -934,7 +972,9 @@ def mark_absence(request, course_id):
                 seance.validated = True
                 seance.validated_by = request.user
                 seance.date_validated = timezone.now()
-                seance.save(update_fields=["validated", "validated_by", "date_validated"])
+                seance.save(
+                    update_fields=["validated", "validated_by", "date_validated"]
+                )
 
                 log_action(
                     request.user,
@@ -966,6 +1006,7 @@ def mark_absence(request, course_id):
 
     # Check for date in GET (from dashboard link)
     from datetime import date as date_type
+
     today = request.GET.get("date", "")
     try:
         date_type.fromisoformat(today)
@@ -991,7 +1032,9 @@ def mark_absence(request, course_id):
         if existing_seance.heure_fin:
             default_end = existing_seance.heure_fin.strftime("%H:%M")
 
-        abs_list = Absence.objects.filter(id_seance=existing_seance).select_related("encodee_par")
+        abs_list = Absence.objects.filter(id_seance=existing_seance).select_related(
+            "encodee_par"
+        )
         for ab in abs_list:
             # ab.id_inscription_id is the raw FK int — no extra query per row
             existing_absences[ab.id_inscription_id] = {
@@ -1004,7 +1047,9 @@ def mark_absence(request, course_id):
 
     # Attach absence data to students for template usage
     for ins in students:
-        ins.absence_data = existing_absences.get(ins.id_inscription)  # pyright: ignore[reportAttributeAccessIssue]
+        ins.absence_data = existing_absences.get(
+            ins.id_inscription
+        )  # pyright: ignore[reportAttributeAccessIssue]
 
     # Recap counts for post-submission summary
     recap_absent_count = len(existing_absences)
@@ -1077,7 +1122,9 @@ def mark_absence_htmx(request, course_id):
         return HttpResponse("Format d'heure invalide.", status=400)
 
     if t_fin <= t_debut:
-        return HttpResponse("L'heure de fin doit être après l'heure de début.", status=400)
+        return HttpResponse(
+            "L'heure de fin doit être après l'heure de début.", status=400
+        )
 
     duree_seance = Decimal((t_fin - t_debut).seconds) / Decimal(3600)
     duree_seance = duree_seance.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -1120,11 +1167,15 @@ def mark_absence_htmx(request, course_id):
         if status == "ABSENT":
             # Protected absences
             if existing_absence and existing_absence.statut in (
-                Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE
+                Absence.Statut.JUSTIFIEE,
+                Absence.Statut.EN_ATTENTE,
             ):
                 pass  # Skip, don't modify
             else:
-                _ALLOWED_TYPES_HTMX = {Absence.TypeAbsence.ABSENT, Absence.TypeAbsence.PARTIEL}
+                _ALLOWED_TYPES_HTMX = {
+                    Absence.TypeAbsence.ABSENT,
+                    Absence.TypeAbsence.PARTIEL,
+                }
                 type_absence = request.POST.get(
                     f"type_{inscription_id}", Absence.TypeAbsence.ABSENT
                 )
@@ -1134,7 +1185,9 @@ def mark_absence_htmx(request, course_id):
                 duree = duree_seance
                 if type_absence == Absence.TypeAbsence.PARTIEL:
                     try:
-                        duree = parse_hours(request.POST.get(f"duree_{inscription_id}", 0))
+                        duree = parse_hours(
+                            request.POST.get(f"duree_{inscription_id}", 0)
+                        )
                         # A partial absence must be strictly shorter than the session.
                         if duree <= 0 or duree >= duree_seance:
                             raise ValueError
@@ -1147,9 +1200,7 @@ def mark_absence_htmx(request, course_id):
                         type_absence = Absence.TypeAbsence.ABSENT
                         duree = duree_seance
 
-                note = request.POST.get(
-                    f"note_{inscription_id}", ""
-                ).strip()[:500]
+                note = request.POST.get(f"note_{inscription_id}", "").strip()[:500]
 
                 Absence.objects.update_or_create(
                     id_inscription=inscription,
@@ -1166,18 +1217,19 @@ def mark_absence_htmx(request, course_id):
         elif status == "PRESENT":
             if existing_absence:
                 if existing_absence.statut in (
-                    Absence.Statut.JUSTIFIEE, Absence.Statut.EN_ATTENTE
+                    Absence.Statut.JUSTIFIEE,
+                    Absence.Statut.EN_ATTENTE,
                 ):
                     pass  # Protected
                 else:
                     existing_absence.delete()
 
     # Re-fetch absence data for the partial render
-    absence = Absence.objects.select_related(
-        "id_inscription__id_etudiant", "id_seance"
-    ).filter(
-        id_inscription=inscription, id_seance=seance
-    ).first()
+    absence = (
+        Absence.objects.select_related("id_inscription__id_etudiant", "id_seance")
+        .filter(id_inscription=inscription, id_seance=seance)
+        .first()
+    )
     if absence:
         inscription.absence_data = {  # pyright: ignore[reportAttributeAccessIssue]
             "type": absence.type_absence,
@@ -1267,7 +1319,10 @@ def _haversine(lat1, lon1, lat2, lon2):
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlam = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -1278,7 +1333,9 @@ def _generate_qr_data_uri(url):
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(buf, format="PNG")  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
+    img.save(
+        buf, format="PNG"
+    )  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
     buf.seek(0)
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
@@ -1350,6 +1407,7 @@ def qr_generate(request, course_id):
             return redirect("absences:qr_dashboard", token=existing_token.token)
 
         from apps.dashboard.models import SystemSettings
+
         sys_settings = SystemSettings.get_settings()
 
         # GPS anti-fraud: professor's location (optional, sent by JS)
@@ -1375,7 +1433,9 @@ def qr_generate(request, course_id):
         qr_duration_seconds = sys_settings.qr_token_duration_seconds
 
         # Deactivate any previous active tokens for this seance
-        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(
+            is_active=False
+        )
 
         token_kwargs = {
             "seance": seance,
@@ -1403,13 +1463,17 @@ def qr_generate(request, course_id):
     from apps.dashboard.models import SystemSettings
 
     today = timezone.localdate().isoformat()
-    return render(request, "absences/qr_generate.html", {
-        "course": course,
-        "today": today,
-        "default_start": "08:00",
-        "default_end": "09:30",
-        "gps_forced": SystemSettings.get_settings().qr_gps_required,
-    })
+    return render(
+        request,
+        "absences/qr_generate.html",
+        {
+            "course": course,
+            "today": today,
+            "default_start": "08:00",
+            "default_end": "09:30",
+            "gps_forced": SystemSettings.get_settings().qr_gps_required,
+        },
+    )
 
 
 @login_required
@@ -1440,13 +1504,16 @@ def qr_dashboard(request, token):
 
     scan_records = {
         sr.inscription_id: sr
-        for sr in QRScanRecord.objects.filter(seance=seance).select_related("inscription")
+        for sr in QRScanRecord.objects.filter(seance=seance).select_related(
+            "inscription"
+        )
     }
     scanned_ids = set(scan_records.keys())
 
     # Latest validated scan log per student: anomaly labels (⚠️ tooltip) and the
     # human review status (professor's visual check / secretariat decision).
     from apps.absences.anomaly import flag_label
+
     log_by_student = {}
     for log in QRScanLog.objects.filter(
         seance=seance, scan_result=QRScanLog.ScanResult.VALIDATED
@@ -1461,11 +1528,17 @@ def qr_dashboard(request, token):
         if ins.id_inscription in scanned_ids:
             sr = scan_records[ins.id_inscription]
             log = log_by_student.get(ins.id_etudiant_id)
-            review_status = log.review_status if log else QRScanLog.ReviewStatus.TO_REVIEW
+            review_status = (
+                log.review_status if log else QRScanLog.ReviewStatus.TO_REVIEW
+            )
             # Attributs d'affichage lus par le template.
             ins.scan_record = sr  # pyright: ignore[reportAttributeAccessIssue]
-            ins.anomaly_labels = [flag_label(f) for f in (log.anomaly_flags or [])] if log else []  # pyright: ignore[reportAttributeAccessIssue]
-            ins.review_status = review_status  # pyright: ignore[reportAttributeAccessIssue]
+            ins.anomaly_labels = (
+                [flag_label(f) for f in (log.anomaly_flags or [])] if log else []
+            )  # pyright: ignore[reportAttributeAccessIssue]
+            ins.review_status = (
+                review_status  # pyright: ignore[reportAttributeAccessIssue]
+            )
             if sr.invalidated:
                 invalidated.append(ins)
                 continue
@@ -1477,6 +1550,7 @@ def qr_dashboard(request, token):
     not_scanned = [ins for ins in inscriptions if ins.id_inscription not in scanned_ids]
 
     from apps.dashboard.models import SystemSettings
+
     sys_settings = SystemSettings.get_settings()
 
     ctx = {
@@ -1518,6 +1592,7 @@ def qr_dashboard(request, token):
 def qr_refresh_token(request, token):
     """Deactivate current token and create a fresh one (preserves scans)."""
     from django.http import JsonResponse
+
     from apps.dashboard.models import SystemSettings
 
     qr_token = get_object_or_404(QRAttendanceToken, token=token)
@@ -1546,7 +1621,9 @@ def qr_refresh_token(request, token):
     ):
         old_verify_location = True
 
-    QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+    QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(
+        is_active=False
+    )
 
     new_token = QRAttendanceToken.objects.create(
         seance=seance,
@@ -1563,20 +1640,28 @@ def qr_refresh_token(request, token):
             reverse("absences:qr_scan", kwargs={"token": str(new_token.token)})
         )
         qr_data_uri = _generate_qr_data_uri(scan_url)
-        return JsonResponse({
-            "token": str(new_token.token),
-            "qr_data_uri": qr_data_uri,
-            "scan_url": scan_url,
-            "expires_at": new_token.expires_at.isoformat(),
-            # Source-of-truth values for the frontend countdown (see qr_dashboard).
-            "duration_seconds": qr_duration_seconds,
-            "remaining_seconds": max(
-                0, int((new_token.expires_at - timezone.now()).total_seconds())
-            ),
-            "refresh_url": reverse("absences:qr_refresh_token", kwargs={"token": str(new_token.token)}),
-            "dashboard_url": reverse("absences:qr_dashboard", kwargs={"token": str(new_token.token)}),
-            "finalize_url": reverse("absences:qr_finalize", kwargs={"token": str(new_token.token)}),
-        })
+        return JsonResponse(
+            {
+                "token": str(new_token.token),
+                "qr_data_uri": qr_data_uri,
+                "scan_url": scan_url,
+                "expires_at": new_token.expires_at.isoformat(),
+                # Source-of-truth values for the frontend countdown (see qr_dashboard).
+                "duration_seconds": qr_duration_seconds,
+                "remaining_seconds": max(
+                    0, int((new_token.expires_at - timezone.now()).total_seconds())
+                ),
+                "refresh_url": reverse(
+                    "absences:qr_refresh_token", kwargs={"token": str(new_token.token)}
+                ),
+                "dashboard_url": reverse(
+                    "absences:qr_dashboard", kwargs={"token": str(new_token.token)}
+                ),
+                "finalize_url": reverse(
+                    "absences:qr_finalize", kwargs={"token": str(new_token.token)}
+                ),
+            }
+        )
 
     messages.success(request, "QR code rafraîchi avec un nouveau token.")
     return redirect("absences:qr_dashboard", token=new_token.token)
@@ -1614,16 +1699,20 @@ def qr_finalize(request, token):
         # An attendance invalidated by the professor's visual check is NOT a
         # presence: the record is kept as evidence, the student is marked absent.
         scanned_ids = set(
-            QRScanRecord.objects.filter(seance=seance, invalidated=False)
-            .values_list("inscription_id", flat=True)
+            QRScanRecord.objects.filter(seance=seance, invalidated=False).values_list(
+                "inscription_id", flat=True
+            )
         )
         invalidated_reasons = dict(
-            QRScanRecord.objects.filter(seance=seance, invalidated=True)
-            .values_list("inscription_id", "invalidation_reason")
+            QRScanRecord.objects.filter(seance=seance, invalidated=True).values_list(
+                "inscription_id", "invalidation_reason"
+            )
         )
 
         # Deactivate token
-        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(is_active=False)
+        QRAttendanceToken.objects.filter(seance=seance, is_active=True).update(
+            is_active=False
+        )
 
         absent_count = 0
         newly_absent = []
@@ -1632,8 +1721,9 @@ def qr_finalize(request, token):
                 duree = seance.duree_heures() or 2.0  # fallback if times missing
                 if ins.id_inscription in invalidated_reasons:
                     reason = invalidated_reasons[ins.id_inscription]
-                    note = "Présence QR invalidée par le professeur (contrôle visuel)" + (
-                        f" : {reason}" if reason else ""
+                    note = (
+                        "Présence QR invalidée par le professeur (contrôle visuel)"
+                        + (f" : {reason}" if reason else "")
                     )
                 else:
                     note = "Absent (QR non scanné)"
@@ -1661,8 +1751,11 @@ def qr_finalize(request, token):
             request.user,
             f"QR finalisé — {course.code_cours} {seance.date_seance}: "
             f"{len(scanned_ids)} présent(s), {absent_count} absent(s)"
-            + (f" dont {len(invalidated_reasons)} présence(s) QR invalidée(s)"
-               if invalidated_reasons else ""),
+            + (
+                f" dont {len(invalidated_reasons)} présence(s) QR invalidée(s)"
+                if invalidated_reasons
+                else ""
+            ),
             request,
             niveau="INFO",
             objet_type="SEANCE",
@@ -1674,6 +1767,7 @@ def qr_finalize(request, token):
     # but never sent this e-mail. Deferred to on_commit so a rollback sends nothing.
     def _notify_absent():
         from apps.absences.services import calculer_absence_stats
+
         for ins in newly_absent:
             try:
                 stats = calculer_absence_stats(ins)
@@ -1682,7 +1776,10 @@ def qr_finalize(request, token):
                     student, course.nom_cours, seance.date_seance, stats["taux"]
                 )
                 send_with_dedup(
-                    student, subj, body, html_body,
+                    student,
+                    subj,
+                    body,
+                    html_body,
                     event_type="absence_recorded",
                     event_key=f"{ins.id_inscription}-{seance.id_seance}",
                 )
@@ -1704,7 +1801,9 @@ def qr_finalize(request, token):
 
 def _seance_dashboard_redirect(seance):
     """Back to the live QR dashboard of the seance (its latest token rotates)."""
-    token = QRAttendanceToken.objects.filter(seance=seance).order_by("-created_at").first()
+    token = (
+        QRAttendanceToken.objects.filter(seance=seance).order_by("-created_at").first()
+    )
     if token is not None:
         return redirect("absences:qr_dashboard", token=token.token)
     return redirect("dashboard:instructor_course_detail", seance.id_cours_id)
@@ -1738,12 +1837,15 @@ def qr_record_verify(request, record_id):
         messages.error(request, "Accès non autorisé.")
         return redirect("dashboard:instructor_dashboard")
     if seance.validated:
-        messages.warning(request, "Séance déjà finalisée : la présence ne peut plus être modifiée.")
+        messages.warning(
+            request, "Séance déjà finalisée : la présence ne peut plus être modifiée."
+        )
         return _seance_dashboard_redirect(seance)
 
     log = (
         QRScanLog.objects.filter(
-            seance=seance, etudiant_id=record.student_id,
+            seance=seance,
+            etudiant_id=record.student_id,
             scan_result=QRScanLog.ScanResult.VALIDATED,
         )
         .order_by("-timestamp")
@@ -1751,13 +1853,19 @@ def qr_record_verify(request, record_id):
     )
 
     if request.method == "GET":
-        return render(request, "absences/qr_record_invalidate.html", {
-            "record": record,
-            "seance": seance,
-            "course": course,
-            "anomaly_labels": [flag_label(f) for f in (log.anomaly_flags or [])] if log else [],
-            "back_url": _seance_dashboard_redirect(seance).url,
-        })
+        return render(
+            request,
+            "absences/qr_record_invalidate.html",
+            {
+                "record": record,
+                "seance": seance,
+                "course": course,
+                "anomaly_labels": (
+                    [flag_label(f) for f in (log.anomaly_flags or [])] if log else []
+                ),
+                "back_url": _seance_dashboard_redirect(seance).url,
+            },
+        )
 
     action = request.POST.get("action", "")
     if action not in _VERIFY_ACTIONS:
@@ -1769,9 +1877,14 @@ def qr_record_verify(request, record_id):
     with transaction.atomic():
         if action == "seen":
             if record.invalidated:
-                messages.error(request, "Présence invalidée : annulez d'abord l'invalidation.")
+                messages.error(
+                    request, "Présence invalidée : annulez d'abord l'invalidation."
+                )
                 return _seance_dashboard_redirect(seance)
-            review = (QRScanLog.ReviewStatus.FALSE_POSITIVE, "Vu en classe (contrôle visuel du professeur)")
+            review = (
+                QRScanLog.ReviewStatus.FALSE_POSITIVE,
+                "Vu en classe (contrôle visuel du professeur)",
+            )
             audit = (f"Contrôle visuel QR — {student_name} vu en classe", "INFO")
             flash = f"{student_name} : présence confirmée (vu en classe)."
         elif action == "invalidate":
@@ -1780,10 +1893,18 @@ def qr_record_verify(request, record_id):
             record.invalidated_by = request.user
             record.invalidated_at = now
             record.invalidation_reason = reason
-            record.save(update_fields=[
-                "invalidated", "invalidated_by", "invalidated_at", "invalidation_reason",
-            ])
-            review = (QRScanLog.ReviewStatus.CONFIRMED, reason or "Absent au contrôle visuel du professeur")
+            record.save(
+                update_fields=[
+                    "invalidated",
+                    "invalidated_by",
+                    "invalidated_at",
+                    "invalidation_reason",
+                ]
+            )
+            review = (
+                QRScanLog.ReviewStatus.CONFIRMED,
+                reason or "Absent au contrôle visuel du professeur",
+            )
             audit = (
                 f"Présence QR invalidée — {student_name} absent au contrôle visuel"
                 + (f" : {reason}" if reason else ""),
@@ -1795,9 +1916,14 @@ def qr_record_verify(request, record_id):
             record.invalidated_by = None
             record.invalidated_at = None
             record.invalidation_reason = ""
-            record.save(update_fields=[
-                "invalidated", "invalidated_by", "invalidated_at", "invalidation_reason",
-            ])
+            record.save(
+                update_fields=[
+                    "invalidated",
+                    "invalidated_by",
+                    "invalidated_at",
+                    "invalidation_reason",
+                ]
+            )
             review = (QRScanLog.ReviewStatus.TO_REVIEW, "")
             audit = (f"Contrôle visuel QR annulé — {student_name}", "INFO")
             flash = f"{student_name} : décision annulée."
@@ -1808,11 +1934,22 @@ def qr_record_verify(request, record_id):
                 log.reviewed_by, log.reviewed_at = None, None
             else:
                 log.reviewed_by, log.reviewed_at = request.user, now
-            log.save(update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at"])
+            log.save(
+                update_fields=[
+                    "review_status",
+                    "review_note",
+                    "reviewed_by",
+                    "reviewed_at",
+                ]
+            )
 
         log_action(
-            request.user, f"{audit[0]} ({course.code_cours} {seance.date_seance})",
-            request, niveau=audit[1], objet_type="SEANCE", objet_id=seance.id_seance,
+            request.user,
+            f"{audit[0]} ({course.code_cours} {seance.date_seance})",
+            request,
+            niveau=audit[1],
+            objet_type="SEANCE",
+            objet_id=seance.id_seance,
         )
     messages.success(request, flash)
     return _seance_dashboard_redirect(seance)
@@ -1830,14 +1967,25 @@ def _hash_qr_token(raw_token):
     if not raw_token:
         return ""
     import hashlib
+
     digest = hashlib.sha256(str(raw_token).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
 
 
-def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
-                      latitude=None, longitude=None, distance=None,
-                      device_id_hash="", device_recognized=False,
-                      risk_score=0, anomaly_flags=None):
+def _log_scan_attempt(
+    request,
+    seance,
+    qr_token,
+    gps_status,
+    scan_result,
+    latitude=None,
+    longitude=None,
+    distance=None,
+    device_id_hash="",
+    device_recognized=False,
+    risk_score=0,
+    anomaly_flags=None,
+):
     """Log every QR scan attempt for audit. Token is hashed (SHA-256) before storage."""
     QRScanLog.objects.create(
         etudiant=request.user,
@@ -1860,6 +2008,7 @@ def _log_scan_attempt(request, seance, qr_token, gps_status, scan_result,
 def _get_establishment_gps():
     """Return (latitude, longitude, radius) from SystemSettings, or (None, None, 100)."""
     from apps.dashboard.models import SystemSettings
+
     settings = SystemSettings.get_settings()
     return settings.gps_latitude, settings.gps_longitude, settings.gps_radius_meters
 
@@ -1935,31 +2084,58 @@ def qr_scan(request, token):
 
     # --- Guard checks with audit logging ---
     if not qr_token.is_active:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_INACTIVE)
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "error",
-            "message": "Ce QR code n'est plus actif.",
-        })
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_INACTIVE,
+        )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "error",
+                "message": "Ce QR code n'est plus actif.",
+            },
+        )
 
     if qr_token.is_expired:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_EXPIRED)
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "expired",
-            "message": "Ce QR code a expiré. Scannez le nouveau QR affiché par le professeur.",
-        })
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_EXPIRED,
+        )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "expired",
+                "message": "Ce QR code a expiré. Scannez le nouveau QR affiché par le professeur.",
+            },
+        )
 
     if seance.validated:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_LOCKED)
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "error",
-            "message": "Cette séance est déjà validée et verrouillée.",
-        })
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_LOCKED,
+        )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "error",
+                "message": "Cette séance est déjà validée et verrouillée.",
+            },
+        )
 
     inscription = Inscription.objects.filter(
         id_etudiant=request.user,
@@ -1969,24 +2145,44 @@ def qr_scan(request, token):
     ).first()
 
     if not inscription:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_NOT_ENROLLED)
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "error",
-            "message": "Vous n'êtes pas inscrit(e) à ce cours.",
-        })
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_NOT_ENROLLED,
+        )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "error",
+                "message": "Vous n'êtes pas inscrit(e) à ce cours.",
+            },
+        )
 
-    existing = QRScanRecord.objects.filter(seance=seance, inscription=inscription).first()
+    existing = QRScanRecord.objects.filter(
+        seance=seance, inscription=inscription
+    ).first()
     if existing:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_DUPLICATE)
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "duplicate",
-            "message": "Votre présence a déjà été enregistrée.",
-            "scanned_at": existing.scanned_at,
-        })
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_DUPLICATE,
+        )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "duplicate",
+                "message": "Votre présence a déjà été enregistrée.",
+                "scanned_at": existing.scanned_at,
+            },
+        )
 
     # Determine GPS requirement
     gps_required = qr_token.verify_location
@@ -2018,33 +2214,52 @@ def qr_scan(request, token):
 
     # --- GET: show confirmation page ---
     if request.method == "GET":
-        return render(request, "absences/qr_scan.html", {
-            "qr_token": qr_token,
-            "course": course,
-            "seance": seance,
-            "gps_required": gps_required,
-            "device_blocked": not device_ok,
-            "device_status": device.status,
-            "verify_device_url": verify_device_url,
-        })
+        return render(
+            request,
+            "absences/qr_scan.html",
+            {
+                "qr_token": qr_token,
+                "course": course,
+                "seance": seance,
+                "gps_required": gps_required,
+                "device_blocked": not device_ok,
+                "device_status": device.status,
+                "verify_device_url": verify_device_url,
+            },
+        )
 
     # --- Device gate (POST): un appareil non approuvé ne peut pas valider ---
     if not device_ok:
-        _log_scan_attempt(request, seance, qr_token,
-                          QRScanLog.GPSStatus.NOT_REQUIRED,
-                          QRScanLog.ScanResult.REJECTED_DEVICE, **device_log)
+        _log_scan_attempt(
+            request,
+            seance,
+            qr_token,
+            QRScanLog.GPSStatus.NOT_REQUIRED,
+            QRScanLog.ScanResult.REJECTED_DEVICE,
+            **device_log,
+        )
         if device.status == StudentDevice.Status.REVOKED:
-            msg = ("Cet appareil a été révoqué. Vérifiez un appareil autorisé "
-                   "ou contactez le secrétariat.")
+            msg = (
+                "Cet appareil a été révoqué. Vérifiez un appareil autorisé "
+                "ou contactez le secrétariat."
+            )
         else:
-            msg = ("Nouvel appareil détecté. Pour éviter la fraude, vérifiez cet "
-                   "appareil (un code vous a été/sera envoyé par e-mail) avant de "
-                   "valider votre présence.")
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "error", "message": msg,
-            "verify_device_url": verify_device_url,
-            "device_status": device.status,
-        })
+            msg = (
+                "Nouvel appareil détecté. Pour éviter la fraude, vérifiez cet "
+                "appareil (un code vous a été/sera envoyé par e-mail) avant de "
+                "valider votre présence."
+            )
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "error",
+                "message": msg,
+                "verify_device_url": verify_device_url,
+                "device_status": device.status,
+            },
+        )
 
     # --- POST: record attendance ---
     stu_lat_raw = request.POST.get("latitude", "").strip()
@@ -2066,25 +2281,45 @@ def qr_scan(request, token):
     if gps_required:
         # CAS C: GPS refused by student
         if gps_status_val == "refused":
-            _log_scan_attempt(request, seance, qr_token,
-                              QRScanLog.GPSStatus.REFUSED,
-                              QRScanLog.ScanResult.REJECTED_GPS, **device_log)
-            return render(request, "absences/qr_scan_result.html", {
-                **error_ctx, "scan_status": "error",
-                "message": "La localisation est obligatoire pour cette séance. "
-                           "Veuillez autoriser l'accès GPS et réessayer.",
-            })
+            _log_scan_attempt(
+                request,
+                seance,
+                qr_token,
+                QRScanLog.GPSStatus.REFUSED,
+                QRScanLog.ScanResult.REJECTED_GPS,
+                **device_log,
+            )
+            return render(
+                request,
+                "absences/qr_scan_result.html",
+                {
+                    **error_ctx,
+                    "scan_status": "error",
+                    "message": "La localisation est obligatoire pour cette séance. "
+                    "Veuillez autoriser l'accès GPS et réessayer.",
+                },
+            )
 
         # CAS D: GPS unavailable, invalid, or Null Island (0,0) spoofing
         if not _is_valid_coordinate(stu_lat_f) or not _is_valid_coordinate(stu_lng_f):
-            _log_scan_attempt(request, seance, qr_token,
-                              QRScanLog.GPSStatus.UNAVAILABLE,
-                              QRScanLog.ScanResult.REJECTED_GPS, **device_log)
-            return render(request, "absences/qr_scan_result.html", {
-                **error_ctx, "scan_status": "error",
-                "message": "Impossible d'obtenir votre position. "
-                           "Réessayez ou contactez le professeur.",
-            })
+            _log_scan_attempt(
+                request,
+                seance,
+                qr_token,
+                QRScanLog.GPSStatus.UNAVAILABLE,
+                QRScanLog.ScanResult.REJECTED_GPS,
+                **device_log,
+            )
+            return render(
+                request,
+                "absences/qr_scan_result.html",
+                {
+                    **error_ctx,
+                    "scan_status": "error",
+                    "message": "Impossible d'obtenir votre position. "
+                    "Réessayez ou contactez le professeur.",
+                },
+            )
 
         # Calculate distance against establishment coordinates
         if _is_valid_coordinate(etab_lat) and _is_valid_coordinate(etab_lng):
@@ -2092,32 +2327,58 @@ def qr_scan(request, token):
 
             # CAS B: GPS OK but outside radius
             if distance > etab_radius:
-                _log_scan_attempt(request, seance, qr_token,
-                                  QRScanLog.GPSStatus.ACCEPTED,
-                                  QRScanLog.ScanResult.REJECTED_DISTANCE,
-                                  stu_lat_f, stu_lng_f, distance, **device_log)
-                return render(request, "absences/qr_scan_result.html", {
-                    **error_ctx, "scan_status": "error",
-                    "message": f"Vous n'êtes pas dans la zone autorisée. "
-                               f"Distance : {distance:.0f} m (max : {etab_radius} m).",
-                    "distance": round(distance, 0),
-                    "radius": etab_radius,
-                })
+                _log_scan_attempt(
+                    request,
+                    seance,
+                    qr_token,
+                    QRScanLog.GPSStatus.ACCEPTED,
+                    QRScanLog.ScanResult.REJECTED_DISTANCE,
+                    stu_lat_f,
+                    stu_lng_f,
+                    distance,
+                    **device_log,
+                )
+                return render(
+                    request,
+                    "absences/qr_scan_result.html",
+                    {
+                        **error_ctx,
+                        "scan_status": "error",
+                        "message": f"Vous n'êtes pas dans la zone autorisée. "
+                        f"Distance : {distance:.0f} m (max : {etab_radius} m).",
+                        "distance": round(distance, 0),
+                        "radius": etab_radius,
+                    },
+                )
         # If establishment GPS not configured, fall back to professor GPS
         elif qr_token.latitude is not None and qr_token.longitude is not None:
-            distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
+            distance = _haversine(
+                qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f
+            )
             if distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS:
-                _log_scan_attempt(request, seance, qr_token,
-                                  QRScanLog.GPSStatus.ACCEPTED,
-                                  QRScanLog.ScanResult.REJECTED_DISTANCE,
-                                  stu_lat_f, stu_lng_f, distance, **device_log)
-                return render(request, "absences/qr_scan_result.html", {
-                    **error_ctx, "scan_status": "error",
-                    "message": f"Vous n'êtes pas dans la zone autorisée. "
-                               f"Distance : {distance:.0f} m (max : {QRAttendanceToken.DISTANCE_THRESHOLD_METERS} m).",
-                    "distance": round(distance, 0),
-                    "radius": QRAttendanceToken.DISTANCE_THRESHOLD_METERS,
-                })
+                _log_scan_attempt(
+                    request,
+                    seance,
+                    qr_token,
+                    QRScanLog.GPSStatus.ACCEPTED,
+                    QRScanLog.ScanResult.REJECTED_DISTANCE,
+                    stu_lat_f,
+                    stu_lng_f,
+                    distance,
+                    **device_log,
+                )
+                return render(
+                    request,
+                    "absences/qr_scan_result.html",
+                    {
+                        **error_ctx,
+                        "scan_status": "error",
+                        "message": f"Vous n'êtes pas dans la zone autorisée. "
+                        f"Distance : {distance:.0f} m (max : {QRAttendanceToken.DISTANCE_THRESHOLD_METERS} m).",
+                        "distance": round(distance, 0),
+                        "radius": QRAttendanceToken.DISTANCE_THRESHOLD_METERS,
+                    },
+                )
         else:
             # Neither establishment nor professor GPS configured — system misconfiguration.
             # Generation-time guards now prevent this, but legacy tokens created
@@ -2125,18 +2386,33 @@ def qr_scan(request, token):
             logger.warning(
                 "GPS verification enabled but no reference coordinates configured "
                 "(establishment: %s/%s, professor QR: %s/%s) for seance %s",
-                etab_lat, etab_lng, qr_token.latitude, qr_token.longitude, seance.id_seance,
+                etab_lat,
+                etab_lng,
+                qr_token.latitude,
+                qr_token.longitude,
+                seance.id_seance,
             )
-            _log_scan_attempt(request, seance, qr_token,
-                              QRScanLog.GPSStatus.ACCEPTED,
-                              QRScanLog.ScanResult.REJECTED_GPS,
-                              stu_lat_f, stu_lng_f, **device_log)
-            return render(request, "absences/qr_scan_result.html", {
-                **error_ctx, "scan_status": "error",
-                "message": "Erreur de configuration : la vérification GPS est activée "
-                           "mais aucune position de référence n'est définie. "
-                           "Contactez le secrétariat ou le professeur.",
-            })
+            _log_scan_attempt(
+                request,
+                seance,
+                qr_token,
+                QRScanLog.GPSStatus.ACCEPTED,
+                QRScanLog.ScanResult.REJECTED_GPS,
+                stu_lat_f,
+                stu_lng_f,
+                **device_log,
+            )
+            return render(
+                request,
+                "absences/qr_scan_result.html",
+                {
+                    **error_ctx,
+                    "scan_status": "error",
+                    "message": "Erreur de configuration : la vérification GPS est activée "
+                    "mais aucune position de référence n'est définie. "
+                    "Contactez le secrétariat ou le professeur.",
+                },
+            )
         # CAS A: GPS OK + within radius → proceed to record
 
     # --- Anomaly detection (DETECTIVE only — never blocks an APPROVED device) ---
@@ -2158,10 +2434,15 @@ def qr_scan(request, token):
     risk_score, anomaly_flags = 0, []
     if sys_settings.anomaly_detection_enabled:
         risk_score, anomaly_flags = evaluate_scan_risk(
-            user=request.user, device=device, device_id_hash=device.device_id_hash,
+            user=request.user,
+            device=device,
+            device_id_hash=device.device_id_hash,
             ip_address=get_client_ip(request),
-            latitude=stu_lat_f, longitude=stu_lng_f,
-            accuracy=accuracy_val, settings_obj=sys_settings, seance=seance,
+            latitude=stu_lat_f,
+            longitude=stu_lng_f,
+            accuracy=accuracy_val,
+            settings_obj=sys_settings,
+            seance=seance,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
             reference_points=[
                 (etab_lat, etab_lng),
@@ -2182,58 +2463,87 @@ def qr_scan(request, token):
         scan_kwargs["longitude"] = stu_lng_f
         # Calculate distance for record if not already done
         if distance is None and qr_token.latitude is not None:
-            distance = _haversine(qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f)
+            distance = _haversine(
+                qr_token.latitude, qr_token.longitude, stu_lat_f, stu_lng_f
+            )
         if distance is not None:
             scan_kwargs["distance_meters"] = round(distance, 1)
-            is_suspicious = is_suspicious or distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
+            is_suspicious = (
+                is_suspicious or distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS
+            )
     scan_kwargs["is_suspicious"] = is_suspicious
 
     try:
         with transaction.atomic():
             # Re-check with row lock inside transaction to prevent TOCTOU race
             dup = (
-                QRScanRecord.objects
-                .select_for_update()
+                QRScanRecord.objects.select_for_update()
                 .filter(seance=seance, inscription=inscription)
                 .first()
             )
             if dup:
-                _log_scan_attempt(request, seance, qr_token,
-                                  QRScanLog.GPSStatus.NOT_REQUIRED,
-                                  QRScanLog.ScanResult.REJECTED_DUPLICATE, **device_log)
-                return render(request, "absences/qr_scan_result.html", {
-                    **error_ctx, "scan_status": "duplicate",
-                    "message": "Votre présence a déjà été enregistrée.",
-                    "scanned_at": dup.scanned_at,
-                })
+                _log_scan_attempt(
+                    request,
+                    seance,
+                    qr_token,
+                    QRScanLog.GPSStatus.NOT_REQUIRED,
+                    QRScanLog.ScanResult.REJECTED_DUPLICATE,
+                    **device_log,
+                )
+                return render(
+                    request,
+                    "absences/qr_scan_result.html",
+                    {
+                        **error_ctx,
+                        "scan_status": "duplicate",
+                        "message": "Votre présence a déjà été enregistrée.",
+                        "scanned_at": dup.scanned_at,
+                    },
+                )
             QRScanRecord.objects.create(**scan_kwargs)
     except IntegrityError:
         # Unique constraint violation — ultimate safety net
-        return render(request, "absences/qr_scan_result.html", {
-            **error_ctx, "scan_status": "duplicate",
-            "message": "Votre présence a déjà été enregistrée.",
-        })
+        return render(
+            request,
+            "absences/qr_scan_result.html",
+            {
+                **error_ctx,
+                "scan_status": "duplicate",
+                "message": "Votre présence a déjà été enregistrée.",
+            },
+        )
 
     # Log successful scan
     gps_log_status = (
-        QRScanLog.GPSStatus.ACCEPTED if stu_lat_f is not None
+        QRScanLog.GPSStatus.ACCEPTED
+        if stu_lat_f is not None
         else QRScanLog.GPSStatus.NOT_REQUIRED
     )
-    _log_scan_attempt(request, seance, qr_token,
-                      gps_log_status,
-                      QRScanLog.ScanResult.VALIDATED,
-                      stu_lat_f, stu_lng_f, distance,
-                      **device_log,
-                      risk_score=risk_score,
-                      anomaly_flags=anomaly_flags)
+    _log_scan_attempt(
+        request,
+        seance,
+        qr_token,
+        gps_log_status,
+        QRScanLog.ScanResult.VALIDATED,
+        stu_lat_f,
+        stu_lng_f,
+        distance,
+        **device_log,
+        risk_score=risk_score,
+        anomaly_flags=anomaly_flags,
+    )
     if FLAG_SAME_DEVICE_SAME_SEANCE in anomaly_flags:
         flag_earlier_same_device_scans(
-            seance=seance, device_id_hash=device.device_id_hash, user=request.user,
+            seance=seance,
+            device_id_hash=device.device_id_hash,
+            user=request.user,
         )
 
     result_ctx = {**error_ctx, "scan_status": "success"}
     if distance is not None and distance > QRAttendanceToken.DISTANCE_THRESHOLD_METERS:
-        result_ctx["message"] = "Présence enregistrée, mais votre position est éloignée de la salle."
+        result_ctx["message"] = (
+            "Présence enregistrée, mais votre position est éloignée de la salle."
+        )
         result_ctx["distance"] = round(distance, 0)
     else:
         result_ctx["message"] = "Présence enregistrée avec succès !"
@@ -2296,22 +2606,30 @@ def qr_anomaly_review(request):
 
     # Attache les libellés humains des drapeaux pour l'affichage.
     for log in logs:
-        log.flag_labels = [flag_label(f) for f in (log.anomaly_flags or [])]  # pyright: ignore[reportAttributeAccessIssue]
-        log.is_multi_account = FLAG_MULTI_ACCOUNT_DEVICE in (log.anomaly_flags or [])  # pyright: ignore[reportAttributeAccessIssue]
+        log.flag_labels = [
+            flag_label(f) for f in (log.anomaly_flags or [])
+        ]  # pyright: ignore[reportAttributeAccessIssue]
+        log.is_multi_account = FLAG_MULTI_ACCOUNT_DEVICE in (
+            log.anomaly_flags or []
+        )  # pyright: ignore[reportAttributeAccessIssue]
 
-    return render(request, "absences/qr_anomaly_review.html", {
-        "logs": logs,
-        "only_multi": only_multi,
-        "multi_flag": FLAG_MULTI_ACCOUNT_DEVICE,
-        "status": status,
-        "ReviewStatus": QRScanLog.ReviewStatus,
-        "status_tabs": [
-            (value, label, counts.get(value, 0))
-            for value, label in QRScanLog.ReviewStatus.choices
-        ],
-        "total_count": sum(counts.values()),
-        "query": _anomaly_review_query(status, only_multi),
-    })
+    return render(
+        request,
+        "absences/qr_anomaly_review.html",
+        {
+            "logs": logs,
+            "only_multi": only_multi,
+            "multi_flag": FLAG_MULTI_ACCOUNT_DEVICE,
+            "status": status,
+            "ReviewStatus": QRScanLog.ReviewStatus,
+            "status_tabs": [
+                (value, label, counts.get(value, 0))
+                for value, label in QRScanLog.ReviewStatus.choices
+            ],
+            "total_count": sum(counts.values()),
+            "query": _anomaly_review_query(status, only_multi),
+        },
+    )
 
 
 @login_required
@@ -2341,7 +2659,9 @@ def qr_anomaly_decide(request, log_id):
         else:
             log.reviewed_by = request.user
             log.reviewed_at = timezone.now()
-        log.save(update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at"])
+        log.save(
+            update_fields=["review_status", "review_note", "reviewed_by", "reviewed_at"]
+        )
         label = QRScanLog.ReviewStatus(decision).label
         student = log.etudiant.email if log.etudiant else "—"
         log_action(
@@ -2349,7 +2669,9 @@ def qr_anomaly_decide(request, log_id):
             f"Revue anomalie QR #{log.pk} ({student}) : {label}"
             + (f" — {note}" if note else ""),
             request,
-            niveau="WARNING" if decision == QRScanLog.ReviewStatus.CONFIRMED else "INFO",
+            niveau=(
+                "WARNING" if decision == QRScanLog.ReviewStatus.CONFIRMED else "INFO"
+            ),
             objet_type="SEANCE",
             objet_id=log.seance_id,
         )

@@ -34,17 +34,17 @@ from rest_framework.response import Response
 
 from apps.absences.models import Absence, Justification
 from apps.absences.services import get_system_threshold
+from apps.academic_sessions.models import AnneeAcademique
+from apps.academics.models import Cours
+from apps.accounts.models import User
+from apps.audits.models import LogAudit
+from apps.enrollments.models import Inscription
 from apps.notifications.email import (
     build_justification_decision_email,
     build_justification_decision_professor_email,
     build_justification_submitted_professor_email,
     send_notification_email,
 )
-from apps.academic_sessions.models import AnneeAcademique
-from apps.academics.models import Cours
-from apps.accounts.models import User
-from apps.audits.models import LogAudit
-from apps.enrollments.models import Inscription
 from apps.notifications.models import Notification
 
 from .filters import (
@@ -79,7 +79,6 @@ from .serializers import (
     UserListSerializer,
 )
 
-
 # ──────────────────────────────────────────────────────────────
 #  VIEWSETS CRUD
 # ──────────────────────────────────────────────────────────────
@@ -91,7 +90,9 @@ from .serializers import (
     create=extend_schema(summary="Create student", tags=["Students"]),
     update=extend_schema(summary="Update student", tags=["Students"]),
     partial_update=extend_schema(summary="Partial update student", tags=["Students"]),
-    destroy=extend_schema(summary="Deactivate student (soft delete)", tags=["Students"]),
+    destroy=extend_schema(
+        summary="Deactivate student (soft delete)", tags=["Students"]
+    ),
 )
 class StudentViewSet(viewsets.ModelViewSet):
     """
@@ -153,7 +154,9 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(summary="List courses", tags=["Courses"]),
-    retrieve=extend_schema(summary="Get course detail (with sessions & prerequisites)", tags=["Courses"]),
+    retrieve=extend_schema(
+        summary="Get course detail (with sessions & prerequisites)", tags=["Courses"]
+    ),
     create=extend_schema(summary="Create course", tags=["Courses"]),
     update=extend_schema(summary="Update course", tags=["Courses"]),
     partial_update=extend_schema(summary="Partial update course", tags=["Courses"]),
@@ -190,9 +193,7 @@ class CoursViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Cours.objects.none()
-        qs = Cours.objects.select_related(
-            "id_departement", "professeur", "id_annee"
-        )
+        qs = Cours.objects.select_related("id_departement", "professeur", "id_annee")
         if self.action == "retrieve":
             qs = qs.prefetch_related("seances", "prerequisites")
         user = cast(User, self.request.user)
@@ -219,7 +220,9 @@ class CoursViewSet(viewsets.ModelViewSet):
     retrieve=extend_schema(summary="Get enrollment detail", tags=["Enrollments"]),
     create=extend_schema(summary="Create enrollment", tags=["Enrollments"]),
     update=extend_schema(summary="Update enrollment", tags=["Enrollments"]),
-    partial_update=extend_schema(summary="Partial update enrollment", tags=["Enrollments"]),
+    partial_update=extend_schema(
+        summary="Partial update enrollment", tags=["Enrollments"]
+    ),
     destroy=extend_schema(summary="Delete enrollment", tags=["Enrollments"]),
 )
 class InscriptionViewSet(viewsets.ModelViewSet):
@@ -255,20 +258,24 @@ class InscriptionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Inscription.objects.none()
-        qs = Inscription.objects.select_related(
-            "id_etudiant", "id_cours", "id_annee"
-        )
+        qs = Inscription.objects.select_related("id_etudiant", "id_cours", "id_annee")
         user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt: dict[str, object] = {"id_etudiant": user, "status": Inscription.Status.EN_COURS}
+            flt: dict[str, object] = {
+                "id_etudiant": user,
+                "status": Inscription.Status.EN_COURS,
+            }
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
         if user.role == User.Role.PROFESSEUR:
             active_year = AnneeAcademique.objects.filter(active=True).first()
-            flt: dict[str, object] = {"id_cours__professeur": user, "status": Inscription.Status.EN_COURS}
+            flt: dict[str, object] = {
+                "id_cours__professeur": user,
+                "status": Inscription.Status.EN_COURS,
+            }
             if active_year:
                 flt["id_annee"] = active_year
             return qs.filter(**flt)
@@ -303,6 +310,7 @@ class AbsenceViewSet(viewsets.ModelViewSet):
 
             return [AbsenceWriteThrottle()]
         return super().get_throttles()
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = AbsenceFilter
     search_fields = [
@@ -367,7 +375,9 @@ class AbsenceViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     list=extend_schema(summary="List justifications", tags=["Justifications"]),
     retrieve=extend_schema(summary="Get justification detail", tags=["Justifications"]),
-    create=extend_schema(summary="Submit a justification (student only)", tags=["Justifications"]),
+    create=extend_schema(
+        summary="Submit a justification (student only)", tags=["Justifications"]
+    ),
 )
 class JustificationViewSet(
     mixins.CreateModelMixin,
@@ -421,13 +431,9 @@ class JustificationViewSet(
         user = cast(User, self.request.user)
 
         if user.role == User.Role.ETUDIANT:
-            return qs.filter(
-                id_absence__id_inscription__id_etudiant=user
-            )
+            return qs.filter(id_absence__id_inscription__id_etudiant=user)
         if user.role == User.Role.PROFESSEUR:
-            return qs.filter(
-                id_absence__id_inscription__id_cours__professeur=user
-            )
+            return qs.filter(id_absence__id_inscription__id_cours__professeur=user)
         return qs
 
     def perform_create(self, serializer):
@@ -525,8 +531,12 @@ class JustificationViewSet(
 
 @extend_schema_view(
     list=extend_schema(summary="List my notifications", tags=["Notifications"]),
-    mark_read=extend_schema(summary="Mark notification as read", tags=["Notifications"]),
-    mark_all_read=extend_schema(summary="Mark all notifications as read", tags=["Notifications"]),
+    mark_read=extend_schema(
+        summary="Mark notification as read", tags=["Notifications"]
+    ),
+    mark_all_read=extend_schema(
+        summary="Mark all notifications as read", tags=["Notifications"]
+    ),
 )
 class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     """User notifications (auto-generated by the system)."""
@@ -538,15 +548,13 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Notification.objects.none()
-        return Notification.objects.filter(
-            id_utilisateur=self.request.user
-        ).order_by("-date_envoi")
+        return Notification.objects.filter(id_utilisateur=self.request.user).order_by(
+            "-date_envoi"
+        )
 
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
-        notif = get_object_or_404(
-            Notification, pk=pk, id_utilisateur=request.user
-        )
+        notif = get_object_or_404(Notification, pk=pk, id_utilisateur=request.user)
         notif.lue = True
         notif.save(update_fields=["lue"])
         return Response({"status": "read"})
@@ -575,9 +583,7 @@ def dashboard_analytics(request):
     """Admin dashboard KPIs as JSON."""
     academic_year = AnneeAcademique.objects.filter(active=True).first()
 
-    total_students = User.objects.filter(
-        role=User.Role.ETUDIANT, actif=True
-    ).count()
+    total_students = User.objects.filter(role=User.Role.ETUDIANT, actif=True).count()
     total_professors = User.objects.filter(
         role=User.Role.PROFESSEUR, actif=True
     ).count()
@@ -602,9 +608,7 @@ def dashboard_analytics(request):
     ).select_related("id_cours")
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
-    inscription_ids = list(
-        all_inscriptions.values_list("id_inscription", flat=True)
-    )
+    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
@@ -627,7 +631,9 @@ def dashboard_analytics(request):
                 if cours.seuil_absence is not None
                 else system_threshold
             )
-            seuil_effectif = min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            seuil_effectif = (
+                min(seuil + ins.exemption_margin, 100) if ins.exemption_40 else seuil
+            )
             if rate >= seuil_effectif:
                 at_risk_count += 1
 
@@ -660,9 +666,7 @@ def dashboard_analytics(request):
 def statistics_analytics(request):
     """Advanced absence statistics as JSON (for charts)."""
     academic_year = AnneeAcademique.objects.filter(active=True).first()
-    year_filter = (
-        Q(id_inscription__id_annee=academic_year) if academic_year else Q()
-    )
+    year_filter = Q(id_inscription__id_annee=academic_year) if academic_year else Q()
 
     # Top 5 professors by absence count
     top_professors = list(
@@ -705,11 +709,7 @@ def statistics_analytics(request):
     # By department
     dept_absences = list(
         Absence.objects.filter(year_filter)
-        .values(
-            name=F(
-                "id_inscription__id_cours__id_departement__nom_departement"
-            )
-        )
+        .values(name=F("id_inscription__id_cours__id_departement__nom_departement"))
         .annotate(count=Count("id_absence"))
         .order_by("-count")
     )
@@ -782,9 +782,7 @@ def export_student_pdf_api(request, student_id):
             )
         student = user
     elif user.role in (User.Role.ADMIN, User.Role.SECRETAIRE):
-        student = get_object_or_404(
-            User, pk=student_id, role=User.Role.ETUDIANT
-        )
+        student = get_object_or_404(User, pk=student_id, role=User.Role.ETUDIANT)
     else:
         return Response(
             {"detail": "Not authorized."},
@@ -800,12 +798,8 @@ def export_student_pdf_api(request, student_id):
     if academic_year:
         insc_filter["id_annee"] = academic_year
 
-    inscriptions = Inscription.objects.filter(**insc_filter).select_related(
-        "id_cours"
-    )
-    inscription_ids = list(
-        inscriptions.values_list("id_inscription", flat=True)
-    )
+    inscriptions = Inscription.objects.filter(**insc_filter).select_related("id_cours")
+    inscription_ids = list(inscriptions.values_list("id_inscription", flat=True))
 
     today = timezone.localdate()
     absence_sums = dict(
@@ -831,9 +825,12 @@ def export_student_pdf_api(request, student_id):
 
     # Build PDF
     try:
-        return _build_student_pdf(student, academic_year, inscriptions, absence_sums, absences)
+        return _build_student_pdf(
+            student, academic_year, inscriptions, absence_sums, absences
+        )
     except Exception:
         import logging
+
         logging.getLogger(__name__).exception(
             "PDF generation failed for student %s", student_id
         )
@@ -862,12 +859,8 @@ def _build_student_pdf(student, academic_year, inscriptions, absence_sums, absen
     p.drawString(50, height - 80, f"Etudiant: {student.get_full_name()}")
     p.drawString(50, height - 100, f"Email: {student.email}")
     if academic_year:
-        p.drawString(
-            50, height - 120, f"Annee academique: {academic_year.libelle}"
-        )
-    p.drawString(
-        50, height - 140, f"Date du rapport: {datetime.date.today()}"
-    )
+        p.drawString(50, height - 120, f"Annee academique: {academic_year.libelle}")
+    p.drawString(50, height - 140, f"Date du rapport: {datetime.date.today()}")
 
     p.line(50, height - 160, width - 50, height - 160)
     y = height - 180
@@ -933,7 +926,12 @@ def _export_status(ins, rate, seuil):
 @extend_schema(
     summary="Export at-risk students as Excel (admin/secretary)",
     tags=["Exports"],
-    responses={(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"): bytes},
+    responses={
+        (
+            200,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ): bytes
+    },
 )
 @api_view(["GET"])
 @permission_classes([IsAdminOrSecretary])
@@ -948,9 +946,7 @@ def export_at_risk_excel_api(request):
     if academic_year:
         all_inscriptions = all_inscriptions.filter(id_annee=academic_year)
 
-    inscription_ids = list(
-        all_inscriptions.values_list("id_inscription", flat=True)
-    )
+    inscription_ids = list(all_inscriptions.values_list("id_inscription", flat=True))
     today = timezone.localdate()
     absence_sums = dict(
         Absence.objects.filter(
@@ -966,15 +962,17 @@ def export_at_risk_excel_api(request):
     wb = Workbook()
     ws = cast(Worksheet, wb.active)  # never None on a new Workbook
     ws.title = "Etudiants a Risque"
-    ws.append([
-        "Nom",
-        "Prenom",
-        "Email",
-        "Cours",
-        "Heures Manquees",
-        "Taux Absence (%)",
-        "Statut",
-    ])
+    ws.append(
+        [
+            "Nom",
+            "Prenom",
+            "Email",
+            "Cours",
+            "Heures Manquees",
+            "Taux Absence (%)",
+            "Statut",
+        ]
+    )
 
     for ins in all_inscriptions:
         cours = ins.id_cours
@@ -987,21 +985,24 @@ def export_at_risk_excel_api(request):
                 else system_threshold
             )
             if rate >= seuil:
+
                 def _safe(val):
                     s = str(val) if val is not None else ""
                     if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
                         return "'" + s
                     return s
 
-                ws.append([
-                    _safe(ins.id_etudiant.nom),
-                    _safe(ins.id_etudiant.prenom),
-                    _safe(ins.id_etudiant.email),
-                    _safe(f"{cours.nom_cours} ({cours.code_cours})"),
-                    total_abs,
-                    round(rate, 2),
-                    _export_status(ins, rate, seuil),
-                ])
+                ws.append(
+                    [
+                        _safe(ins.id_etudiant.nom),
+                        _safe(ins.id_etudiant.prenom),
+                        _safe(ins.id_etudiant.email),
+                        _safe(f"{cours.nom_cours} ({cours.code_cours})"),
+                        total_abs,
+                        round(rate, 2),
+                        _export_status(ins, rate, seuil),
+                    ]
+                )
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -1011,7 +1012,5 @@ def export_at_risk_excel_api(request):
         buf.read(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    response["Content-Disposition"] = (
-        'attachment; filename="etudiants_a_risque.xlsx"'
-    )
+    response["Content-Disposition"] = 'attachment; filename="etudiants_a_risque.xlsx"'
     return response

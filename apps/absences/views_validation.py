@@ -15,13 +15,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
-
-from apps.utils import safe_get_page
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.academic_sessions.models import AnneeAcademique, Seance
 from apps.accounts.models import User
@@ -40,6 +38,7 @@ from apps.notifications.email import (
     send_notification_email,
 )
 from apps.notifications.models import Notification
+from apps.utils import safe_get_page
 
 from .forms import SecretaryJustifiedAbsenceForm
 from .models import Absence, Justification
@@ -73,7 +72,10 @@ def _send_justification_decision_emails(absence, approved, motif=""):
             )
             send_notification_email(professor, subj, body, html_body)
     except Exception:
-        logger.exception("Failed to send justification decision emails for absence %s", getattr(absence, "pk", "?"))
+        logger.exception(
+            "Failed to send justification decision emails for absence %s",
+            getattr(absence, "pk", "?"),
+        )
 
 
 # ========================================================================== #
@@ -124,9 +126,15 @@ def validation_list(request):
     if active_year:
         base_qs = base_qs.filter(id_inscription__id_annee=active_year)
     status_counts = {
-        Absence.Statut.NON_JUSTIFIEE: base_qs.filter(statut=Absence.Statut.NON_JUSTIFIEE).count(),
-        Absence.Statut.EN_ATTENTE: base_qs.filter(statut=Absence.Statut.EN_ATTENTE).count(),
-        Absence.Statut.JUSTIFIEE: base_qs.filter(statut=Absence.Statut.JUSTIFIEE).count(),
+        Absence.Statut.NON_JUSTIFIEE: base_qs.filter(
+            statut=Absence.Statut.NON_JUSTIFIEE
+        ).count(),
+        Absence.Statut.EN_ATTENTE: base_qs.filter(
+            statut=Absence.Statut.EN_ATTENTE
+        ).count(),
+        Absence.Statut.JUSTIFIEE: base_qs.filter(
+            statut=Absence.Statut.JUSTIFIEE
+        ).count(),
     }
 
     # Pagination
@@ -190,8 +198,7 @@ def process_justification(request, pk):
 
         # Lock the linked absence row for consistent update
         absence = (
-            Absence.objects
-            .select_related(
+            Absence.objects.select_related(
                 "id_seance__id_cours",
                 "id_inscription__id_etudiant",
             )
@@ -201,8 +208,7 @@ def process_justification(request, pk):
 
         # Update justification metadata
         justification.state = (
-            Justification.State.ACCEPTEE if approved
-            else Justification.State.REFUSEE
+            Justification.State.ACCEPTEE if approved else Justification.State.REFUSEE
         )
         justification.commentaire_gestion = comment
         justification.validee_par = request.user
@@ -211,8 +217,7 @@ def process_justification(request, pk):
 
         # Update absence status
         absence.statut = (
-            Absence.Statut.JUSTIFIEE if approved
-            else Absence.Statut.NON_JUSTIFIEE
+            Absence.Statut.JUSTIFIEE if approved else Absence.Statut.NON_JUSTIFIEE
         )
         absence.save(update_fields=["statut"])
 
@@ -396,7 +401,9 @@ def create_justified_absence(request):
                     # .get() crashe si doublon (fail fast)
                     try:
                         seance = Seance.objects.get(
-                            date_seance=date_absence, id_cours=cours, id_annee=annee_active
+                            date_seance=date_absence,
+                            id_cours=cours,
+                            id_annee=annee_active,
                         )
                     except Seance.DoesNotExist:
                         seance = Seance.objects.create(
@@ -408,7 +415,7 @@ def create_justified_absence(request):
                         )
 
                     # Calculer la duree si necessaire
-                    from decimal import Decimal, ROUND_HALF_UP
+                    from decimal import ROUND_HALF_UP, Decimal
 
                     if type_absence == Absence.TypeAbsence.ABSENT:
                         # Calculer la duree de la seance
@@ -420,18 +427,33 @@ def create_justified_absence(request):
                         if fin < debut:
                             fin += timedelta(days=1)
                         raw = (fin - debut).total_seconds() / 3600.0
-                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        duree = Decimal(str(raw)).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
                     elif type_absence == Absence.TypeAbsence.PARTIEL:
-                        raw = duree_absence if duree_absence and duree_absence > 0 else 1.0
-                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        raw = (
+                            duree_absence
+                            if duree_absence and duree_absence > 0
+                            else 1.0
+                        )
+                        duree = Decimal(str(raw)).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
                     else:
                         # Legacy fallback
-                        raw = duree_absence if duree_absence and duree_absence > 0 else 2.0
-                        duree = Decimal(str(raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        raw = (
+                            duree_absence
+                            if duree_absence and duree_absence > 0
+                            else 2.0
+                        )
+                        duree = Decimal(str(raw)).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
 
                     # Statut selon la présence d'un document justificatif
                     statut_absence = (
-                        Absence.Statut.JUSTIFIEE if document_bytes
+                        Absence.Statut.JUSTIFIEE
+                        if document_bytes
                         else Absence.Statut.NON_JUSTIFIEE
                     )
 
@@ -542,15 +564,15 @@ def student_absence_history_api(request):
             "id_seance__id_cours",
         )
         if active_year:
-            absences_qs = absences_qs.filter(
-                id_inscription__id_annee=active_year
-            )
+            absences_qs = absences_qs.filter(id_inscription__id_annee=active_year)
 
         stats = absences_qs.aggregate(
             total=Count("id_absence"),
             justified=Count("id_absence", filter=Q(statut=Absence.Statut.JUSTIFIEE)),
             pending=Count("id_absence", filter=Q(statut=Absence.Statut.EN_ATTENTE)),
-            unjustified=Count("id_absence", filter=Q(statut=Absence.Statut.NON_JUSTIFIEE)),
+            unjustified=Count(
+                "id_absence", filter=Q(statut=Absence.Statut.NON_JUSTIFIEE)
+            ),
         )
 
         recent_absences = absences_qs.order_by(
@@ -565,8 +587,14 @@ def student_absence_history_api(request):
                     "id": absence.id_absence,
                     "date": seance.date_seance.isoformat(),
                     "date_display": seance.date_seance.strftime("%d/%m/%Y"),
-                    "time_start": seance.heure_debut.strftime("%H:%M") if seance.heure_debut else "",
-                    "time_end": seance.heure_fin.strftime("%H:%M") if seance.heure_fin else "",
+                    "time_start": (
+                        seance.heure_debut.strftime("%H:%M")
+                        if seance.heure_debut
+                        else ""
+                    ),
+                    "time_end": (
+                        seance.heure_fin.strftime("%H:%M") if seance.heure_fin else ""
+                    ),
                     "course_code": seance.id_cours.code_cours,
                     "course_name": seance.id_cours.nom_cours,
                     "type": absence.type_absence,
@@ -645,6 +673,7 @@ def justified_absences_list(request):
         if date_filter:
             try:
                 from datetime import date as date_type
+
                 date_type.fromisoformat(date_filter)
                 absences = absences.filter(id_seance__date_seance=date_filter)
             except ValueError:

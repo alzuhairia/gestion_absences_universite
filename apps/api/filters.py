@@ -57,9 +57,7 @@ class InscriptionFilter(filters.FilterSet):
     cours = filters.NumberFilter(field_name="id_cours")
     annee = filters.NumberFilter(field_name="id_annee")
     status = filters.ChoiceFilter(choices=Inscription.Status.choices)
-    type_inscription = filters.ChoiceFilter(
-        choices=Inscription.TypeInscription.choices
-    )
+    type_inscription = filters.ChoiceFilter(choices=Inscription.TypeInscription.choices)
     eligible_examen = filters.BooleanFilter()
 
     class Meta:
@@ -79,17 +77,13 @@ class AbsenceFilter(filters.FilterSet):
     seance = filters.NumberFilter(field_name="id_seance")
     statut = filters.ChoiceFilter(choices=Absence.Statut.choices)
     type_absence = filters.ChoiceFilter(choices=Absence.TypeAbsence.choices)
-    etudiant = filters.NumberFilter(
-        field_name="id_inscription__id_etudiant"
-    )
+    etudiant = filters.NumberFilter(field_name="id_inscription__id_etudiant")
     cours = filters.NumberFilter(field_name="id_inscription__id_cours")
     annee = filters.NumberFilter(field_name="id_inscription__id_annee")
     date_from = filters.DateFilter(
         field_name="id_seance__date_seance", lookup_expr="gte"
     )
-    date_to = filters.DateFilter(
-        field_name="id_seance__date_seance", lookup_expr="lte"
-    )
+    date_to = filters.DateFilter(field_name="id_seance__date_seance", lookup_expr="lte")
 
     class Meta:
         model = Absence
@@ -112,15 +106,11 @@ class JustificationFilter(filters.FilterSet):
     etudiant = filters.NumberFilter(
         field_name="id_absence__id_inscription__id_etudiant"
     )
-    cours = filters.NumberFilter(
-        field_name="id_absence__id_inscription__id_cours"
-    )
+    cours = filters.NumberFilter(field_name="id_absence__id_inscription__id_cours")
     date_from = filters.DateFilter(
         field_name="date_soumission", lookup_expr="date__gte"
     )
-    date_to = filters.DateFilter(
-        field_name="date_soumission", lookup_expr="date__lte"
-    )
+    date_to = filters.DateFilter(field_name="date_soumission", lookup_expr="date__lte")
 
     class Meta:
         model = Justification

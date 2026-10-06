@@ -31,38 +31,113 @@ from apps.academics.models import Cours, Departement, Faculte
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
 
-
 DEMO_PASSWORD = "Demo2026!"
 
 FIRST_NAMES = [
-    "Ahmed", "Yassine", "Karim", "Mehdi", "Omar", "Rachid", "Sami", "Hamza",
-    "Youssef", "Anas", "Bilal", "Tarik", "Nabil", "Adil", "Jamal", "Walid",
-    "Reda", "Khalid", "Said", "Marouane", "Fatima", "Amina", "Salma", "Nora",
-    "Ikram", "Zineb", "Houda", "Lina", "Sara", "Meryem", "Asma", "Hajar",
-    "Kenza", "Imane", "Chaima", "Dounia", "Layla", "Rania", "Soukaina", "Wafa",
-    "Kamal", "Hicham", "Zakaria", "Ismail", "Othmane", "Amine", "Ayman", "Ilyas",
+    "Ahmed",
+    "Yassine",
+    "Karim",
+    "Mehdi",
+    "Omar",
+    "Rachid",
+    "Sami",
+    "Hamza",
+    "Youssef",
+    "Anas",
+    "Bilal",
+    "Tarik",
+    "Nabil",
+    "Adil",
+    "Jamal",
+    "Walid",
+    "Reda",
+    "Khalid",
+    "Said",
+    "Marouane",
+    "Fatima",
+    "Amina",
+    "Salma",
+    "Nora",
+    "Ikram",
+    "Zineb",
+    "Houda",
+    "Lina",
+    "Sara",
+    "Meryem",
+    "Asma",
+    "Hajar",
+    "Kenza",
+    "Imane",
+    "Chaima",
+    "Dounia",
+    "Layla",
+    "Rania",
+    "Soukaina",
+    "Wafa",
+    "Kamal",
+    "Hicham",
+    "Zakaria",
+    "Ismail",
+    "Othmane",
+    "Amine",
+    "Ayman",
+    "Ilyas",
 ]
 
 LAST_NAMES = [
-    "Benali", "Tazi", "Bennani", "Alaoui", "Idrissi", "Berrada", "Fassi",
-    "Chraibi", "Amrani", "Lahlou", "Zerhouni", "Belmahi", "Ouazzani", "Sebti",
-    "Kadiri", "Rami", "Harti", "Mansouri", "Hajji", "Lakhdar", "Saidi", "Daoudi",
-    "Benjelloun", "Zouhair", "Kabbaj", "Slimani", "Bourkia", "Ennaji", "Filali",
+    "Benali",
+    "Tazi",
+    "Bennani",
+    "Alaoui",
+    "Idrissi",
+    "Berrada",
+    "Fassi",
+    "Chraibi",
+    "Amrani",
+    "Lahlou",
+    "Zerhouni",
+    "Belmahi",
+    "Ouazzani",
+    "Sebti",
+    "Kadiri",
+    "Rami",
+    "Harti",
+    "Mansouri",
+    "Hajji",
+    "Lakhdar",
+    "Saidi",
+    "Daoudi",
+    "Benjelloun",
+    "Zouhair",
+    "Kabbaj",
+    "Slimani",
+    "Bourkia",
+    "Ennaji",
+    "Filali",
 ]
 
 DEFAULT_FACULTIES = [
-    ("Faculte des Sciences et Techniques", [
-        "Informatique",
-        "Mathematiques",
-        "Physique",
-    ]),
-    ("Faculte des Sciences Economiques et Gestion", [
-        "Gestion",
-        "Economie",
-    ]),
-    ("Faculte des Lettres et Sciences Humaines", [
-        "Langues",
-    ]),
+    (
+        "Faculte des Sciences et Techniques",
+        [
+            "Informatique",
+            "Mathematiques",
+            "Physique",
+        ],
+    ),
+    (
+        "Faculte des Sciences Economiques et Gestion",
+        [
+            "Gestion",
+            "Economie",
+        ],
+    ),
+    (
+        "Faculte des Lettres et Sciences Humaines",
+        [
+            "Langues",
+        ],
+    ),
 ]
 
 COURSE_TOPICS_BY_NIVEAU = {
@@ -115,29 +190,41 @@ class Command(BaseCommand):
             help="Delete previous demo_* users/courses before seeding.",
         )
         parser.add_argument(
-            "--nb-students", type=int, default=30,
+            "--nb-students",
+            type=int,
+            default=30,
             help="Number of students to create (default: 30).",
         )
         parser.add_argument(
-            "--nb-professors", type=int, default=20,
+            "--nb-professors",
+            type=int,
+            default=20,
             help="Number of professors to create (default: 20).",
         )
         parser.add_argument(
-            "--nb-courses", type=int, default=30,
+            "--nb-courses",
+            type=int,
+            default=30,
             help="Number of courses to create (default: 30).",
         )
         parser.add_argument(
-            "--nb-seances", type=int, default=10,
+            "--nb-seances",
+            type=int,
+            default=10,
             help="Number of seances to create per course (default: 10).",
         )
         parser.add_argument(
-            "--absence-rate", type=float, default=0.25,
+            "--absence-rate",
+            type=float,
+            default=0.25,
             help="Probability that a student is absent in a seance (default: 0.25).",
         )
         parser.add_argument(
-            "--year-label", type=str, default=None,
+            "--year-label",
+            type=str,
+            default=None,
             help="Label of the academic year to create/use (e.g. 2025-2026). "
-                 "If omitted, uses the active year or computes one from today.",
+            "If omitted, uses the active year or computes one from today.",
         )
 
     def handle(self, *args, **options):
@@ -171,20 +258,24 @@ class Command(BaseCommand):
             courses = self._create_courses(nb_courses, departements, profs, year)
             self._enroll_students(students, courses, year)
             seances = self._create_seances(courses, year, nb_seances)
-            nb_absences = self._create_absences(seances, students, encoder, absence_rate)
+            nb_absences = self._create_absences(
+                seances, students, encoder, absence_rate
+            )
 
-        self.stdout.write(self.style.SUCCESS(
-            "\nDone. Created:\n"
-            f"  - {len(profs)} professors\n"
-            f"  - {len(students)} students\n"
-            f"  - {len(courses)} courses\n"
-            f"  - {len(seances)} seances\n"
-            f"  - {nb_absences} absences\n"
-            f"\nDemo password for every account: {DEMO_PASSWORD}\n"
-            "Sample logins:\n"
-            f"  Prof:    {profs[0].email}\n"
-            f"  Student: {students[0].email}\n"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                "\nDone. Created:\n"
+                f"  - {len(profs)} professors\n"
+                f"  - {len(students)} students\n"
+                f"  - {len(courses)} courses\n"
+                f"  - {len(seances)} seances\n"
+                f"  - {nb_absences} absences\n"
+                f"\nDemo password for every account: {DEMO_PASSWORD}\n"
+                "Sample logins:\n"
+                f"  Prof:    {profs[0].email}\n"
+                f"  Student: {students[0].email}\n"
+            )
+        )
 
     # ------------------------------------------------------------------ #
     #  Academic year                                                     #
@@ -196,7 +287,10 @@ class Command(BaseCommand):
                 libelle=label,
                 defaults={"active": True},
             )
-            if not year.active and not AnneeAcademique.objects.filter(active=True).exists():
+            if (
+                not year.active
+                and not AnneeAcademique.objects.filter(active=True).exists()
+            ):
                 year.active = True
                 year.save()
             self.stdout.write(
@@ -206,7 +300,9 @@ class Command(BaseCommand):
 
         existing_active = AnneeAcademique.objects.filter(active=True).first()
         if existing_active:
-            self.stdout.write(f"Academic year: reusing active {existing_active.libelle}")
+            self.stdout.write(
+                f"Academic year: reusing active {existing_active.libelle}"
+            )
             return existing_active
 
         today = date.today()
@@ -230,7 +326,9 @@ class Command(BaseCommand):
     def _ensure_faculties_and_departments(self):
         """Create default faculties+departments if none exist."""
         if Departement.objects.filter(actif=True).exists():
-            self.stdout.write("Faculties/departments: existing setup detected, skipping.")
+            self.stdout.write(
+                "Faculties/departments: existing setup detected, skipping."
+            )
             return
 
         self.stdout.write("Creating default faculties and departments...")
@@ -258,9 +356,7 @@ class Command(BaseCommand):
         demo_users = User.objects.filter(email__startswith="demo_")
         demo_courses = Cours.objects.filter(code_cours__startswith="DEMO_")
 
-        Absence.objects.filter(
-            id_inscription__id_etudiant__in=demo_users
-        ).delete()
+        Absence.objects.filter(id_inscription__id_etudiant__in=demo_users).delete()
         Inscription.objects.filter(id_etudiant__in=demo_users).delete()
         Seance.objects.filter(id_cours__in=demo_courses).delete()
         Absence.objects.filter(id_inscription__id_cours__in=demo_courses).delete()
@@ -362,6 +458,7 @@ class Command(BaseCommand):
     def _enroll_students(self, students, courses, year):
         self.stdout.write("Enrolling students...")
         from django.db import IntegrityError
+
         count = 0
         for student in students:
             # Each student is enrolled in every course of their own niveau.
@@ -407,7 +504,9 @@ class Command(BaseCommand):
                 seance_date = base_day + timedelta(days=offset)
                 start, end = slots[k % len(slots)]
                 # Skip if already exists (unique cours+date)
-                if Seance.objects.filter(id_cours=course, date_seance=seance_date).exists():
+                if Seance.objects.filter(
+                    id_cours=course, date_seance=seance_date
+                ).exists():
                     continue
                 seance = Seance.objects.create(
                     id_cours=course,
@@ -449,7 +548,9 @@ class Command(BaseCommand):
                     is_partial = random.random() < 0.25
                     if is_partial:
                         duree = round(
-                            Decimal(str(random.uniform(0.25, float(duree_seance) - 0.5))),
+                            Decimal(
+                                str(random.uniform(0.25, float(duree_seance) - 0.5))
+                            ),
                             2,
                         )
                         type_abs = Absence.TypeAbsence.PARTIEL
@@ -477,7 +578,5 @@ class Command(BaseCommand):
                     )
                     count += 1
                 except Exception as exc:
-                    self.stdout.write(self.style.WARNING(
-                        f"    skip absence: {exc}"
-                    ))
+                    self.stdout.write(self.style.WARNING(f"    skip absence: {exc}"))
         return count

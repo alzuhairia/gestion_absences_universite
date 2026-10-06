@@ -21,7 +21,6 @@ from apps.academics.models import Cours
 from apps.accounts.models import User
 from apps.enrollments.models import Inscription
 
-
 # ── Users / Students ─────────────────────────────────────────────────────────
 
 
@@ -77,9 +76,7 @@ class StudentSerializer(serializers.ModelSerializer):
 
 
 class SeanceSerializer(serializers.ModelSerializer):
-    cours_code = serializers.CharField(
-        source="id_cours.code_cours", read_only=True
-    )
+    cours_code = serializers.CharField(source="id_cours.code_cours", read_only=True)
     duree = serializers.FloatField(source="duree_heures", read_only=True)
 
     class Meta:
@@ -172,12 +169,8 @@ class InscriptionListSerializer(serializers.ModelSerializer):
     etudiant_name = serializers.CharField(
         source="id_etudiant.get_full_name", read_only=True
     )
-    cours_code = serializers.CharField(
-        source="id_cours.code_cours", read_only=True
-    )
-    cours_name = serializers.CharField(
-        source="id_cours.nom_cours", read_only=True
-    )
+    cours_code = serializers.CharField(source="id_cours.code_cours", read_only=True)
+    cours_name = serializers.CharField(source="id_cours.nom_cours", read_only=True)
     annee = serializers.CharField(source="id_annee.libelle", read_only=True)
 
     class Meta:
@@ -225,15 +218,9 @@ class AbsenceListSerializer(serializers.ModelSerializer):
     cours_code = serializers.CharField(
         source="id_inscription.id_cours.code_cours", read_only=True
     )
-    date_seance = serializers.DateField(
-        source="id_seance.date_seance", read_only=True
-    )
-    heure_debut = serializers.TimeField(
-        source="id_seance.heure_debut", read_only=True
-    )
-    heure_fin = serializers.TimeField(
-        source="id_seance.heure_fin", read_only=True
-    )
+    date_seance = serializers.DateField(source="id_seance.date_seance", read_only=True)
+    heure_debut = serializers.TimeField(source="id_seance.heure_debut", read_only=True)
+    heure_fin = serializers.TimeField(source="id_seance.heure_fin", read_only=True)
 
     class Meta:
         model = Absence
@@ -278,16 +265,22 @@ class AbsenceWriteSerializer(serializers.ModelSerializer):
         duree = attrs.get("duree_absence")
         if type_absence == Absence.TypeAbsence.PARTIEL and (not duree or duree <= 0):
             raise serializers.ValidationError(
-                {"duree_absence": "La durée est obligatoire pour une absence partielle."}
+                {
+                    "duree_absence": "La durée est obligatoire pour une absence partielle."
+                }
             )
 
         # P3-01/P8-01 FIX: validate duree_absence <= session duration
         seance = attrs.get("id_seance")
         if seance and duree is not None and duree > 0:
-            duree_seance = seance.duree_heures() if hasattr(seance, "duree_heures") else None
+            duree_seance = (
+                seance.duree_heures() if hasattr(seance, "duree_heures") else None
+            )
             if duree_seance and float(duree) > duree_seance:
                 raise serializers.ValidationError(
-                    {"duree_absence": f"La durée ({duree}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."}
+                    {
+                        "duree_absence": f"La durée ({duree}h) ne peut pas dépasser la durée de la séance ({duree_seance}h)."
+                    }
                 )
 
         return attrs
@@ -345,9 +338,7 @@ class JustificationCreateSerializer(serializers.ModelSerializer):
                 )
 
         if value.statut == Absence.Statut.JUSTIFIEE:
-            raise serializers.ValidationError(
-                "This absence is already justified."
-            )
+            raise serializers.ValidationError("This absence is already justified.")
         if hasattr(value, "justification"):
             raise serializers.ValidationError(
                 "A justification already exists for this absence."

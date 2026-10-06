@@ -172,7 +172,9 @@ class CalculerPourcentageAbsenceTest(AbsenceLogicBaseTestCase):
         )
 
         result = calculer_pourcentage_absence(self.student, self.cours)
-        self.assertEqual(result["total_heures_absence"], 4.0)  # Only the unjustified one
+        self.assertEqual(
+            result["total_heures_absence"], 4.0
+        )  # Only the unjustified one
         self.assertAlmostEqual(result["pourcentage_absence"], 6.67, places=2)
 
     def test_pending_justification_does_not_count_as_unjustified(self):
@@ -514,23 +516,27 @@ class TauxCappedAt100Test(AbsenceLogicBaseTestCase):
             id_annee=self.annee,
         )
         seance = Seance.objects.create(
-            date_seance=date(2026, 1, 5),  # past date so it counts after future-filter fix
+            date_seance=date(
+                2026, 1, 5
+            ),  # past date so it counts after future-filter fix
             heure_debut=time(8, 0),
             heure_fin=time(12, 0),
             id_cours=small_course,
             id_annee=self.annee,
         )
         # Bypass model clean to simulate corrupt data (duree > total_periodes)
-        Absence.objects.bulk_create([
-            Absence(
-                id_inscription=inscription,
-                id_seance=seance,
-                type_absence=Absence.TypeAbsence.ABSENT,
-                duree_absence=Decimal("4.00"),
-                statut=Absence.Statut.NON_JUSTIFIEE,
-                encodee_par=self.prof,
-            )
-        ])
+        Absence.objects.bulk_create(
+            [
+                Absence(
+                    id_inscription=inscription,
+                    id_seance=seance,
+                    type_absence=Absence.TypeAbsence.ABSENT,
+                    duree_absence=Decimal("4.00"),
+                    statut=Absence.Statut.NON_JUSTIFIEE,
+                    encodee_par=self.prof,
+                )
+            ]
+        )
 
         stats = calculer_absence_stats(inscription)
         self.assertLessEqual(stats["taux"], 100)
@@ -605,19 +611,27 @@ class FutureSessionsExcludedTest(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof-f@test.com", nom="Prof", prenom="F",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-f@test.com",
+            nom="Prof",
+            prenom="F",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-f@test.com", nom="Stu", prenom="F",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-f@test.com",
+            nom="Stu",
+            prenom="F",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.cours = Cours.objects.create(
-            code_cours="FUTUR", nom_cours="Future Test",
+            code_cours="FUTUR",
+            nom_cours="Future Test",
             nombre_total_periodes=40,
             id_departement=self.departement,
             professeur=self.prof,
-            id_annee=self.annee, niveau=1,
+            id_annee=self.annee,
+            niveau=1,
         )
         self.inscription = Inscription.objects.create(
             id_etudiant=self.student,
@@ -627,13 +641,17 @@ class FutureSessionsExcludedTest(TestCase):
         today = timezone.localdate()
         self.past_seance = Seance.objects.create(
             date_seance=today - timedelta(days=5),
-            heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.cours, id_annee=self.annee,
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
         self.future_seance = Seance.objects.create(
             date_seance=today + timedelta(days=30),
-            heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.cours, id_annee=self.annee,
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
         # Past absence: 2h — should count
         Absence.objects.create(
@@ -645,16 +663,18 @@ class FutureSessionsExcludedTest(TestCase):
             encodee_par=self.prof,
         )
         # Future absence: 2h — must NOT count
-        Absence.objects.bulk_create([
-            Absence(
-                id_inscription=self.inscription,
-                id_seance=self.future_seance,
-                type_absence=Absence.TypeAbsence.ABSENT,
-                duree_absence=Decimal("2.00"),
-                statut=Absence.Statut.NON_JUSTIFIEE,
-                encodee_par=self.prof,
-            )
-        ])
+        Absence.objects.bulk_create(
+            [
+                Absence(
+                    id_inscription=self.inscription,
+                    id_seance=self.future_seance,
+                    type_absence=Absence.TypeAbsence.ABSENT,
+                    duree_absence=Decimal("2.00"),
+                    statut=Absence.Statut.NON_JUSTIFIEE,
+                    encodee_par=self.prof,
+                )
+            ]
+        )
 
     def test_future_sessions_excluded_from_absence_calculation(self):
         """calculer_absence_stats excludes absences for future séances."""
@@ -696,19 +716,27 @@ class SignalLoopProtectionTest(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof-sig@test.com", nom="Prof", prenom="Sig",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-sig@test.com",
+            nom="Prof",
+            prenom="Sig",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-sig@test.com", nom="Stu", prenom="Sig",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-sig@test.com",
+            nom="Stu",
+            prenom="Sig",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.cours = Cours.objects.create(
-            code_cours="SIG", nom_cours="Signal Test",
+            code_cours="SIG",
+            nom_cours="Signal Test",
             nombre_total_periodes=40,
             id_departement=self.departement,
             professeur=self.prof,
-            id_annee=self.annee, niveau=1,
+            id_annee=self.annee,
+            niveau=1,
         )
         self.inscription = Inscription.objects.create(
             id_etudiant=self.student,
@@ -724,8 +752,10 @@ class SignalLoopProtectionTest(TestCase):
         """
         seance = Seance.objects.create(
             date_seance=date(2026, 1, 10),
-            heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.cours, id_annee=self.annee,
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
 
         with patch(
@@ -766,20 +796,32 @@ class AcademicYearDeactivationTests(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof-year@test.com", nom="Prof", prenom="Year",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-year@test.com",
+            nom="Prof",
+            prenom="Year",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-year@test.com", nom="Stu", prenom="Year",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-year@test.com",
+            nom="Stu",
+            prenom="Year",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.cours = Cours.objects.create(
-            code_cours="YEAR1", nom_cours="Year Course",
-            nombre_total_periodes=40, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.annee, niveau=1,
+            code_cours="YEAR1",
+            nom_cours="Year Course",
+            nombre_total_periodes=40,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+            id_etudiant=self.student,
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
 
     def test_deactivating_year_closes_enrollments(self):
@@ -832,25 +874,39 @@ class QRFinalizeDurationGuardTest(TestCase):
         )
         self.annee = AnneeAcademique.objects.create(libelle="2025-2026", active=True)
         self.prof = User.objects.create_user(
-            email="prof-qr@test.com", nom="Prof", prenom="QR",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-qr@test.com",
+            nom="Prof",
+            prenom="QR",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-qr@test.com", nom="Stu", prenom="QR",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-qr@test.com",
+            nom="Stu",
+            prenom="QR",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.cours = Cours.objects.create(
-            code_cours="QR1", nom_cours="QR Course",
-            nombre_total_periodes=40, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.annee, niveau=1,
+            code_cours="QR1",
+            nom_cours="QR Course",
+            nombre_total_periodes=40,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
         )
         self.seance = Seance.objects.create(
             date_seance=date(2026, 1, 10),
-            heure_debut=time(8, 0), heure_fin=time(10, 0),
-            id_cours=self.cours, id_annee=self.annee,
+            heure_debut=time(8, 0),
+            heure_fin=time(10, 0),
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
         self.inscription = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+            id_etudiant=self.student,
+            id_cours=self.cours,
+            id_annee=self.annee,
         )
 
     def test_duree_heures_zero_fallback(self):
@@ -889,29 +945,47 @@ class StudentViewsFallbackFilterTest(TestCase):
         # No active year — triggers fallback
         self.annee = AnneeAcademique.objects.create(libelle="2024-2025", active=False)
         self.prof = User.objects.create_user(
-            email="prof-fb@test.com", nom="Prof", prenom="FB",
-            password="pass1234", role=User.Role.PROFESSEUR,
+            email="prof-fb@test.com",
+            nom="Prof",
+            prenom="FB",
+            password="pass1234",
+            role=User.Role.PROFESSEUR,
         )
         self.student = User.objects.create_user(
-            email="stu-fb@test.com", nom="Stu", prenom="FB",
-            password="pass1234", role=User.Role.ETUDIANT,
+            email="stu-fb@test.com",
+            nom="Stu",
+            prenom="FB",
+            password="pass1234",
+            role=User.Role.ETUDIANT,
         )
         self.cours = Cours.objects.create(
-            code_cours="FB1", nom_cours="Fallback Course",
-            nombre_total_periodes=40, id_departement=self.dept,
-            professeur=self.prof, id_annee=self.annee, niveau=1,
+            code_cours="FB1",
+            nom_cours="Fallback Course",
+            nombre_total_periodes=40,
+            id_departement=self.dept,
+            professeur=self.prof,
+            id_annee=self.annee,
+            niveau=1,
         )
         # One active enrollment, one archived
         self.active_ins = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=self.cours, id_annee=self.annee,
+            id_etudiant=self.student,
+            id_cours=self.cours,
+            id_annee=self.annee,
             status=Inscription.Status.EN_COURS,
         )
         self.archived_ins = Inscription.objects.create(
-            id_etudiant=self.student, id_cours=Cours.objects.create(
-                code_cours="FB2", nom_cours="Archived Course",
-                nombre_total_periodes=40, id_departement=self.dept,
-                professeur=self.prof, id_annee=self.annee, niveau=1,
-            ), id_annee=self.annee,
+            id_etudiant=self.student,
+            id_cours=Cours.objects.create(
+                code_cours="FB2",
+                nom_cours="Archived Course",
+                nombre_total_periodes=40,
+                id_departement=self.dept,
+                professeur=self.prof,
+                id_annee=self.annee,
+                niveau=1,
+            ),
+            id_annee=self.annee,
             status=Inscription.Status.NON_VALIDE,
         )
 

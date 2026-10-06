@@ -43,7 +43,9 @@ class Message(models.Model):
     objet = models.CharField(
         max_length=200, default="Nouveau message", verbose_name="Objet", db_index=True
     )
-    contenu = models.TextField(verbose_name="Message", validators=[MaxLengthValidator(10000)])
+    contenu = models.TextField(
+        verbose_name="Message", validators=[MaxLengthValidator(10000)]
+    )
     date_envoi = models.DateTimeField(
         auto_now_add=True, verbose_name="Date d'envoi", db_index=True
     )

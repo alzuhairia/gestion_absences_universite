@@ -90,7 +90,9 @@ def _generate_qr_data_uri(uri: str) -> str:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(buf, format="PNG")  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
+    img.save(
+        buf, format="PNG"
+    )  # pyright: ignore[reportCallIssue]  (PIL image, stub too narrow)
     buf.seek(0)
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
@@ -109,7 +111,7 @@ def _normalize_backup_code(raw: str) -> str:
     """Upper-case + keep only A-Z/0-9. Accepts 'ABCD-EFGH' or 'abcdefgh'."""
     if not raw:
         return ""
-    return "".join(ch for ch in raw.upper() if ch.isalnum())[: BACKUP_CODE_LENGTH]
+    return "".join(ch for ch in raw.upper() if ch.isalnum())[:BACKUP_CODE_LENGTH]
 
 
 def _format_backup_code(raw: str) -> str:
@@ -154,8 +156,9 @@ def _consume_backup_code(user, candidate: str) -> bool:
         return False
     with transaction.atomic():
         unused = list(
-            TwoFactorBackupCode.objects.select_for_update()
-            .filter(user=user, used=False)
+            TwoFactorBackupCode.objects.select_for_update().filter(
+                user=user, used=False
+            )
         )
         for row in unused:
             if check_password(candidate, row.code_hash):
@@ -506,9 +509,7 @@ def regenerate_backup_codes(request):
     """
     user = request.user
     if not user.two_factor_enabled:
-        messages.info(
-            request, "Activez d'abord l'authentification a deux facteurs."
-        )
+        messages.info(request, "Activez d'abord l'authentification a deux facteurs.")
         return redirect("accounts:profile")
 
     if request.method == "POST":

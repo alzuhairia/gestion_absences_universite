@@ -40,7 +40,9 @@ class Command(BaseCommand):
                 )
             )
             if not options["no_input"]:
-                confirm = input("Voulez-vous quand même créer un nouveau superadmin ? (oui/non) : ")
+                confirm = input(
+                    "Voulez-vous quand même créer un nouveau superadmin ? (oui/non) : "
+                )
                 if confirm.lower() not in ("oui", "o", "yes", "y"):
                     self.stdout.write("Annulé.")
                     return

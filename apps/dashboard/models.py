@@ -82,7 +82,7 @@ class SystemSettings(models.Model):
         default=True,
         verbose_name="Imposer la vérification GPS pour toute séance QR",
         help_text="Si activé, le serveur force la vérification de position sur chaque QR "
-                  "généré : le professeur ne peut pas la désactiver.",
+        "généré : le professeur ne peut pas la désactiver.",
     )
 
     # Anti-fraude : liaison d'appareil (présence par procuration)

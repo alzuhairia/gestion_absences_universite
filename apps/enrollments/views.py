@@ -179,7 +179,8 @@ def get_courses(request):
                     "id": c.id_cours,
                     "name": f"[{c.code_cours}] {c.nom_cours}",
                     "code": c.code_cours,
-                    "has_prereq": c.prereq_count > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
+                    "has_prereq": c.prereq_count
+                    > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
                     "year": c.id_annee.libelle if c.id_annee else None,
                 }
             )
@@ -236,13 +237,17 @@ def get_courses_by_year(request):
             try:
                 dept_id = int(dept_id)
             except (TypeError, ValueError):
-                return api_error("dept_id doit être un entier", status=400, code="bad_request")
+                return api_error(
+                    "dept_id doit être un entier", status=400, code="bad_request"
+                )
             qs = qs.filter(id_departement_id=dept_id)
         if niveau:
             try:
                 niveau = int(niveau)
             except (TypeError, ValueError):
-                return api_error("niveau doit être un entier", status=400, code="bad_request")
+                return api_error(
+                    "niveau doit être un entier", status=400, code="bad_request"
+                )
             qs = qs.filter(niveau=niveau)
 
         courses = (
@@ -258,7 +263,9 @@ def get_courses_by_year(request):
             try:
                 student_id = int(student_id)
             except (TypeError, ValueError):
-                return api_error("student_id doit être un entier", status=400, code="bad_request")
+                return api_error(
+                    "student_id doit être un entier", status=400, code="bad_request"
+                )
             enrolled_course_ids = set(
                 Inscription.objects.filter(
                     id_etudiant_id=student_id,
@@ -276,7 +283,8 @@ def get_courses_by_year(request):
                     "name": c.nom_cours,
                     "hours": c.nombre_total_periodes,
                     "department": c.id_departement.nom_departement,
-                    "has_prereq": c.prereq_count > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
+                    "has_prereq": c.prereq_count
+                    > 0,  # pyright: ignore[reportAttributeAccessIssue]  (annotate)
                     "already_enrolled": c.id_cours in enrolled_course_ids,
                 }
             )
@@ -318,7 +326,9 @@ def get_courses_by_student(request):
     try:
         student_id = int(student_id)
     except (TypeError, ValueError):
-        return api_error("student_id doit être un entier", status=400, code="bad_request")
+        return api_error(
+            "student_id doit être un entier", status=400, code="bad_request"
+        )
 
     try:
         annee_active = AnneeAcademique.objects.filter(active=True).first()
@@ -541,7 +551,9 @@ def enroll_student(request):
             )
             if existing_other_level.exists():
                 other_niveaux = sorted(
-                    existing_other_level.values_list("id_cours__niveau", flat=True).distinct()
+                    existing_other_level.values_list(
+                        "id_cours__niveau", flat=True
+                    ).distinct()
                 )
                 niveaux_str = ", ".join(f"Année {n}" for n in other_niveaux)
                 messages.error(
@@ -563,7 +575,10 @@ def enroll_student(request):
             if not level_courses.exists():
                 # Diagnostic détaillé
                 courses_without_year = Cours.objects.filter(
-                    niveau=niveau, id_departement=departement, actif=True, id_annee__isnull=True
+                    niveau=niveau,
+                    id_departement=departement,
+                    actif=True,
+                    id_annee__isnull=True,
                 )
                 courses_other_year = Cours.objects.filter(
                     niveau=niveau, id_departement=departement, actif=True
@@ -739,7 +754,10 @@ def enroll_student(request):
                 with transaction.atomic():
                     for course in selected_courses:
                         # Vérifier que le cours appartient à l'année académique
-                        if course.id_annee and course.id_annee.id_annee != year.id_annee:
+                        if (
+                            course.id_annee
+                            and course.id_annee.id_annee != year.id_annee
+                        ):
                             year_mismatch.append(course.code_cours)
                             continue
 
@@ -809,19 +827,17 @@ def enroll_student(request):
             total_selected = len(selected_courses)
             result_parts = []
             if enrolled_count > 0:
-                result_parts.append(
-                    f"{enrolled_count} cours inscrit(s)"
-                )
+                result_parts.append(f"{enrolled_count} cours inscrit(s)")
             if skipped_count > 0:
-                result_parts.append(
-                    f"{skipped_count} cours ignoré(s) (déjà inscrit)"
-                )
+                result_parts.append(f"{skipped_count} cours ignoré(s) (déjà inscrit)")
             if year_mismatch:
                 result_parts.append(
                     f"{len(year_mismatch)} cours rejeté(s) (année incorrecte : {', '.join(year_mismatch)})"
                 )
 
-            summary = f"Résultat pour {student.get_full_name()} — {' | '.join(result_parts)}"
+            summary = (
+                f"Résultat pour {student.get_full_name()} — {' | '.join(result_parts)}"
+            )
 
             if enrolled_count > 0 and not year_mismatch:
                 messages.success(request, summary)
