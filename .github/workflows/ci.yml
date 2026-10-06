@@ -57,6 +57,10 @@ jobs:
         uses: tj-actions/changed-files@v46
         with:
           separator: "\n"
+          # Raw newline-separated list, read through an env var below: the
+          # default escaping turned newlines into "\<newline>", which bash
+          # joined into one bogus path, so multi-file pushes checked nothing.
+          safe_output: false
           files: |
             manage.py
             config/**/*.py
@@ -66,8 +70,10 @@ jobs:
       - name: Run Black, isort, Ruff on changed files (PR/Push)
         if: github.event_name != 'workflow_dispatch' && steps.changed_python.outputs.any_changed == 'true'
         shell: bash
+        env:
+          CHANGED_FILES: ${{ steps.changed_python.outputs.all_changed_files }}
         run: |
-          mapfile -t PY_FILES < <(printf '%s\n' "${{ steps.changed_python.outputs.all_changed_files }}" | sed '/^[[:space:]]*$/d')
+          mapfile -t PY_FILES < <(printf '%s\n' "$CHANGED_FILES" | sed '/^[[:space:]]*$/d')
           CHECK_FILES=()
           for file in "${PY_FILES[@]}"; do
             if [[ -f "$file" ]]; then
