@@ -21,6 +21,7 @@ Fait partie du système de comptes UniAbsences.
 """
 
 import re
+from typing import Any, cast
 
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, ProgrammingError
@@ -71,7 +72,7 @@ class SystemSettingsPasswordValidator:
             # silencieusement pour ne pas bloquer le processus de bootstrap.
             return
 
-        errors = []
+        errors: list[str] = []
 
         # Vérification de la longueur minimale — ignorer si le paramètre vaut 0 / None (désactivé).
         if (
@@ -102,7 +103,7 @@ class SystemSettingsPasswordValidator:
             )
 
         if errors:
-            raise ValidationError(errors)
+            raise ValidationError(cast(Any, errors))
 
     def get_help_text(self):
         """

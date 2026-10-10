@@ -31,7 +31,9 @@ Contrôles de sécurité :
 Fait partie du système d'absences UniAbsences.
 """
 import logging
+from datetime import date as _date
 from pathlib import Path
+from typing import cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -326,7 +328,7 @@ def justified_absences_list(request):
 
         absences_list = sorted(
             grouped_absences.values(),
-            key=lambda x: (x["date"], x["etudiant"].nom or ""),
+            key=lambda x: (cast(_date, x["date"]), str(x["etudiant"].nom or "")),
             reverse=True,
         )
 

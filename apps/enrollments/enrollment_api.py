@@ -153,7 +153,7 @@ def get_courses(request):
                 # Afficher le code à côté du nom pour que le secrétaire puisse identifier le cours.
                 "name": f"[{c.code_cours}] {c.nom_cours}",
                 "code": c.code_cours,
-                "has_prereq": c.prereq_count > 0,
+                "has_prereq": getattr(c, "prereq_count", 0) > 0,
                 "year": c.id_annee.libelle if c.id_annee else None,
             })
         return api_ok(data)
@@ -257,7 +257,7 @@ def get_courses_by_year(request):
                 "name": c.nom_cours,
                 "hours": c.nombre_total_periodes,
                 "department": c.id_departement.nom_departement,
-                "has_prereq": c.prereq_count > 0,
+                "has_prereq": getattr(c, "prereq_count", 0) > 0,
                 # True lorsque l'étudiant est déjà inscrit (EN_COURS) à ce cours.
                 "already_enrolled": c.id_cours in enrolled_course_ids,
             })

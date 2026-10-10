@@ -414,7 +414,7 @@ class CustomPasswordChangeView(auth_views.PasswordChangeView):
         from django.db import transaction
         from apps.accounts.models_user import User
 
-        request_user = self.request.user
+        request_user: object = self.request.user
 
         with transaction.atomic():
             form.save()

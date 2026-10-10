@@ -20,6 +20,7 @@ Règles métier appliquées ici :
   - Taux d'absence = heures d'absence non justifiée / total des heures de cours planifiées.
 """
 import logging
+from typing import cast
 
 from django.db.models import DurationField, ExpressionWrapper, F, Sum
 from django.utils import timezone
@@ -271,5 +272,5 @@ def etudiants_en_alerte(cours, seuil=None):
             })
 
     # Retourne d'abord les étudiants les plus à risque.
-    alertes.sort(key=lambda x: x["pourcentage_absence"], reverse=True)
+    alertes.sort(key=lambda x: cast(float, x["pourcentage_absence"]), reverse=True)
     return alertes

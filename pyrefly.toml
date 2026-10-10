@@ -1,0 +1,4 @@
+project-includes = ["apps", "config", "tests", "scripts"]
+project-excludes = [".venv", "**/__pycache__", "**/migrations"]
+python-interpreter = ".venv/Scripts/python.exe"
+python-version = "3.13"

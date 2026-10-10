@@ -37,3 +37,7 @@ redis==7.3.0
 pytest>=9.0,<10
 pytest-django>=4.12,<5
 pytest-cov>=6.0,<7
+
+# Stubs de typage (développement uniquement)
+django-types>=0.24,<1
+djangorestframework-types>=0.9,<1

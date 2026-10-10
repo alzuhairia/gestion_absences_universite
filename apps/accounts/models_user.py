@@ -16,6 +16,8 @@ Responsabilités :
 
 Fait partie du système de comptes UniAbsences.
 """
+from typing import ClassVar
+
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -288,7 +290,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["nom", "prenom"]
 
-    objects = UserManager()
+    objects: ClassVar[UserManager] = UserManager()
 
     last_login = models.DateTimeField(
         null=True,
