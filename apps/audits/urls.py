@@ -14,5 +14,6 @@ from . import views
 app_name = "audits"
 
 urlpatterns = [
+    # → views.py (audit_list)
     path("logs/", views.audit_list, name="audit_list"),
 ]

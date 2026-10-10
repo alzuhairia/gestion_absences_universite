@@ -27,6 +27,14 @@ Responsabilités :
     fichiers Excel des étudiants à risque.
   - Déclarer les endpoints de notifications (liste, marquer comme lu, tout marquer comme lu).
 
+Repérage rapide du code source
+------------------------------
+Chaque route (ainsi que chaque enregistrement de router) est précédée d'un
+commentaire ``# → views/<fichier>.py`` indiquant le sous-module qui définit
+réellement la vue ou le ViewSet.  ``views.<nom>`` masque le fichier source
+par la ré-exportation effectuée dans ``views/__init__.py`` ; ces
+commentaires évitent toute recherche dans le hub.
+
 Fait partie de l'API REST UniAbsences.
 """
 
@@ -47,15 +55,25 @@ app_name = "api"
 # Router DRF — endpoints CRUD pour les ressources principales
 # ---------------------------------------------------------------------------
 router = DefaultRouter()
-# Gestion des étudiants : GET/POST /students/, GET/PUT/PATCH/DELETE /students/{id}/
+
+# → views/student_viewset.py (StudentViewSet)
+# GET/POST /students/, GET/PUT/PATCH/DELETE /students/{id}/
 router.register(r"students", views.StudentViewSet, basename="student")
-# Gestion des cours : GET/POST /courses/, GET/PUT/PATCH/DELETE /courses/{id}/
+
+# → views/course_viewset.py (CoursViewSet)
+# GET/POST /courses/, GET/PUT/PATCH/DELETE /courses/{id}/
 router.register(r"courses", views.CoursViewSet, basename="course")
-# Gestion des inscriptions : GET/POST /enrollments/, ... /enrollments/{id}/
+
+# → views/enrollment_viewset.py (InscriptionViewSet)
+# GET/POST /enrollments/, ... /enrollments/{id}/
 router.register(r"enrollments", views.InscriptionViewSet, basename="enrollment")
-# Gestion des absences : GET/POST /absences/, ... /absences/{id}/
+
+# → views/absence_viewset.py (AbsenceViewSet)
+# GET/POST /absences/, ... /absences/{id}/
 router.register(r"absences", views.AbsenceViewSet, basename="absence")
-# Gestion des justifications : GET/POST /justifications/, ... /justifications/{id}/
+
+# → views/justification_viewset.py (JustificationViewSet)
+# GET/POST /justifications/, ... /justifications/{id}/
 router.register(
     r"justifications", views.JustificationViewSet, basename="justification"
 )
@@ -64,15 +82,21 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # Schéma OpenAPI + documentation interactive (drf-spectacular)
     # ------------------------------------------------------------------
-    # Schéma OpenAPI 3 brut — consommé par Swagger UI et ReDoc ci-dessous
+
+    # → drf_spectacular.views (SpectacularAPIView)
+    # Schéma OpenAPI 3 brut — consommé par Swagger UI et ReDoc ci-dessous.
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Swagger UI — explorateur d'API interactif basé sur le navigateur
+
+    # → drf_spectacular.views (SpectacularSwaggerView)
+    # Swagger UI — explorateur d'API interactif basé sur le navigateur.
     path(
         "docs/",
         SpectacularSwaggerView.as_view(url_name="api:schema"),
         name="swagger-ui",
     ),
-    # ReDoc — documentation alternative de référence API en lecture seule
+
+    # → drf_spectacular.views (SpectacularRedocView)
+    # ReDoc — documentation alternative de référence API en lecture seule.
     path(
         "redoc/",
         SpectacularRedocView.as_view(url_name="api:schema"),
@@ -82,13 +106,17 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # Endpoints d'analytiques (admin uniquement ; retournent des statistiques JSON calculées)
     # ------------------------------------------------------------------
-    # Compteurs KPI haut niveau pour le tableau de bord administrateur
+
+    # → views/analytics_views.py (dashboard_analytics)
+    # Compteurs KPI haut niveau pour le tableau de bord administrateur.
     path(
         "analytics/dashboard/",
         views.dashboard_analytics,
         name="analytics-dashboard",
     ),
-    # Statistiques détaillées d'absences utilisées par les graphiques (par département, niveau, mois...)
+
+    # → views/analytics_views.py (statistics_analytics)
+    # Statistiques détaillées utilisées par les graphiques (par département, niveau, mois...).
     path(
         "analytics/statistics/",
         views.statistics_analytics,
@@ -98,15 +126,19 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # Endpoints d'export (génèrent des fichiers téléchargeables)
     # ------------------------------------------------------------------
+
+    # → views/export_views.py (export_student_pdf_api)
     # Rapport PDF d'absence individuel d'étudiant — accessible par l'étudiant
-    # lui-même ou par admin/secrétaire
+    # lui-même ou par admin/secrétaire.
     path(
         "exports/student-pdf/<int:student_id>/",
         views.export_student_pdf_api,
         name="export-student-pdf",
     ),
+
+    # → views/export_views.py (export_at_risk_excel_api)
     # Export Excel en masse de tous les étudiants dépassant actuellement le seuil
-    # d'absences — restreint aux rôles admin et secrétaire
+    # d'absences — restreint aux rôles admin et secrétaire.
     path(
         "exports/at-risk-excel/",
         views.export_at_risk_excel_api,
@@ -116,19 +148,25 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # Endpoints de notifications (limités à l'utilisateur authentifié)
     # ------------------------------------------------------------------
-    # Lister toutes les notifications de l'utilisateur courant
+
+    # → views/notification_viewset.py (NotificationViewSet.list)
+    # Lister toutes les notifications de l'utilisateur courant.
     path(
         "notifications/",
         views.NotificationViewSet.as_view({"get": "list"}),
         name="notification-list",
     ),
-    # Marquer une seule notification comme lue par sa clé primaire
+
+    # → views/notification_viewset.py (NotificationViewSet.mark_read)
+    # Marquer une seule notification comme lue par sa clé primaire.
     path(
         "notifications/<int:pk>/read/",
         views.NotificationViewSet.as_view({"post": "mark_read"}),
         name="notification-read",
     ),
-    # Marquer en masse toutes les notifications non lues comme lues pour l'utilisateur courant
+
+    # → views/notification_viewset.py (NotificationViewSet.mark_all_read)
+    # Marquer en masse toutes les notifications non lues comme lues pour l'utilisateur courant.
     path(
         "notifications/read-all/",
         views.NotificationViewSet.as_view({"post": "mark_all_read"}),
@@ -136,8 +174,10 @@ urlpatterns = [
     ),
 
     # ------------------------------------------------------------------
-    # Endpoints CRUD générés par le router (doivent venir en dernier pour que les chemins manuels
-    # ci-dessus aient la priorité sur tout pattern catch-all généré par le router)
+    # Endpoints CRUD générés par le router DRF (doivent venir en dernier
+    # pour que les chemins manuels ci-dessus aient la priorité sur tout
+    # pattern catch-all généré par le router).
+    # → ViewSets déclarés dans views/ (voir enregistrements du router ci-dessus)
     # ------------------------------------------------------------------
     path("", include(router.urls)),
 ]

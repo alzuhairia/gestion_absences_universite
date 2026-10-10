@@ -17,6 +17,7 @@ from . import views
 app_name = "health"
 
 urlpatterns = [
+    # → views.py (health_check)
     # GET /health/ — retourne {"status": "ok"} quand l'app et la BD sont saines.
     path("health/", views.health_check, name="health_check"),
 ]

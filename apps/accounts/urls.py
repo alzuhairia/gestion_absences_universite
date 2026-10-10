@@ -11,7 +11,14 @@ Regroupés par fonctionnalité :
   - Gestion du mot de passe : réinitialisation (demande + confirmation + done), changement.
   - Gestion 2FA : configuration, désactivation, codes de secours, régénération des codes de secours.
   - Profil : page de compte personnel, téléchargement du rapport PDF.
-  - Configuration initiale : page de création d'admin au premier démarrage.
+
+Repérage rapide du code source
+------------------------------
+Chaque route est précédée d'un commentaire ``# → <fichier>.py`` indiquant
+le sous-module qui définit réellement la vue.  ``views.<nom>`` masque le
+fichier source par la ré-exportation effectuée dans ``views.py`` ; ces
+commentaires évitent toute recherche.  Les vues préfixées
+``auth_views.*`` proviennent de ``django.contrib.auth``.
 
 Fait partie du système de comptes UniAbsences.
 """
@@ -30,25 +37,61 @@ from .mfa.mfa_views import (
 app_name = "accounts"
 
 urlpatterns = [
+    # ------------------------------------------------------------------ #
+    # Authentification                                                   #
+    # ------------------------------------------------------------------ #
+
+    # → views_auth.py (RateLimitedLoginView)
     path("login/", views.RateLimitedLoginView.as_view(), name="login"),
+
+    # → django.contrib.auth.views (LogoutView intégrée)
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+
+    # ------------------------------------------------------------------ #
+    # Profil utilisateur                                                 #
+    # ------------------------------------------------------------------ #
+
+    # → views_profile.py (profile_view)
     path("profile/", views.profile_view, name="profile"),
-    # 2FA TOTP — logique dans apps/accounts/mfa/
+
+    # → views_profile.py (download_report_pdf)
+    path("download-report/", views.download_report_pdf, name="download_report"),
+
+    # ------------------------------------------------------------------ #
+    # Authentification à deux facteurs (TOTP)                            #
+    # ------------------------------------------------------------------ #
+
+    # → mfa/mfa_views.py
     path("2fa/setup/", setup_2fa, name="setup_2fa"),
+
+    # → mfa/mfa_views.py
     path("2fa/verify/", verify_2fa, name="verify_2fa"),
+
+    # → mfa/mfa_views.py
     path("2fa/disable/", disable_2fa, name="disable_2fa"),
+
+    # → mfa/mfa_views.py
     path("2fa/backup-codes/", backup_codes_view, name="backup_codes"),
+
+    # → mfa/mfa_views.py
     path(
         "2fa/backup-codes/regenerate/",
         regenerate_backup_codes,
         name="regenerate_backup_codes",
     ),
-    # Changement de mot de passe
+
+    # ------------------------------------------------------------------ #
+    # Changement de mot de passe (utilisateur authentifié)               #
+    # ------------------------------------------------------------------ #
+
+    # → views_auth.py (CustomPasswordChangeView)
     path(
         "password_change/",
         views.CustomPasswordChangeView.as_view(),
         name="password_change",
     ),
+
+    # → django.contrib.auth.views (PasswordChangeDoneView intégrée)
     path(
         "password_change/done/",
         auth_views.PasswordChangeDoneView.as_view(
@@ -56,12 +99,19 @@ urlpatterns = [
         ),
         name="password_change_done",
     ),
-    # Réinitialisation du mot de passe
+
+    # ------------------------------------------------------------------ #
+    # Réinitialisation du mot de passe (mot de passe oublié)             #
+    # ------------------------------------------------------------------ #
+
+    # → views_auth.py (CustomPasswordResetView)
     path(
         "password_reset/",
         views.CustomPasswordResetView.as_view(),
         name="password_reset",
     ),
+
+    # → django.contrib.auth.views (PasswordResetDoneView intégrée)
     path(
         "password_reset/done/",
         auth_views.PasswordResetDoneView.as_view(
@@ -69,11 +119,15 @@ urlpatterns = [
         ),
         name="password_reset_done",
     ),
+
+    # → views_auth.py (CustomPasswordResetConfirmView)
     path(
         "reset/<uidb64>/<token>/",
         views.CustomPasswordResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
+
+    # → django.contrib.auth.views (PasswordResetCompleteView intégrée)
     path(
         "reset/done/",
         auth_views.PasswordResetCompleteView.as_view(
@@ -81,5 +135,4 @@ urlpatterns = [
         ),
         name="password_reset_complete",
     ),
-    path("download-report/", views.download_report_pdf, name="download_report"),
 ]
