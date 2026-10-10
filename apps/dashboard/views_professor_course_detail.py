@@ -38,6 +38,8 @@ les pages de détail que pour les cours qui lui sont assignés
 Fait partie du système de tableau de bord UniAbsences.
 """
 
+from typing import Any
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -143,7 +145,7 @@ def instructor_course_detail(request, course_id):
 
     # Agréger les heures d'absence non justifiées par inscription en une seule requête BD.
     # Seules les séances passées (date <= today) sont comptées.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
@@ -196,7 +198,7 @@ def instructor_course_detail(request, course_id):
         inscriptions, academic_year=academic_year, system_threshold=system_threshold
     )
     # Indexer les prédictions par PK d'inscription pour une recherche O(1) dans la boucle ci-dessous.
-    predictions_by_id = {p["inscription"].id_inscription: p for p in predictions}
+    predictions_by_id: dict[int, Any] = {p["inscription"].id_inscription: p for p in predictions}
     early_warnings_count = 0
     for sd in students_data:
         pred = predictions_by_id.get(sd["inscription"].id_inscription)

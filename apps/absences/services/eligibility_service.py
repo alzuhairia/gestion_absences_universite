@@ -25,6 +25,7 @@ Déclenchement automatique :
   l'éligibilité.
 """
 import logging
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Sum
@@ -305,7 +306,7 @@ def get_at_risk_count_for_queryset(inscriptions_qs, system_threshold=None):
     today = timezone.localdate()
 
     # Une seule requête d'agrégation : somme des heures d'absence non justifiée par inscription.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

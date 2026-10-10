@@ -7,6 +7,8 @@ Fonctionnalités :
   - Logique `can_submit` : resoumission autorisée pour justificatifs refusés
 """
 
+from typing import Any
+
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Sum
@@ -130,7 +132,7 @@ def student_reports(request):
     total_abs_hours = 0
     total_periods = 0
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

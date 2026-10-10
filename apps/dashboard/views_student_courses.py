@@ -7,6 +7,8 @@ Fonctionnalités :
   - Logique `can_submit` : resoumission autorisée pour justificatifs refusés
 """
 
+from typing import Any
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, render
@@ -188,7 +190,7 @@ def student_courses(request):
     course_ids = [ins.id_cours_id for ins in inscriptions]
     today = timezone.localdate()
 
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
@@ -198,7 +200,7 @@ def student_courses(request):
         .annotate(total=Sum("duree_absence"))
         .values_list("id_inscription", "total")
     )
-    absence_counts = dict(
+    absence_counts: dict[int, Any] = dict(
         Absence.objects.filter(id_inscription__in=inscription_ids)
         .values("id_inscription")
         .annotate(total=Count("id_absence"))

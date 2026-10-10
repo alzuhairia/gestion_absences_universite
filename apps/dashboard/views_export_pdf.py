@@ -25,6 +25,7 @@ Fait partie du système de tableau de bord UniAbsences.
 
 import datetime
 import io
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -171,7 +172,7 @@ def export_student_pdf(request, student_id=None):
 
     # Agréger les heures non justifiées par inscription en une seule requête BD.
     # Les séances futures sont exclues pour ne pas compter les cours non encore tenus.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

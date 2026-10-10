@@ -25,6 +25,7 @@ Fait partie du tableau de bord UniAbsences.
 
 import logging
 from datetime import timedelta
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
@@ -112,7 +113,7 @@ def _get_at_risk_count_cached(academic_year):
     today = timezone.localdate()
 
     # Agréger les heures d'absences non justifiées par inscription en une seule requête.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

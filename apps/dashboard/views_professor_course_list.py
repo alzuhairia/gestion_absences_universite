@@ -13,6 +13,7 @@ Fait partie du système de tableau de bord UniAbsences.
 """
 
 from collections import defaultdict
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
@@ -116,7 +117,7 @@ def instructor_courses(request):
     today = timezone.localdate()
 
     # Requête d'agrégation unique pour les heures non justifiées sur toutes les inscriptions.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=all_course_inscriptions.values_list("id_inscription", flat=True),
             statut=Absence.Statut.NON_JUSTIFIEE,

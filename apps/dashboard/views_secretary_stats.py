@@ -17,6 +17,7 @@ Vues
 Fait partie du tableau de bord UniAbsences.
 """
 from collections import defaultdict
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -131,7 +132,7 @@ def secretary_seuils_absence(request):
 
     inscription_ids = list(inscriptions_qs.values_list("id_inscription", flat=True))
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
@@ -210,7 +211,7 @@ def secretary_exports(request):
     active_inscriptions_list = list(active_inscriptions)
     inscription_ids = [ins.id_inscription for ins in active_inscriptions_list]
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

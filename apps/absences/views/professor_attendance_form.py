@@ -36,6 +36,7 @@ Fait partie du système de présence UniAbsences.
 import datetime
 import logging
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -393,7 +394,7 @@ def mark_absence(request, course_id):
     except Seance.DoesNotExist:
         existing_seance = None
 
-    existing_absences = {}
+    existing_absences: dict[int, Any] = {}
     is_edit_mode = False
     is_validated = False
 

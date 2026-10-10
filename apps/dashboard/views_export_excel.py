@@ -20,7 +20,7 @@ réponse HTTP de type
 Fait partie du système de tableau de bord UniAbsences.
 """
 
-from typing import cast
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -121,7 +121,7 @@ def export_at_risk_excel(request):
     # par inscription. Seules les séances antérieures ou égales à aujourd'hui
     # sont comptées afin que les séances futures ne gonflent pas le taux
     # prématurément.
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

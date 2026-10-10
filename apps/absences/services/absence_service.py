@@ -20,7 +20,7 @@ Règles métier appliquées ici :
   - Taux d'absence = heures d'absence non justifiée / total des heures de cours planifiées.
 """
 import logging
-from typing import cast
+from typing import Any, cast
 
 from django.db.models import DurationField, ExpressionWrapper, F, Sum
 from django.utils import timezone
@@ -245,7 +245,9 @@ def etudiants_en_alerte(cours, seuil=None):
 
     # Étape 3 : agrégation en lot des heures d'absence non justifiée par inscription.
     # Cela évite une boucle de requête par étudiant (prévention N+1).
-    absence_sums = dict(
+    # Annotation explicite : préserve le type de clé pour Pylance (sinon les stubs
+    # Django inférent un dict mal typé qui déclenche `reportCallIssue` sur `.get(int)`).
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscriptions,
             statut=Absence.Statut.NON_JUSTIFIEE,

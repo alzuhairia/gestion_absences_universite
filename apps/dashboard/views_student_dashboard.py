@@ -9,6 +9,8 @@ Fonctionnalités :
 STRICT : l'étudiant consulte uniquement ses propres données.
 """
 
+from typing import Any
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import render
@@ -66,7 +68,7 @@ def student_dashboard(request):
     total_abs_hours = 0
     total_periods = 0
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

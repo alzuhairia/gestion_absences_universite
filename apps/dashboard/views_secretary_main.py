@@ -17,6 +17,8 @@ Vue principale du tableau de bord secrétaire pour UniAbsences.
 Fait partie du tableau de bord UniAbsences.
 """
 
+from typing import Any
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import redirect, render
@@ -77,7 +79,7 @@ def secretary_dashboard(request):
     inscription_ids = [ins.id_inscription for ins in all_inscriptions]
 
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

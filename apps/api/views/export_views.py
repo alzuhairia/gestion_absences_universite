@@ -25,7 +25,7 @@ Partie de l'API REST UniAbsences.
 import datetime
 import io
 import logging
-from typing import cast
+from typing import Any, cast
 
 from django.db.models import Sum
 from django.http import HttpResponse
@@ -124,7 +124,7 @@ def export_student_pdf_api(request, student_id):
     today = timezone.localdate()
 
     # Agrège les heures non justifiées par inscription en une seule requête (utilisé dans le résumé)
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
@@ -373,7 +373,7 @@ def export_at_risk_excel_api(request):
     today = timezone.localdate()
 
     # Agrège les heures non justifiées par inscription en une seule requête
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

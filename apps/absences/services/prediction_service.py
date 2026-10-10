@@ -21,6 +21,7 @@ Algorithme
 import datetime
 import logging
 from collections import defaultdict
+from typing import Any
 
 from django.db.models import Sum
 from django.utils import timezone
@@ -103,7 +104,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     _non_justified = [Absence.Statut.NON_JUSTIFIEE]
 
     # --- Requête en lot 1 : total des heures d'absence non justifiée jusqu'à aujourd'hui ---
-    total_abs_map = dict(
+    total_abs_map: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=_non_justified,
@@ -115,7 +116,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     )
 
     # --- Requête en lot 2 : fenêtre récente (30 derniers jours) d'heures d'absence ---
-    recent_abs_map = dict(
+    recent_abs_map: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=_non_justified,
@@ -128,7 +129,7 @@ def predict_absence_risk(inscriptions, academic_year=None, system_threshold=None
     )
 
     # --- Requête en lot 3 : fenêtre précédente (30 à 60 jours en arrière) pour le calcul de tendance ---
-    prev_abs_map = dict(
+    prev_abs_map: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut__in=_non_justified,

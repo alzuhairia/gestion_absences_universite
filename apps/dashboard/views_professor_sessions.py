@@ -19,6 +19,7 @@ Fait partie du système de tableau de bord UniAbsences.
 """
 
 from collections import defaultdict
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -171,7 +172,7 @@ def instructor_statistics(request):
     today = timezone.localdate()
 
     # Agrège les heures non justifiées par inscription (séances passées uniquement).
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
@@ -183,7 +184,7 @@ def instructor_statistics(request):
     )
 
     # Agrège le nombre total d'événements d'absence par inscription (tous statuts).
-    absence_counts = dict(
+    absence_counts: dict[int, Any] = dict(
         Absence.objects.filter(id_inscription__in=inscription_ids)
         .values("id_inscription")
         .annotate(total=Count("id_absence"))

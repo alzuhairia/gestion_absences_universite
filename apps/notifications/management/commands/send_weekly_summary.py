@@ -14,6 +14,7 @@ Planification cron (ex. tous les lundis à 08:00) :
 """
 
 import datetime
+from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.db.models import Sum
@@ -93,7 +94,7 @@ class Command(BaseCommand):
         )
 
         # Agrège les absences non justifiées par inscription
-        abs_sums = dict(
+        abs_sums: dict[int, Any] = dict(
             Absence.objects.filter(
                 id_inscription__id_annee=active_year,
                 id_inscription__status=Inscription.Status.EN_COURS,

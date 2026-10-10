@@ -18,6 +18,8 @@ Sécurité : les deux vues exigent ``@secretary_required``.
 Appartient à : UniAbsences — application enrollments.
 """
 
+from typing import Any
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -97,7 +99,7 @@ def rules_management(request):
     # Strictement NON_JUSTIFIEE — exclure EN_ATTENTE garantit qu'un étudiant dont la
     # justification est encore en cours d'examen ne soit pas pénalisé à tort.
     today = timezone.localdate()
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,

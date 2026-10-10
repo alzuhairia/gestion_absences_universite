@@ -26,6 +26,7 @@ Les deux points de terminaison requièrent la classe de permission ``IsAdmin``
 Partie de l'API REST UniAbsences.
 """
 import datetime
+from typing import Any
 
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import TruncMonth
@@ -113,7 +114,7 @@ def dashboard_analytics(request):
 
     # Agrège le total d'heures d'absence non justifiées par inscription en une seule requête DB
     # Ne compte que les séances déjà passées (date_seance <= today)
-    absence_sums = dict(
+    absence_sums: dict[int, Any] = dict(
         Absence.objects.filter(
             id_inscription__in=inscription_ids,
             statut=Absence.Statut.NON_JUSTIFIEE,
