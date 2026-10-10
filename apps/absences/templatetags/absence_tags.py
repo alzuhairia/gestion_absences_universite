@@ -1,26 +1,26 @@
 """
-Absence Template Tag Library — apps/absences/templatetags/absence_tags.py
+Bibliothèque de tags de template pour les absences — apps/absences/templatetags/absence_tags.py
 
-Part of the UniAbsences university attendance management system.
+Fait partie du système de gestion des absences universitaires UniAbsences.
 
-This module registers custom Django template filters that expose justification
-deadline logic to the template layer.  By delegating calculations to the
-service layer (``apps.absences.services``), templates remain free of business
-logic and stay easy to maintain.
+Ce module enregistre des filtres de template Django personnalisés qui exposent
+la logique de date limite de justification à la couche de templates.  En
+déléguant les calculs à la couche service (``apps.absences.services``), les
+templates restent exempts de logique métier et faciles à maintenir.
 
-Usage in a template::
+Utilisation dans un template ::
 
     {% load absence_tags %}
 
-    {# Display the human-readable deadline date #}
+    {# Affiche la date limite en format lisible #}
     {{ absence|justification_deadline }}
 
-    {# Conditionally show a "window closed" banner #}
+    {# Affiche conditionnellement une bannière "délai dépassé" #}
     {% if absence|justification_expired %}
-        <span class="badge bg-danger">Deadline passed</span>
+        <span class="badge bg-danger">Délai dépassé</span>
     {% endif %}
 
-    {# Provide the ISO 8601 deadline string for a JavaScript countdown timer #}
+    {# Fournit la date limite au format ISO 8601 pour un compte à rebours JavaScript #}
     <span data-deadline="{{ absence|justification_deadline_iso }}"></span>
 """
 from django import template
@@ -33,21 +33,22 @@ register = template.Library()
 @register.filter
 def justification_deadline(absence):
     """
-    Template filter: return the justification submission deadline date for an absence.
+    Filtre de template : retourne la date limite de dépôt du justificatif
+    pour une absence.
 
-    Delegates to ``get_justification_deadline`` in the service layer so that
-    the threshold constant (``JUSTIFICATION_DEADLINE_DAYS``) is maintained in
-    a single place.
+    Délègue à ``get_justification_deadline`` dans la couche service afin que
+    la constante de seuil (``JUSTIFICATION_DEADLINE_DAYS``) soit maintenue
+    à un seul endroit.
 
     Args:
-        absence: ``apps.absences.models.Absence`` instance passed from the
-            template context.
+        absence: Instance ``apps.absences.models.Absence`` passée depuis le
+            contexte du template.
 
     Returns:
-        datetime.date: the last date on which the student may submit a
-        justification document for this absence.
+        datetime.date : dernière date à laquelle l'étudiant peut déposer un
+        document de justification pour cette absence.
 
-    Example::
+    Exemple ::
 
         {{ absence|justification_deadline }}
     """
@@ -57,21 +58,22 @@ def justification_deadline(absence):
 @register.filter
 def justification_expired(absence):
     """
-    Template filter: return whether the justification submission window has closed.
+    Filtre de template : indique si la fenêtre de dépôt du justificatif
+    est fermée.
 
     Args:
-        absence: ``apps.absences.models.Absence`` instance passed from the
-            template context.
+        absence: Instance ``apps.absences.models.Absence`` passée depuis le
+            contexte du template.
 
     Returns:
-        bool: True if today is strictly after the deadline date (the window is
-        closed and the student can no longer submit a justification document),
-        False otherwise.
+        bool : True si la date du jour est strictement postérieure à la date
+        limite (la fenêtre est fermée et l'étudiant ne peut plus déposer de
+        document de justification), False sinon.
 
-    Example::
+    Exemple ::
 
         {% if absence|justification_expired %}
-            <span>No longer justifiable</span>
+            <span>Plus justifiable</span>
         {% endif %}
     """
     return is_justification_expired(absence)
@@ -80,21 +82,22 @@ def justification_expired(absence):
 @register.filter
 def justification_deadline_iso(absence):
     """
-    Template filter: return the justification deadline as an ISO 8601 datetime
-    string suitable for use with JavaScript countdown timers.
+    Filtre de template : retourne la date limite de justification sous forme
+    de chaîne datetime ISO 8601 utilisable avec un compte à rebours JavaScript.
 
-    The time component is fixed to 23:59:59 so that the countdown expires at
-    the very end of the deadline day, giving the student the full calendar day.
+    La composante horaire est fixée à 23:59:59 afin que le compte à rebours
+    expire à la toute fin de la journée butoir, laissant à l'étudiant la
+    journée complète.
 
     Args:
-        absence: ``apps.absences.models.Absence`` instance passed from the
-            template context.
+        absence: Instance ``apps.absences.models.Absence`` passée depuis le
+            contexte du template.
 
     Returns:
-        str: ISO 8601 datetime string in the format ``YYYY-MM-DDTHH:MM:SS``
-        (e.g. ``"2024-11-15T23:59:59"``).
+        str : chaîne datetime ISO 8601 au format ``YYYY-MM-DDTHH:MM:SS``
+        (p. ex. ``"2024-11-15T23:59:59"``).
 
-    Example::
+    Exemple ::
 
         <span data-deadline="{{ absence|justification_deadline_iso }}"></span>
     """
