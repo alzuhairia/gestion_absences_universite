@@ -21,9 +21,27 @@ from django.shortcuts import redirect, render
 
 from apps.absences.models import Justification
 from apps.accounts.models import User
-from apps.dashboard import views_professor, views_student
 
-# Re-exports secrétariat — importés par urls.py via `from . import views`
+# Re-exports étudiant / enseignant / secrétariat — importés par urls.py via `from . import views`.
+# On utilise des `from X import Y` (plutôt que `Y = X.Y`) pour préserver l'info
+# de type sur chaque vue : les stubs ``django-types`` exigent un `Callable` strict
+# pour l'argument ``view`` de ``path(...)``, qu'une simple assignation ferait
+# perdre.
+from apps.dashboard.views_student import (  # noqa: F401
+    student_absences,
+    student_course_detail,
+    student_courses,
+    student_dashboard,
+    student_reports,
+    student_statistics,
+)
+from apps.dashboard.views_professor import (  # noqa: F401
+    instructor_course_detail,
+    instructor_courses,
+    instructor_dashboard,
+    instructor_sessions,
+    instructor_statistics,
+)
 from apps.dashboard.views_secretary_home import (  # noqa: F401
     active_courses,
     get_active_courses_queryset,
@@ -121,19 +139,3 @@ def admin_dashboard(request):
         return redirect("dashboard:index")
 
 
-# ---------------------------------------------------------------------------
-# Re-exports étudiant / enseignant — backward compatibility avec urls.py
-# ---------------------------------------------------------------------------
-
-student_dashboard = views_student.student_dashboard
-student_statistics = views_student.student_statistics
-student_course_detail = views_student.student_course_detail
-student_courses = views_student.student_courses
-student_absences = views_student.student_absences
-student_reports = views_student.student_reports
-
-instructor_dashboard = views_professor.instructor_dashboard
-instructor_course_detail = views_professor.instructor_course_detail
-instructor_courses = views_professor.instructor_courses
-instructor_sessions = views_professor.instructor_sessions
-instructor_statistics = views_professor.instructor_statistics
