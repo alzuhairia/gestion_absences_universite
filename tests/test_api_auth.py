@@ -53,7 +53,7 @@ class ApiAuthContractTests(TestCase):
             (reverse("enrollments:get_courses_by_year"), {"year_id": 999}),
             (reverse("dashboard:get_prerequisites_by_level"), {"niveau": 2}),
             (
-                reverse("absences:student_absence_history_api"),
+                reverse("absences:secretary_student_history_api"),
                 {"student_id": self.student.id_utilisateur},
             ),
         )
@@ -163,7 +163,7 @@ class ApiAuthContractTests(TestCase):
         )
 
         response_history = self.client.get(
-            reverse("absences:student_absence_history_api"),
+            reverse("absences:secretary_student_history_api"),
             secure=True,
         )
         self.assert_json_error(

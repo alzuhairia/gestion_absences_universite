@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const historyUnjustified = document.getElementById('history-unjustified');
 
     const coursesApiUrl = '{% url "enrollments:get_courses_by_student" %}';
-    const historyApiUrl = '{% url "absences:student_absence_history_api" %}';
+    const historyApiUrl = '{% url "absences:secretary_student_history_api" %}';
 
     const initialStudentId = '{{ form.etudiant.value|default_if_none:""|escapejs }}';
     const preselectedCourseIds = new Set(JSON.parse(document.getElementById('selected-course-ids').textContent || '[]'));

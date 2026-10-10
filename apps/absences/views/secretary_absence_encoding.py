@@ -2,8 +2,8 @@
 Encodage direct d'absences par le secrétariat.
 
 Fonctionnalités :
-  - create_justified_absence    : encodage direct d'une absence (justifiée ou non) pour un étudiant
-  - student_absence_history_api : API JSON — historique d'absence récent d'un étudiant
+  - create_justified_absence       : encodage direct d'une absence (justifiée ou non) pour un étudiant
+  - secretary_student_history_api  : API JSON — historique d'absence récent d'un étudiant (consulté par le secrétariat)
 
 TRANSACTION : toutes les absences d'une saisie sont créées atomiquement (tout ou rien).
 """
@@ -220,10 +220,19 @@ def create_justified_absence(request):
 
 @api_login_required(roles=[User.Role.SECRETAIRE])
 @require_GET
-def student_absence_history_api(request):
+def secretary_student_history_api(request):
     """
     API JSON — historique récent des absences d'un étudiant.
-    Query params: student_id (int, requis)
+
+    Endpoint consommé par le secrétariat (page d'encodage d'absence) pour
+    afficher le contexte des 10 dernières absences et les statistiques
+    agrégées (total, justifiées, en attente, non justifiées) de l'année
+    académique active.
+
+    Query params
+    ------------
+    student_id : int, requis
+        Identifiant de l'étudiant ciblé.
     """
     student_id = request.GET.get("student_id")
     if not student_id:
@@ -277,6 +286,6 @@ def student_absence_history_api(request):
         })
     except Exception:
         request_id = new_request_id()
-        logger.exception("Erreur API student_absence_history_api [request_id=%s]", request_id)
+        logger.exception("Erreur API secretary_student_history_api [request_id=%s]", request_id)
         return api_error("Une erreur interne est survenue.", status=500,
                          code="server_error", request_id=request_id)

@@ -1,5 +1,5 @@
 """
-Vues d'édition directe admin / secrétariat — apps/absences/views/admin_views.py
+Vues d'édition directe d'absence par le secrétariat — apps/absences/views/secretary_absence_edit.py
 
 Fournit au secrétariat la possibilité de modifier directement un
 enregistrement d'absence existant (type, statut, durée) en imposant un
