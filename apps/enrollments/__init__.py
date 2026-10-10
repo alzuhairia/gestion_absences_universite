@@ -1,11 +1,11 @@
 """
-Enrollments application package for the UniAbsences system.
+Paquet applicatif « enrollments » pour le système UniAbsences.
 
-This app manages student course registrations (inscriptions), including:
-  - Enrollment by level (all courses for a given academic year level)
-  - Enrollment by individual course selection
-  - Absence threshold rules and exam eligibility exemptions
-  - AJAX API endpoints for dynamic enrollment UI
+Cette application gère les inscriptions des étudiants aux cours, notamment :
+  - L'inscription par niveau (tous les cours d'une année académique donnée)
+  - L'inscription cours par cours
+  - Les règles de seuil d'absences et les exemptions d'éligibilité aux examens
+  - Les points d'API AJAX pour l'interface d'inscription dynamique
 
-Belongs to: UniAbsences — university attendance management system.
+Appartient à : UniAbsences — système de gestion des absences universitaires.
 """

@@ -1,6 +1,4 @@
 """
-Processeurs de contexte de template pour les indicateurs de séances de présence actives.
-
 Ce module expose les séances de présence actives du professeur courant
 (basées sur QR ou manuelles) à chaque template via le mécanisme de
 context-processor de Django, afin que la barre latérale puisse afficher

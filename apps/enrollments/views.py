@@ -1,19 +1,20 @@
 """
-Central re-export module for the enrollments application views.
+Module central de ré-export des vues de l'application « enrollments ».
 
-This file exists solely for backward compatibility with ``urls.py``.
-As the codebase grew, the enrollment logic was split across three modules
-for maintainability:
+Ce fichier existe uniquement pour assurer la compatibilité ascendante avec
+``urls.py``. Au fil de la croissance du code, la logique d'inscription a été
+scindée en trois modules afin d'en faciliter la maintenance :
 
-- ``enrollment_handlers.py`` — business logic for level and course enrollment
-- ``enrollment_views.py``    — Django views that drive the enrollment UI
-- ``enrollment_api.py``      — AJAX JSON endpoints for the dynamic form
+- ``enrollment_handlers.py`` — logique métier d'inscription par niveau et par cours
+- ``enrollment_views.py``    — vues Django pilotant l'interface d'inscription
+- ``enrollment_api.py``      — points JSON AJAX pour le formulaire dynamique
 
-All public symbols are re-exported from here so that ``urls.py`` (and any
-other caller) can continue to import from ``apps.enrollments.views`` without
-needing to know the internal module structure.
+Tous les symboles publics sont ré-exportés ici afin que ``urls.py`` (et tout
+autre appelant) puissent continuer à importer depuis
+``apps.enrollments.views`` sans avoir à connaître la structure interne des
+modules.
 
-Belongs to: UniAbsences — enrollments app.
+Appartient à : UniAbsences — application « enrollments ».
 """
 
 from .enrollment_views import (  # noqa: F401

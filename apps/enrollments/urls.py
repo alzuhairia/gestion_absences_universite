@@ -1,22 +1,22 @@
 """
-URL configuration for the enrollments application.
+Configuration des URL de l'application « enrollments ».
 
-Mounts enrollment management views and AJAX API endpoints under the
-``enrollments`` namespace so they can be referenced in templates and
-redirects as ``enrollments:<name>``.
+Monte les vues de gestion des inscriptions ainsi que les points d'API AJAX
+sous l'espace de noms ``enrollments`` afin qu'ils puissent être référencés
+dans les templates et les redirections via ``enrollments:<nom>``.
 
-Route map
----------
-manager/                  — enrollment landing dashboard (secretary)
-enroll/                   — enrollment form (GET + POST)
-api/departments/          — AJAX: departments for a given faculty
-api/courses/              — AJAX: active courses for a department
-api/courses-by-year/      — AJAX: all active courses for an academic year
-api/courses-by-student/   — AJAX: courses a student is enrolled in
-rules/                    — absence threshold rules list (secretary)
-rules/toggle/<pk>/        — grant or revoke an exemption (POST)
+Carte des routes
+----------------
+manager/                  — tableau de bord des inscriptions (secrétariat)
+enroll/                   — formulaire d'inscription (GET + POST)
+api/departments/          — AJAX : départements d'une faculté donnée
+api/courses/              — AJAX : cours actifs d'un département
+api/courses-by-year/      — AJAX : tous les cours actifs d'une année académique
+api/courses-by-student/   — AJAX : cours auxquels un étudiant est inscrit
+rules/                    — liste des règles de seuil d'absences (secrétariat)
+rules/toggle/<pk>/        — accorder ou retirer une exemption (POST)
 
-Belongs to: UniAbsences — enrollments app.
+Appartient à : UniAbsences — application « enrollments ».
 """
 from django.urls import path
 
@@ -26,13 +26,13 @@ app_name = "enrollments"
 
 urlpatterns = [
     # ------------------------------------------------------------------ #
-    # Enrollment management views                                          #
+    # Vues de gestion des inscriptions                                     #
     # ------------------------------------------------------------------ #
     path("manager/", views.enrollment_manager, name="manager"),
     path("enroll/", views.enroll_student, name="enroll_student"),
 
     # ------------------------------------------------------------------ #
-    # AJAX API endpoints (JSON, GET only)                                  #
+    # Points d'API AJAX (JSON, GET uniquement)                             #
     # ------------------------------------------------------------------ #
     path("api/departments/", views.get_departments, name="get_departments"),
     path("api/courses/", views.get_courses, name="get_courses"),
@@ -44,7 +44,7 @@ urlpatterns = [
     ),
 
     # ------------------------------------------------------------------ #
-    # Absence threshold rules & exemption management                       #
+    # Règles de seuil d'absences et gestion des exemptions                 #
     # ------------------------------------------------------------------ #
     path("rules/", views_rules.rules_management, name="rules_management"),
     path(
